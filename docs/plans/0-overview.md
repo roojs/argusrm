@@ -14,8 +14,9 @@
 - 🔷 An agent runs on each managed machine.
 - 🔷 Argus is the control server.
 - 🔷 A client talks to Argus and controls it.
-- 🔷 First managed machines are Windows. A Linux agent comes later.
+- 🔷 The agent is one cross-platform program.
 - 🔷 Phase 1 proves one desktop can be enrolled and then managed.
+- 🔷 First code is the server broadcast, then the controller command-line client.
 - ℹ️ Later abilities are [1.2](1.2-software-inventory.md) through [1.5](1.5-monitor-and-notify.md).
 
 ---
@@ -24,7 +25,9 @@
 
 - 🔷 **Agent**
   - Runs on the managed machine.
-  - Windows first.
+  - One cross-platform program.
+  - Linux runs it under systemd.
+  - Windows runs it as a service.
   - Installed as admin.
   - Thin.
   - Startup follows the OLLMchat Android client: wait for a broadcast, then register with certificates.
@@ -36,9 +39,10 @@
   - Keeps a second socket for downloads and other bulk transfer.
 - 🔷 **Controller**
   - The client that talks to Argus.
+  - The basic controller, and the one to start with, is a command-line client.
   - The long-run client is a desktop application.
   - A web app is not the path under consideration.
-  - The phone is the first controller, for registration and later for alerts.
+  - The phone comes later, for registration at the machine and for alerts.
 - 🔷 The controller does not install a separate agent.
   - It is usually a Linux box.
   - It can be a Windows box.
@@ -50,7 +54,7 @@
 
 - 🔷 Argus publishes a short Avahi broadcast that it is available.
 - 🔷 Avahi runs only on Argus. Clients browse for that broadcast.
-- 🔷 The broadcast is started by a remote instruction from a controller, or by a command-line tool.
+- 🔷 The broadcast is started by the controller. The first controller that can do that is the command-line client.
 - 🔷 The controller shows a number for that window.
 - 🔷 The agent is already installed and is hunting for the broadcast.
 - 🔷 The person types the number into the desktop.
@@ -88,6 +92,17 @@
   - A port that is not the expected one is later, and is osquery data.
 - 🔷 Warnings reach Nagios through a cron or shell script that asks Argus if any warning is open.
 - 🔷 The same warnings can be broadcast to Android phones that have the app.
+
+---
+
+## Directories
+
+- 🔷 Three trees: `agent/`, `controller/`, and `server/`.
+- 🔷 Source for each lives in that directory.
+- 🔷 `server/` is Argus.
+- 🔷 `controller/` starts as the command-line client.
+- 🔷 `agent/` is the cross-platform agent. Linux service unit and Windows service come with it.
+- 🔷 First code is `server/` broadcast, then the `controller/` command-line client that talks to it.
 
 ---
 
