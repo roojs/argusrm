@@ -1,11 +1,18 @@
 deps = [shared_dep]
 sources = files('namespace.vala', 'Application.vala')
 vala_args = []
+c_args = []
 
 if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('advapi32')
-	sources += files('Win32/Service.vala')
-	vala_args += ['--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32', '-D', 'WINDOWS']
+	deps += meson.get_compiler('c').find_library('user32')
+	deps += meson.get_compiler('c').find_library('shell32')
+	sources += files('Win32/Service.vala', 'Win32/tray/Tray.vala')
+	vala_args += [
+		'--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32',
+		'-D', 'WINDOWS',
+	]
+	c_args += ['-I' + meson.current_source_dir() / 'Win32']
 endif
 
 executable(
@@ -13,5 +20,6 @@ executable(
 	sources,
 	dependencies: deps,
 	vala_args: vala_args,
+	c_args: c_args,
 	install: true,
 )

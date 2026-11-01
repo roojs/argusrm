@@ -5,10 +5,12 @@ shared_deps = [
 	dependency('gee-0.8'),
 	dependency('json-glib-1.0'),
 	dependency('libsoup-3.0'),
+	dependency('gtk4'),
+	dependency('libadwaita-1'),
 	meson.get_compiler('c').find_library('ocrpc'),
 ]
-shared_sources = files('namespace.vala', 'Register.vala')
-shared_vala_args = ['--pkg', 'ocrpc']
+shared_sources = files('namespace.vala', 'Register.vala', 'RegisterWindow.vala')
+shared_vala_args = ['--pkg', 'ocrpc', '--pkg', 'gtk4', '--pkg', 'libadwaita-1']
 shared_c_args = []
 
 if host_machine.system() == 'windows'

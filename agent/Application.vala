@@ -26,9 +26,10 @@ namespace Argus.Agent
 	 * {@link app_options}, including ''--debug''. {@link host},
 	 * {@link port}, and {@link pin} are the registration properties.
 		 * {@link hold} keeps the process up. With no host and port,
-		 * {@link Argus.Shared.Browse} looks for the broadcast. On
-		 * Windows, {@link Win32.Service} starts this when the Service
-		 * Control Manager launches the executable.
+	 * {@link Argus.Shared.Browse} looks for the broadcast. On
+	 * Windows, {@link Win32.Service} starts this when the Service
+	 * Control Manager launches ''argus-agent''. ''argus-tray'' is
+	 * {@link Win32.Tray}, not this class.
 	 *
 	 * == Example ==
 	 *
@@ -250,6 +251,11 @@ namespace Argus.Agent
 	int main(string[] args)
 	{
 #if WINDOWS
+		var base = GLib.Path.get_basename(args[0]).down();
+		if (base == "argus-tray" || base == "argus-tray.exe") {
+			var tray = new Win32.Tray();
+			return tray.run();
+		}
 		var service = new Win32.Service();
 		var service_exit = service.start();
 		if (service_exit >= 0) {
