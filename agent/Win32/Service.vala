@@ -285,26 +285,26 @@ namespace Argus.Agent.Win32
 				};
 				client.connect_to_host_async.begin(text.substring(0, mark),
 					(uint16) reach_port, null, (obj, res) => {
-					if (id != this.probe_id) {
-						return;
-					}
-					this.probe_open = false;
-					var next = "Disconnected";
-					try {
-						var conn = client.connect_to_host_async.end(res);
-						next = "Connected to management server";
-						conn.close();
-					} catch (GLib.Error e) {
-						if (next == "Connected to management server") {
-							GLib.debug("download socket: %s", e.message);
+						if (id != this.probe_id) {
+							return;
 						}
-					}
-					if (next == this.tip) {
-						return;
-					}
-					this.tip = next;
-					GLib.debug("tip %s", this.tip);
-					this.tip_due = true;
+						this.probe_open = false;
+						var next = "Disconnected";
+						try {
+							var conn = client.connect_to_host_async.end(res);
+							next = "Connected to management server";
+							conn.close();
+						} catch (GLib.Error e) {
+							if (next == "Connected to management server") {
+								GLib.debug("download socket: %s", e.message);
+							}
+						}
+						if (next == this.tip) {
+							return;
+						}
+						this.tip = next;
+						GLib.debug("tip %s", this.tip);
+						this.tip_due = true;
 				});
 			}
 			uint32 wrote = 0;
