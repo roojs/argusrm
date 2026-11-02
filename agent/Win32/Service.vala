@@ -241,10 +241,12 @@ namespace Argus.Agent.Win32
 					}
 				}
 				if (this.ticks % 5 == 1) {
-					var running = false;
+					var found = false;
+					var listed = false;
 					var ids = new uint32[4096];
 					uint32 needed = 0;
 					if (EnumProcesses(ids, (uint32) (ids.length * 4), out needed)) {
+						listed = true;
 						var count = int.min((int) (needed / 4), ids.length);
 						for (var i = 0; i < count; i++) {
 							if (ids[i] == 0) {
@@ -263,23 +265,23 @@ namespace Argus.Agent.Win32
 							}
 							try {
 								if (image.to_utf8().down().has_suffix("\\argus-tray.exe")) {
-									running = true;
+									found = true;
 								}
 							} catch (GLib.ConvertError e) {
 								CloseHandle(proc);
 								continue;
 							}
 							CloseHandle(proc);
-							if (running) {
+							if (found) {
 								break;
 							}
 						}
 					}
 					var session = (uint32) 0xFFFFFFFF;
-					if (!running) {
+					if (listed && !found) {
 						session = WTSGetActiveConsoleSessionId();
 					}
-					if (!running && session != 0xFFFFFFFF) {
+					if (listed && !found && session != 0xFFFFFFFF) {
 						void* user;
 						if (WTSQueryUserToken(session, out user)) {
 							void* dup;

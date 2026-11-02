@@ -279,8 +279,8 @@ namespace Argus.Agent
 	int main(string[] args)
 	{
 #if WINDOWS
-		var base = GLib.Path.get_basename(args[0]).down();
-		if (base == "argus-tray" || base == "argus-tray.exe") {
+		var exe_name = GLib.Path.get_basename(args[0]).down();
+		if (exe_name == "argus-tray" || exe_name == "argus-tray.exe") {
 			var tray = new Win32.Tray();
 			return tray.run();
 		}
