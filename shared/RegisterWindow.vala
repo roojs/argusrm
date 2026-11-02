@@ -67,7 +67,20 @@ namespace Argus.Shared
 		 */
 		public int pipe_code = 0;
 
+		/**
+		 * Registration failed, or there is nothing to register.
+		 *
+		 * The window shows this text and logs it.
+		 *
+		 * @param error_message failure text
+		 */
 		public signal void error_occurred(string error_message);
+
+		/**
+		 * The dialog has closed.
+		 *
+		 * Browse is stopped and the pin entry is cleared.
+		 */
 		public signal void dialog_closed();
 
 		/**
