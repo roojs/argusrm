@@ -14,6 +14,7 @@
 #include <shellapi.h>
 #include <commctrl.h>
 #include <psapi.h>
+#include <wtsapi32.h>
 #include <wchar.h>
 
 #endif
