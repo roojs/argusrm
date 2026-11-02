@@ -93,46 +93,44 @@ namespace Argus.Agent.Win32
 			} catch (GLib.ConvertError e) {
 				this.pipe = (void*) (intptr) (-1);
 			}
-			if (this.pipe == null || (intptr) this.pipe == -1) {
+			if (this.pipe == null) {
 				this.pipe = (void*) (intptr) (-1);
 			}
-			if ((intptr) this.pipe != -1) {
-				var mode = PIPE_READMODE_MESSAGE;
-				if (!SetNamedPipeHandleState(this.pipe, ref mode, null, null)) {
-					CloseHandle(this.pipe);
-					this.pipe = (void*) (intptr) (-1);
-				}
+			var mode = PIPE_READMODE_MESSAGE;
+			if ((intptr) this.pipe != -1 &&
+				!SetNamedPipeHandleState(this.pipe, ref mode, null, null)) {
+				CloseHandle(this.pipe);
+				this.pipe = (void*) (intptr) (-1);
 			}
 			var hs = new void*[1];
 			while (true) {
-				if ((intptr) this.pipe != -1) {
-					uint32 avail = 0;
-					if (!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
-						CloseHandle(this.pipe);
-						this.pipe = (void*) (intptr) (-1);
-					}
-					if ((intptr) this.pipe != -1 && avail > 0) {
-						uint32 got = 0;
-						var buf = new uint8[256];
-						if (ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
-							var n = int.min((int) got, buf.length);
-							var msg = (string) buf[0:n];
-							if (msg.has_prefix("tip ")) {
-								this.set_tip(msg.substring(4));
-								this.known = true;
-								if (this.window_up && !this.submitted) {
-									this.registration.close();
-								}
-							}
-						}
+				uint32 avail = 0;
+				if ((intptr) this.pipe != -1 &&
+					!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
+					CloseHandle(this.pipe);
+					this.pipe = (void*) (intptr) (-1);
+				}
+				var msg = "";
+				if ((intptr) this.pipe != -1 && avail > 0) {
+					uint32 got = 0;
+					var buf = new uint8[256];
+					if (ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
+						msg = (string) buf[0:int.min((int) got, buf.length)];
 					}
 				}
+				if (msg.has_prefix("tip ")) {
+					this.set_tip(msg.substring(4));
+					this.known = true;
+				}
+				if (msg.has_prefix("tip ") && this.window_up && !this.submitted) {
+					this.registration.close();
+				}
+				if (!this.started && (intptr) this.pipe != -1 && !this.known && this.waits < 6) {
+					this.waits++;
+					Sleep(200);
+					continue;
+				}
 				if (!this.started) {
-					if ((intptr) this.pipe != -1 && !this.known && this.waits < 6) {
-						this.waits++;
-						Sleep(200);
-						continue;
-					}
 					this.started = true;
 					this.present();
 				}
@@ -145,13 +143,10 @@ namespace Argus.Agent.Win32
 					wait_ms = 1000;
 				}
 				var wr = MsgWaitForMultipleObjects(0, hs, false, wait_ms, QS_ALLINPUT);
-				if (wr == WAIT_OBJECT_0) {
-					if (!this.pump()) {
-						break;
-					}
-					continue;
+				if (wr == WAIT_OBJECT_0 && !this.pump()) {
+					break;
 				}
-				if (wr == WAIT_TIMEOUT) {
+				if (wr == WAIT_OBJECT_0 || wr == WAIT_TIMEOUT) {
 					continue;
 				}
 				OutputDebugStringW(g_utf8_to_utf16(
