@@ -20,7 +20,10 @@ if host_machine.system() == 'windows'
 	shared_c_args += ['-DUNICODE', '-D_UNICODE']
 elif host_machine.system() == 'android'
 	shared_sources += files('android/Browse.vala', 'android/pair-browse.c')
-	shared_vala_args += ['--vapidir', meson.current_source_dir() / 'android', '--pkg', 'pair-browse']
+	shared_vala_args += [
+		'--vapidir', meson.current_source_dir() / 'android', '--pkg', 'pair-browse',
+		'-D', 'ANDROID',
+	]
 else
 	shared_sources += files('Browse.vala')
 	shared_deps += dependency('avahi-gobject')

@@ -23,7 +23,8 @@ namespace Argus.Shared
 	 *
 	 * Listens for the pairing service, then asks for the six digits.
 	 * The sixth digit runs the check. OLLMchat ''FileConnectionAdd''
-	 * waits for the Request button.
+	 * waits for the Request button. Android sends {@link Browse.label}
+	 * as the requester. Linux and Windows send the host name.
 	 */
 	public class RegisterWindow : Adw.PreferencesDialog
 	{
@@ -272,9 +273,13 @@ namespace Argus.Shared
 			}
 			var registration = new Register();
 			var force_register = false;
+			var who = GLib.Environment.get_host_name();
+#if ANDROID
+			who = this.browse.label;
+#endif
 			while (true) {
 				var code = registration.try_connection(
-					host, (uint16) port, pin, GLib.Environment.get_host_name());
+					host, (uint16) port, pin, who);
 				if (code == (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED
 					&& !force_register) {
 					force_register = true;

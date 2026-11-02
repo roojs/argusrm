@@ -110,8 +110,10 @@ namespace Argus.Agent
 		 * ''--debug'' shows log lines on stderr. ''--host'', ''--port'',
 		 * and ''--pin'' together call {@link Argus.Shared.Register}
 		 * immediately. ''--pin'' alone waits for the broadcast, then
-		 * registers. With none of those, the process browses and
-		 * stays up.
+		 * registers. ''--register'' opens the window. The Android
+		 * app icon opens that window, and the box says this phone
+		 * is already registered. With none of those, the process
+		 * browses and stays up.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when the process stays up or help was printed,
@@ -149,13 +151,23 @@ namespace Argus.Agent
 			this.host = opt_host;
 			this.port = opt_port;
 			this.pin = opt_pin;
-			if (opt_register) {
+			var open_window = opt_register;
+#if ANDROID
+			if (this.host == "" && this.port <= 0) {
+				open_window = true;
+			}
+#endif
+			if (open_window) {
 				Gtk.init();
 				var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 				if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+					var already = "This machine is already registered.";
+#if ANDROID
+					already = "This phone is already registered.";
+#endif
 					var alert = new Adw.AlertDialog(
 						"Connect to management server",
-						"This machine is already registered.");
+						already);
 					alert.add_response("ok", "OK");
 					alert.response.connect((response) => {
 						this.quit();
