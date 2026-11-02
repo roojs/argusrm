@@ -283,7 +283,8 @@ namespace Argus.Agent.Win32
 				var client = new GLib.SocketClient() {
 					timeout = 10
 				};
-				client.connect_to_host_async.begin(text.substring(0, mark), (uint16) reach_port, null, (obj, res) => {
+				client.connect_to_host_async.begin(text.substring(0, mark),
+					(uint16) reach_port, null, (obj, res) => {
 					if (id != this.probe_id) {
 						return;
 					}
@@ -334,13 +335,11 @@ namespace Argus.Agent.Win32
 				return true;
 			}
 			var found = false;
-			var listed = false;
 			var ids = new uint32[4096];
 			uint32 needed = 0;
 			if (!EnumProcesses(ids, (uint32) (ids.length * 4), out needed)) {
 				return true;
 			}
-			listed = true;
 			var count = int.min((int) (needed / 4), ids.length);
 			for (var i = 0; i < count; i++) {
 				if (ids[i] == 0) {
@@ -370,7 +369,7 @@ namespace Argus.Agent.Win32
 				found = true;
 				break;
 			}
-			if (!listed || found) {
+			if (found) {
 				return true;
 			}
 			var session = WTSGetActiveConsoleSessionId();
