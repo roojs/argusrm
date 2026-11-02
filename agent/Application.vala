@@ -68,6 +68,7 @@ namespace Argus.Agent
 		private static string opt_host;
 		private static int opt_port;
 		private static string opt_pin;
+		private static bool opt_register;
 		private static bool debug_on;
 		private static bool debug_critical_enabled;
 		private static GLib.FileStream? debug_log_file;
@@ -79,6 +80,7 @@ namespace Argus.Agent
 			{ "host", 0, 0, GLib.OptionArg.STRING, ref opt_host, "Argus address", "HOST" },
 			{ "port", 0, 0, GLib.OptionArg.INT, ref opt_port, "Argus port", "PORT" },
 			{ "pin", 0, 0, GLib.OptionArg.STRING, ref opt_pin, "Number from the registration window", "PIN" },
+			{ "register", 0, 0, GLib.OptionArg.NONE, ref opt_register, "Open the registration window", null },
 			{ null }
 		};
 
@@ -121,6 +123,7 @@ namespace Argus.Agent
 			opt_host = "";
 			opt_port = 0;
 			opt_pin = "";
+			opt_register = false;
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -145,6 +148,30 @@ namespace Argus.Agent
 			this.host = opt_host;
 			this.port = opt_port;
 			this.pin = opt_pin;
+			if (opt_register) {
+				Gtk.init();
+				var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+				if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+					var alert = new Adw.AlertDialog(
+						"Connect to management server",
+						"This machine is already registered.");
+					alert.add_response("ok", "OK");
+					alert.response.connect((response) => {
+						this.quit();
+					});
+					alert.present(null);
+					this.hold();
+					return 0;
+				}
+				var window = new Argus.Shared.RegisterWindow();
+				window.show_add();
+				window.present(null);
+				window.closed.connect(() => {
+					this.quit();
+				});
+				this.hold();
+				return 0;
+			}
 			if (this.host != "" || this.port > 0) {
 				if (this.host == "" || this.port <= 0 || this.pin == "") {
 					command_line.printerr("registration needs a host, a port, and a pin\n");

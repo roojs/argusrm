@@ -1,6 +1,6 @@
-deps = [shared_dep]
+deps = [shared_dep, dependency('gtk4'), dependency('libadwaita-1')]
 sources = files('namespace.vala', 'Application.vala')
-vala_args = []
+vala_args = ['--pkg', 'gtk4', '--pkg', 'libadwaita-1']
 c_args = []
 
 if host_machine.system() == 'windows'
