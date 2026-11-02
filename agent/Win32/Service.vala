@@ -150,9 +150,10 @@ namespace Argus.Agent.Win32
 		 * One second of service work.
 		 *
 		 * Opens the registration pipe, reads a pin, and calls
-		 * {@link Argus.Shared.Register}. Starts ''argus-tray'' when
-		 * that process is not already running. Reaches the stored
-		 * download socket every two minutes.
+		 * {@link Argus.Shared.Register}. Starts ''argus-tray''
+		 * when that process is not already running. A launch that
+		 * is not ready waits for the next second. Reaches the
+		 * stored download socket every two minutes.
 		 *
 		 * @return true so the timeout repeats
 		 */
@@ -166,189 +167,97 @@ namespace Argus.Agent.Win32
 					PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT,
 					1, 4096, 4096, 0, null);
 				this.pipe_up = false;
-				if (this.pipe == null || (intptr) this.pipe == -1) {
-					this.pipe = (void*) (intptr) (-1);
-					if (!this.pipe_warned) {
-						GLib.warning("pipe: %u", GetLastError());
-						this.pipe_warned = true;
-					}
-				}
-				if ((intptr) this.pipe != -1) {
-					this.pipe_warned = false;
-				}
 			}
+			if (this.pipe == null) {
+				this.pipe = (void*) (intptr) (-1);
+			}
+			if ((intptr) this.pipe == -1 && !this.pipe_warned) {
+				GLib.warning("pipe: %u", GetLastError());
+				this.pipe_warned = true;
+			}
+			if ((intptr) this.pipe != -1) {
+				this.pipe_warned = false;
+			}
+			var cert = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 			var became = false;
-			if ((intptr) this.pipe != -1 && !this.pipe_up) {
-				if (ConnectNamedPipe(this.pipe, null) ||
-					GetLastError() == ERROR_PIPE_CONNECTED) {
-					became = true;
-					this.pipe_up = true;
-				}
+			if ((intptr) this.pipe != -1 && !this.pipe_up &&
+				(ConnectNamedPipe(this.pipe, null) ||
+					GetLastError() == ERROR_PIPE_CONNECTED)) {
+				became = true;
+				this.pipe_up = true;
 			}
 			if (became && this.tip != "") {
 				this.tip_due = true;
 			}
-			var cert = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 			if (became && this.tip == "" &&
 				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				this.tip = "Disconnected";
 				GLib.debug("tip %s", this.tip);
 				this.tip_due = true;
 			}
-			if (this.pipe_up && this.number == "") {
-				uint32 avail = 0;
-				if (!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
-					DisconnectNamedPipe(this.pipe);
-					CloseHandle(this.pipe);
-					this.pipe = (void*) (intptr) (-1);
-					this.pipe_up = false;
-				}
-				if (this.pipe_up && avail > 0) {
-					uint32 got = 0;
-					var buf = new uint8[256];
-					if (!ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
-						DisconnectNamedPipe(this.pipe);
-						CloseHandle(this.pipe);
-						this.pipe = (void*) (intptr) (-1);
-						this.pipe_up = false;
-					}
-					if (this.pipe_up && got > 0) {
-						var n = int.min((int) got, buf.length);
-						var msg = (string) buf[0:n];
-						if (msg.length == 6) {
-							this.number = msg;
-						}
-					}
-				}
+			uint32 avail = 0;
+			if (this.pipe_up && this.number == "" &&
+				!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
+				DisconnectNamedPipe(this.pipe);
+				CloseHandle(this.pipe);
+				this.pipe = (void*) (intptr) (-1);
+				this.pipe_up = false;
 			}
+			uint32 got = 0;
+			var buf = new uint8[256];
+			if (this.pipe_up && this.number == "" && avail > 0 &&
+				!ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
+				DisconnectNamedPipe(this.pipe);
+				CloseHandle(this.pipe);
+				this.pipe = (void*) (intptr) (-1);
+				this.pipe_up = false;
+			}
+			if (this.pipe_up && this.number == "" && got == 6) {
+				this.number = (string) buf[0:6];
+			}
+			var line = "";
 			if (this.number != "") {
-				var line = this.application.browse.poll();
-				if (line == "none") {
-					this.reply_line = "%d".printf((int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
-					this.number = "";
-				}
-				if (line != "" && line != "none") {
-					var split = line.index_of("\n");
-					var hostport = "";
-					if (split >= 1) {
-						hostport = line.substring(split + 1);
-					}
-					var colon = hostport.last_index_of(":");
-					var host = "";
-					var port = 0;
-					if (colon >= 1) {
-						host = hostport.substring(0, colon);
-						port = int.parse(hostport.substring(colon + 1));
-					}
-					var code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-					if (host != "" && port > 0) {
-						var registration = new Argus.Shared.Register();
-						code = registration.try_connection(host, (uint16) port,
-							this.number, GLib.Environment.get_host_name());
-						GLib.debug("registration %d", code);
-					}
-					this.reply_line = "%d".printf(code);
-					this.number = "";
-					if (code == 0) {
-						this.probe_id++;
-						this.probe_open = false;
-						this.tip = "Connected to management server";
-						GLib.debug("tip %s", this.tip);
-						this.tip_due = true;
-					}
-				}
+				line = this.application.browse.poll();
 			}
-			if (this.ticks % 5 == 1) {
-				var found = false;
-				var listed = false;
-				var ids = new uint32[4096];
-				uint32 needed = 0;
-				if (EnumProcesses(ids, (uint32) (ids.length * 4), out needed)) {
-					listed = true;
-					var count = int.min((int) (needed / 4), ids.length);
-					for (var i = 0; i < count; i++) {
-						if (ids[i] == 0) {
-							continue;
-						}
-						var proc = OpenProcess(
-							PROCESS_QUERY_LIMITED_INFORMATION, false, ids[i]);
-						if (proc == null) {
-							continue;
-						}
-						var image = g_utf8_to_utf16(string.nfill(259, ' '));
-						uint32 size = 260;
-						if (!QueryFullProcessImageNameW(proc, 0, image, ref size)) {
-							CloseHandle(proc);
-							continue;
-						}
-						try {
-							if (image.to_utf8().down().has_suffix("\\argus-tray.exe")) {
-								found = true;
-							}
-						} catch (GLib.ConvertError e) {
-							CloseHandle(proc);
-							continue;
-						}
-						CloseHandle(proc);
-						if (found) {
-							break;
-						}
-					}
-				}
-				var session = (uint32) 0xFFFFFFFF;
-				if (listed && !found) {
-					session = WTSGetActiveConsoleSessionId();
-				}
-				if (listed && !found && session != 0xFFFFFFFF) {
-					void* user;
-					if (WTSQueryUserToken(session, out user)) {
-						void* dup;
-						if (DuplicateTokenEx(user, MAXIMUM_ALLOWED, null,
-							SecurityIdentification, TokenPrimary, out dup)) {
-							var exe = g_utf8_to_utf16(string.nfill(259, ' '));
-							if (GetModuleFileNameW(null, exe, 260) != 0) {
-								var path = "";
-								try {
-									path = exe.to_utf8();
-								} catch (GLib.ConvertError e) {
-									GLib.warning("tray path: %s", e.message);
-								}
-								var slash = path.last_index_of("\\");
-								if (path != "" && slash >= 0) {
-									var si = StartupInfo() {
-										cb = (uint32) sizeof(StartupInfo),
-										desktop = g_utf8_to_utf16("winsta0\\default"),
-									};
-									var info = ProcessInfo();
-									try {
-										var started = CreateProcessAsUserW(dup,
-											(path.substring(0, slash + 1) + "argus-tray.exe").to_utf16(),
-											null, null, null, false, 0, null,
-											path.substring(0, slash).to_utf16(),
-											&si, out info);
-										if (!started) {
-											GLib.warning("tray start failed: %u", GetLastError());
-										}
-										if (started) {
-											CloseHandle(info.thread);
-											CloseHandle(info.process);
-											GLib.debug("starting tray");
-										}
-									} catch (GLib.ConvertError e) {
-										GLib.warning("tray start: %s", e.message);
-									}
-								}
-							}
-							CloseHandle(dup);
-						}
-						CloseHandle(user);
-					}
-				}
+			if (line == "none") {
+				this.reply_line = "%d".printf((int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
+				this.number = "";
 			}
-			if (this.ticks % 120 == 1 && !this.probe_open &&
-				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				var text = "";
+			var host = "";
+			var port = 0;
+			var split = line.index_of("\n");
+			var hostport = "";
+			if (split >= 1) {
+				hostport = line.substring(split + 1);
+			}
+			var colon = hostport.last_index_of(":");
+			if (line != "" && line != "none" && colon >= 1) {
+				host = hostport.substring(0, colon);
+				port = int.parse(hostport.substring(colon + 1));
+			}
+			var code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			if (host != "" && port > 0) {
+				var registration = new Argus.Shared.Register();
+				code = registration.try_connection(host, (uint16) port,
+					this.number, GLib.Environment.get_host_name());
+				GLib.debug("registration %d", code);
+			}
+			if (line != "" && line != "none" && code == 0) {
+				this.probe_id++;
+				this.probe_open = false;
+				this.tip = "Connected to management server";
+				GLib.debug("tip %s", this.tip);
+				this.tip_due = true;
+			}
+			if (line != "" && line != "none") {
+				this.reply_line = "%d".printf(code);
+				this.number = "";
+			}
+			var probing = this.ticks % 120 == 1 && !this.probe_open &&
+				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS);
+			var text = "";
+			if (probing) {
 				try {
 					GLib.FileUtils.get_contents(GLib.Path.build_filename(
 						GLib.Environment.get_user_data_dir(), "argus", "download"), out text);
@@ -356,78 +265,170 @@ namespace Argus.Agent.Win32
 					text = "";
 				}
 				text = text.strip();
-				var mark = text.last_index_of(":");
-				if (text == "" || mark < 1) {
-					if (this.tip != "Disconnected") {
-						this.tip = "Disconnected";
-						GLib.debug("tip %s", this.tip);
-						this.tip_due = true;
+			}
+			var mark = text.last_index_of(":");
+			if (probing && (text == "" || mark < 1) && this.tip != "Disconnected") {
+				this.tip = "Disconnected";
+				GLib.debug("tip %s", this.tip);
+				this.tip_due = true;
+			}
+			var reach_port = 0;
+			if (probing && text != "" && mark >= 1) {
+				reach_port = int.parse(text.substring(mark + 1));
+			}
+			if (reach_port > 0) {
+				this.probe_open = true;
+				this.probe_id++;
+				var id = this.probe_id;
+				var client = new GLib.SocketClient() {
+					timeout = 10
+				};
+				client.connect_to_host_async.begin(text.substring(0, mark), (uint16) reach_port, null, (obj, res) => {
+					if (id != this.probe_id) {
+						return;
 					}
-				}
-				if (text != "" && mark >= 1) {
-					var where = text.substring(0, mark);
-					var reach_port = int.parse(text.substring(mark + 1));
-					if (reach_port > 0) {
-						this.probe_open = true;
-						this.probe_id++;
-						var id = this.probe_id;
-						var client = new GLib.SocketClient() {
-							timeout = 10
-						};
-						client.connect_to_host_async.begin(where, (uint16) reach_port, null, (obj, res) => {
-							if (id != this.probe_id) {
-								return;
-							}
-							this.probe_open = false;
-							var next = "Disconnected";
-							try {
-								var conn = client.connect_to_host_async.end(res);
-								try {
-									conn.close();
-								} catch (GLib.Error e) {
-									GLib.debug("download socket: %s", e.message);
-								}
-								next = "Connected to management server";
-							} catch (GLib.Error e) {
-								next = "Disconnected";
-							}
-							if (next == this.tip) {
-								return;
-							}
-							this.tip = next;
-							GLib.debug("tip %s", this.tip);
-							this.tip_due = true;
-						});
+					this.probe_open = false;
+					var next = "Disconnected";
+					try {
+						var conn = client.connect_to_host_async.end(res);
+						next = "Connected to management server";
+						conn.close();
+					} catch (GLib.Error e) {
+						if (next == "Connected to management server") {
+							GLib.debug("download socket: %s", e.message);
+						}
 					}
-				}
+					if (next == this.tip) {
+						return;
+					}
+					this.tip = next;
+					GLib.debug("tip %s", this.tip);
+					this.tip_due = true;
+				});
+			}
+			uint32 wrote = 0;
+			var reply = this.reply_line.data;
+			if (this.reply_line != "" && this.pipe_up && (intptr) this.pipe != -1 &&
+				WriteFile(this.pipe, reply, (uint32) reply.length, out wrote, null)) {
+				this.reply_line = "";
 			}
 			if (this.reply_line != "" && this.pipe_up && (intptr) this.pipe != -1) {
-				var bytes = this.reply_line.data;
-				uint32 wrote = 0;
-				if (WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
-					this.reply_line = "";
-				}
-				if (this.reply_line != "") {
-					DisconnectNamedPipe(this.pipe);
-					CloseHandle(this.pipe);
-					this.pipe = (void*) (intptr) (-1);
-					this.pipe_up = false;
-					this.reply_line = "";
-				}
+				DisconnectNamedPipe(this.pipe);
+				CloseHandle(this.pipe);
+				this.pipe = (void*) (intptr) (-1);
+				this.pipe_up = false;
+				this.reply_line = "";
+			}
+			var tip_bytes = ("tip " + this.tip).data;
+			if (this.tip_due && this.pipe_up && (intptr) this.pipe != -1 && this.tip != "" &&
+				WriteFile(this.pipe, tip_bytes, (uint32) tip_bytes.length, out wrote, null)) {
+				this.tip_due = false;
 			}
 			if (this.tip_due && this.pipe_up && (intptr) this.pipe != -1 && this.tip != "") {
-				var bytes = ("tip " + this.tip).data;
-				uint32 wrote = 0;
-				if (WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
-					this.tip_due = false;
-				}
-				if (this.tip_due) {
-					DisconnectNamedPipe(this.pipe);
-					CloseHandle(this.pipe);
-					this.pipe = (void*) (intptr) (-1);
-					this.pipe_up = false;
-				}
+				DisconnectNamedPipe(this.pipe);
+				CloseHandle(this.pipe);
+				this.pipe = (void*) (intptr) (-1);
+				this.pipe_up = false;
 			}
+			if (this.ticks % 5 != 1) {
+				return true;
+			}
+			var found = false;
+			var listed = false;
+			var ids = new uint32[4096];
+			uint32 needed = 0;
+			if (!EnumProcesses(ids, (uint32) (ids.length * 4), out needed)) {
+				return true;
+			}
+			listed = true;
+			var count = int.min((int) (needed / 4), ids.length);
+			for (var i = 0; i < count; i++) {
+				if (ids[i] == 0) {
+					continue;
+				}
+				var proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, ids[i]);
+				if (proc == null) {
+					continue;
+				}
+				var image = g_utf8_to_utf16(string.nfill(259, ' '));
+				uint32 size = 260;
+				if (!QueryFullProcessImageNameW(proc, 0, image, ref size)) {
+					CloseHandle(proc);
+					continue;
+				}
+				var name = "";
+				try {
+					name = image.to_utf8().down();
+				} catch (GLib.ConvertError e) {
+					CloseHandle(proc);
+					continue;
+				}
+				CloseHandle(proc);
+				if (!name.has_suffix("\\argus-tray.exe")) {
+					continue;
+				}
+				found = true;
+				break;
+			}
+			if (!listed || found) {
+				return true;
+			}
+			var session = WTSGetActiveConsoleSessionId();
+			if (session == (uint32) 0xFFFFFFFF) {
+				return true;
+			}
+			void* user;
+			if (!WTSQueryUserToken(session, out user)) {
+				return true;
+			}
+			void* dup;
+			if (!DuplicateTokenEx(user, MAXIMUM_ALLOWED, null,
+				SecurityIdentification, TokenPrimary, out dup)) {
+				CloseHandle(user);
+				return true;
+			}
+			var exe = g_utf8_to_utf16(string.nfill(259, ' '));
+			if (GetModuleFileNameW(null, exe, 260) == 0) {
+				CloseHandle(dup);
+				CloseHandle(user);
+				return true;
+			}
+			var path = "";
+			try {
+				path = exe.to_utf8();
+			} catch (GLib.ConvertError e) {
+				GLib.warning("tray path: %s", e.message);
+			}
+			var slash = path.last_index_of("\\");
+			if (path == "" || slash < 0) {
+				CloseHandle(dup);
+				CloseHandle(user);
+				return true;
+			}
+			var si = StartupInfo() {
+				cb = (uint32) sizeof(StartupInfo),
+				desktop = g_utf8_to_utf16("winsta0\\default"),
+			};
+			var info = ProcessInfo();
+			try {
+				var started = CreateProcessAsUserW(dup,
+					(path.substring(0, slash + 1) + "argus-tray.exe").to_utf16(),
+					null, null, null, false, 0, null,
+					path.substring(0, slash).to_utf16(),
+					&si, out info);
+				if (!started) {
+					GLib.warning("tray start failed: %u", GetLastError());
+				}
+				if (started) {
+					CloseHandle(info.thread);
+					CloseHandle(info.process);
+					GLib.debug("starting tray");
+				}
+			} catch (GLib.ConvertError e) {
+				GLib.warning("tray start: %s", e.message);
+			}
+			CloseHandle(dup);
+			CloseHandle(user);
 			return true;
 		}
 
