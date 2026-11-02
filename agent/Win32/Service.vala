@@ -136,6 +136,264 @@ namespace Argus.Agent.Win32
 			running.dwCurrentState = this.state;
 			running.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 			SetServiceStatus(this.handle, ref running);
+			GLib.Timeout.add_seconds(1, () => {
+				this.ticks++;
+				var send = (string line) => {
+					if (!this.pipe_up || (intptr) this.pipe == -1 || line == "") {
+						return;
+					}
+					var bytes = line.data;
+					uint32 wrote = 0;
+					if (WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
+						return;
+					}
+					DisconnectNamedPipe(this.pipe);
+					CloseHandle(this.pipe);
+					this.pipe = (void*) (intptr) (-1);
+					this.pipe_up = false;
+				};
+				if ((intptr) this.pipe == -1) {
+					this.pipe = CreateNamedPipeW(
+						g_utf8_to_utf16("\\\\.\\pipe\\Argus.Register"),
+						PIPE_ACCESS_DUPLEX,
+						PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT,
+						1, 4096, 4096, 0, null);
+					this.pipe_up = false;
+					if (this.pipe == null || (intptr) this.pipe == -1) {
+						this.pipe = (void*) (intptr) (-1);
+						if (!this.pipe_warned) {
+							GLib.warning("pipe: %u", GetLastError());
+							this.pipe_warned = true;
+						}
+					}
+					if ((intptr) this.pipe != -1) {
+						this.pipe_warned = false;
+					}
+				}
+				var became = false;
+				if ((intptr) this.pipe != -1 && !this.pipe_up) {
+					if (ConnectNamedPipe(this.pipe, null) ||
+						GetLastError() == ERROR_PIPE_CONNECTED) {
+						became = true;
+						this.pipe_up = true;
+					}
+				}
+				if (became && this.tip != "") {
+					send("tip " + this.tip);
+				}
+				var cert = GLib.Path.build_filename(
+					GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+				if (became && this.tip == "" &&
+					GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+					this.tip = "Disconnected";
+					GLib.debug("tip %s", this.tip);
+					send("tip " + this.tip);
+				}
+				if (this.pipe_up && this.number == "") {
+					uint32 avail = 0;
+					if (!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
+						DisconnectNamedPipe(this.pipe);
+						CloseHandle(this.pipe);
+						this.pipe = (void*) (intptr) (-1);
+						this.pipe_up = false;
+					}
+					if (this.pipe_up && avail > 0) {
+						uint32 got = 0;
+						var buf = new uint8[256];
+						if (!ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
+							DisconnectNamedPipe(this.pipe);
+							CloseHandle(this.pipe);
+							this.pipe = (void*) (intptr) (-1);
+							this.pipe_up = false;
+						}
+						if (this.pipe_up && got > 0) {
+							var n = int.min((int) got, buf.length);
+							var msg = (string) buf[0:n];
+							if (msg.length == 6) {
+								this.number = msg;
+							}
+						}
+					}
+				}
+				if (this.number != "") {
+					var line = this.application.browse.poll();
+					if (line == "none") {
+						send("%d".printf((int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR));
+						this.number = "";
+					}
+					if (line != "" && line != "none") {
+						var split = line.index_of("\n");
+						var hostport = "";
+						if (split >= 1) {
+							hostport = line.substring(split + 1);
+						}
+						var colon = hostport.last_index_of(":");
+						var host = "";
+						var port = 0;
+						if (colon >= 1) {
+							host = hostport.substring(0, colon);
+							port = int.parse(hostport.substring(colon + 1));
+						}
+						var code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+						if (host != "" && port > 0) {
+							var registration = new Argus.Shared.Register();
+							code = registration.try_connection(host, (uint16) port,
+								this.number, GLib.Environment.get_host_name());
+							GLib.debug("registration %d", code);
+						}
+						send("%d".printf(code));
+						this.number = "";
+						if (code == 0) {
+							this.probe_id++;
+							this.probe_open = false;
+							this.tip = "Connected to management server";
+							GLib.debug("tip %s", this.tip);
+							send("tip " + this.tip);
+						}
+					}
+				}
+				if (this.ticks % 5 == 1) {
+					var running = false;
+					var ids = new uint32[4096];
+					uint32 needed = 0;
+					if (EnumProcesses(ids, (uint32) (ids.length * 4), out needed)) {
+						var count = int.min((int) (needed / 4), ids.length);
+						for (var i = 0; i < count; i++) {
+							if (ids[i] == 0) {
+								continue;
+							}
+							var proc = OpenProcess(
+								PROCESS_QUERY_LIMITED_INFORMATION, false, ids[i]);
+							if (proc == null) {
+								continue;
+							}
+							var image = g_utf8_to_utf16(string.nfill(259, ' '));
+							uint32 size = 260;
+							if (!QueryFullProcessImageNameW(proc, 0, image, ref size)) {
+								CloseHandle(proc);
+								continue;
+							}
+							try {
+								if (image.to_utf8().down().has_suffix("\\argus-tray.exe")) {
+									running = true;
+								}
+							} catch (GLib.ConvertError e) {
+								CloseHandle(proc);
+								continue;
+							}
+							CloseHandle(proc);
+							if (running) {
+								break;
+							}
+						}
+					}
+					var session = (uint32) 0xFFFFFFFF;
+					if (!running) {
+						session = WTSGetActiveConsoleSessionId();
+					}
+					if (!running && session != 0xFFFFFFFF) {
+						void* user;
+						if (WTSQueryUserToken(session, out user)) {
+							void* dup;
+							if (DuplicateTokenEx(user, MAXIMUM_ALLOWED, null,
+								SecurityIdentification, TokenPrimary, out dup)) {
+								var exe = g_utf8_to_utf16(string.nfill(259, ' '));
+								if (GetModuleFileNameW(null, exe, 260) != 0) {
+									var path = "";
+									try {
+										path = exe.to_utf8();
+									} catch (GLib.ConvertError e) {
+										GLib.warning("tray path: %s", e.message);
+									}
+									var slash = path.last_index_of("\\");
+									if (path != "" && slash >= 0) {
+										var si = StartupInfo() {
+											cb = (uint32) sizeof(StartupInfo),
+											desktop = g_utf8_to_utf16("winsta0\\default"),
+										};
+										var info = ProcessInfo();
+										try {
+											var started = CreateProcessAsUserW(dup,
+												(path.substring(0, slash + 1) + "argus-tray.exe").to_utf16(),
+												null, null, null, false, 0, null,
+												path.substring(0, slash).to_utf16(),
+												&si, out info);
+											if (!started) {
+												GLib.warning("tray start failed: %u", GetLastError());
+											}
+											if (started) {
+												CloseHandle(info.thread);
+												CloseHandle(info.process);
+												GLib.debug("starting tray");
+											}
+										} catch (GLib.ConvertError e) {
+											GLib.warning("tray start: %s", e.message);
+										}
+									}
+								}
+								CloseHandle(dup);
+							}
+							CloseHandle(user);
+						}
+					}
+				}
+				if (this.ticks % 120 == 1 && !this.probe_open &&
+					GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+					var text = "";
+					try {
+						GLib.FileUtils.get_contents(GLib.Path.build_filename(
+							GLib.Environment.get_user_data_dir(), "argus", "download"), out text);
+					} catch (GLib.Error e) {
+						text = "";
+					}
+					text = text.strip();
+					var mark = text.last_index_of(":");
+					if (text == "" || mark < 1) {
+						if (this.tip != "Disconnected") {
+							this.tip = "Disconnected";
+							GLib.debug("tip %s", this.tip);
+							send("tip " + this.tip);
+						}
+					}
+					if (text != "" && mark >= 1) {
+						var where = text.substring(0, mark);
+						var reach_port = int.parse(text.substring(mark + 1));
+						if (reach_port > 0) {
+							this.probe_open = true;
+							this.probe_id++;
+							var id = this.probe_id;
+							var client = new GLib.SocketClient() {
+								timeout = 10
+							};
+							client.connect_to_host_async.begin(where, (uint16) reach_port, null, (obj, res) => {
+								if (id != this.probe_id) {
+									return;
+								}
+								this.probe_open = false;
+								var next = "Disconnected";
+								try {
+									var conn = client.connect_to_host_async.end(res);
+									try {
+										conn.close();
+									} catch (GLib.Error e) {
+										GLib.debug("download socket: %s", e.message);
+									}
+									next = "Connected to management server";
+								} catch (GLib.Error e) {
+									next = "Disconnected";
+								}
+								if (next == this.tip) {
+									return;
+								}
+								this.tip = next;
+								GLib.debug("tip %s", this.tip);
+								send("tip " + this.tip);
+							});
+						}
+					}
+				}
+				return true;
+			});
 			this.application.run({ "argus-agent" });
 			this.state = SERVICE_STOPPED;
 			var stopped = SERVICE_STATUS();

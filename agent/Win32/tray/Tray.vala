@@ -24,8 +24,9 @@ namespace Argus.Agent.Win32
 	 * The icon path is Snappr ''TrayKeeper'': a message window,
 	 * then ''Shell_NotifyIconW'' with ''NIM_ADD'', ''NIM_SETVERSION'',
 	 * and ''NIM_MODIFY''. {@link proc} is the window procedure and
-	 * calls {@link on_message}. There is no quit menu. Snappr's
-	 * worker process and pipe are not part of this.
+	 * calls {@link on_message}. There is no quit menu and no
+	 * uninstall. The service starts this process at sign-in. A pin
+	 * is written to the local pipe for the service.
 	 *
 	 * == Example ==
 	 *
@@ -46,6 +47,11 @@ namespace Argus.Agent.Win32
 		private Argus.Shared.RegisterWindow registration;
 		private bool window_up = false;
 		private bool gtk_up = false;
+		private void* pipe = (void*) (intptr) (-1);
+		private bool known = false;
+		private bool started = false;
+		private bool submitted = false;
+		private int waits = 0;
 
 		/**
 		 * Function pointer the message window calls.
@@ -79,18 +85,73 @@ namespace Argus.Agent.Win32
 			if (!this.install()) {
 				return 1;
 			}
-			this.present();
+			try {
+				this.pipe = CreateFileW(
+					"\\\\.\\pipe\\Argus.Register".to_utf16(),
+					GENERIC_READ | GENERIC_WRITE,
+					0, null, OPEN_EXISTING, 0, null);
+			} catch (GLib.ConvertError e) {
+				this.pipe = (void*) (intptr) (-1);
+			}
+			if (this.pipe == null || (intptr) this.pipe == -1) {
+				this.pipe = (void*) (intptr) (-1);
+			}
+			if ((intptr) this.pipe != -1) {
+				var mode = PIPE_READMODE_MESSAGE;
+				if (!SetNamedPipeHandleState(this.pipe, ref mode, null, null)) {
+					CloseHandle(this.pipe);
+					this.pipe = (void*) (intptr) (-1);
+				}
+			}
 			var hs = new void*[1];
 			while (true) {
+				if ((intptr) this.pipe != -1) {
+					uint32 avail = 0;
+					if (!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
+						CloseHandle(this.pipe);
+						this.pipe = (void*) (intptr) (-1);
+					}
+					if ((intptr) this.pipe != -1 && avail > 0) {
+						uint32 got = 0;
+						var buf = new uint8[256];
+						if (ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
+							var n = int.min((int) got, buf.length);
+							var msg = (string) buf[0:n];
+							if (msg.has_prefix("tip ")) {
+								this.set_tip(msg.substring(4));
+								this.known = true;
+								if (this.window_up && !this.submitted) {
+									this.registration.close();
+								}
+							}
+						}
+					}
+				}
+				if (!this.started) {
+					if ((intptr) this.pipe != -1 && !this.known && this.waits < 6) {
+						this.waits++;
+						Sleep(200);
+						continue;
+					}
+					this.started = true;
+					this.present();
+				}
 				if (this.window_up) {
 					GLib.MainContext.@default().iteration(true);
 					continue;
 				}
-				var wr = MsgWaitForMultipleObjects(0, hs, false, INFINITE, QS_ALLINPUT);
+				var wait_ms = INFINITE;
+				if ((intptr) this.pipe != -1) {
+					wait_ms = 1000;
+				}
+				var wr = MsgWaitForMultipleObjects(0, hs, false, wait_ms, QS_ALLINPUT);
 				if (wr == WAIT_OBJECT_0) {
 					if (!this.pump()) {
 						break;
 					}
+					continue;
+				}
+				if (wr == WAIT_TIMEOUT) {
 					continue;
 				}
 				OutputDebugStringW(g_utf8_to_utf16(
@@ -269,13 +330,42 @@ namespace Argus.Agent.Win32
 		}
 
 		/**
+		 * Set the tray tip.
+		 *
+		 * Same ''NIM_MODIFY'' as Snappr ''TrayKeeper.set_tip''.
+		 * The service sends ''Connected to management server'' or
+		 * ''Disconnected''.
+		 *
+		 * @param text tip shown on the icon
+		 */
+		private void set_tip(string text)
+		{
+			if (!this.added) {
+				return;
+			}
+			try {
+				copy_wide(&this.nid.tip[0], text.to_utf16(), 127);
+			} catch (GLib.ConvertError e) {
+				return;
+			}
+			this.nid.tip[127] = 0;
+			this.nid.flags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
+			Shell_NotifyIconW(NIM_MODIFY, &this.nid);
+		}
+
+		/**
 		 * Present the registration window.
 		 *
 		 * Startup and a tray click both call this. A certificate
-		 * already stored for this machine means there is no action.
+		 * already stored for this machine, or a tip from the
+		 * service, means there is no action. The six digits are
+		 * written to the service pipe.
 		 */
 		private void present()
 		{
+			if (this.known) {
+				return;
+			}
 			var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				return;
@@ -289,6 +379,64 @@ namespace Argus.Agent.Win32
 				return;
 			}
 			this.registration = new Argus.Shared.RegisterWindow();
+			this.registration.use_pipe = true;
+			this.registration.send_pin.connect((pin) => {
+				this.submitted = true;
+				if ((intptr) this.pipe == -1) {
+					try {
+						this.pipe = CreateFileW(
+							"\\\\.\\pipe\\Argus.Register".to_utf16(),
+							GENERIC_READ | GENERIC_WRITE,
+							0, null, OPEN_EXISTING, 0, null);
+					} catch (GLib.ConvertError e) {
+						this.pipe = (void*) (intptr) (-1);
+					}
+					if (this.pipe == null || (intptr) this.pipe == -1) {
+						this.pipe = (void*) (intptr) (-1);
+					}
+					if ((intptr) this.pipe != -1) {
+						var mode = PIPE_READMODE_MESSAGE;
+						if (!SetNamedPipeHandleState(this.pipe, ref mode, null, null)) {
+							CloseHandle(this.pipe);
+							this.pipe = (void*) (intptr) (-1);
+						}
+					}
+				}
+				if ((intptr) this.pipe == -1) {
+					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+					return;
+				}
+				var bytes = pin.data;
+				uint32 wrote = 0;
+				if (!WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
+					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+					return;
+				}
+				while (true) {
+					uint32 got = 0;
+					var buf = new uint8[256];
+					if (!ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
+						this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+						return;
+					}
+					var n = int.min((int) got, buf.length);
+					var msg = (string) buf[0:n];
+					if (msg.has_prefix("tip ")) {
+						this.set_tip(msg.substring(4));
+						continue;
+					}
+					var code = 0;
+					if (!int.try_parse(msg.strip(), out code)) {
+						this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+						return;
+					}
+					if (code == 0) {
+						this.known = true;
+					}
+					this.registration.pipe_code = code;
+					return;
+				}
+			});
 			this.window_up = true;
 			this.registration.closed.connect(() => {
 				this.window_up = false;
