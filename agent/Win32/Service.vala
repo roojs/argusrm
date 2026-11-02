@@ -28,7 +28,13 @@ namespace Argus.Agent.Win32
 	 * points are function pointers with no instance, so they call back
 	 * into this object. A console launch is not a service, and
 	 * {@link start} returns -1 so the caller runs
-	 * {@link Argus.Agent.Application} directly.
+	 * {@link Argus.Agent.Application} directly. While the service
+	 * is running it starts ''argus-tray'' in the signed-in session
+	 * when that process is not already running, reads the number
+	 * from the local pipe, and calls {@link Argus.Shared.Register}.
+	 * The tray tip is ''Connected to management server'' or
+	 * ''Disconnected''. A failed reach is tried again two minutes
+	 * later.
 	 *
 	 * == Example ==
 	 *
@@ -62,6 +68,14 @@ namespace Argus.Agent.Win32
 		private void* handle;
 		private uint32 state;
 		private Argus.Agent.Application application;
+		private void* pipe = (void*) (intptr) (-1);
+		private bool pipe_up = false;
+		private bool pipe_warned = false;
+		private string number = "";
+		private string tip = "";
+		private int ticks = 0;
+		private bool probe_open = false;
+		private int probe_id = 0;
 
 		/**
 		 * Hand this process to the Service Control Manager.
@@ -99,7 +113,9 @@ namespace Argus.Agent.Win32
 		 * Service entry after {@link start} connects to the manager.
 		 *
 		 * Reports running, then runs {@link Argus.Agent.Application}
-		 * until {@link control} stops it.
+		 * until {@link control} stops it. The tray launch, the
+		 * registration pipe, and the two-minute reach run on that
+		 * loop.
 		 */
 		private void service_main()
 		{
