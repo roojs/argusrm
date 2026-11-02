@@ -26,9 +26,10 @@ namespace Argus.Agent
 	 * {@link app_options}, including ''--debug''. {@link host},
 	 * {@link port}, and {@link pin} are the registration properties.
 		 * {@link hold} keeps the process up. With no host and port,
-		 * {@link Argus.Shared.Browse} looks for the broadcast. On
-		 * Windows, {@link Win32.Service} starts this when the Service
-		 * Control Manager launches the executable.
+	 * {@link Argus.Shared.Browse} looks for the broadcast. On
+	 * Windows, {@link Win32.Service} starts this when the Service
+	 * Control Manager launches ''argus-agent''. ''argus-tray'' is
+	 * {@link Win32.Tray}, not this class.
 	 *
 	 * == Example ==
 	 *
@@ -56,9 +57,10 @@ namespace Argus.Agent
 
 		/**
 		 * Broadcast browse. Started when this launch was not given
-		 * a host and a port.
+		 * a host and a port. The Windows service reads it when the
+		 * tray writes a pin.
 		 */
-		private Argus.Shared.Browse browse {
+		internal Argus.Shared.Browse browse {
 			get; set; default = new Argus.Shared.Browse();
 		}
 
@@ -67,6 +69,7 @@ namespace Argus.Agent
 		private static string opt_host;
 		private static int opt_port;
 		private static string opt_pin;
+		private static bool opt_register;
 		private static bool debug_on;
 		private static bool debug_critical_enabled;
 		private static GLib.FileStream? debug_log_file;
@@ -78,6 +81,7 @@ namespace Argus.Agent
 			{ "host", 0, 0, GLib.OptionArg.STRING, ref opt_host, "Argus address", "HOST" },
 			{ "port", 0, 0, GLib.OptionArg.INT, ref opt_port, "Argus port", "PORT" },
 			{ "pin", 0, 0, GLib.OptionArg.STRING, ref opt_pin, "Number from the registration window", "PIN" },
+			{ "register", 0, 0, GLib.OptionArg.NONE, ref opt_register, "Open the registration window", null },
 			{ null }
 		};
 
@@ -106,8 +110,10 @@ namespace Argus.Agent
 		 * ''--debug'' shows log lines on stderr. ''--host'', ''--port'',
 		 * and ''--pin'' together call {@link Argus.Shared.Register}
 		 * immediately. ''--pin'' alone waits for the broadcast, then
-		 * registers. With none of those, the process browses and
-		 * stays up.
+		 * registers. ''--register'' opens the window. The Android
+		 * app icon opens that window, and the box says this phone
+		 * is already registered. With none of those, the process
+		 * browses and stays up.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when the process stays up or help was printed,
@@ -120,6 +126,7 @@ namespace Argus.Agent
 			opt_host = "";
 			opt_port = 0;
 			opt_pin = "";
+			opt_register = false;
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -144,6 +151,40 @@ namespace Argus.Agent
 			this.host = opt_host;
 			this.port = opt_port;
 			this.pin = opt_pin;
+			var open_window = opt_register;
+#if ANDROID
+			if (this.host == "" && this.port <= 0) {
+				open_window = true;
+			}
+#endif
+			if (open_window) {
+				Gtk.init();
+				var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+				if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+					var already = "This machine is already registered.";
+#if ANDROID
+					already = "This phone is already registered.";
+#endif
+					var alert = new Adw.AlertDialog(
+						"Connect to management server",
+						already);
+					alert.add_response("ok", "OK");
+					alert.response.connect((response) => {
+						this.quit();
+					});
+					alert.present(null);
+					this.hold();
+					return 0;
+				}
+				var window = new Argus.Shared.RegisterWindow();
+				window.show_add();
+				window.present(null);
+				window.closed.connect(() => {
+					this.quit();
+				});
+				this.hold();
+				return 0;
+			}
 			if (this.host != "" || this.port > 0) {
 				if (this.host == "" || this.port <= 0 || this.pin == "") {
 					command_line.printerr("registration needs a host, a port, and a pin\n");
@@ -250,6 +291,11 @@ namespace Argus.Agent
 	int main(string[] args)
 	{
 #if WINDOWS
+		var exe_name = GLib.Path.get_basename(args[0]).down();
+		if (exe_name == "argus-tray" || exe_name == "argus-tray.exe") {
+			var tray = new Win32.Tray();
+			return tray.run();
+		}
 		var service = new Win32.Service();
 		var service_exit = service.start();
 		if (service_exit >= 0) {

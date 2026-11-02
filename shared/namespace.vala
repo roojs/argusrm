@@ -22,6 +22,8 @@
  * {@link Register} sends the certificate registration call over
  * {@link OLLMrpc}. {@link Browse} finds the ''_rpc._tcp'' broadcast.
  * On Android that call goes through ''PairBrowse''.
+ * {@link RegisterWindow} is the six-digit dialog for the agent and
+ * the controller. The sixth digit calls {@link Register}.
  *
  * == Example ==
  *
