@@ -64,6 +64,11 @@ namespace Argus.Agent
 			get; set; default = new Argus.Shared.Browse();
 		}
 
+		/**
+		 * App socket. Null until {@link open_link}.
+		 */
+		internal OLLMrpc.Transport.TlsClient? link { get; private set; }
+
 		private static bool opt_debug;
 		private static bool opt_debug_critical;
 		private static string opt_host;
@@ -93,6 +98,58 @@ namespace Argus.Agent
 		 * {@link GLib.ApplicationFlags.NON_UNIQUE}, as in ''ollmfilesd''.
 		 * Service mode is not used: it rejects arguments.
 		 */
+		/**
+		 * Open the app socket from the stored server and certificate.
+		 *
+		 * A second call returns the socket already open.
+		 * Registration wrote those certificate files.
+		 *
+		 * @return the socket, or null when it cannot be opened
+		 */
+		internal OLLMrpc.Transport.TlsClient? open_link()
+		{
+			if (this.link != null) {
+				return this.link;
+			}
+			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
+			var text = "";
+			try {
+				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return null;
+			}
+			text = text.strip();
+			var mark = text.last_index_of(":");
+			if (text == "" || mark < 1) {
+				return null;
+			}
+			var host = text.substring(0, mark);
+			var port = int.parse(text.substring(mark + 1));
+			if (port <= 0 || port > 65535) {
+				return null;
+			}
+			var tls_files = new OLLMrpc.Transport.Cert() {
+				dir = dir,
+				cert_pem = "client.pem",
+				key_pem = "client-key.pem",
+				cn = "argus-agent",
+			};
+			tls_files.ensure();
+			var opened = new OLLMrpc.Transport.TlsClient(host, (uint16) port) {
+				accept_any = true,
+				tls_certificate = tls_files.certificate
+			};
+			try {
+				opened.open();
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return null;
+			}
+			this.link = opened;
+			return this.link;
+		}
+
 		public Application()
 		{
 			Object(
@@ -114,8 +171,10 @@ namespace Argus.Agent
 		 * systemd process over D-Bus. That process calls
 		 * {@link Argus.Shared.Register}. The Android app icon
 		 * opens that window, and the box says this phone is
-		 * already registered. With none of those, the process
-		 * browses and stays up.
+		 * already registered. A registered process starts
+		 * {@link OSQuery.Initialize} and {@link Listen}. The
+		 * Android {@link OSQuery.Initialize} does not query.
+		 * With none of those, the process browses and stays up.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when the process stays up or help was printed,
@@ -123,6 +182,12 @@ namespace Argus.Agent
 		 */
 		public override int command_line(GLib.ApplicationCommandLine command_line)
 		{
+			OLLMrpc.rpc_register();
+			Argus.Shared.OSQuery.SystemInfo.rpc_register();
+			Argus.Shared.OSQuery.CpuInfo.rpc_register();
+			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
+			Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
+			Command.rpc_register();
 			opt_debug = false;
 			opt_debug_critical = false;
 			opt_host = "";
@@ -219,6 +284,11 @@ namespace Argus.Agent
 					command_line.printerr("registration failed: %d\n", code);
 					return code;
 				}
+				var link = this.open_link();
+				if (link != null) {
+					new OSQuery.Initialize(link).start();
+					new Listen(link).start();
+				}
 				GLib.debug("staying up");
 #if LINUX
 				this.browse.start();
@@ -259,10 +329,26 @@ namespace Argus.Agent
 					if (code != 0) {
 						GLib.printerr("registration failed: %d\n", code);
 					}
+					if (code == 0) {
+						var link = this.open_link();
+						if (link != null) {
+							new OSQuery.Initialize(link).start();
+							new Listen(link).start();
+						}
+					}
 					return false;
 				});
 			}
 			GLib.debug("staying up");
+			var cert = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+				var link = this.open_link();
+				if (link != null) {
+					new OSQuery.Initialize(link).start();
+					new Listen(link).start();
+				}
+			}
 			BusRegistration.start(this);
 			this.hold();
 			return 0;

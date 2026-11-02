@@ -24,6 +24,8 @@
  * On Android that call goes through ''PairBrowse''.
  * {@link RegisterWindow} is the six-digit dialog for the agent and
  * the controller. The sixth digit calls {@link Register}.
+ * {@link OSQuery.Row} is one osquery row. The agent and the
+ * server both use those objects.
  *
  * == Example ==
  *

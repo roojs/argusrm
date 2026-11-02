@@ -124,6 +124,13 @@ namespace Argus.Agent
 					pin, GLib.Environment.get_host_name());
 				GLib.debug("registration %d", code);
 			}
+			if (code == 0 && this.agent != null) {
+				var link = this.agent.open_link();
+				if (link != null) {
+					new OSQuery.Initialize(link).start();
+					new Listen(link).start();
+				}
+			}
 			return code;
 		}
 	}

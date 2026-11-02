@@ -9,7 +9,16 @@ shared_deps = [
 	dependency('libadwaita-1'),
 	meson.get_compiler('c').find_library('ocrpc'),
 ]
-shared_sources = files('namespace.vala', 'Register.vala', 'RegisterWindow.vala')
+shared_sources = files(
+	'namespace.vala',
+	'Register.vala',
+	'RegisterWindow.vala',
+	'OSQuery/Row.vala',
+	'OSQuery/SystemInfo.vala',
+	'OSQuery/CpuInfo.vala',
+	'OSQuery/LoggedInUsers.vala',
+	'OSQuery/InterfaceAddresses.vala',
+)
 shared_vala_args = ['--pkg', 'ocrpc', '--pkg', 'gtk4', '--pkg', 'libadwaita-1']
 shared_c_args = []
 

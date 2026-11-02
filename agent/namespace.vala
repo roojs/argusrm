@@ -26,7 +26,16 @@
  * the signed-in session. The tray writes the number on a local
  * pipe, and the service calls {@link Argus.Shared.Register}.
  * {@link Argus.Shared.Browse} finds the broadcast when this launch
- * is not given a host and a port.
+ * is not given a host and a port. {@link Download} fetches the
+ * osquery installer. {@link OSQuery.Initialize} installs osquery,
+ * and {@link OSQuery.Query} runs ''osqueryi --json'' into
+ * {@link Argus.Shared.OSQuery.Row} objects. {@link OSQuery.Initialize}
+ * syncs each table to the server. Android compiles its own
+ * {@link OSQuery.Initialize}, which does not query.
+ * {@link Listen} takes a command notification. {@link Command}
+ * runs it. Linux, Windows, and Android each compile their own
+ * file for that class. The Android file does not spawn. A
+ * ''send'' notification writes to that command's stdin.
  *
  * == Example ==
  *

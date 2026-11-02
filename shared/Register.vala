@@ -24,8 +24,12 @@ namespace Argus.Shared
 	 * Adapts the registration half of ''FilesdClient.try_connection'':
 	 * a TLS connection, ''ClientCert.request_registration'', then
 	 * {@link OLLMrpc.Transport.Cert} files under the user data
-	 * directory ''argus''. The reply string array is the client
-	 * certificate, the CA, the download socket, then listen addresses.
+	 * directory ''argus''. The call includes the OS family so the
+	 * server can choose the download. The reply string array is
+	 * the client certificate, the CA, the download socket, the
+	 * download URL path, then listen addresses. The app socket is
+	 * the host and port this call used, written as ''server'' next
+	 * to those files.
 	 *
 	 * == Example ==
 	 *
@@ -45,18 +49,37 @@ namespace Argus.Shared
 		public string download = "";
 
 		/**
+		 * Download URL path from the registration reply.
+		 *
+		 * Empty until a reply stores it. Also written as
+		 * ''download-path'' next to the certificate files. The
+		 * path includes the extension for the OS family this call
+		 * sent. The server chooses it.
+		 */
+		public string download_path = "";
+
+		/**
 		 * Listen addresses from the registration reply, one per line.
 		 *
-		 * Empty when the reply has none after the download socket.
+		 * Empty when the reply has none after the download URL path.
 		 */
 		public string addresses = "";
 
 		/**
 		 * Register this machine while the Argus window is open.
 		 *
-		 * Sends ''pin'', the certificate request, and ''requester''.
-		 * Stores the signed certificate, the CA, and the download
-		 * socket. A stored certificate is replaced.
+		 * Sends ''pin'', the certificate request, ''requester'',
+		 * and the OS family. Windows sends ''windows''. Android
+		 * sends ''android''. Linux asks
+		 * {@link GLib.Environment.get_os_info} for ''ID'' and
+		 * ''ID_LIKE''. That reads ''/etc/os-release''. Debian and
+		 * Ubuntu send ''debian''.
+		 * Fedora, RHEL, CentOS, and SUSE send ''rpm''. When that
+		 * file does not decide, ''dpkg'' on ''PATH'' sends
+		 * ''debian'' and ''rpm'' on ''PATH'' sends ''rpm''.
+		 * Stores the signed certificate, the CA, the download
+		 * socket, the download URL path, and the app socket. A
+		 * stored certificate is replaced.
 		 *
 		 * @param host Argus address
 		 * @param port Argus port
@@ -83,76 +106,63 @@ namespace Argus.Shared
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			var client = new GLib.SocketClient() {
-				timeout = 10
-			};
-			GLib.SocketConnection conn;
-			try {
-				conn = client.connect_to_host(host, port);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
+			var family = "linux";
+#if G_OS_WIN32
+			family = "windows";
+#elif ANDROID
+			family = "android";
+#else
+			var os_id = "";
+			var id_value = GLib.Environment.get_os_info(GLib.OsInfoKey.ID);
+			if (id_value != null) {
+				os_id = id_value;
+			}
+			var os_like = "";
+			var like_value = GLib.Environment.get_os_info("ID_LIKE");
+			if (like_value != null) {
+				os_like = like_value;
+			}
+			var os_text = os_id + " " + os_like;
+			if (os_text.contains("debian") || os_text.contains("ubuntu")) {
+				family = "debian";
+			}
+			if (family == "linux" &&
+				(os_text.contains("fedora") || os_text.contains("rhel") ||
+				os_text.contains("centos") || os_text.contains("suse") ||
+				os_text.contains("sles"))) {
+				family = "rpm";
+			}
+			var dpkg = GLib.Environment.find_program_in_path("dpkg");
+			if (family == "linux" && dpkg != null) {
+				family = "debian";
+			}
+			var rpm = GLib.Environment.find_program_in_path("rpm");
+			if (family == "linux" && rpm != null) {
+				family = "rpm";
+			}
+#endif
+			if (family == "linux") {
+				GLib.warning("os-release did not name debian or rpm");
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			conn.socket.blocking = true;
-			GLib.TlsClientConnection tls;
+			OLLMrpc.Response response;
 			try {
-				tls = GLib.TlsClientConnection.@new(conn, null);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			tls.accept_certificate.connect((peer_cert, errors) => {
-				return true;
-			});
-			try {
-				tls.handshake();
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			var bin = new OLLMrpc.Bin.Stream(
-				new GLib.DataInputStream(tls.get_input_stream()),
-				new GLib.DataOutputStream(tls.get_output_stream())
-			);
-			try {
-				bin.write(new OLLMrpc.Request() {
+				var link = new OLLMrpc.Transport.TlsClient(host, port) {
+					accept_any = true
+				};
+				response = link.call(new OLLMrpc.Request() {
 					method = "ClientCert.request_registration",
-					args = OLLMrpc.args("sss", pin, csr, requester)
+					args = OLLMrpc.args("ssss", pin, csr, requester, family)
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			OLLMrpc.Bin.Serializable parsed;
-			var reply_wait = GLib.get_monotonic_time() + 10 * 1000000;
-			while (true) {
-				try {
-					parsed = bin.parse();
-				} catch (GLib.IOError e) {
-					if (e.code != GLib.IOError.WOULD_BLOCK || GLib.get_monotonic_time() >= reply_wait) {
-						GLib.warning("%s", e.message);
-						return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-					}
-					var reply_poll = GLib.PollFD();
-					reply_poll.fd = conn.socket.fd;
-					reply_poll.events = GLib.IOCondition.IN;
-					GLib.poll(new GLib.PollFD[] { reply_poll }, 200);
-					continue;
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-				}
-				if (!(parsed is OLLMrpc.Response)) {
-					continue;
-				}
-				break;
-			}
-			var response = (OLLMrpc.Response) parsed;
 			if (response.error != null) {
 				return response.error.code;
 			}
 			var packed = (string[]) response.retval;
-			if (packed.length < 3) {
+			if (packed.length < 4) {
 				return (int) OLLMrpc.RpcErrorCode.INVALID_REQUEST;
 			}
 			try {
@@ -173,10 +183,24 @@ namespace Argus.Shared
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
+			try {
+				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "download-path"), packed[3]);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
+			try {
+				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "server"),
+					host + ":" + port.to_string());
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
 			tls_files.ensure();
 			this.download = packed[2];
-			if (packed.length > 3) {
-				this.addresses = string.joinv("\n", packed[3:packed.length]);
+			this.download_path = packed[3];
+			if (packed.length > 4) {
+				this.addresses = string.joinv("\n", packed[4:packed.length]);
 			}
 			return 0;
 		}
