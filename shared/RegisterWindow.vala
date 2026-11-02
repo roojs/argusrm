@@ -55,11 +55,20 @@ namespace Argus.Shared
 		/**
 		 * The tray asks the service to register.
 		 *
-		 * Linux and Android leave this false and call
+		 * Android and the controller leave this false and call
 		 * {@link Register} in this window. The Windows tray sets
 		 * it and handles {@link send_pin}.
 		 */
 		public bool use_pipe = false;
+
+		/**
+		 * Linux ''--register'' asks the systemd process.
+		 *
+		 * The window does not call {@link Register}. The agent
+		 * calls that process over D-Bus and stores the code in
+		 * {@link pipe_code}.
+		 */
+		public bool use_bus = false;
 
 		/**
 		 * Registration code written by {@link send_pin}.
@@ -248,9 +257,24 @@ namespace Argus.Shared
 				this.error_occurred("Enter the six digits");
 				return;
 			}
+			if (this.use_bus) {
+				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				try {
+					var conn = GLib.Bus.get_sync(GLib.BusType.SYSTEM);
+					var reply = conn.call_sync("org.roojs.ArgusAgent",
+						"/org/roojs/ArgusAgent", "org.roojs.ArgusAgent", "Register",
+						new GLib.Variant("(s)", pin), new GLib.VariantType("(i)"),
+						GLib.DBusCallFlags.NONE, 120000, null);
+					reply.get("(i)", out this.pipe_code);
+				} catch (GLib.Error e) {
+					GLib.warning("registration bus: %s", e.message);
+				}
+			}
 			if (this.use_pipe) {
 				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				this.send_pin(pin);
+			}
+			if (this.use_pipe || this.use_bus) {
 				if (this.pipe_code != 0) {
 					var label = "The management server rejected the request.";
 					switch (this.pipe_code) {

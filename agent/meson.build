@@ -1,7 +1,18 @@
 deps = [shared_dep, dependency('gtk4'), dependency('libadwaita-1')]
 sources = files('namespace.vala', 'Application.vala')
-vala_args = ['--pkg', 'gtk4', '--pkg', 'libadwaita-1']
+vala_args = ['--pkg', 'gtk4', '--pkg', 'libadwaita-1', '--pkg', 'ocrpc']
 c_args = []
+
+if host_machine.system() == 'linux'
+	sources += files('linux/BusRegistration.vala')
+	vala_args += ['-D', 'LINUX']
+	install_data(
+		'org.roojs.ArgusAgent.conf',
+		install_dir: get_option('datadir') / 'dbus-1' / 'system.d',
+	)
+else
+	sources += files('Win32/BusRegistration.vala')
+endif
 
 if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('advapi32')

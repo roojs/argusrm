@@ -110,9 +110,11 @@ namespace Argus.Agent
 		 * ''--debug'' shows log lines on stderr. ''--host'', ''--port'',
 		 * and ''--pin'' together call {@link Argus.Shared.Register}
 		 * immediately. ''--pin'' alone waits for the broadcast, then
-		 * registers. ''--register'' opens the window. The Android
-		 * app icon opens that window, and the box says this phone
-		 * is already registered. With none of those, the process
+		 * registers. ''--register'' opens the window and calls the
+		 * systemd process over D-Bus. That process calls
+		 * {@link Argus.Shared.Register}. The Android app icon
+		 * opens that window, and the box says this phone is
+		 * already registered. With none of those, the process
 		 * browses and stays up.
 		 *
 		 * @param command_line arguments for this launch
@@ -160,7 +162,23 @@ namespace Argus.Agent
 			if (open_window) {
 				Gtk.init();
 				var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
-				if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+				var show_box = GLib.FileUtils.test(cert, GLib.FileTest.EXISTS);
+#if LINUX
+				if (opt_register) {
+					show_box = false;
+					try {
+						var conn = GLib.Bus.get_sync(GLib.BusType.SYSTEM);
+						var reply = conn.call_sync("org.roojs.ArgusAgent",
+							"/org/roojs/ArgusAgent", "org.roojs.ArgusAgent", "Registered",
+							null, new GLib.VariantType("(b)"),
+							GLib.DBusCallFlags.NONE, -1, null);
+						reply.get("(b)", out show_box);
+					} catch (GLib.Error e) {
+						GLib.warning("registration bus: %s", e.message);
+					}
+				}
+#endif
+				if (show_box) {
 					var already = "This machine is already registered.";
 #if ANDROID
 					already = "This phone is already registered.";
@@ -177,6 +195,9 @@ namespace Argus.Agent
 					return 0;
 				}
 				var window = new Argus.Shared.RegisterWindow();
+#if LINUX
+				window.use_bus = true;
+#endif
 				window.show_add();
 				window.present(null);
 				window.closed.connect(() => {
@@ -199,6 +220,10 @@ namespace Argus.Agent
 					return code;
 				}
 				GLib.debug("staying up");
+#if LINUX
+				this.browse.start();
+#endif
+				BusRegistration.start(this);
 				this.hold();
 				return 0;
 			}
@@ -238,6 +263,7 @@ namespace Argus.Agent
 				});
 			}
 			GLib.debug("staying up");
+			BusRegistration.start(this);
 			this.hold();
 			return 0;
 		}
