@@ -195,4 +195,106 @@ namespace Argus.Agent.Win32 {
 	[CCode (cname = "g_utf8_to_utf16")]
 	public string16 g_utf8_to_utf16 (string str, long len = -1, void* items_read = null,
 		void* items_written = null, void* error = null);
+
+	/* Process and pipe. Copied from Snappr src/Win32/win32.vapi.
+	 * CreateProcessAsUserW is the service launch into the signed-in
+	 * session. Snappr starts its tray with CreateProcessW. */
+
+	[CCode (cname = "WAIT_TIMEOUT", cheader_filename = "win32.h")]
+	public const uint32 WAIT_TIMEOUT;
+	[CCode (cname = "ERROR_IO_PENDING", cheader_filename = "win32.h")]
+	public const uint32 ERROR_IO_PENDING;
+	[CCode (cname = "ERROR_PIPE_CONNECTED", cheader_filename = "win32.h")]
+	public const uint32 ERROR_PIPE_CONNECTED;
+	[CCode (cname = "ERROR_PIPE_LISTENING", cheader_filename = "win32.h")]
+	public const uint32 ERROR_PIPE_LISTENING;
+	[CCode (cname = "ERROR_NO_DATA", cheader_filename = "win32.h")]
+	public const uint32 ERROR_NO_DATA;
+	[CCode (cname = "ERROR_BROKEN_PIPE", cheader_filename = "win32.h")]
+	public const uint32 ERROR_BROKEN_PIPE;
+	[CCode (cname = "GENERIC_READ", cheader_filename = "win32.h")]
+	public const uint32 GENERIC_READ;
+	[CCode (cname = "GENERIC_WRITE", cheader_filename = "win32.h")]
+	public const uint32 GENERIC_WRITE;
+	[CCode (cname = "OPEN_EXISTING", cheader_filename = "win32.h")]
+	public const uint32 OPEN_EXISTING;
+	[CCode (cname = "FILE_ATTRIBUTE_NORMAL", cheader_filename = "win32.h")]
+	public const uint32 FILE_ATTRIBUTE_NORMAL;
+	[CCode (cname = "FILE_FLAG_OVERLAPPED", cheader_filename = "win32.h")]
+	public const uint32 FILE_FLAG_OVERLAPPED;
+	[CCode (cname = "PIPE_ACCESS_DUPLEX", cheader_filename = "win32.h")]
+	public const uint32 PIPE_ACCESS_DUPLEX;
+	[CCode (cname = "PIPE_TYPE_MESSAGE", cheader_filename = "win32.h")]
+	public const uint32 PIPE_TYPE_MESSAGE;
+	[CCode (cname = "PIPE_READMODE_MESSAGE", cheader_filename = "win32.h")]
+	public const uint32 PIPE_READMODE_MESSAGE;
+	[CCode (cname = "PIPE_WAIT", cheader_filename = "win32.h")]
+	public const uint32 PIPE_WAIT;
+	[CCode (cname = "PIPE_NOWAIT", cheader_filename = "win32.h")]
+	public const uint32 PIPE_NOWAIT;
+	[CCode (cname = "PROCESS_QUERY_LIMITED_INFORMATION", cheader_filename = "win32.h")]
+	public const uint32 PROCESS_QUERY_LIMITED_INFORMATION;
+	[CCode (cname = "MAXIMUM_ALLOWED", cheader_filename = "win32.h")]
+	public const uint32 MAXIMUM_ALLOWED;
+	[CCode (cname = "SecurityIdentification", cheader_filename = "win32.h")]
+	public const int SecurityIdentification;
+	[CCode (cname = "TokenPrimary", cheader_filename = "win32.h")]
+	public const int TokenPrimary;
+
+	[CCode (cname = "OVERLAPPED", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct Overlapped {
+		[CCode (cname = "hEvent")]
+		public void* event;
+	}
+
+	[CCode (cname = "STARTUPINFOW", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct StartupInfo {
+		[CCode (cname = "cb")]
+		public uint32 cb;
+		[CCode (cname = "lpDesktop")]
+		public string16 desktop;
+	}
+
+	[CCode (cname = "PROCESS_INFORMATION", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct ProcessInfo {
+		[CCode (cname = "hProcess")]
+		public void* process;
+		[CCode (cname = "hThread")]
+		public void* thread;
+	}
+
+	[CCode (cname = "GetModuleFileNameW", cheader_filename = "win32.h")]
+	public uint32 GetModuleFileNameW (void* module, string16 name, uint32 size);
+	[CCode (cname = "CloseHandle", cheader_filename = "win32.h")]
+	public bool CloseHandle (void* handle);
+	[CCode (cname = "CreateFileW", cheader_filename = "win32.h")]
+	public void* CreateFileW (string16 name, uint32 access, uint32 share, void* security, uint32 disposition, uint32 flags, void* template);
+	[CCode (cname = "CreateNamedPipeW", cheader_filename = "win32.h")]
+	public void* CreateNamedPipeW (string16 name, uint32 open_mode, uint32 mode, uint32 instances, uint32 out_size, uint32 in_size, uint32 timeout, void* security);
+	[CCode (cname = "ConnectNamedPipe", cheader_filename = "win32.h")]
+	public bool ConnectNamedPipe (void* pipe, Overlapped* ov);
+	[CCode (cname = "DisconnectNamedPipe", cheader_filename = "win32.h")]
+	public bool DisconnectNamedPipe (void* pipe);
+	[CCode (cname = "SetNamedPipeHandleState", cheader_filename = "win32.h")]
+	public bool SetNamedPipeHandleState (void* pipe, ref uint32 mode, void* max, void* timeout);
+	[CCode (cname = "PeekNamedPipe", cheader_filename = "win32.h")]
+	public bool PeekNamedPipe (void* pipe, void* buffer, uint32 size, void* read, out uint32 avail, void* left);
+	[CCode (cname = "ReadFile", cheader_filename = "win32.h")]
+	public bool ReadFile (void* file, [CCode (array_length = false)] uint8[] buffer, uint32 bytes, out uint32 read, Overlapped* ov);
+	[CCode (cname = "WriteFile", cheader_filename = "win32.h")]
+	public bool WriteFile (void* file, [CCode (array_length = false)] uint8[] buffer, uint32 bytes, out uint32 written, Overlapped* ov);
+	[CCode (cname = "CreateProcessAsUserW", cheader_filename = "win32.h")]
+	public bool CreateProcessAsUserW (void* token, string16 app, void* command, void* process_attr, void* thread_attr, bool inherit, uint32 flags, void* env, string16 cwd, StartupInfo* startup, out ProcessInfo info);
+	[CCode (cname = "OpenProcess", cheader_filename = "win32.h")]
+	public void* OpenProcess (uint32 access, bool inherit, uint32 pid);
+	[CCode (cname = "EnumProcesses", cheader_filename = "win32.h")]
+	public bool EnumProcesses ([CCode (array_length = false)] uint32[] ids, uint32 bytes, out uint32 needed);
+	[CCode (cname = "QueryFullProcessImageNameW", cheader_filename = "win32.h")]
+	public bool QueryFullProcessImageNameW (void* process, uint32 flags, string16 name, ref uint32 size);
+	[CCode (cname = "WTSGetActiveConsoleSessionId", cheader_filename = "win32.h")]
+	public uint32 WTSGetActiveConsoleSessionId ();
+	[CCode (cname = "WTSQueryUserToken", cheader_filename = "win32.h")]
+	public bool WTSQueryUserToken (uint32 session, out void* token);
+	[CCode (cname = "DuplicateTokenEx", cheader_filename = "win32.h")]
+	public bool DuplicateTokenEx (void* existing, uint32 access, void* attr, int level, int type, out void* dup);
 }

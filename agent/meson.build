@@ -7,6 +7,8 @@ if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('advapi32')
 	deps += meson.get_compiler('c').find_library('user32')
 	deps += meson.get_compiler('c').find_library('shell32')
+	deps += meson.get_compiler('c').find_library('psapi')
+	deps += meson.get_compiler('c').find_library('wtsapi32')
 	sources += files('Win32/Service.vala', 'Win32/tray/Tray.vala')
 	vala_args += [
 		'--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32',

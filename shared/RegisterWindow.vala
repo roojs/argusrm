@@ -51,8 +51,34 @@ namespace Argus.Shared
 		private uint browse_id = 0;
 		private Browse browse = new Browse();
 
+		/**
+		 * The tray asks the service to register.
+		 *
+		 * Linux and Android leave this false and call
+		 * {@link Register} in this window. The Windows tray sets
+		 * it and handles {@link send_pin}.
+		 */
+		public bool use_pipe = false;
+
+		/**
+		 * Registration code written by {@link send_pin}.
+		 *
+		 * The tray sets this before the signal returns.
+		 */
+		public int pipe_code = 0;
+
 		public signal void error_occurred(string error_message);
 		public signal void dialog_closed();
+
+		/**
+		 * Six digits for the service to register.
+		 *
+		 * The Windows tray connects this and writes the number on
+		 * the local pipe. The reply is stored in {@link pipe_code}.
+		 *
+		 * @param pin the six digits
+		 */
+		public signal void send_pin(string pin);
 
 		public RegisterWindow()
 		{
@@ -206,6 +232,29 @@ namespace Argus.Shared
 			var pin = this.pin_entry.text.strip();
 			if (pin.length != 6) {
 				this.error_occurred("Enter the six digits");
+				return;
+			}
+			if (this.use_pipe) {
+				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				this.send_pin(pin);
+				if (this.pipe_code != 0) {
+					var label = "The management server rejected the request.";
+					switch (this.pipe_code) {
+						case (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED:
+							label = "Not registered with the management server.";
+							break;
+
+						case (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR:
+							label = "Could not reach the management server.";
+							break;
+
+						default:
+							break;
+					}
+					this.error_occurred(label);
+					return;
+				}
+				this.close();
 				return;
 			}
 			var registration = new Register();

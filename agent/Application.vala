@@ -57,9 +57,10 @@ namespace Argus.Agent
 
 		/**
 		 * Broadcast browse. Started when this launch was not given
-		 * a host and a port.
+		 * a host and a port. The Windows service reads it when the
+		 * tray writes a pin.
 		 */
-		private Argus.Shared.Browse browse {
+		internal Argus.Shared.Browse browse {
 			get; set; default = new Argus.Shared.Browse();
 		}
 

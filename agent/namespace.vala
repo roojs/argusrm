@@ -22,9 +22,11 @@
  * {@link Application} is the service process. On Windows the file
  * name chooses which one. ''argus-agent'' is the service, started
  * through {@link Win32.Service}. ''argus-tray'' is the window and
- * the tray, {@link Win32.Tray}. Registration is
- * {@link Argus.Shared.Register}. {@link Argus.Shared.Browse} finds
- * the broadcast when this launch is not given a host and a port.
+ * the tray, {@link Win32.Tray}. The service starts that process in
+ * the signed-in session. The tray writes the number on a local
+ * pipe, and the service calls {@link Argus.Shared.Register}.
+ * {@link Argus.Shared.Browse} finds the broadcast when this launch
+ * is not given a host and a port.
  *
  * == Example ==
  *
