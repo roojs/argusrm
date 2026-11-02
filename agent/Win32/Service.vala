@@ -73,6 +73,8 @@ namespace Argus.Agent.Win32
 		private bool pipe_warned = false;
 		private string number = "";
 		private string tip = "";
+		private string reply_line = "";
+		private bool tip_due = false;
 		private int ticks = 0;
 		private bool probe_open = false;
 		private int probe_id = 0;
@@ -138,20 +140,6 @@ namespace Argus.Agent.Win32
 			SetServiceStatus(this.handle, ref running);
 			GLib.Timeout.add_seconds(1, () => {
 				this.ticks++;
-				var send = (string line) => {
-					if (!this.pipe_up || (intptr) this.pipe == -1 || line == "") {
-						return;
-					}
-					var bytes = line.data;
-					uint32 wrote = 0;
-					if (WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
-						return;
-					}
-					DisconnectNamedPipe(this.pipe);
-					CloseHandle(this.pipe);
-					this.pipe = (void*) (intptr) (-1);
-					this.pipe_up = false;
-				};
 				if ((intptr) this.pipe == -1) {
 					this.pipe = CreateNamedPipeW(
 						g_utf8_to_utf16("\\\\.\\pipe\\Argus.Register"),
@@ -179,7 +167,7 @@ namespace Argus.Agent.Win32
 					}
 				}
 				if (became && this.tip != "") {
-					send("tip " + this.tip);
+					this.tip_due = true;
 				}
 				var cert = GLib.Path.build_filename(
 					GLib.Environment.get_user_data_dir(), "argus", "client.pem");
@@ -187,7 +175,7 @@ namespace Argus.Agent.Win32
 					GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 					this.tip = "Disconnected";
 					GLib.debug("tip %s", this.tip);
-					send("tip " + this.tip);
+					this.tip_due = true;
 				}
 				if (this.pipe_up && this.number == "") {
 					uint32 avail = 0;
@@ -218,7 +206,7 @@ namespace Argus.Agent.Win32
 				if (this.number != "") {
 					var line = this.application.browse.poll();
 					if (line == "none") {
-						send("%d".printf((int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR));
+						this.reply_line = "%d".printf((int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
 						this.number = "";
 					}
 					if (line != "" && line != "none") {
@@ -241,14 +229,14 @@ namespace Argus.Agent.Win32
 								this.number, GLib.Environment.get_host_name());
 							GLib.debug("registration %d", code);
 						}
-						send("%d".printf(code));
+						this.reply_line = "%d".printf(code);
 						this.number = "";
 						if (code == 0) {
 							this.probe_id++;
 							this.probe_open = false;
 							this.tip = "Connected to management server";
 							GLib.debug("tip %s", this.tip);
-							send("tip " + this.tip);
+							this.tip_due = true;
 						}
 					}
 				}
@@ -352,7 +340,7 @@ namespace Argus.Agent.Win32
 						if (this.tip != "Disconnected") {
 							this.tip = "Disconnected";
 							GLib.debug("tip %s", this.tip);
-							send("tip " + this.tip);
+							this.tip_due = true;
 						}
 					}
 					if (text != "" && mark >= 1) {
@@ -387,9 +375,36 @@ namespace Argus.Agent.Win32
 								}
 								this.tip = next;
 								GLib.debug("tip %s", this.tip);
-								send("tip " + this.tip);
+								this.tip_due = true;
 							});
 						}
+					}
+				}
+				if (this.reply_line != "" && this.pipe_up && (intptr) this.pipe != -1) {
+					var bytes = this.reply_line.data;
+					uint32 wrote = 0;
+					if (WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
+						this.reply_line = "";
+					}
+					if (this.reply_line != "") {
+						DisconnectNamedPipe(this.pipe);
+						CloseHandle(this.pipe);
+						this.pipe = (void*) (intptr) (-1);
+						this.pipe_up = false;
+						this.reply_line = "";
+					}
+				}
+				if (this.tip_due && this.pipe_up && (intptr) this.pipe != -1 && this.tip != "") {
+					var bytes = ("tip " + this.tip).data;
+					uint32 wrote = 0;
+					if (WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
+						this.tip_due = false;
+					}
+					if (this.tip_due) {
+						DisconnectNamedPipe(this.pipe);
+						CloseHandle(this.pipe);
+						this.pipe = (void*) (intptr) (-1);
+						this.pipe_up = false;
 					}
 				}
 				return true;
