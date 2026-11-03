@@ -1,0 +1,167 @@
+/*
+ * Copyright (C) 2026 Alan Knowles <alan@roojs.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+namespace Argus.Server
+{
+	/**
+	 * TLS bin listener for the app socket.
+	 *
+	 * Binds {@link Application.socket}. Registration, commands,
+	 * identity, and warnings stay on this socket. The handshake
+	 * requires a client certificate. Same product CA as
+	 * {@link Download}. This is not the file daemon.
+	 *
+	 * == Example ==
+	 *
+	 * {{{
+	 * var ssl = new Argus.Server.SslListen(app);
+	 * if (ssl.listen()) {
+	 *     // bound
+	 * }
+	 * }}}
+	 */
+	public class SslListen : GLib.Object
+	{
+		public Application app { get; private set; }
+
+		private GLib.SocketService service {
+			get; set; default = new GLib.SocketService();
+		}
+		private bool listening = false;
+		private Gee.ArrayList<OLLMrpc.Transport.Connection> connections {
+			get; set; default = new Gee.ArrayList<OLLMrpc.Transport.Connection>();
+		}
+
+		public SslListen(Application app)
+		{
+			this.app = app;
+		}
+
+		/**
+		 * Bind the TLS bin socket from {@link Application.socket}.
+		 *
+		 * Returns false when the address is empty or the port is
+		 * outside 1–65535. Bind failure logs a warning and returns
+		 * false. A client certificate is required. A bad identity
+		 * flag alone is ignored, the same as ''ollmfilesd''.
+		 *
+		 * @return true when the app socket is up
+		 */
+		public bool listen()
+		{
+			if (this.listening) {
+				return true;
+			}
+			var socket = this.app.socket;
+			var colon = socket.last_index_of(":");
+			var host = "";
+			var port = 0;
+			if (colon > 0) {
+				host = socket.substring(0, colon);
+				int.try_parse(socket.substring(colon + 1), out port);
+			}
+			if (socket == "" || colon <= 0 || host == "" || port < 1 || port > 65535) {
+				return false;
+			}
+			var parsed = new GLib.InetSocketAddress.from_string(host, (uint16) port);
+			if (parsed == null) {
+				return false;
+			}
+			var server_cert = this.app.tls.certificate;
+			this.service = new GLib.SocketService();
+			var effective = (GLib.SocketAddress) parsed;
+			try {
+				this.service.add_address(
+					effective,
+					GLib.SocketType.STREAM,
+					GLib.SocketProtocol.TCP,
+					null,
+					out effective
+				);
+			} catch (GLib.Error e) {
+				GLib.warning("failed to bind SSL listener %s:%u: %s",
+					host, (uint) port, e.message);
+				return false;
+			}
+			this.service.incoming.connect((conn) => {
+				GLib.TlsServerConnection tls;
+				try {
+					tls = GLib.TlsServerConnection.@new(conn, server_cert);
+				} catch (GLib.Error e) {
+					GLib.warning("ssl accept failed: %s", e.message);
+					return true;
+				}
+				if (this.app.tls.trust != null) {
+					tls.database = this.app.tls.trust;
+				}
+				tls.authentication_mode = GLib.TlsAuthenticationMode.REQUIRED;
+				tls.accept_certificate.connect((peer_cert, errors) => {
+					if (peer_cert == null) {
+						return false;
+					}
+					return (errors & ~GLib.TlsCertificateFlags.BAD_IDENTITY) == 0;
+				});
+				tls.handshake_async.begin(GLib.Priority.DEFAULT, null, (obj, res) => {
+					try {
+						tls.handshake_async.end(res);
+					} catch (GLib.Error e) {
+						GLib.warning("ssl handshake failed: %s", e.message);
+						return;
+					}
+					var fingerprint = "";
+					var peer = tls.get_peer_certificate();
+					if (peer != null) {
+						fingerprint = GLib.Checksum.compute_for_data(
+							GLib.ChecksumType.SHA256, peer.certificate.data);
+					}
+					var rpc = new OLLMrpc.Transport.Connection(conn) {
+						io = tls,
+						cert_fingerprint = fingerprint,
+						live_handles = true
+					};
+					rpc.start();
+					this.connections.add(rpc);
+				});
+				return true;
+			});
+			this.service.start();
+			this.listening = true;
+			GLib.debug("SSL listening on %s:%u", host, (uint) port);
+			return true;
+		}
+
+		/**
+		 * Unbind the socket and stop each bin connection.
+		 *
+		 * No-op when {@link listen} did not bind.
+		 */
+		public void stop()
+		{
+			if (!this.listening) {
+				return;
+			}
+			this.listening = false;
+			this.service.stop();
+			this.service = new GLib.SocketService();
+			foreach (var connection in this.connections) {
+				connection.stop();
+			}
+			this.connections.clear();
+		}
+	}
+}
