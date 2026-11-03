@@ -162,11 +162,7 @@ namespace Argus.Agent.Win32
 		{
 			this.ticks++;
 			if ((intptr) this.pipe == -1) {
-				this.pipe = CreateNamedPipeW(
-					g_utf8_to_utf16("\\\\.\\pipe\\Argus.Register"),
-					PIPE_ACCESS_DUPLEX,
-					PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT,
-					1, 4096, 4096, 0, null);
+				this.pipe = create_registration_pipe();
 				this.pipe_up = false;
 			}
 			if (this.pipe == null) {
@@ -218,6 +214,12 @@ namespace Argus.Agent.Win32
 				this.number = (string) buf[0:6];
 			}
 			var line = "";
+			if (this.number != "" &&
+				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+				this.reply_line = "%d".printf(
+					(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
+				this.number = "";
+			}
 			if (this.number != "") {
 				line = this.application.browse.poll();
 			}

@@ -71,6 +71,7 @@ namespace Argus.Controller
 			rpc.debug = false;
 			var loop = new GLib.MainLoop();
 			var code = 1;
+			command_line.print("Connecting to the local Argus server...\n");
 			rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
 				args = OLLMrpc.args("is", 1, "argus-controller")
@@ -97,7 +98,10 @@ namespace Argus.Controller
 						loop.quit();
 						return;
 					}
-					command_line.print("%s\n", pin);
+					command_line.print(
+						"Registration PIN: %s\n" +
+						"Registration is open for 60 seconds. Press Ctrl+C to close it early.\n",
+						pin);
 					GLib.Timeout.add_seconds(60, () => {
 						rpc.call.begin(new OLLMrpc.Request() {
 							method = "ClientCert.pair",

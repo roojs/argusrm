@@ -1,0 +1,13 @@
+name: Release - Windows
+
+on:
+  workflow_dispatch:
+
+run-name: Release - Windows - ${{ github.ref_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    uses: ./.github/workflows/x-windows.yml

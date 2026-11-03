@@ -32,7 +32,8 @@ namespace Argus.Server
 	 *
 	 * ''localstatedir'' plus ''lib/argusrm''. The default build
 	 * is ''/var/lib/argusrm''. Certificates live under ''tls/''.
-	 * Osquery installers live under ''osquery/''.
+	 * Downloadable files live under ''packages/''. Osquery installers
+	 * live under ''packages/osquery/''.
 	 */
 	public const string LOCALSTATEDIR = "@LOCALSTATEDIR@";
 

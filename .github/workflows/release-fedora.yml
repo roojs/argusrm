@@ -1,0 +1,13 @@
+name: Release - Fedora
+
+on:
+  workflow_dispatch:
+
+run-name: Release - Fedora - ${{ github.ref_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  rpm:
+    uses: ./.github/workflows/x-rpm.yml

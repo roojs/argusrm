@@ -382,8 +382,11 @@ namespace Argus.Agent
 			}
 			debug_log_in_progress = true;
 			if (debug_log_file == null) {
-				var log_dir = GLib.Path.build_filename(GLib.Environment.get_home_dir(), ".cache", "argus");
-				var log_file_path = GLib.Path.build_filename(log_dir, "org.roojs.ArgusAgent.debug.log");
+				var configured_log_dir = GLib.Environment.get_variable("ARGUS_LOG_DIR");
+				var log_dir = configured_log_dir == null || configured_log_dir == "" ?
+					GLib.Path.build_filename(GLib.Environment.get_user_cache_dir(), "argusrm") :
+					configured_log_dir;
+				var log_file_path = GLib.Path.build_filename(log_dir, "agent.log");
 				if (!GLib.FileUtils.test(log_dir, GLib.FileTest.IS_DIR)) {
 					GLib.DirUtils.create_with_parents(log_dir, 0755);
 				}

@@ -23,6 +23,36 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class InterfaceAddresses : Row
 	{
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_rows<InterfaceAddresses>(db, agent_id, rows, "interface_addresses", { "interface", "address" });
+		}
+
+		/**
+		 * Create ''interface_addresses''.
+		 *
+		 * @param db Argus database
+		 */
+		public static void init_db(SQ.Database db)
+		{
+			string errmsg;
+			var ddl = """
+				CREATE TABLE IF NOT EXISTS interface_addresses (
+					id             INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					agent_id       INTEGER NOT NULL,
+					interface      TEXT NOT NULL DEFAULT '',
+					address        TEXT NOT NULL DEFAULT '',
+					mask           TEXT NOT NULL DEFAULT '',
+					broadcast      TEXT NOT NULL DEFAULT '',
+					point_to_point TEXT NOT NULL DEFAULT '',
+					type           TEXT NOT NULL DEFAULT ''
+				);
+				""";
+			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
+				GLib.warning("interface_addresses create failed: %s", db.db.errmsg());
+			}
+		}
+
 		/**
 		 * Register this row with the bin codec.
 		 */

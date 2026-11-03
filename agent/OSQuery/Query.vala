@@ -29,38 +29,41 @@ namespace Argus.Agent.OSQuery
 	 * == Example ==
 	 *
 	 * {{{
-	 * var rows = new Gee.ArrayList<Argus.Shared.OSQuery.SystemInfo>();
-	 * var query = new Argus.Agent.OSQuery.Query<Argus.Shared.OSQuery.SystemInfo>(
-	 *     osqueryi);
+	 * var rows = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+	 * var query = new Argus.Agent.OSQuery.Query(
+	 *     osqueryi, typeof(Argus.Shared.OSQuery.SystemInfo));
 	 * query.select("SELECT * FROM system_info", rows);
 	 * }}}
 	 */
-	public class Query<T> : GLib.Object
+	public class Query : GLib.Object
 	{
 		/**
 		 * Path to ''osqueryi'', or the name looked up on ''PATH''.
 		 */
 		public string osqueryi = "";
+		public GLib.Type row_type { get; construct; }
 
 		/**
 		 * @param osqueryi path or name of ''osqueryi''
+		 * @param row_type shared osquery row class
 		 */
-		public Query(string osqueryi)
+		public Query(string osqueryi, GLib.Type row_type)
 		{
+			Object(row_type: row_type);
 			this.osqueryi = osqueryi;
 		}
 
 		/**
-		 * Run ''sql'' and append one {@link T} per JSON row.
+		 * Run ''sql'' and append one row object per JSON row.
 		 *
-		 * {@link T} is an {@link Argus.Shared.OSQuery.Row}. A failed
+		 * {@link row_type} is an {@link Argus.Shared.OSQuery.Row}. A failed
 		 * launch, a non-zero exit, or a body that is not a JSON
 		 * list leaves ''rows'' as the caller passed it.
 		 *
 		 * @param sql osquery statement, column names unchanged
 		 * @param rows list to append to
 		 */
-		public void select(string sql, Gee.ArrayList<T> rows)
+		public void select(string sql, Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo> rows)
 		{
 			GLib.Subprocess child;
 			try {
@@ -103,11 +106,11 @@ namespace Argus.Agent.OSQuery
 				if (element.get_node_type() != Json.NodeType.OBJECT) {
 					continue;
 				}
-				var obj = Json.gobject_deserialize(typeof(T), element);
+				var obj = Json.gobject_deserialize(this.row_type, element);
 				if (obj == null) {
 					continue;
 				}
-				rows.add((T) obj);
+				rows.add((Argus.Shared.OSQuery.AgentInfo) obj);
 			}
 		}
 	}

@@ -19,7 +19,7 @@ jobs:
 
       - name: Build three RPM packages
         run: |
-          chmod +x scripts/ci/build-rpm.sh
+          chmod +x scripts/ci/build-rpm.sh scripts/release/changelog.sh
           scripts/ci/build-rpm.sh
 
       - uses: actions/upload-artifact@v4

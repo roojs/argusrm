@@ -1,0 +1,19 @@
+name: Release - AppImage
+
+on:
+  workflow_dispatch:
+    inputs:
+      refresh_cache:
+        type: boolean
+        default: false
+
+run-name: Release - AppImage - ${{ github.ref_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    uses: ./.github/workflows/x-appimage.yml
+    with:
+      refresh_cache: ${{ inputs.refresh_cache }}

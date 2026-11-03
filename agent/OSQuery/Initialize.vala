@@ -25,7 +25,7 @@ namespace Argus.Agent.OSQuery
 	 * loop stays up. Windows and Linux use {@link Download}
 	 * for the registration URL path when ''osqueryi'' is
 	 * missing, then install that file.
-	 * ''OSQuery.sync'' sends one table: the table name and
+	 * ''OSQuery.sync'' sends one table: the registered row name and
 	 * the array of row objects.
 	 *
 	 * == Example ==
@@ -170,65 +170,31 @@ namespace Argus.Agent.OSQuery
 				GLib.warning("osqueryi is not installed");
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			var systems = new Gee.ArrayList<Argus.Shared.OSQuery.SystemInfo>();
-			var cpus = new Gee.ArrayList<Argus.Shared.OSQuery.CpuInfo>();
-			var users = new Gee.ArrayList<Argus.Shared.OSQuery.LoggedInUsers>();
-			var addresses = new Gee.ArrayList<Argus.Shared.OSQuery.InterfaceAddresses>();
-			new Query<Argus.Shared.OSQuery.SystemInfo>(osqueryi).select("SELECT * FROM system_info", systems);
-			new Query<Argus.Shared.OSQuery.CpuInfo>(osqueryi).select("SELECT * FROM cpu_info", cpus);
-			new Query<Argus.Shared.OSQuery.LoggedInUsers>(osqueryi).select("SELECT * FROM logged_in_users", users);
-			new Query<Argus.Shared.OSQuery.InterfaceAddresses>(osqueryi).select("SELECT * FROM interface_addresses", addresses);
 			GLib.debug("syncing osquery rows");
+			var code = 0;
+			code += this.sync_table(osqueryi, "system_info", "SystemInfo");
+			code += this.sync_table(osqueryi, "cpu_info", "CpuInfo");
+			code += this.sync_table(osqueryi, "logged_in_users", "LoggedInUsers");
+			code += this.sync_table(osqueryi, "interface_addresses", "InterfaceAddresses");
+			return code;
+		}
+
+		private int sync_table(string osqueryi, string table, string class_name)
+		{
+			var rows = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			var row_type = OLLMrpc.Bin.alias_to_gtype.get(class_name);
+			new Query(osqueryi, row_type).select("SELECT * FROM " + table, rows);
 			OLLMrpc.Response response;
 			try {
 				response = this.link.call(new OLLMrpc.Request() {
 					method = "OSQuery.sync",
-					args = OLLMrpc.args("so", "system_info", systems)
+					args = OLLMrpc.args("so", class_name, rows)
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			if (response.error != null) {
-				return response.error.code;
-			}
-			try {
-				response = this.link.call(new OLLMrpc.Request() {
-					method = "OSQuery.sync",
-					args = OLLMrpc.args("so", "cpu_info", cpus)
-				});
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			if (response.error != null) {
-				return response.error.code;
-			}
-			try {
-				response = this.link.call(new OLLMrpc.Request() {
-					method = "OSQuery.sync",
-					args = OLLMrpc.args("so", "logged_in_users", users)
-				});
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			if (response.error != null) {
-				return response.error.code;
-			}
-			try {
-				response = this.link.call(new OLLMrpc.Request() {
-					method = "OSQuery.sync",
-					args = OLLMrpc.args("so", "interface_addresses", addresses)
-				});
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			if (response.error != null) {
-				return response.error.code;
-			}
-			return 0;
+			return response.error == null ? 0 : response.error.code;
 		}
 	}
 }

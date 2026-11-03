@@ -42,19 +42,16 @@ jobs:
             libavahi-gobject-dev libocrpc-dev libocsqlite-dev
 
       - name: Build three Debian packages
-        env:
-          DEBFULLNAME: GitHub Actions
-          DEBEMAIL: actions@users.noreply.github.com
         run: |
           set -euo pipefail
-          chmod +x debian/rules
+          chmod +x debian/rules scripts/release/changelog.sh \
+            scripts/release/sync-debian-changelog.sh
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            version="${GITHUB_REF_NAME#v}-1"
-            current="$(dpkg-parsechangelog -S Version)"
-            if [[ "$current" != "$version" ]]; then
-              dch --newversion "$version" --distribution unstable \
-                "Release ${GITHUB_REF_NAME}"
-            fi
+            version="$(scripts/release/changelog.sh version)"
+            [[ "${GITHUB_REF_NAME}" == "v${version}" ]]
+            scripts/release/sync-debian-changelog.sh --release "${GITHUB_REF_NAME}"
+          else
+            scripts/release/sync-debian-changelog.sh
           fi
           dpkg-buildpackage -us -uc -b
           mkdir -p artifacts

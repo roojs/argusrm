@@ -6,8 +6,13 @@ cd "$ROOT"
 
 if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
 	version="${GITHUB_REF_NAME#v}"
+	changelog_version="$(scripts/release/changelog.sh version)"
+	[[ "${version}" == "${changelog_version}" ]] || {
+		echo "CHANGELOG.md ${changelog_version} != tag ${version}" >&2
+		exit 1
+	}
 else
-	version="$(awk -F"'" '/^[[:space:]]*version:/ { print $2; exit }' meson.build)"
+	version="$(scripts/release/changelog.sh packaging-version)"
 fi
 rpm_version="${version//-/\~}"
 
@@ -41,6 +46,9 @@ tar \
 	-czf "${topdir}/SOURCES/argusrm-${rpm_version}.tar.gz" .
 
 cp packaging/rpm/argusrm.spec "${topdir}/SPECS/argusrm.spec"
+scripts/release/changelog.sh sync \
+	--release "v${version}" \
+	--splice-spec "${topdir}/SPECS/argusrm.spec"
 rpmbuild -bb \
 	--define "_topdir ${topdir}" \
 	--define "argusrm_version ${rpm_version}" \

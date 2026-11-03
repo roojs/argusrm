@@ -1,0 +1,92 @@
+name: X - Windows installer build
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Keep Vala sources as LF
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@v4
+        with:
+          path: argusrm
+
+      - uses: actions/checkout@v4
+        with:
+          repository: roojs/OLLMchat
+          ref: 1cba1934e04be1ce16a650e52d5c00af68a3d572
+          path: OLLMchat
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          path-type: strict
+          update: true
+          install: >-
+            base-devel
+            git
+            unzip
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-vala
+            mingw-w64-ucrt-x86_64-meson
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkg-config
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-libadwaita
+            mingw-w64-ucrt-x86_64-gtksourceview5
+            mingw-w64-ucrt-x86_64-libgee
+            mingw-w64-ucrt-x86_64-libsoup3
+            mingw-w64-ucrt-x86_64-gnutls
+            mingw-w64-ucrt-x86_64-json-glib
+            mingw-w64-ucrt-x86_64-libxml2
+            mingw-w64-ucrt-x86_64-sqlite3
+            mingw-w64-ucrt-x86_64-libgit2-glib
+            mingw-w64-ucrt-x86_64-gobject-introspection
+            mingw-w64-ucrt-x86_64-libtree-sitter
+            mingw-w64-ucrt-x86_64-openblas
+            mingw-w64-ucrt-x86_64-lapack
+            mingw-w64-ucrt-x86_64-curl
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-nsis
+
+      - name: Build and install OLLM runtime libraries
+        working-directory: OLLMchat
+        run: |
+          chmod +x scripts/ci/windows-msys2-build.sh
+          scripts/ci/windows-msys2-build.sh
+          meson configure build-windows --prefix=/ucrt64
+          meson install -C build-windows --no-rebuild
+
+      - name: Build Argus
+        working-directory: argusrm
+        run: |
+          meson setup build-windows \
+            --prefix=/ucrt64 --buildtype=release
+          meson compile -C build-windows ./agent/argus-agent:executable
+
+      - name: Build NSIS installer
+        working-directory: argusrm
+        run: |
+          chmod +x scripts/release/changelog.sh \
+            scripts/ci/copy-windows-runtime.sh \
+            scripts/ci/windows-package-nsis.sh
+          scripts/ci/windows-package-nsis.sh
+          mkdir -p artifacts
+          cp -v dist-windows/ArgusAgent-*-Setup.exe artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argusrm-windows
+          path: argusrm/artifacts/*.exe

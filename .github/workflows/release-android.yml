@@ -1,0 +1,15 @@
+name: Release - Android
+
+on:
+  workflow_dispatch:
+
+run-name: Release - Android - ${{ github.ref_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    uses: ./.github/workflows/x-android.yml
+    with:
+      non_blocking: false

@@ -1,0 +1,13 @@
+name: Release - Debian
+
+on:
+  workflow_dispatch:
+
+run-name: Release - Debian - ${{ github.ref_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  debian:
+    uses: ./.github/workflows/x-debian.yml

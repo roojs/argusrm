@@ -1,0 +1,96 @@
+name: X - Android APK build
+
+on:
+  workflow_call:
+    inputs:
+      non_blocking:
+        type: boolean
+        default: false
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    continue-on-error: ${{ inputs.non_blocking }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: argusrm
+
+      - uses: actions/checkout@v4
+        with:
+          repository: roojs/OLLMchat
+          ref: 1cba1934e04be1ce16a650e52d5c00af68a3d572
+          path: OLLMchat
+
+      - name: Install Android build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl git glslc \
+            gir1.2-appstream libadwaita-1-dev libglib-object-introspection-perl \
+            libglib-perl libglib2.0-dev-bin libgtk-4-dev libipc-run-perl \
+            libjson-perl libset-scalar-perl libxml-libxml-perl \
+            libxml-libxslt-perl libtext-template-perl libxml2-utils \
+            meson nasm ninja-build openjdk-17-jdk pkg-config python3 \
+            sassc unzip valac
+
+      - name: Stage pinned Android tooling and RPC library
+        working-directory: argusrm
+        run: |
+          mkdir -p scripts/android android vendor
+          cp -a ../OLLMchat/scripts/android/. scripts/android/
+          cp -a ../OLLMchat/android/pixiewood-wraps android/
+          cp -a ../OLLMchat/android/pixiewood-extra.cross android/
+          cp -a ../OLLMchat/libocrpc vendor/
+          cp -a ../OLLMchat/vapi vendor/
+          chmod +x scripts/android/*.sh
+
+      - name: Prepare and configure Pixiewood
+        working-directory: argusrm
+        env:
+          PIXIEWOOD_MANIFEST: ${{ github.workspace }}/argusrm/packaging/android/pixiewood-argus.xml
+        run: |
+          PIXIEWOOD_PHASE=setup scripts/android/build-pixiewood-apk.sh
+          PIXIEWOOD_PHASE=configure scripts/android/build-pixiewood-apk.sh
+
+      - name: Build APK
+        working-directory: argusrm
+        run: |
+          set -euo pipefail
+          pixiewood=.android-tools/gtk-android-builder/pixiewood
+          "$pixiewood" generate
+          "$pixiewood" build --skip-gradle
+
+          jni=.pixiewood/android/app/src/main/jniLibs
+          if [[ -L "$jni" ]]; then
+            target="$(readlink -f "$jni")"
+            rm "$jni"
+            cp -aL "$target" "$jni"
+          fi
+
+          java_dir=.pixiewood/android/app/src/main/java/org/roojs/argus
+          mkdir -p "$java_dir"
+          cp shared/android/ArgusApplication.java "$java_dir/"
+          cp shared/android/PairBrowse.java "$java_dir/"
+          sed -i \
+            's|android:name="org.gtk.android.RuntimeApplication"|android:name="org.roojs.argus.ArgusApplication"|' \
+            .pixiewood/android/app/src/main/AndroidManifest.xml
+
+          cd .pixiewood/android
+          ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Collect and verify APK
+        working-directory: argusrm
+        run: |
+          set -euo pipefail
+          source=.pixiewood/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+          unzip -l "$source" | grep -q 'lib/arm64-v8a/libargus-agent.so'
+          mkdir -p artifacts
+          version="$(bash scripts/release/changelog.sh packaging-version)"
+          cp "$source" "artifacts/ArgusAgent-${version}-android-arm64-debug.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argusrm-android
+          path: argusrm/artifacts/*.apk

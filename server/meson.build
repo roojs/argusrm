@@ -21,6 +21,24 @@ deps = [
 	meson.get_compiler('c').find_library('ocrpc'),
 	meson.get_compiler('c').find_library('ocsqlite'),
 ]
+server_vala_args = [
+	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
+	'--pkg', 'gnutls', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+]
+server_osquery_lib = static_library(
+	'argus-server-osquery',
+	shared_osquery_sources,
+	dependencies: deps,
+	c_args: ocsqlite_c_args,
+	vala_args: server_vala_args,
+	vala_header: 'argus-server-osquery.h',
+	vala_vapi: 'argus-server-osquery.vapi',
+)
+server_osquery_dep = declare_dependency(
+	link_with: server_osquery_lib,
+	dependencies: deps,
+	include_directories: include_directories('.'),
+)
 sysconfdir = get_option('sysconfdir')
 if not sysconfdir.startswith('/')
 	sysconfdir = get_option('prefix') / sysconfdir
@@ -46,7 +64,8 @@ sources = files(
 	'GitHub.vala',
 	'SslListen.vala',
 	'SslConnection.vala',
-	'ClientCert.vala',
+	'Agent.vala',
+	'OSQuery.vala',
 	'Daemon.vala',
 	'Download.vala',
 )
@@ -54,11 +73,9 @@ sources += paths_vala
 executable(
 	'argus',
 	sources,
-	dependencies: deps,
+	dependencies: [deps, server_osquery_dep],
 	c_args: ocsqlite_c_args,
-	vala_args: [
-		'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
-		'--pkg', 'gnutls', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
-	],
+	export_dynamic: true,
+	vala_args: server_vala_args,
 	install: true,
 )

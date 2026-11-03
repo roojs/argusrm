@@ -23,6 +23,36 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class LoggedInUsers : Row
 	{
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_rows<LoggedInUsers>(db, agent_id, rows, "logged_in_users", { "pid" });
+		}
+
+		/**
+		 * Create ''logged_in_users''.
+		 *
+		 * @param db Argus database
+		 */
+		public static void init_db(SQ.Database db)
+		{
+			string errmsg;
+			var ddl = """
+				CREATE TABLE IF NOT EXISTS logged_in_users (
+					id       INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					agent_id INTEGER NOT NULL,
+					type     TEXT NOT NULL DEFAULT '',
+					user     TEXT NOT NULL DEFAULT '',
+					tty      TEXT NOT NULL DEFAULT '',
+					host     TEXT NOT NULL DEFAULT '',
+					time     INTEGER NOT NULL DEFAULT 0,
+					pid      INTEGER NOT NULL DEFAULT 0
+				);
+				""";
+			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
+				GLib.warning("logged_in_users create failed: %s", db.db.errmsg());
+			}
+		}
+
 		/**
 		 * Register this row with the bin codec.
 		 */

@@ -9,7 +9,9 @@ ExecStart=/usr/bin/argus-agent
 Restart=on-failure
 RestartSec=5s
 StateDirectory=argusrm-agent
+LogsDirectory=argusrm
 Environment=XDG_DATA_HOME=/var/lib/argusrm-agent
+Environment=ARGUS_LOG_DIR=/var/log/argusrm
 
 [Install]
 WantedBy=multi-user.target

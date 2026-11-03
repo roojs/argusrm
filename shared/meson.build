@@ -7,19 +7,26 @@ shared_deps = [
 	dependency('libsoup-3.0'),
 	dependency('gtk4'),
 	dependency('libadwaita-1'),
-	meson.get_compiler('c').find_library('ocrpc'),
+	ocrpc_dep,
 ]
-shared_sources = files(
-	'namespace.vala',
-	'Register.vala',
-	'RegisterWindow.vala',
+shared_osquery_sources = files(
+	'SQ/Interface.vala',
+	'OSQuery/namespace.vala',
+	'OSQuery/AgentInfo.vala',
 	'OSQuery/Row.vala',
 	'OSQuery/SystemInfo.vala',
 	'OSQuery/CpuInfo.vala',
 	'OSQuery/LoggedInUsers.vala',
 	'OSQuery/InterfaceAddresses.vala',
 )
-shared_vala_args = ['--pkg', 'ocrpc', '--pkg', 'gtk4', '--pkg', 'libadwaita-1']
+shared_sources = files(
+	'namespace.vala',
+	'Register.vala',
+	'RegisterWindow.vala',
+	'SQLiteCompat.vala',
+)
+shared_sources += shared_osquery_sources
+shared_vala_args = ocrpc_vala_args + ['--pkg', 'gtk4', '--pkg', 'libadwaita-1']
 shared_c_args = []
 
 if host_machine.system() == 'windows'

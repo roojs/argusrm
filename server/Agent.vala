@@ -19,40 +19,10 @@
 namespace Argus.Server
 {
 	/**
-	 * Client TLS certificate row and ''ClientCert'' handler.
-	 *
-	 * Adapted from ''ollmfilesd''. {@link pair} stores the pin on
-	 * {@link SslListen} and publishes the app socket. {@link request_registration}
-	 * signs the certificate request while that pin matches.
-	 * A matching pin stores status 1, the same approved row.
-	 * The table is ''client_cert'' in {@link Application.db}.
-	 *
-	 * == Example ==
-	 *
-	 * {{{
-	 * ClientCert.init_db(db);
-	 * OLLMrpc.Request.register("ClientCert", new ClientCert.for_rpc(app));
-	 * }}}
+	 * Registered agent and its client certificate.
 	 */
-	public class ClientCert : GLib.Object, OLLMrpc.Bin.Serializable
+	public class Agent : GLib.Object, SQ.Interface
 	{
-		/**
-		 * Register the bin name and the two calls.
-		 */
-		public static void rpc_register()
-		{
-			try {
-				OLLMrpc.Bin.register("ClientCert", typeof(ClientCert));
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-			}
-			OLLMrpc.Request.add_class(
-				"ClientCert", typeof(ClientCert),
-				"request_registration", "ssss",
-				"pair", "s"
-			);
-		}
-
 		public Application app { get; private set; }
 
 		public int64 id { get; set; default = 0; }
@@ -61,61 +31,30 @@ namespace Argus.Server
 		public string ip { get; set; default = ""; }
 		public int64 created { get; set; default = 0; }
 		public string requester { get; set; default = ""; }
+		public bool is_controller { get; set; default = false; }
 
-		public ClientCert()
+		public Agent()
 		{
 			Object();
 		}
 
-		/**
-		 * Wire dispatch singleton for ''ClientCert''.
-		 *
-		 * @param app Argus process
-		 */
-		public ClientCert.for_rpc(Application app)
+		public Agent.for_rpc(Application app)
 		{
 			Object();
 			this.app = app;
-			ClientCert.rpc_register();
+			Agent.rpc_register();
 		}
 
 		/**
-		 * Rows in ''client_cert''.
-		 *
-		 * @param db Argus database
-		 * @return the query
+		 * Register the certificate and pairing calls.
 		 */
-		public static SQ.Query<ClientCert> query(SQ.Database db)
+		public static void rpc_register()
 		{
-			return new SQ.Query<ClientCert>(db, "client_cert");
-		}
-
-		/**
-		 * Ensure ''client_cert'' and drop pending rows older than 24 hours.
-		 *
-		 * @param db Argus database
-		 */
-		public static void init_db(SQ.Database db)
-		{
-			var errmsg = "";
-			if (Sqlite.OK != db.db.exec(
-				"CREATE TABLE IF NOT EXISTS client_cert (" +
-				"id INTEGER PRIMARY KEY, " +
-				"fingerprint TEXT NOT NULL UNIQUE, " +
-				"status INTEGER NOT NULL DEFAULT 0, " +
-				"ip TEXT NOT NULL DEFAULT '', " +
-				"created INT64 NOT NULL DEFAULT 0, " +
-				"requester TEXT NOT NULL DEFAULT ''" +
-				");",
-				null, out errmsg)) {
-				GLib.warning("Failed to create client_cert table: %s", db.db.errmsg());
-			}
-			var q = ClientCert.query(db);
-			var now = new GLib.DateTime.now_utc().to_unix();
-			var int_binds = new Gee.HashMap<string, int>();
-			int_binds.set("before", (int) (now - (24 * 60 * 60)));
-			int_binds.set("status", 0);
-			q.deleteWhere("WHERE status = $status AND created < $before", int_binds, null);
+			OLLMrpc.Request.add_class(
+				"ClientCert", typeof(Agent),
+				"request_registration", "ssss",
+				"pair", "s"
+			);
 		}
 
 		[CCode (cname = "gnutls_x509_crt_set_crq", cheader_filename = "gnutls/x509.h")]
@@ -125,13 +64,61 @@ namespace Argus.Server
 		);
 
 		/**
-		 * Sign ''csr'' when ''pin'' matches {@link SslListen.pin}.
+		 * Rows in ''agent''.
 		 *
-		 * The reply is a string array. Index 0 is the client
-		 * certificate PEM. Index 1 is the CA PEM. Index 2 is the
-		 * download socket. Index 3 is the download URL path for
-		 * ''family''. Later entries are listen addresses.
-		 * A wrong pin leaves the window up and writes no row.
+		 * @param db Argus database
+		 * @return the query
+		 */
+		public static SQ.Query<Agent> query(SQ.Database db)
+		{
+			return new SQ.Query<Agent>(db, "agent");
+		}
+
+		/**
+		 * Create ''agent'', migrating the old ''client_cert'' table.
+		 *
+		 * @param db Argus database
+		 */
+		public static void init_db(SQ.Database db)
+		{
+			string errmsg;
+			db.db.exec("ALTER TABLE client_cert RENAME TO agent;", null, out errmsg);
+			var ddl = """
+				CREATE TABLE IF NOT EXISTS agent (
+					id            INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					fingerprint   TEXT NOT NULL UNIQUE,
+					status        INTEGER NOT NULL DEFAULT 0,
+					ip            TEXT NOT NULL DEFAULT '',
+					created       INT64 NOT NULL DEFAULT 0,
+					requester     TEXT NOT NULL DEFAULT '',
+					is_controller INTEGER NOT NULL DEFAULT 0
+				);
+				""";
+			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
+				GLib.warning("Failed to create agent table: %s", db.db.errmsg());
+			}
+			db.db.exec(
+				"""
+				ALTER TABLE agent ADD COLUMN
+					is_controller INTEGER NOT NULL DEFAULT 0;
+				""",
+				null,
+				out errmsg
+			);
+			var q = Agent.query(db);
+			var now = new GLib.DateTime.now_utc().to_unix();
+			var int_binds = new Gee.HashMap<string, int>();
+			int_binds.set("before", (int) (now - (24 * 60 * 60)));
+			int_binds.set("status", 0);
+			q.deleteWhere(
+				"WHERE status = $status AND created < $before",
+				int_binds,
+				null
+			);
+		}
+
+		/**
+		 * Sign ''csr'' when ''pin'' matches {@link SslListen.pin}.
 		 *
 		 * @param request inbound RPC on the app socket
 		 * @param pin six digits from the controller
@@ -150,7 +137,9 @@ namespace Argus.Server
 			if (rpc == null) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST, "socket registration only")
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"socket registration only"
+					)
 				});
 				return;
 			}
@@ -158,7 +147,9 @@ namespace Argus.Server
 			if (pin != listen.pin || listen.pin == "") {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST, "number rejected")
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"number rejected"
+					)
 				});
 				this.app.broadcast(new OLLMrpc.Notification() {
 					method = "event.pair",
@@ -170,7 +161,9 @@ namespace Argus.Server
 			if (init_ret < 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR, "could not sign")
+						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
+						"could not sign"
+					)
 				});
 				return;
 			}
@@ -182,7 +175,9 @@ namespace Argus.Server
 			if (crq.import(ref csr_datum, GnuTLS.X509.CertificateFormat.PEM) < 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST, "bad csr")
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"bad csr"
+					)
 				});
 				return;
 			}
@@ -190,7 +185,9 @@ namespace Argus.Server
 			if (gnutls_x509_crt_set_crq(crt, crq) < 0 || crt.set_version(3) < 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST, "bad csr")
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"bad csr"
+					)
 				});
 				return;
 			}
@@ -201,10 +198,13 @@ namespace Argus.Server
 			var now = (time_t) (GLib.get_real_time() / 1000000);
 			if (crt.set_serial(serial, serial.length) < 0
 				|| crt.set_activation_time(now) < 0
-				|| crt.set_expiration_time(now + (time_t) (3650 * 24 * 60 * 60)) < 0) {
+				|| crt.set_expiration_time(
+					now + (time_t) (3650 * 24 * 60 * 60)) < 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR, "could not sign")
+						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
+						"could not sign"
+					)
 				});
 				return;
 			}
@@ -213,13 +213,19 @@ namespace Argus.Server
 			var ca_key_pem = "";
 			try {
 				GLib.FileUtils.get_contents(
-					GLib.Path.build_filename(tls_dir, "ollmrpc-ca.pem"), out ca_pem);
+					GLib.Path.build_filename(tls_dir, "ollmrpc-ca.pem"),
+					out ca_pem
+				);
 				GLib.FileUtils.get_contents(
-					GLib.Path.build_filename(tls_dir, "ollmrpc-ca-key.pem"), out ca_key_pem);
+					GLib.Path.build_filename(tls_dir, "ollmrpc-ca-key.pem"),
+					out ca_key_pem
+				);
 			} catch (GLib.Error e) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR, "could not sign")
+						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
+						"could not sign"
+					)
 				});
 				return;
 			}
@@ -233,45 +239,60 @@ namespace Argus.Server
 			};
 			var ca_crt = GnuTLS.X509.Certificate.create();
 			var ca_key = GnuTLS.X509.PrivateKey.create();
-			if (ca_crt.import(ref ca_datum, GnuTLS.X509.CertificateFormat.PEM) < 0
-				|| ca_key.import(ref key_datum, GnuTLS.X509.CertificateFormat.PEM) < 0
-				|| crt.sign2(ca_crt, ca_key, GnuTLS.DigestAlgorithm.SHA256, 0) < 0) {
+			if (ca_crt.import(
+				ref ca_datum, GnuTLS.X509.CertificateFormat.PEM) < 0
+				|| ca_key.import(
+					ref key_datum, GnuTLS.X509.CertificateFormat.PEM) < 0
+				|| crt.sign2(
+					ca_crt, ca_key, GnuTLS.DigestAlgorithm.SHA256, 0) < 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR, "could not sign")
+						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
+						"could not sign"
+					)
 				});
 				return;
 			}
 			var crt_len = (size_t) 0;
 			crt.export(GnuTLS.X509.CertificateFormat.PEM, null, ref crt_len);
 			var crt_buf = new uint8[crt_len];
-			if (crt.export(GnuTLS.X509.CertificateFormat.PEM, crt_buf, ref crt_len) < 0) {
+			if (crt.export(
+				GnuTLS.X509.CertificateFormat.PEM, crt_buf, ref crt_len) < 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR, "could not sign")
+						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
+						"could not sign"
+					)
 				});
 				return;
 			}
 			var crt_pem = (string) crt_buf;
 			var fingerprint = "";
 			try {
-				var issued = new GLib.TlsCertificate.from_pem(crt_pem, crt_pem.length);
+				var issued = new GLib.TlsCertificate.from_pem(
+					crt_pem, crt_pem.length);
 				fingerprint = GLib.Checksum.compute_for_data(
-					GLib.ChecksumType.SHA256, issued.certificate.data);
+					GLib.ChecksumType.SHA256,
+					issued.certificate.data
+				);
 			} catch (GLib.Error e) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR, "could not sign")
+						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
+						"could not sign"
+					)
 				});
 				return;
 			}
-			var q = ClientCert.query(this.app.db);
-			q.insert(new ClientCert() {
+			var q = Agent.query(this.app.db);
+			q.insert(new Agent() {
 				fingerprint = fingerprint,
 				status = 1,
 				created = new GLib.DateTime.now_utc().to_unix(),
-				requester = requester
+				requester = requester,
+				is_controller = false
 			});
+			this.app.db.backupDB();
 			listen.pin = "";
 			this.app.publish.stop();
 			var path = "";
@@ -322,10 +343,6 @@ namespace Argus.Server
 		/**
 		 * Set {@link SslListen.pin} from the controller.
 		 *
-		 * The Unix socket arms the window. A non-empty pin publishes
-		 * the app socket. An empty pin withdraws it. A TLS caller
-		 * can only clear a pin that matches.
-		 *
 		 * @param request inbound RPC from the controller
 		 * @param pin six digits, or empty to close the window
 		 */
@@ -361,12 +378,28 @@ namespace Argus.Server
 				request.reply(new OLLMrpc.Response() {
 					msg = "ok"
 				});
+				var owner = request.connection;
+				GLib.Timeout.add(250, () => {
+					if (listen.pin != pin) {
+						return false;
+					}
+					if (owner.running) {
+						return true;
+					}
+					listen.pin = "";
+					this.app.publish.stop();
+					GLib.debug(
+						"registration closed after controller disconnected");
+					return false;
+				});
 				return;
 			}
 			if (pin != listen.pin || listen.pin == "") {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST, "number rejected")
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"number rejected"
+					)
 				});
 				this.app.broadcast(new OLLMrpc.Notification() {
 					method = "event.pair",
@@ -383,25 +416,6 @@ namespace Argus.Server
 				method = "event.pair",
 				action = "done"
 			});
-		}
-
-		public override void bin_write_prop(
-			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop) throws GLib.Error
-		{
-			if (prop.name == "app") {
-				return;
-			}
-			this.bin_default_write_prop(ctx, prop);
-		}
-
-		public override void bin_read_prop(
-			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop, uint8 type_byte
-		) throws GLib.Error
-		{
-			if (prop.name == "app") {
-				return;
-			}
-			this.bin_default_read_prop(ctx, prop, type_byte);
 		}
 	}
 }

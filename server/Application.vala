@@ -255,11 +255,14 @@ namespace Argus.Server
 				command_line.printerr("error: CA trust was not loaded\n");
 				return 1;
 			}
-			ClientCert.rpc_register();
+			Agent.rpc_register();
 			Daemon.rpc_register();
-			ClientCert.init_db(this.db);
-			OLLMrpc.Request.register("ClientCert", new ClientCert.for_rpc(this));
+			OSQuery.rpc_register();
+			Agent.init_db(this.db);
+			Argus.Shared.OSQuery.init_db(this.db);
+			OLLMrpc.Request.register("ClientCert", new Agent.for_rpc(this));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
+			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
 			if (!(new Initialize()).fetch_osquery()) {
 				command_line.printerr("error: download store was not created\n");
 				return 1;
@@ -312,8 +315,11 @@ namespace Argus.Server
 			}
 			debug_log_in_progress = true;
 			if (debug_log_file == null) {
-				var log_dir = GLib.Path.build_filename(GLib.Environment.get_home_dir(), ".cache", "argusrm");
-				var log_file_path = GLib.Path.build_filename(log_dir, "org.roojs.Argus.debug.log");
+				var configured_log_dir = GLib.Environment.get_variable("ARGUS_LOG_DIR");
+				var log_dir = configured_log_dir == null || configured_log_dir == "" ?
+					GLib.Path.build_filename(GLib.Environment.get_user_cache_dir(), "argusrm") :
+					configured_log_dir;
+				var log_file_path = GLib.Path.build_filename(log_dir, "server.log");
 				if (!GLib.FileUtils.test(log_dir, GLib.FileTest.IS_DIR)) {
 					GLib.DirUtils.create_with_parents(log_dir, 0755);
 				}

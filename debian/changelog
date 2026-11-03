@@ -1,5 +1,9 @@
 argusrm (0.1.0-1) unstable; urgency=medium
 
-  * Initial Debian packages for the server, agent, and controller.
+  * Initial Argus server, agent, and command-line controller.
+  * Debian and Fedora RPM packages for all three programs.
+  * Systemd services for the server and Linux agent.
+  * Changelog-verified, tag-driven GitHub releases.
+  * Controller AppImage, Windows installer, and Android APK workflows.
 
  -- Alan Knowles <alan@roojs.com>  Tue, 03 Nov 2026 12:00:00 +0800

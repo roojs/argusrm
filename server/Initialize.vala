@@ -21,7 +21,7 @@ namespace Argus.Server
 	/**
 	 * Work done before the sockets bind.
 	 *
-	 * {@link fetch_osquery} creates the osquery directory under
+	 * {@link fetch_osquery} creates ''packages/osquery'' under
 	 * {@link LOCALSTATEDIR} and fetches the latest stable
 	 * installers. Other startup work belongs in this class.
 	 *
@@ -39,8 +39,9 @@ namespace Argus.Server
 		 * Fetch the osquery installers into {@link LOCALSTATEDIR}.
 		 *
 		 * Debian, RPM, and Windows files from the latest stable
-		 * release are saved as ''osquery/osquery.deb'',
-		 * ''osquery/osquery.rpm'', and ''osquery/osquery.msi''.
+		 * release are saved as ''packages/osquery/osquery.deb'',
+		 * ''packages/osquery/osquery.rpm'', and
+		 * ''packages/osquery/osquery.msi''.
 		 * A file already in the store is left in place. A failed
 		 * fetch is logged. The sockets still open.
 		 *
@@ -48,7 +49,28 @@ namespace Argus.Server
 		 */
 		public bool fetch_osquery()
 		{
-			var osquery_dir = GLib.Path.build_filename(LOCALSTATEDIR, "osquery");
+			var packages_dir = GLib.Path.build_filename(LOCALSTATEDIR, "packages");
+			var osquery_dir = GLib.Path.build_filename(packages_dir, "osquery");
+			var legacy_dir = GLib.Path.build_filename(LOCALSTATEDIR, "osquery");
+			if (!GLib.FileUtils.test(packages_dir, GLib.FileTest.IS_DIR)) {
+				if (GLib.DirUtils.create_with_parents(packages_dir, 0755) != 0) {
+					GLib.warning("download store %s", packages_dir);
+					return false;
+				}
+			}
+			if (!GLib.FileUtils.test(osquery_dir, GLib.FileTest.EXISTS)
+				&& GLib.FileUtils.test(legacy_dir, GLib.FileTest.IS_DIR)) {
+				try {
+					GLib.File.new_for_path(legacy_dir).move(
+						GLib.File.new_for_path(osquery_dir),
+						GLib.FileCopyFlags.NONE,
+						null,
+						null
+					);
+				} catch (GLib.Error e) {
+					GLib.warning("move legacy osquery store: %s", e.message);
+				}
+			}
 			if (!GLib.FileUtils.test(osquery_dir, GLib.FileTest.IS_DIR)) {
 				if (GLib.DirUtils.create_with_parents(osquery_dir, 0755) != 0) {
 					GLib.warning("download store %s", osquery_dir);

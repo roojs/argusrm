@@ -27,8 +27,88 @@ namespace Argus.Shared.OSQuery
 	 * ''int'' is ''int64''. The column ''type'' is the property
 	 * ''ctype''.
 	 */
-	public abstract class Row : GLib.Object, Json.Serializable, OLLMrpc.Bin.Serializable
+	public abstract class Row : GLib.Object, Json.Serializable, OLLMrpc.Bin.Serializable, AgentInfo
+		, SQ.Interface
 	{
+		public int64 id { get; set; default = 0; }
+		public int64 agent_id { get; set; default = 0; }
+
+		public abstract bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows);
+
+		protected bool sync_rows<T>(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows, string table, string[] key_columns)
+		{
+			foreach (var row in rows) {
+				if (row.get_type() != typeof(T)) {
+					return false;
+				}
+			}
+			string[] key_exclude = {};
+			var object_class = (GLib.ObjectClass) typeof(T).class_ref();
+			foreach (var prop in object_class.list_properties()) {
+				if (!GLib.strv_contains(key_columns, prop.name)) {
+					key_exclude += prop.name;
+				}
+			}
+			var query = new SQ.Query<T>(db, table);
+			var stored = new Gee.ArrayList<T>();
+			var int_binds = new Gee.HashMap<string, int>();
+			int_binds.set("agent_id", (int) agent_id);
+			query.selectWhere("WHERE agent_id = $agent_id", int_binds, null, stored);
+			foreach (var row in rows) {
+				AgentInfo? old = null;
+				foreach (var candidate in stored) {
+					if (((AgentInfo) candidate).compare(row, key_exclude)) {
+						old = (AgentInfo) candidate;
+						break;
+					}
+				}
+				var newer = (Row) row;
+				newer.agent_id = agent_id;
+				if (old == null) {
+					newer.id = 0;
+					query.insert((T) row);
+					continue;
+				}
+				newer.id = ((Row) old).id;
+				if (!old.compare(row)) {
+					query.updateOld((T) old, (T) row);
+				}
+				stored.remove((T) old);
+			}
+			foreach (var old in stored) {
+				query.deleteId(((Row) old).id);
+			}
+			return true;
+		}
+
+		/**
+		 * Database identity is assigned by the server, not sent by the agent.
+		 */
+		public override void bin_write_prop(
+			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop) throws GLib.Error
+		{
+			if (prop.name == "id" || prop.name == "agent-id") {
+				return;
+			}
+			this.bin_default_write_prop(ctx, prop);
+		}
+
+		/**
+		 * Ignore database identity supplied over the wire.
+		 */
+		public override void bin_read_prop(
+			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop, uint8 type_byte) throws GLib.Error
+		{
+			this.bin_default_read_prop(ctx, prop, type_byte);
+			if (prop.name == "id") {
+				this.id = 0;
+				return;
+			}
+			if (prop.name == "agent-id") {
+				this.agent_id = 0;
+			}
+		}
+
 		/**
 		 * Property for a JSON member name.
 		 *

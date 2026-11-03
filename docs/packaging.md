@@ -7,9 +7,9 @@ Argus produces three binary packages from one source tree:
   systemd service
 - `argusrm-controller` — `/usr/bin/argus-controller`
 
-The package version comes from `meson.build`. Keep `debian/changelog` at the
-same version for local builds. A `vX.Y.Z` Git tag overrides both package
-versions in GitHub Actions.
+`CHANGELOG.md` is the source of truth for release versions, release notes,
+and package changelogs. The version being released must also match
+`meson.build`.
 
 ## Debian packages
 
@@ -36,18 +36,47 @@ The three non-debug `.rpm` files are written to `artifacts/`.
 
 ## GitHub Actions release
 
-The `Packages` workflow can be run manually from the Actions page to test
-both package builds. To build all six packages and attach them to a GitHub
-Release, push a version tag:
+The `Release` workflow builds Debian packages, Fedora RPMs, an x86-64
+controller AppImage, the Windows agent installer, and an Android arm64 debug
+APK. Each family also has a `Release - ...` workflow that can be run manually
+without publishing a GitHub Release. The Android job is non-blocking in a
+full release while its new Pixiewood build is being proven; its manual
+workflow fails normally when the APK cannot be built.
+
+While developing, add notes beneath `## [Unreleased]`. Before a release,
+change that heading to the version:
+
+```md
+## [0.1.0] - Unreleased
+```
+
+Commit that change and make sure the working tree is clean. The human
+release command then verifies the changelog, checks it against
+`meson.build`, creates annotated `vX.Y.Z` and `vX.Y.Z-packages` tags, and
+pushes the branch and tags:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+chmod +x scripts/release.sh scripts/release/*.sh
+./scripts/release.sh
 ```
 
 When `origin` is the private Git server, push the tag there first and let
 the mirror send it to GitHub. GitHub Actions starts when GitHub receives the
-tag.
+tag. Debian and RPM files are published on `vX.Y.Z-packages`; AppImage,
+Windows, and a successfully built Android APK are published on `vX.Y.Z`.
+
+After a successful release, finalize the changelog on the private source
+repository and commit it:
+
+```sh
+./scripts/release/finalize-changelog.sh v0.1.0
+git add CHANGELOG.md debian/changelog
+git commit -m "Finalize changelog for v0.1.0"
+git push origin
+```
+
+GitHub Actions does not make this commit because the private Git server is
+the source of truth and GitHub is its one-way mirror.
 
 ## Mirror the private Git server to GitHub
 

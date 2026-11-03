@@ -5,6 +5,7 @@ Argus uses Meson and Ninja. A normal Linux installation is system-wide:
 - Programs: `/usr/bin`
 - Configuration: `/etc/argusrm`
 - Runtime data: `/var/lib/argusrm`
+- Service logs: `/var/log/argusrm/server.log` and `/var/log/argusrm/agent.log`
 - D-Bus policy: `/usr/share/dbus-1/system.d`
 
 ## Requirements

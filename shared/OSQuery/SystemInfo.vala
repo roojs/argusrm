@@ -23,6 +23,49 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class SystemInfo : Row
 	{
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_rows<SystemInfo>(db, agent_id, rows, "system_info", {});
+		}
+
+		/**
+		 * Create ''system_info''.
+		 *
+		 * @param db Argus database
+		 */
+		public static void init_db(SQ.Database db)
+		{
+			string errmsg;
+			var ddl = """
+				CREATE TABLE IF NOT EXISTS system_info (
+					id                 INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					agent_id           INTEGER NOT NULL,
+					hostname           TEXT NOT NULL DEFAULT '',
+					uuid               TEXT NOT NULL DEFAULT '',
+					cpu_type           TEXT NOT NULL DEFAULT '',
+					cpu_subtype        TEXT NOT NULL DEFAULT '',
+					cpu_brand          TEXT NOT NULL DEFAULT '',
+					cpu_physical_cores INTEGER NOT NULL DEFAULT 0,
+					cpu_logical_cores  INTEGER NOT NULL DEFAULT 0,
+					cpu_microcode      TEXT NOT NULL DEFAULT '',
+					physical_memory    INT64 NOT NULL DEFAULT 0,
+					hardware_vendor    TEXT NOT NULL DEFAULT '',
+					hardware_model     TEXT NOT NULL DEFAULT '',
+					hardware_version   TEXT NOT NULL DEFAULT '',
+					hardware_serial    TEXT NOT NULL DEFAULT '',
+					board_vendor       TEXT NOT NULL DEFAULT '',
+					board_model        TEXT NOT NULL DEFAULT '',
+					board_version      TEXT NOT NULL DEFAULT '',
+					board_serial       TEXT NOT NULL DEFAULT '',
+					computer_name      TEXT NOT NULL DEFAULT '',
+					local_hostname     TEXT NOT NULL DEFAULT ''
+				);
+				""";
+			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
+				GLib.warning("system_info create failed: %s", db.db.errmsg());
+			}
+		}
+
 		/**
 		 * Register this row with the bin codec.
 		 */

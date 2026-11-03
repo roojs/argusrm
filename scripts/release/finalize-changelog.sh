@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+exec "${ROOT}/scripts/release/changelog.sh" finalize "${1:?tag required}"

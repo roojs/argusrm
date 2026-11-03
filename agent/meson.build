@@ -4,8 +4,8 @@ sources = files(
 	'Application.vala',
 	'Download.vala',
 )
-vala_args = [
-	'--pkg', 'gtk4', '--pkg', 'libadwaita-1', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
+vala_args = ocrpc_vala_args + [
+	'--pkg', 'gtk4', '--pkg', 'libadwaita-1', '--pkg', 'libsoup-3.0',
 	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0',
 ]
 c_args = []
@@ -38,6 +38,7 @@ if host_machine.system() == 'windows'
 		'OSQuery/Initialize.vala',
 		'OSQuery/Query.vala',
 		'Win32/Service.vala',
+		'Win32/register-pipe.c',
 		'Win32/tray/Tray.vala',
 		'Win32/Command.vala',
 		'Listen.vala',

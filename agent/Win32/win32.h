@@ -17,4 +17,6 @@
 #include <wtsapi32.h>
 #include <wchar.h>
 
+HANDLE argus_create_registration_pipe(void);
+
 #endif

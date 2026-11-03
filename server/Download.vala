@@ -56,7 +56,7 @@ namespace Argus.Server
 		 * Returns false when the address is empty or the port is
 		 * outside 1–65535. Bind failure logs a warning and returns
 		 * false. Only a GET is answered. The path is a file under
-		 * {@link LOCALSTATEDIR}. The body is read off the
+		 * ''packages'' under {@link LOCALSTATEDIR}. The body is read off the
 		 * main loop, then Soup writes it.
 		 *
 		 * @return true when the download socket is up
@@ -115,7 +115,8 @@ namespace Argus.Server
 					msg.set_status(404, null);
 					return;
 				}
-				var file_path = GLib.Path.build_filename(LOCALSTATEDIR, relative);
+				var file_path = GLib.Path.build_filename(
+					LOCALSTATEDIR, "packages", relative);
 				if (!GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
 					msg.set_status(404, null);
 					return;

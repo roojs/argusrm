@@ -23,6 +23,41 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class CpuInfo : Row
 	{
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_rows<CpuInfo>(db, agent_id, rows, "cpu_info", { "device-id" });
+		}
+
+		/**
+		 * Create ''cpu_info''.
+		 *
+		 * @param db Argus database
+		 */
+		public static void init_db(SQ.Database db)
+		{
+			string errmsg;
+			var ddl = """
+				CREATE TABLE IF NOT EXISTS cpu_info (
+					id                  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					agent_id            INTEGER NOT NULL,
+					device_id           TEXT NOT NULL DEFAULT '',
+					model               TEXT NOT NULL DEFAULT '',
+					manufacturer        TEXT NOT NULL DEFAULT '',
+					processor_type      TEXT NOT NULL DEFAULT '',
+					cpu_status          INTEGER NOT NULL DEFAULT 0,
+					number_of_cores     INTEGER NOT NULL DEFAULT 0,
+					logical_processors  INTEGER NOT NULL DEFAULT 0,
+					address_width       INTEGER NOT NULL DEFAULT 0,
+					current_clock_speed INTEGER NOT NULL DEFAULT 0,
+					max_clock_speed     INTEGER NOT NULL DEFAULT 0,
+					socket_designation  TEXT NOT NULL DEFAULT ''
+				);
+				""";
+			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
+				GLib.warning("cpu_info create failed: %s", db.db.errmsg());
+			}
+		}
+
 		/**
 		 * Register this row with the bin codec.
 		 */

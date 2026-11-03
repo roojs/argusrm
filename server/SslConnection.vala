@@ -38,6 +38,7 @@ namespace Argus.Server
 	public class SslConnection : OLLMrpc.Transport.Connection
 	{
 		public Application app { get; construct; }
+		public int64 agent_id { get; private set; default = 0; }
 
 		public SslConnection(GLib.SocketConnection stream, Application app)
 		{
@@ -65,8 +66,8 @@ namespace Argus.Server
 				});
 				return false;
 			}
-			var rows = new Gee.ArrayList<ClientCert>();
-			var cert_q = ClientCert.query(this.app.db);
+			var rows = new Gee.ArrayList<Agent>();
+			var cert_q = Agent.query(this.app.db);
 			var int_binds = new Gee.HashMap<string, int>();
 			var text_binds = new Gee.HashMap<string, string>();
 			text_binds.set("fingerprint", this.cert_fingerprint);

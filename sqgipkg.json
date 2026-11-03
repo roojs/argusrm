@@ -1,0 +1,43 @@
+{
+  "name": "ArgusController",
+  "entry": {
+    "type": "native",
+    "linux": "build-linux-x86_64/controller/argus-controller"
+  },
+  "linux": {
+    "arches": [
+      {
+        "arch": "x86_64",
+        "build_dir": "build-linux-x86_64",
+        "entry_linux": "build-linux-x86_64/controller/argus-controller",
+        "deb": {
+          "download": true,
+          "packages": [
+            "libglib2.0-dev",
+            "libgee-0.8-dev",
+            "libjson-glib-dev",
+            "libsoup-3.0-dev",
+            "libgnutls28-dev",
+            "libsqlite3-dev",
+            "libgtk-4-dev",
+            "libadwaita-1-dev",
+            "libavahi-gobject-dev",
+            "libocrpc-dev",
+            "libocsqlite-dev"
+          ]
+        },
+        "inherit_native_projects": false,
+        "native_projects": [
+          {
+            "name": "argusrm",
+            "dir": ".",
+            "build": [
+              "./scripts/release/meson-sqgipkg-setup.sh \"$SQGI_LINUX_BUILD_DIR\"",
+              "meson compile -C \"$SQGI_LINUX_BUILD_DIR\" ./controller/argus-controller:executable"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -59,6 +59,9 @@ agent enrollment windows.
 
 %post
 %systemd_post argusrm-server.service
+if [ "$1" -eq 1 ]; then
+  systemctl enable --now argusrm-server.service >/dev/null 2>&1 || :
+fi
 
 %preun
 %systemd_preun argusrm-server.service
@@ -68,6 +71,9 @@ agent enrollment windows.
 
 %post -n argusrm-agent
 %systemd_post argusrm-agent.service
+if [ "$1" -eq 1 ]; then
+  systemctl enable --now argusrm-agent.service >/dev/null 2>&1 || :
+fi
 
 %preun -n argusrm-agent
 %systemd_preun argusrm-agent.service
@@ -80,12 +86,14 @@ agent enrollment windows.
 %doc README.md docs/build.md
 %{_bindir}/argus
 %{_prefix}/lib/systemd/system/argusrm-server.service
+%config(noreplace) %{_sysconfdir}/logrotate.d/argusrm-server
 
 %files -n argusrm-agent
 %license LICENSE
 %{_bindir}/argus-agent
 %{_datadir}/dbus-1/system.d/org.roojs.ArgusAgent.conf
 %{_prefix}/lib/systemd/system/argusrm-agent.service
+%config(noreplace) %{_sysconfdir}/logrotate.d/argusrm-agent
 
 %files -n argusrm-controller
 %license LICENSE
