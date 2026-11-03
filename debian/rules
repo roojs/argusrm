@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	meson setup build-debian --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+
+override_dh_auto_build:
+	meson compile -C build-debian
+
+override_dh_auto_install:
+	DESTDIR=$(CURDIR)/debian/tmp meson install -C build-debian
+
+override_dh_auto_test:
+	# No automated test suite yet.

@@ -1,0 +1,5 @@
+argusrm (0.1.0-1) unstable; urgency=medium
+
+  * Initial Debian packages for the server, agent, and controller.
+
+ -- Alan Knowles <alan@roojs.com>  Tue, 03 Nov 2026 12:00:00 +0800

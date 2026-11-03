@@ -1,0 +1,66 @@
+name: X - Debian package build
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:25.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      ROOJS_APT_SUITE: plucky
+      TZ: UTC
+    steps:
+      - name: Install checkout tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates curl gnupg
+
+      - uses: actions/checkout@v4
+
+      - name: Enable RooJS packages
+        run: |
+          install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://roojs.github.io/repos/key.gpg |
+            gpg --batch --yes --dearmor -o /etc/apt/keyrings/roojs.gpg
+          curl -fsSL https://roojs.github.io/repos/sources |
+            sed "s/@suite@/${ROOJS_APT_SUITE}/" \
+            > /etc/apt/sources.list.d/roojs.sources
+          apt-get update
+
+      - name: Install build dependencies
+        run: |
+          apt-get install -y --no-install-recommends \
+            build-essential devscripts debhelper meson ninja-build pkg-config valac \
+            libglib2.0-dev libgee-0.8-dev libjson-glib-dev libsoup-3.0-dev \
+            libgnutls28-dev libsqlite3-dev libgtk-4-dev libadwaita-1-dev \
+            libavahi-gobject-dev libocrpc-dev libocsqlite-dev
+
+      - name: Build three Debian packages
+        env:
+          DEBFULLNAME: GitHub Actions
+          DEBEMAIL: actions@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          chmod +x debian/rules
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}-1"
+            current="$(dpkg-parsechangelog -S Version)"
+            if [[ "$current" != "$version" ]]; then
+              dch --newversion "$version" --distribution unstable \
+                "Release ${GITHUB_REF_NAME}"
+            fi
+          fi
+          dpkg-buildpackage -us -uc -b
+          mkdir -p artifacts
+          cp -v ../argusrm-{server,agent,controller}_*.deb artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argusrm-debian
+          path: artifacts/*.deb

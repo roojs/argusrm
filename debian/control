@@ -1,0 +1,49 @@
+Source: argusrm
+Section: admin
+Priority: optional
+Maintainer: Alan Knowles <alan@roojs.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ meson,
+ ninja-build,
+ pkg-config,
+ valac,
+ libglib2.0-dev,
+ libgee-0.8-dev,
+ libjson-glib-dev,
+ libsoup-3.0-dev,
+ libgnutls28-dev,
+ libsqlite3-dev,
+ libgtk-4-dev,
+ libadwaita-1-dev,
+ libavahi-gobject-dev,
+ libocrpc-dev,
+ libocsqlite-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/roojs/argusrm
+Vcs-Browser: https://github.com/roojs/argusrm
+Vcs-Git: https://github.com/roojs/argusrm.git
+Rules-Requires-Root: no
+
+Package: argusrm-server
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: avahi-daemon
+Description: Argus remote management server
+ Argus enrolls managed machines, provides authenticated downloads, and
+ coordinates remote management operations.
+
+Package: argusrm-agent
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: avahi-daemon
+Description: Argus remote management agent
+ This package installs the agent on a managed Linux machine and runs it as
+ a systemd service.
+
+Package: argusrm-controller
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Argus command-line controller
+ This package contains the command-line client used to control the local
+ Argus server, including opening an agent enrollment window.

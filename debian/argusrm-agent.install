@@ -1,0 +1,3 @@
+usr/bin/argus-agent
+usr/share/dbus-1/system.d/org.roojs.ArgusAgent.conf
+usr/lib/systemd/system/argusrm-agent.service

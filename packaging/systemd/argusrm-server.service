@@ -1,0 +1,15 @@
+[Unit]
+Description=Argus remote management server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/argus
+Restart=on-failure
+RestartSec=5s
+StateDirectory=argusrm
+ConfigurationDirectory=argusrm
+
+[Install]
+WantedBy=multi-user.target

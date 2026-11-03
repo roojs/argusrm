@@ -1,0 +1,28 @@
+name: X - RPM package build
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:44
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install checkout tools
+        run: dnf -y install --setopt=install_weak_deps=False git-core ca-certificates curl
+
+      - uses: actions/checkout@v4
+
+      - name: Build three RPM packages
+        run: |
+          chmod +x scripts/ci/build-rpm.sh
+          scripts/ci/build-rpm.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argusrm-rpm-fedora
+          path: artifacts/*.rpm
