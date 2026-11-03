@@ -13,3 +13,4 @@ project(
 subdir('shared')
 subdir('agent')
 subdir('server')
+subdir('controller')

@@ -21,8 +21,10 @@
  *
  * {@link Application} is the headless process.
  * {@link Initialize.fetch_osquery} fetches the osquery
- * installers before the sockets bind. {@link GitHub.Release} is the
- * release record that fetch reads. {@link SslListen} is the app
+ * installers before the sockets bind. {@link ClientCert} signs
+ * a certificate while {@link SslListen.pin} is set.
+ * {@link GitHub.Release} is the release record that fetch reads.
+ * {@link SslListen} is the app
  * socket: bin RPC over TLS, the same listen shape as
  * ''ollmfilesd''. {@link Download} is the other socket. It only
  * accepts an HTTPS GET, and it allows or refuses the client

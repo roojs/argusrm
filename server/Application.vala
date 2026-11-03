@@ -25,7 +25,9 @@ namespace Argus.Server
 	 * same shape as ''ollmfilesd'': {@link command_line} parses
 	 * {@link app_options}, including ''--debug''. {@link socket} is
 	 * the app RPC. {@link download} is the download socket, fixed
-	 * in the config. {@link hold} keeps the process up.
+	 * in the config. The Unix socket under {@link LOCALSTATEDIR}
+	 * is how the controller opens the registration window.
+	 * {@link hold} keeps the process up.
 	 *
 	 * == Example ==
 	 *
@@ -67,6 +69,25 @@ namespace Argus.Server
 		 */
 		public Download download_listen { get; private set; }
 
+		/**
+		 * Certificate rows. The file is ''argus.sqlite'' under
+		 * {@link LOCALSTATEDIR}.
+		 */
+		public SQ.Database db { get; private set; }
+
+		/**
+		 * Unix socket the controller uses for {@link ClientCert.pair}.
+		 */
+		public OLLMrpc.Transport.SocketListen listen { get; private set; }
+
+		/**
+		 * mDNS publish for the registration window. {@link ClientCert.pair}
+		 * starts and stops it.
+		 */
+		public OLLMrpc.Transport.PairPublish publish {
+			get; set; default = new OLLMrpc.Transport.PairPublish();
+		}
+
 		private static bool opt_debug;
 		private static bool opt_debug_critical;
 		private static string opt_socket;
@@ -100,10 +121,25 @@ namespace Argus.Server
 			);
 			this.ssl_listen = new SslListen(this);
 			this.download_listen = new Download(this);
+			if (!GLib.FileUtils.test(LOCALSTATEDIR, GLib.FileTest.IS_DIR)) {
+				GLib.DirUtils.create_with_parents(LOCALSTATEDIR, 0755);
+			}
+			this.db = new SQ.Database(
+				GLib.Path.build_filename(LOCALSTATEDIR, "argus.sqlite"), true);
+			this.listen = new OLLMrpc.Transport.SocketListen(
+				GLib.Path.build_filename(LOCALSTATEDIR, "argus.sock")) {
+				live_handles = true
+			};
+			this.publish.failed.connect(() => {
+				GLib.warning("Could not publish the pairing service");
+			});
 			GLib.Log.set_default_handler((dom, lvl, msg) => {
 				Application.debug_log(dom, lvl, msg);
 			});
 			this.shutdown.connect(() => {
+				this.publish.stop();
+				this.listen.stop();
+				this.db.backup_real();
 				this.ssl_listen.stop();
 				this.download_listen.stop();
 			});
@@ -122,7 +158,8 @@ namespace Argus.Server
 		 * ''0.0.0.0'' and the build ports {@link SOCKET_PORT}
 		 * and {@link DOWNLOAD_PORT}. {@link Initialize.fetch_osquery}
 		 * fetches the osquery installers into {@link LOCALSTATEDIR}
-		 * before the sockets bind.
+		 * before the sockets bind. {@link ClientCert.pair} on the
+		 * Unix socket opens the registration window.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when both sockets are up or help was printed,
@@ -218,16 +255,27 @@ namespace Argus.Server
 				command_line.printerr("error: CA trust was not loaded\n");
 				return 1;
 			}
+			ClientCert.rpc_register();
+			Daemon.rpc_register();
+			ClientCert.init_db(this.db);
+			OLLMrpc.Request.register("ClientCert", new ClientCert.for_rpc(this));
+			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			if (!(new Initialize()).fetch_osquery()) {
 				command_line.printerr("error: download store was not created\n");
 				return 1;
 			}
+			if (!this.listen.start()) {
+				command_line.printerr("error: local socket did not bind\n");
+				return 1;
+			}
 			if (!this.ssl_listen.listen()) {
+				this.listen.stop();
 				command_line.printerr("error: app socket did not bind\n");
 				return 1;
 			}
 			if (!this.download_listen.listen()) {
 				this.ssl_listen.stop();
+				this.listen.stop();
 				command_line.printerr("error: download socket did not bind\n");
 				return 1;
 			}
@@ -279,6 +327,17 @@ namespace Argus.Server
 			debug_log_file.puts(timestamp + ": " + level.to_string() + " : " + message + "\n");
 			debug_log_file.flush();
 			debug_log_in_progress = false;
+		}
+
+		/**
+		 * Send one notification on the Unix socket and the app socket.
+		 *
+		 * @param notification bin notification
+		 */
+		public void broadcast(OLLMrpc.Notification notification)
+		{
+			this.listen.broadcast(notification);
+			this.ssl_listen.broadcast(notification);
 		}
 	}
 

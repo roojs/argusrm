@@ -23,8 +23,8 @@ namespace Argus.Server
 	 *
 	 * Binds {@link Application.socket}. Registration, commands,
 	 * identity, and warnings stay on this socket. The handshake
-	 * requires a client certificate. Same product CA as
-	 * {@link Download}. This is not the file daemon.
+	 * requires a client certificate, unless {@link pin} is set.
+	 * Same product CA as {@link Download}. This is not the file daemon.
 	 *
 	 * == Example ==
 	 *
@@ -43,9 +43,15 @@ namespace Argus.Server
 			get; set; default = new GLib.SocketService();
 		}
 		private bool listening = false;
-		private Gee.ArrayList<OLLMrpc.Transport.Connection> connections {
-			get; set; default = new Gee.ArrayList<OLLMrpc.Transport.Connection>();
+		private Gee.ArrayList<SslConnection> connections {
+			get; set; default = new Gee.ArrayList<SslConnection>();
 		}
+
+		/**
+		 * Six digits from {@link ClientCert.pair}. Empty unless
+		 * the registration window is open.
+		 */
+		public string pin { get; set; default = ""; }
 
 		public SslListen(Application app)
 		{
@@ -57,8 +63,9 @@ namespace Argus.Server
 		 *
 		 * Returns false when the address is empty or the port is
 		 * outside 1–65535. Bind failure logs a warning and returns
-		 * false. A client certificate is required. A bad identity
-		 * flag alone is ignored, the same as ''ollmfilesd''.
+		 * false. A client certificate is required unless
+		 * {@link pin} is set. A bad identity flag alone is
+		 * ignored, the same as ''ollmfilesd''.
 		 *
 		 * @return true when the app socket is up
 		 */
@@ -110,7 +117,13 @@ namespace Argus.Server
 					tls.database = this.app.tls.trust;
 				}
 				tls.authentication_mode = GLib.TlsAuthenticationMode.REQUIRED;
+				if (this.pin != "") {
+					tls.authentication_mode = GLib.TlsAuthenticationMode.REQUESTED;
+				}
 				tls.accept_certificate.connect((peer_cert, errors) => {
+					if (this.pin != "") {
+						return true;
+					}
 					if (peer_cert == null) {
 						return false;
 					}
@@ -129,7 +142,7 @@ namespace Argus.Server
 						fingerprint = GLib.Checksum.compute_for_data(
 							GLib.ChecksumType.SHA256, peer.certificate.data);
 					}
-					var rpc = new OLLMrpc.Transport.Connection(conn) {
+					var rpc = new SslConnection(conn, this.app) {
 						io = tls,
 						cert_fingerprint = fingerprint,
 						live_handles = true
@@ -143,6 +156,18 @@ namespace Argus.Server
 			this.listening = true;
 			GLib.debug("SSL listening on %s:%u", host, (uint) port);
 			return true;
+		}
+
+		/**
+		 * Send one notification on every app-socket connection.
+		 *
+		 * @param notification bin notification
+		 */
+		public void broadcast(GLib.Object notification)
+		{
+			foreach (var connection in this.connections) {
+				connection.write(notification);
+			}
 		}
 
 		/**
