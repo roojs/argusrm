@@ -52,7 +52,7 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Six digits from {@link ClientCert.pair}. Empty unless
+		 * Six digits from {@link Agent.pair}. Empty unless
 		 * the registration window is open.
 		 */
 		public string pin { get; set; default = ""; }

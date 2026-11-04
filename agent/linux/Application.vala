@@ -75,25 +75,125 @@ namespace Argus.Agent.Linux
 				command_line.printerr("Run argus-agent as root.\n");
 				return 1;
 			}
+			Gtk.init();
 			var pkexec = GLib.Environment.find_program_in_path("pkexec");
 			if (pkexec == null) {
-				command_line.printerr("Could not request administrator access: pkexec was not found.\n");
-				return 1;
+				var missing = new Argus.Shared.Notice("Could not request administrator access", "pkexec was not found.");
+				missing.add_response("ok", "OK");
+				missing.closed.connect(() => {
+					this.quit();
+				});
+				missing.present(null);
+				this.hold();
+				return 0;
 			}
 			var executable = "";
 			try {
 				executable = GLib.FileUtils.read_link("/proc/self/exe");
 			} catch (GLib.FileError e) {
-				command_line.printerr("Could not resolve argus-agent: %s\n", e.message);
-				return 1;
+				var missing = new Argus.Shared.Notice("Could not resolve argus-agent", e.message);
+				missing.add_response("ok", "OK");
+				missing.closed.connect(() => {
+					this.quit();
+				});
+				missing.present(null);
+				this.hold();
+				return 0;
 			}
-			try {
-				new GLib.Subprocess.newv({pkexec, executable}, GLib.SubprocessFlags.NONE);
-			} catch (GLib.Error e) {
-				command_line.printerr("Could not request administrator access: %s\n", e.message);
-				return 1;
-			}
+			var launched = false;
+			var notice = new Argus.Shared.Notice("This application needs to run as admin", "You will be prompted to escalate privileges.");
+			notice.add_response("ok", "OK");
+			notice.responded.connect((response) => {
+				launched = this.on_start_admin(response, pkexec, executable);
+			});
+			notice.closed.connect(() => {
+				if (!launched) {
+					this.quit();
+				}
+			});
+			notice.present(null);
+			this.hold();
 			return 0;
+		}
+
+		/**
+		 * Start the elevated agent after the admin notice.
+		 *
+		 * Runs pkexec with the session display variables so the
+		 * root process can show the next window.
+		 *
+		 * @param response button id from the notice
+		 * @param pkexec path to pkexec
+		 * @param executable this agent
+		 * @return true when elevation was started
+		 */
+		private bool on_start_admin(string response, string pkexec, string executable)
+		{
+			if (response != "ok") {
+				return false;
+			}
+			var session_display = GLib.Environment.get_variable("DISPLAY");
+			var session_wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
+			var session_runtime = GLib.Environment.get_variable("XDG_RUNTIME_DIR");
+			var session_xauth = GLib.Environment.get_variable("XAUTHORITY");
+			var session_bus = GLib.Environment.get_variable("DBUS_SESSION_BUS_ADDRESS");
+			var env_bin = GLib.Environment.find_program_in_path("env");
+			string[] argv = { pkexec };
+			if (env_bin != null) {
+				argv += env_bin;
+				if (session_display != null && session_display != "") {
+					argv += "DISPLAY=" + session_display;
+				}
+				if (session_wayland != null && session_wayland != "") {
+					argv += "WAYLAND_DISPLAY=" + session_wayland;
+				}
+				if (session_runtime != null && session_runtime != "") {
+					argv += "XDG_RUNTIME_DIR=" + session_runtime;
+				}
+				if (session_xauth != null && session_xauth != "") {
+					argv += "XAUTHORITY=" + session_xauth;
+				}
+				if (session_bus != null && session_bus != "") {
+					argv += "DBUS_SESSION_BUS_ADDRESS=" + session_bus;
+				}
+			}
+			argv += executable;
+			GLib.Subprocess proc;
+			try {
+				proc = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.NONE);
+			} catch (GLib.Error e) {
+				var failed = new Argus.Shared.Notice("Could not request administrator access", e.message);
+				failed.add_response("ok", "OK");
+				failed.closed.connect(() => {
+					this.quit();
+				});
+				failed.present(null);
+				return true;
+			}
+			proc.wait_async.begin(null, (obj, res) => {
+				try {
+					proc.wait_async.end(res);
+				} catch (GLib.Error e) {
+					var failed = new Argus.Shared.Notice("Could not request administrator access", e.message);
+					failed.add_response("ok", "OK");
+					failed.closed.connect(() => {
+						this.quit();
+					});
+					failed.present(null);
+					return;
+				}
+				if (proc.get_successful()) {
+					this.quit();
+					return;
+				}
+				var denied = new Argus.Shared.Notice("Could not request administrator access", "Administrator access was not granted.");
+				denied.add_response("ok", "OK");
+				denied.closed.connect(() => {
+					this.quit();
+				});
+				denied.present(null);
+			});
+			return true;
 		}
 
 		public ServiceStatus status() throws GLib.DBusError, GLib.IOError
@@ -104,26 +204,79 @@ namespace Argus.Agent.Linux
 		private int registration(GLib.ApplicationCommandLine command_line)
 		{
 			var args = command_line.get_arguments();
+			var have_display = GLib.Environment.get_variable("DISPLAY");
+			var have_wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
+			var desktop = (have_display != null && have_display != "") || (have_wayland != null && have_wayland != "");
 			if (args.length > 1) {
-				command_line.printerr("argus-agent does not accept registration arguments.\n");
-				return 1;
+				if (!desktop) {
+					command_line.printerr("argus-agent does not accept registration arguments.\n");
+					return 1;
+				}
+				Gtk.init();
+				var failed = new Argus.Shared.Notice("argus-agent does not accept registration arguments", "");
+				failed.add_response("ok", "OK");
+				failed.closed.connect(() => {
+					this.quit();
+				});
+				failed.present(null);
+				this.hold();
+				return 0;
 			}
 			var service = new ServiceManager();
 			try {
 				service.setup();
 			} catch (GLib.Error e) {
-				command_line.printerr("Could not set up the Argus agent service: %s\n",
-					e.message);
-				return 1;
+				if (!desktop) {
+					command_line.printerr("Could not set up the Argus agent service: %s\n", e.message);
+					return 1;
+				}
+				Gtk.init();
+				var failed = new Argus.Shared.Notice("Could not set up the Argus agent service", e.message);
+				failed.add_response("ok", "OK");
+				failed.closed.connect(() => {
+					this.quit();
+				});
+				failed.present(null);
+				this.hold();
+				return 0;
 			}
 			var certificate = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(certificate, GLib.FileTest.EXISTS)) {
-				command_line.print("Argus agent is already registered.\n");
+				if (!desktop) {
+					command_line.print("Argus agent is already registered.\n");
+					return 0;
+				}
+				Gtk.init();
+				var failed = false;
+				var notice = new Argus.Shared.Notice("Argus agent is running", "");
+				notice.add_response("close", "Close");
+				notice.add_response("restart", "Restart");
+				notice.responded.connect((response) => {
+					if (response != "restart") {
+						return;
+					}
+					try {
+						service.restart();
+					} catch (GLib.Error e) {
+						failed = true;
+						var error_notice = new Argus.Shared.Notice("Could not restart the Argus agent service", e.message);
+						error_notice.add_response("ok", "OK");
+						error_notice.closed.connect(() => {
+							this.quit();
+						});
+						error_notice.present(null);
+					}
+				});
+				notice.closed.connect(() => {
+					if (!failed) {
+						this.quit();
+					}
+				});
+				notice.present(null);
+				this.hold();
 				return 0;
 			}
-			var display = GLib.Environment.get_variable("DISPLAY");
-			var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
-			if ((display != null && display != "") || (wayland != null && wayland != "")) {
+			if (desktop) {
 				Gtk.init();
 				var window = new Argus.Shared.RegisterWindow() {
 					data_dir = Argus.AGENT_DATA_DIR
@@ -132,17 +285,14 @@ namespace Argus.Agent.Linux
 				window.certificate_received.connect(() => {
 					try {
 						service.restart();
-						GLib.Idle.add(() => {
-							window.listen_label.label =
-								"Registration succeeded. The Argus agent is running and connected. " +
-								"This window will close in 10 seconds.";
-							return false;
-						});
 					} catch (GLib.Error e) {
-						window.error_occurred(
-							"Registered, but could not restart the Argus agent service: " +
-							e.message);
+						window.error_occurred("Registered, but could not restart the Argus agent service: " + e.message);
+						return;
 					}
+					GLib.Idle.add(() => {
+						window.listen_label.label = "Registration succeeded. The Argus agent is running and connected. This window will close in 10 seconds.";
+						return false;
+					});
 				});
 				window.present(null);
 				window.closed.connect(() => {
@@ -176,8 +326,7 @@ namespace Argus.Agent.Linux
 				return 1;
 			}
 			var port = 0;
-			if (!int.try_parse(hostport.substring(colon + 1), out port) ||
-				port <= 0 || port > 65535) {
+			if (!int.try_parse(hostport.substring(colon + 1), out port) || port <= 0 || port > 65535) {
 				command_line.printerr("No management server found.\n");
 				return 1;
 			}
@@ -203,8 +352,7 @@ namespace Argus.Agent.Linux
 					command_line.printerr("Enter the six digits.\n");
 					continue;
 				}
-				var code = registration.try_connection(hostport.substring(0, colon),
-					(uint16) port, pin, GLib.Environment.get_host_name());
+				var code = registration.try_connection(hostport.substring(0, colon), (uint16) port, pin, GLib.Environment.get_host_name());
 				if (code != 0) {
 					command_line.printerr("Registration failed: %d\n", code);
 					continue;
@@ -212,8 +360,7 @@ namespace Argus.Agent.Linux
 				try {
 					service.restart();
 				} catch (GLib.Error e) {
-					command_line.printerr("Registered, but could not restart the Argus agent service: %s\n",
-						e.message);
+					command_line.printerr("Registered, but could not restart the Argus agent service: %s\n", e.message);
 					return 1;
 				}
 				command_line.print("Registration succeeded. The Argus agent is running and connected.\n");

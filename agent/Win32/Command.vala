@@ -257,6 +257,16 @@ namespace Argus.Agent
 					Command.send_lock.unlock();
 				}
 			}
+			Command.send_lock.lock();
+			try {
+				link.call(new OLLMrpc.Request() {
+					method = "Command.ended",
+					args = OLLMrpc.args("s", this.identifier)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			Command.send_lock.unlock();
 		}
 
 		/**

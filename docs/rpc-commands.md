@@ -25,7 +25,7 @@ A call name is `Class.method`. The letters in `OLLMrpc.args` are the argument ty
 
 The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download socket is not an RPC call. See [Downloads](#downloads).
 
-### `ClientCert.request_registration`
+### `Agent.request_registration`
 
 - Socket: the app socket. The client certificate does not exist yet.
 - Direction: agent calls the server.
@@ -39,7 +39,15 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - Index 2 is the download socket `host:port`. The agent writes that as `download`.
   - Index 3 is the download URL path, including the extension. The agent writes that as `download-path`. The server chooses it from the OS family.
   - Later entries are listen addresses.
-- ℹ️ The method is `ollmfilesd/ClientCert.vala`. The agent calls it from `shared/Register.vala`.
+- ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
+
+### `Agent.list`
+
+- Socket: the Unix socket.
+- Direction: controller calls the server.
+- Arguments: none.
+- Reply `retval` `o`: an array of `Argus.Shared.Agent` rows, at most twenty.
+- 💩 The controller prints `id` and `requester`.
 
 ### `OSQuery.sync`
 
@@ -130,7 +138,7 @@ The agent does not do this. The handler is `server/Command.vala`.
 - 🔷 A controller that initialized an install can watch that install.
 - 🔷 The type name says the controller receives it.
 - 💩 `Connection.running` is that check. The notification method is `controller.stdout` or `controller.stderr`. Arguments are `ss`: identifier, then that chunk.
-- 💩 How the server learns that the process exited was not named.
+- 💩 The agent calls `Command.ended` when the child is dead. The server then writes `controller.ended`.
 
 ### `Command.run`
 
@@ -153,6 +161,11 @@ The agent does not do this. The handler is `server/Command.vala`.
 - 🔷 Notification on the controller connection that initialized the run, when that connection is still up.
 - 💩 Argus sends this after each `Command.stderr`. Arguments `ss`: identifier, then that stderr chunk.
 
+### `controller.ended`
+
+- 🔷 Notification on the controller connection that initialized the run, when that connection is still up.
+- 💩 Argus sends this after `Command.ended`. Arguments `s`: identifier.
+
 ---
 
 ## Calls the agent sends for a run
@@ -170,3 +183,8 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 - 🔷 The agent sends this as stderr arrives.
 - 🔷 Each call is the next stderr chunk. The command is not resent.
 - 💩 Arguments `ss`: identifier, chunk.
+
+### `Command.ended`
+
+- 🔷 The agent sends this when the child is dead.
+- 💩 Arguments `s`: identifier.

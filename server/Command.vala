@@ -50,7 +50,8 @@ namespace Argus.Server
 				"run", "xo",
 				"send", "ss",
 				"stdout", "ss",
-				"stderr", "ss"
+				"stderr", "ss",
+				"ended", "s"
 			);
 		}
 
@@ -139,10 +140,10 @@ namespace Argus.Server
 		{
 			var caller = request.connection as SslConnection;
 			if (caller != null) {
-				var rows = new Gee.ArrayList<Agent>();
+				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 				var int_binds = new Gee.HashMap<string, int>();
 				int_binds.set("id", (int) caller.agent_id);
-				Agent.query(this.app.db).selectWhere(
+				Argus.Shared.Agent.query(this.app.db).selectWhere(
 					"WHERE id = $id AND is_controller = 1",
 					int_binds, null, rows);
 				if (rows.size == 0) {
@@ -217,10 +218,10 @@ namespace Argus.Server
 		{
 			var caller = request.connection as SslConnection;
 			if (caller != null) {
-				var rows = new Gee.ArrayList<Agent>();
+				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 				var int_binds = new Gee.HashMap<string, int>();
 				int_binds.set("id", (int) caller.agent_id);
-				Agent.query(this.app.db).selectWhere(
+				Argus.Shared.Agent.query(this.app.db).selectWhere(
 					"WHERE id = $id AND is_controller = 1",
 					int_binds, null, rows);
 				if (rows.size == 0) {
@@ -373,6 +374,44 @@ namespace Argus.Server
 				Command.controllers.get(identifier).write(new OLLMrpc.Notification() {
 					method = "controller.stderr",
 					args = OLLMrpc.args("ss", identifier, text)
+				});
+			}
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Tell the controller the child is dead.
+		 *
+		 * @param request inbound RPC from the agent
+		 * @param identifier {@link Command.identifier} of the run
+		 */
+		public void ended(OLLMrpc.Request request, string identifier)
+		{
+			if (Command.agents == null || !Command.agents.has_key(identifier)) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error(
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"unknown command"
+					)
+				});
+				return;
+			}
+			var caller = request.connection as SslConnection;
+			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error(
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"unknown command"
+					)
+				});
+				return;
+			}
+			if (Command.controllers != null && Command.controllers.has_key(identifier) && Command.controllers.get(identifier).running) {
+				Command.controllers.get(identifier).write(new OLLMrpc.Notification() {
+					method = "controller.ended",
+					args = OLLMrpc.args("s", identifier)
 				});
 			}
 			request.reply(new OLLMrpc.Response() {

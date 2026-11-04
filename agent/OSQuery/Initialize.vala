@@ -118,9 +118,15 @@ namespace Argus.Agent.OSQuery
 				}
 				var url_path = "";
 				try {
+#if LINUX
+					GLib.FileUtils.get_contents(GLib.Path.build_filename(
+						Argus.AGENT_DATA_DIR, "download-path"),
+						out url_path);
+#else
 					GLib.FileUtils.get_contents(GLib.Path.build_filename(
 						GLib.Environment.get_user_data_dir(), "argus", "download-path"),
 						out url_path);
+#endif
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
 					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
@@ -184,6 +190,7 @@ namespace Argus.Agent.OSQuery
 			var rows = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
 			var row_type = OLLMrpc.Bin.alias_to_gtype.get(class_name);
 			new Query(osqueryi, row_type).select("SELECT * FROM " + table, rows);
+			GLib.debug("SELECT * FROM %s %d rows", table, rows.size);
 			OLLMrpc.Response response;
 			try {
 				response = this.link.call(new OLLMrpc.Request() {
@@ -194,7 +201,12 @@ namespace Argus.Agent.OSQuery
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			return response.error == null ? 0 : response.error.code;
+			if (response.error != null) {
+				GLib.debug("%s send failed %s", table, response.error.message);
+				return response.error.code;
+			}
+			GLib.debug("%s sent", table);
+			return 0;
 		}
 	}
 }

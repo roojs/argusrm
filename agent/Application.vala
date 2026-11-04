@@ -111,7 +111,11 @@ namespace Argus.Agent
 			if (this.link != null) {
 				return this.link;
 			}
+#if LINUX
+			var dir = Argus.AGENT_DATA_DIR;
+#else
 			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
+#endif
 			var text = "";
 			try {
 				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
@@ -319,8 +323,12 @@ namespace Argus.Agent
 				});
 			}
 			GLib.debug("staying up");
+#if LINUX
+			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
+#else
 			var cert = GLib.Path.build_filename(
 				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+#endif
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				var link = this.open_link();
 				if (link != null) {

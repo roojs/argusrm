@@ -22,7 +22,7 @@ namespace Argus.Shared
 	 * Certificate registration with Argus.
 	 *
 	 * Adapts the registration half of ''FilesdClient.try_connection'':
-	 * a TLS connection, ''ClientCert.request_registration'', then
+	 * a TLS connection, ''Agent.request_registration'', then
 	 * {@link OLLMrpc.Transport.Cert} files under the user data
 	 * directory ''argus''. The call includes the OS family so the
 	 * server can choose the download. The reply string array is
@@ -163,7 +163,7 @@ namespace Argus.Shared
 					accept_any = true
 				};
 				response = link.call(new OLLMrpc.Request() {
-					method = "ClientCert.request_registration",
+					method = "Agent.request_registration",
 					args = OLLMrpc.args("ssss", pin, csr, requester, family)
 				});
 			} catch (GLib.Error e) {

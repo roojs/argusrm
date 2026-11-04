@@ -198,6 +198,21 @@ namespace Argus.Agent
 					}
 					return true;
 				});
+			this.child.wait_async.begin(null, (obj, res) => {
+				try {
+					this.child.wait_async.end(res);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+				try {
+					this.link.call(new OLLMrpc.Request() {
+						method = "Command.ended",
+						args = OLLMrpc.args("s", this.identifier)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			});
 		}
 
 		/**

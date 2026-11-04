@@ -21,17 +21,11 @@ namespace Argus.Server
 	/**
 	 * Registered agent and its client certificate.
 	 */
-	public class Agent : GLib.Object, SQ.Interface
+	public class Agent : GLib.Object
 	{
 		public Application app { get; private set; }
 
-		public int64 id { get; set; default = 0; }
-		public string fingerprint { get; set; default = ""; }
-		public int status { get; set; default = 0; }
-		public string ip { get; set; default = ""; }
-		public int64 created { get; set; default = 0; }
-		public string requester { get; set; default = ""; }
-		public bool is_controller { get; set; default = false; }
+		private OLLMrpc.Request? pending_pair = null;
 
 		public Agent()
 		{
@@ -51,9 +45,10 @@ namespace Argus.Server
 		public static void rpc_register()
 		{
 			OLLMrpc.Request.add_class(
-				"ClientCert", typeof(Agent),
+				"Agent", typeof(Agent),
 				"request_registration", "ssss",
-				"pair", "s"
+				"pair", "s",
+				"list", ""
 			);
 		}
 
@@ -62,60 +57,6 @@ namespace Argus.Server
 			GnuTLS.X509.Certificate crt,
 			GnuTLS.X509.CertificateRequest request
 		);
-
-		/**
-		 * Rows in ''agent''.
-		 *
-		 * @param db Argus database
-		 * @return the query
-		 */
-		public static SQ.Query<Agent> query(SQ.Database db)
-		{
-			return new SQ.Query<Agent>(db, "agent");
-		}
-
-		/**
-		 * Create ''agent'', migrating the old ''client_cert'' table.
-		 *
-		 * @param db Argus database
-		 */
-		public static void init_db(SQ.Database db)
-		{
-			string errmsg;
-			db.db.exec("ALTER TABLE client_cert RENAME TO agent;", null, out errmsg);
-			var ddl = """
-				CREATE TABLE IF NOT EXISTS agent (
-					id            INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-					fingerprint   TEXT NOT NULL UNIQUE,
-					status        INTEGER NOT NULL DEFAULT 0,
-					ip            TEXT NOT NULL DEFAULT '',
-					created       INT64 NOT NULL DEFAULT 0,
-					requester     TEXT NOT NULL DEFAULT '',
-					is_controller INTEGER NOT NULL DEFAULT 0
-				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("Failed to create agent table: %s", db.db.errmsg());
-			}
-			db.db.exec(
-				"""
-				ALTER TABLE agent ADD COLUMN
-					is_controller INTEGER NOT NULL DEFAULT 0;
-				""",
-				null,
-				out errmsg
-			);
-			var q = Agent.query(db);
-			var now = new GLib.DateTime.now_utc().to_unix();
-			var int_binds = new Gee.HashMap<string, int>();
-			int_binds.set("before", (int) (now - (24 * 60 * 60)));
-			int_binds.set("status", 0);
-			q.deleteWhere(
-				"WHERE status = $status AND created < $before",
-				int_binds,
-				null
-			);
-		}
 
 		/**
 		 * Sign ''csr'' when ''pin'' matches {@link SslListen.pin}.
@@ -284,8 +225,8 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var q = Agent.query(this.app.db);
-			q.insert(new Agent() {
+			var q = Argus.Shared.Agent.query(this.app.db);
+			q.insert(new Argus.Shared.Agent() {
 				fingerprint = fingerprint,
 				status = 1,
 				created = new GLib.DateTime.now_utc().to_unix(),
@@ -295,6 +236,12 @@ namespace Argus.Server
 			this.app.db.backupDB();
 			listen.pin = "";
 			this.app.publish.stop();
+			if (this.pending_pair != null) {
+				this.pending_pair.reply(new OLLMrpc.Response() {
+					msg = "used"
+				});
+				this.pending_pair = null;
+			}
 			var path = "";
 			if (family == "debian") {
 				path = "/osquery/osquery.deb";
@@ -353,6 +300,12 @@ namespace Argus.Server
 				listen.pin = pin;
 				if (pin == "") {
 					this.app.publish.stop();
+					if (this.pending_pair != null) {
+						this.pending_pair.reply(new OLLMrpc.Response() {
+							msg = "ok"
+						});
+						this.pending_pair = null;
+					}
 					request.reply(new OLLMrpc.Response() {
 						msg = "ok"
 					});
@@ -375,9 +328,12 @@ namespace Argus.Server
 						this.app.publish.start(addrs, (uint16) parsed);
 					}
 				}
-				request.reply(new OLLMrpc.Response() {
-					msg = "ok"
-				});
+				if (this.pending_pair != null) {
+					this.pending_pair.reply(new OLLMrpc.Response() {
+						msg = "ok"
+					});
+				}
+				this.pending_pair = request;
 				var owner = request.connection;
 				GLib.Timeout.add(250, () => {
 					if (listen.pin != pin) {
@@ -388,8 +344,13 @@ namespace Argus.Server
 					}
 					listen.pin = "";
 					this.app.publish.stop();
-					GLib.debug(
-						"registration closed after controller disconnected");
+					if (this.pending_pair != null) {
+						this.pending_pair.reply(new OLLMrpc.Response() {
+							msg = "ok"
+						});
+						this.pending_pair = null;
+					}
+					GLib.debug("registration closed after controller disconnected");
 					return false;
 				});
 				return;
@@ -415,6 +376,21 @@ namespace Argus.Server
 			this.app.broadcast(new OLLMrpc.Notification() {
 				method = "event.pair",
 				action = "done"
+			});
+		}
+
+		/**
+		 * List registered machines.
+		 *
+		 * @param request inbound RPC on the Unix socket
+		 */
+		public void list(OLLMrpc.Request request)
+		{
+			var rows = new Gee.ArrayList<Argus.Shared.Agent>();
+			Argus.Shared.Agent.query(this.app.db).select("LIMIT 20", rows);
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
 			});
 		}
 	}

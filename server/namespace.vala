@@ -21,7 +21,7 @@
  *
  * {@link Application} is the headless process.
  * {@link Initialize.fetch_osquery} fetches the osquery
- * installers before the sockets bind. {@link ClientCert} signs
+ * installers before the sockets bind. {@link Agent} signs
  * a certificate while {@link SslListen.pin} is set.
  * {@link GitHub.Release} is the release record that fetch reads.
  * {@link SslListen} is the app

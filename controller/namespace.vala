@@ -19,11 +19,11 @@
 /**
  * Command-line controller for Argus.
  *
- * {@link Application} opens the registration window. It creates
- * the six-digit pin, prints it, and calls ''ClientCert.pair''
- * on the Argus Unix socket. Sixty seconds later it sends an
- * empty pin. That is the ''PairingDialog'' window without a
- * drawing.
+ * {@link Application} hellos on the Unix socket, then runs
+ * {@link Pin}, {@link Agents}, or {@link Command}. ''--pin''
+ * is the registration window. ''--agents'' prints ''id'' and
+ * ''requester''. ''--agent'' and ''--command'' run a line on
+ * that machine.
  *
  * == Example ==
  *

@@ -76,12 +76,12 @@ namespace Argus.Server
 		public SQ.Database db { get; private set; }
 
 		/**
-		 * Unix socket the controller uses for {@link ClientCert.pair}.
+		 * Unix socket the controller uses for {@link Agent.pair}.
 		 */
 		public OLLMrpc.Transport.SocketListen listen { get; private set; }
 
 		/**
-		 * mDNS publish for the registration window. {@link ClientCert.pair}
+		 * mDNS publish for the registration window. {@link Agent.pair}
 		 * starts and stops it.
 		 */
 		public OLLMrpc.Transport.PairPublish publish {
@@ -160,7 +160,7 @@ namespace Argus.Server
 		 * ''0.0.0.0'' and the build ports {@link Argus.SOCKET_PORT}
 		 * and {@link Argus.DOWNLOAD_PORT}. {@link Initialize.fetch_osquery}
 		 * fetches the osquery installers into {@link Argus.SERVER_DATA_DIR}
-		 * before the sockets bind. {@link ClientCert.pair} on the
+		 * before the sockets bind. {@link Agent.pair} on the
 		 * Unix socket opens the registration window.
 		 *
 		 * @param command_line arguments for this launch
@@ -258,12 +258,13 @@ namespace Argus.Server
 				return 1;
 			}
 			Agent.rpc_register();
+			Argus.Shared.Agent.rpc_register();
 			Daemon.rpc_register();
 			OSQuery.rpc_register();
 			Command.rpc_register();
-			Agent.init_db(this.db);
+			Argus.Shared.Agent.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
-			OLLMrpc.Request.register("ClientCert", new Agent.for_rpc(this));
+			OLLMrpc.Request.register("Agent", new Agent.for_rpc(this));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
 			OLLMrpc.Request.register("Command", new Command.for_rpc(this));

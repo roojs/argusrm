@@ -106,6 +106,14 @@ namespace Argus.Agent
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 			}
+			try {
+				link.call(new OLLMrpc.Request() {
+					method = "Command.ended",
+					args = OLLMrpc.args("s", this.identifier)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
 		}
 
 		/**

@@ -23,7 +23,7 @@ namespace Argus.Server
 	 *
 	 * {@link SslListen} constructs one after the TLS handshake.
 	 * An unknown certificate may only call
-	 * ''ClientCert.request_registration''.
+	 * ''Agent.request_registration''.
 	 *
 	 * == Example ==
 	 *
@@ -52,7 +52,7 @@ namespace Argus.Server
 
 		/**
 		 * Unknown certificates may only call
-		 * ''ClientCert.request_registration''.
+		 * ''Agent.request_registration''.
 		 *
 		 * A stored row with status 1 may call the other methods.
 		 *
@@ -61,7 +61,7 @@ namespace Argus.Server
 		 */
 		public override bool allow_request(OLLMrpc.Request request)
 		{
-			if (request.method == "ClientCert.request_registration") {
+			if (request.method == "Agent.request_registration") {
 				return true;
 			}
 			if (this.cert_fingerprint == "") {
@@ -71,8 +71,8 @@ namespace Argus.Server
 				});
 				return false;
 			}
-			var rows = new Gee.ArrayList<Agent>();
-			var cert_q = Agent.query(this.app.db);
+			var rows = new Gee.ArrayList<Argus.Shared.Agent>();
+			var cert_q = Argus.Shared.Agent.query(this.app.db);
 			var int_binds = new Gee.HashMap<string, int>();
 			var text_binds = new Gee.HashMap<string, string>();
 			text_binds.set("fingerprint", this.cert_fingerprint);

@@ -23,8 +23,10 @@ shared_osquery_sources = files(
 )
 shared_sources = files(
 	'namespace.vala',
+	'Agent.vala',
 	'Register.vala',
 	'RegisterWindow.vala',
+	'Notice.vala',
 )
 shared_sources += paths_vala
 shared_sources += shared_osquery_sources

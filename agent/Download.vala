@@ -62,7 +62,11 @@ namespace Argus.Agent
 		public int fetch(string url_path)
 		{
 			OLLMrpc.rpc_register();
+#if LINUX
+			var dir = Argus.AGENT_DATA_DIR;
+#else
 			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
+#endif
 			var text = "";
 			try {
 				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "download"), out text);

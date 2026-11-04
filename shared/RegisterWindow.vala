@@ -366,6 +366,7 @@ namespace Argus.Shared
 
 		private void registration_succeeded()
 		{
+			this.pin_box.visible = false;
 			this.certificate_received();
 			if (!this.registering) {
 				return;

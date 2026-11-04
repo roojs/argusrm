@@ -11,6 +11,9 @@ deps += shared_dep
 sources = files(
 	'namespace.vala',
 	'Application.vala',
+	'Pin.vala',
+	'Agents.vala',
+	'Command.vala',
 )
 executable(
 	'argus-controller',

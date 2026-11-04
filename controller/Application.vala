@@ -19,13 +19,11 @@
 namespace Argus.Controller
 {
 	/**
-	 * Command-line registration window.
+	 * Command-line controller for Argus.
 	 *
 	 * A {@link GLib.Application} with no drawing. {@link command_line}
-	 * creates a six-digit pin, the same range as
-	 * ''PairingDialog.open'', prints it, and sends it with
-	 * ''ClientCert.pair''. Sixty seconds later it sends an empty
-	 * pin and exits.
+	 * hellos on the Unix socket, then runs one of {@link Pin},
+	 * {@link Agents}, or {@link Command}. No flag prints usage.
 	 *
 	 * == Example ==
 	 *
@@ -36,6 +34,22 @@ namespace Argus.Controller
 	 */
 	public class Application : GLib.Application
 	{
+		public static bool pin;
+		public static bool agents;
+		public static string agent;
+		public static string command;
+		private const GLib.OptionEntry[] app_options = {
+			{ "pin", 0, 0, GLib.OptionArg.NONE, ref pin, "Show a registration PIN", null },
+			{ "agents", 0, 0, GLib.OptionArg.NONE, ref agents, "List registered agents", null },
+			{ "agent", 0, 0, GLib.OptionArg.STRING, ref agent, "Agent id", "ID" },
+			{ "command", 0, 0, GLib.OptionArg.STRING, ref command, "Command to run", "COMMAND" },
+			{ null }
+		};
+		public GLib.ApplicationCommandLine cli { get; set; }
+		public OLLMrpc.Client rpc { get; set; }
+		public GLib.MainLoop loop { get; set; }
+		public int code { get; set; default = 1; }
+
 		/**
 		 * Create the process.
 		 *
@@ -52,75 +66,105 @@ namespace Argus.Controller
 		}
 
 		/**
-		 * Open the registration window for sixty seconds.
+		 * Parse the flags, hello, then run one command.
 		 *
-		 * Prints the pin after Argus accepts it. The Unix socket
-		 * is ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
+		 * The Unix socket is ''argus.sock'' under
+		 * {@link Argus.SERVER_DATA_DIR}.
 		 *
 		 * @param command_line arguments for this launch
-		 * @return zero when the window was opened, otherwise the
-		 *   connect or pair error
+		 * @return zero when the command finished, otherwise the
+		 *   usage, connect, or call error
 		 */
 		public override int command_line(GLib.ApplicationCommandLine command_line)
 		{
 			OLLMrpc.rpc_register();
-			var n = GLib.Random.int_range(0, 1000000);
-			var pin = "%06d".printf(n);
-			var rpc = new OLLMrpc.Client("", "",
-				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock"));
-			rpc.debug = false;
-			var loop = new GLib.MainLoop();
-			var code = 1;
-			command_line.print("Connecting to the local Argus server...\n");
-			rpc.connect.begin(new OLLMrpc.Request() {
+			Argus.Shared.Agent.rpc_register();
+			Argus.Controller.Command.rpc_register();
+			pin = false;
+			agents = false;
+			agent = "";
+			command = "";
+			var args = command_line.get_arguments();
+			var opt_context = new GLib.OptionContext(this.application_id);
+			opt_context.set_help_enabled(true);
+			opt_context.add_main_entries(app_options, null);
+			foreach (var arg in args) {
+				if (arg == "--help" || arg == "-h") {
+					command_line.print("%s", opt_context.get_help(true, null));
+					return 0;
+				}
+			}
+			unowned string[] leftover = args;
+			try {
+				opt_context.parse(ref leftover);
+			} catch (GLib.OptionError e) {
+				command_line.printerr("%s\n", e.message);
+				return 1;
+			}
+			var chosen = 0;
+			chosen += pin ? 1 : 0;
+			chosen += agents ? 1 : 0;
+			chosen += agent != "" || command != "" ? 1 : 0;
+			if (chosen != 1) {
+				command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --agent ID --command COMMAND...\n");
+				return 1;
+			}
+			if (agent == "" && !pin && !agents) {
+				command_line.printerr("command needs --agent ID\n");
+				return 1;
+			}
+			var parts = new Gee.ArrayList<string>();
+			if (command != "") {
+				parts.add(command);
+			}
+			parts.add_all_array(leftover[1:leftover.length]);
+			if (!pin && !agents && parts.size < 1) {
+				command_line.printerr("command needs --command\n");
+				return 1;
+			}
+			command = string.joinv(" ", parts.to_array());
+			this.cli = command_line;
+			this.rpc = new OLLMrpc.Client("", "",
+				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
+				live_handles = true
+			};
+			this.rpc.debug = false;
+			this.loop = new GLib.MainLoop();
+			this.code = 1;
+			this.cli.print("Connecting to the local Argus server...\n");
+			this.rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
 				args = OLLMrpc.args("is", 1, "argus-controller")
 			}, null, (obj, res) => {
-				var opened = rpc.connect.end(res);
+				var opened = this.rpc.connect.end(res);
 				if (!opened) {
-					command_line.printerr("%s\n", rpc.connect_error);
-					loop.quit();
+					this.cli.printerr("%s\n", this.rpc.connect_error);
+					this.loop.quit();
 					return;
 				}
-				rpc.call.begin(new OLLMrpc.Request() {
-					method = "ClientCert.pair",
-					args = OLLMrpc.args("s", pin)
-				}, (obj, res) => {
-					try {
-						var response = rpc.call.end(res);
-						if (response.error != null) {
-							command_line.printerr("%s\n", response.error.message);
-							loop.quit();
-							return;
-						}
-					} catch (GLib.Error e) {
-						command_line.printerr("%s\n", e.message);
-						loop.quit();
-						return;
-					}
-					command_line.print(
-						"Registration PIN: %s\n" +
-						"Registration is open for 60 seconds. Press Ctrl+C to close it early.\n",
-						pin);
-					GLib.Timeout.add_seconds(60, () => {
-						rpc.call.begin(new OLLMrpc.Request() {
-							method = "ClientCert.pair",
-							args = OLLMrpc.args("s", "")
-						}, (obj, res) => {
-							try {
-								rpc.call.end(res);
-							} catch (GLib.Error e) {
-								GLib.warning("%s", e.message);
-							}
-							code = 0;
-							loop.quit();
-						});
-						return false;
-					});
+				if (pin) {
+					new Pin(this).run();
+					return;
+				}
+				if (agents) {
+					new Agents(this).run();
+					return;
+				}
+				var order = new Command(this);
+				order.stdout.connect((text) => {
+					this.cli.print("%s", text);
 				});
+				order.stderr.connect((text) => {
+					this.cli.printerr("%s", text);
+				});
+				order.ended.connect(() => {
+					this.code = 0;
+					this.loop.quit();
+				});
+				order.run();
 			});
-			loop.run();
-			return code;
+			this.loop.run();
+			return this.code;
 		}
 	}
 
