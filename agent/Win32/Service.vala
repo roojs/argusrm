@@ -255,7 +255,9 @@ namespace Argus.Agent.Win32
 				var link = this.application.open_link();
 				if (link != null) {
 					new Argus.Agent.OSQuery.Initialize(link).start();
-					new Argus.Agent.Listen(link).start();
+					link.notification.connect(this.application.notification);
+					link.watch();
+					GLib.debug("watching app socket");
 				}
 			}
 			if (line != "" && line != "none") {

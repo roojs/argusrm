@@ -30,7 +30,6 @@ if host_machine.system() == 'linux'
 		'linux/Application.vala',
 		'linux/ServiceManager.vala',
 		'linux/Command.vala',
-		'Listen.vala',
 	)
 	vala_args += [
 		'-D', 'LINUX', '--pkg', 'gio-unix-2.0', '--pkg', 'posix',
@@ -54,7 +53,6 @@ if host_machine.system() == 'windows'
 		'Win32/register-pipe.c',
 		'Win32/tray/Tray.vala',
 		'Win32/Command.vala',
-		'Listen.vala',
 	)
 	vala_args += [
 		'--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32',
@@ -67,7 +65,7 @@ if host_machine.system() == 'android'
 	if not meson.version().version_compare('>=1.8.0')
 		error('Android agent requires Meson >= 1.8.0 for android_exe_type')
 	endif
-	sources += files('android/OSQuery/Initialize.vala', 'android/Command.vala', 'Listen.vala')
+	sources += files('android/OSQuery/Initialize.vala', 'android/Command.vala')
 	vala_args += ['-D', 'ANDROID']
 	executable(
 		'argus-agent',
@@ -87,4 +85,21 @@ else
 		c_args: c_args,
 		install: true,
 	)
+	watch_test = executable(
+		'argus-agent-watch',
+		files('tests/watch.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			dependency('libsoup-3.0'),
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
+		],
+		install: false,
+	)
+	test('agent-watch', watch_test, timeout: 10)
 endif

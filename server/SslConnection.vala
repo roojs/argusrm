@@ -40,10 +40,11 @@ namespace Argus.Server
 		public Application app { get; construct; }
 
 		/**
-		 * ''agent.id'' for this certificate. Zero until
+		 * ''agent.id'' for this certificate. ''-1'' until
 		 * {@link allow_request} finds an approved row.
+		 * ''0'' is the Unix controller, not a TLS agent.
 		 */
-		public int64 agent_id { get; private set; default = 0; }
+		public int64 agent_id { get; set; default = -1; }
 
 		public SslConnection(GLib.SocketConnection stream, Application app)
 		{

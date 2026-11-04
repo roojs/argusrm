@@ -33,7 +33,7 @@ namespace Argus.Server
 	 *
 	 * {{{
 	 * var order = new Argus.Server.Command();
-	 * order.identifier = "1";
+	 * order.identifier = 1;
 	 * order.command = "true";
 	 * }}}
 	 */
@@ -48,17 +48,17 @@ namespace Argus.Server
 			OLLMrpc.Request.add_class(
 				"Command", typeof(Command),
 				"run", "xo",
-				"send", "ss",
-				"stdout", "ss",
-				"stderr", "ss",
-				"ended", "s"
+				"send", "is",
+				"stdout", "is",
+				"stderr", "is",
+				"ended", "i"
 			);
 		}
 
 		/**
 		 * Run identifier. Also the output file name.
 		 */
-		public string identifier { get; set; default = ""; }
+		public int identifier { get; set; default = 0; }
 
 		/**
 		 * Command line the agent passes to the shell.
@@ -85,12 +85,12 @@ namespace Argus.Server
 		/**
 		 * Controller connection for each run, keyed by {@link identifier}.
 		 */
-		private static Gee.HashMap<string, OLLMrpc.Transport.Connection> controllers;
+		private static Gee.HashMap<int, OLLMrpc.Transport.Connection> controllers;
 
 		/**
 		 * Agent connection for each run, keyed by {@link identifier}.
 		 */
-		private static Gee.HashMap<string, SslConnection> agents;
+		private static Gee.HashMap<int, SslConnection> agents;
 
 		/**
 		 * Log directory for each run, keyed by {@link identifier}.
@@ -98,7 +98,7 @@ namespace Argus.Server
 		 * {@link run} sets it from the day the command starts.
 		 * Stdin, stdout, and stderr append in that directory.
 		 */
-		private static Gee.HashMap<string, string> logs;
+		private static Gee.HashMap<int, string> logs;
 
 		/**
 		 * Empty instance for the bin decoder.
@@ -118,9 +118,9 @@ namespace Argus.Server
 			Object();
 			this.app = app;
 			if (Command.agents == null) {
-				Command.agents = new Gee.HashMap<string, SslConnection>();
-				Command.controllers = new Gee.HashMap<string, OLLMrpc.Transport.Connection>();
-				Command.logs = new Gee.HashMap<string, string>();
+				Command.agents = new Gee.HashMap<int, SslConnection>();
+				Command.controllers = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
+				Command.logs = new Gee.HashMap<int, string>();
 			}
 		}
 
@@ -138,6 +138,15 @@ namespace Argus.Server
 		 */
 		public void run(OLLMrpc.Request request, int64 agent_id, Command order)
 		{
+			if (agent_id < 1) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error(
+						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
+						"controller does not run commands"
+					)
+				});
+				return;
+			}
 			var caller = request.connection as SslConnection;
 			if (caller != null) {
 				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
@@ -156,8 +165,7 @@ namespace Argus.Server
 					return;
 				}
 			}
-			if (order.identifier == "" || order.identifier == "." ||
-				order.identifier == ".." || order.identifier.contains("/")) {
+			if (order.identifier < 1) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error(
 						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
@@ -189,7 +197,7 @@ namespace Argus.Server
 				Command.agents.set(order.identifier, connection);
 				Command.controllers.set(order.identifier, request.connection);
 				Command.logs.set(order.identifier, dir);
-				GLib.debug("run %s on agent %s", order.identifier, agent_id.to_string());
+				GLib.debug("run command %d on agent %s", order.identifier, agent_id.to_string());
 				request.reply(new OLLMrpc.Response() {
 					msg = "ok"
 				});
@@ -214,7 +222,7 @@ namespace Argus.Server
 		 * @param identifier {@link Command.identifier} of the run
 		 * @param text bytes for the command's stdin
 		 */
-		public void send(OLLMrpc.Request request, string identifier, string text)
+		public void send(OLLMrpc.Request request, int identifier, string text)
 		{
 			var caller = request.connection as SslConnection;
 			if (caller != null) {
@@ -243,7 +251,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier + ".stdin";
+			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier.to_string() + ".stdin";
 			var path = GLib.Path.build_filename(Command.logs.get(identifier), name);
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
@@ -259,7 +267,7 @@ namespace Argus.Server
 			stream.flush();
 			Command.agents.get(identifier).write(new OLLMrpc.Notification() {
 				method = "agent.send",
-				args = OLLMrpc.args("ss", identifier, text)
+				args = OLLMrpc.args("is", identifier, text)
 			});
 			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
@@ -278,7 +286,7 @@ namespace Argus.Server
 		 * @param identifier {@link Command.identifier} of the run
 		 * @param text this stdout chunk
 		 */
-		public void stdout(OLLMrpc.Request request, string identifier, string text)
+		public void stdout(OLLMrpc.Request request, int identifier, string text)
 		{
 			if (Command.agents == null || !Command.agents.has_key(identifier)) {
 				request.reply(new OLLMrpc.Response() {
@@ -299,7 +307,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier + ".stdout";
+			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier.to_string() + ".stdout";
 			var path = GLib.Path.build_filename(Command.logs.get(identifier), name);
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
@@ -316,7 +324,7 @@ namespace Argus.Server
 			if (Command.controllers != null && Command.controllers.has_key(identifier) && Command.controllers.get(identifier).running) {
 				Command.controllers.get(identifier).write(new OLLMrpc.Notification() {
 					method = "controller.stdout",
-					args = OLLMrpc.args("ss", identifier, text)
+					args = OLLMrpc.args("is", identifier, text)
 				});
 			}
 			request.reply(new OLLMrpc.Response() {
@@ -335,7 +343,7 @@ namespace Argus.Server
 		 * @param identifier {@link Command.identifier} of the run
 		 * @param text this stderr chunk
 		 */
-		public void stderr(OLLMrpc.Request request, string identifier, string text)
+		public void stderr(OLLMrpc.Request request, int identifier, string text)
 		{
 			if (Command.agents == null || !Command.agents.has_key(identifier)) {
 				request.reply(new OLLMrpc.Response() {
@@ -356,7 +364,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier + ".stderr";
+			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier.to_string() + ".stderr";
 			var path = GLib.Path.build_filename(Command.logs.get(identifier), name);
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
@@ -373,7 +381,7 @@ namespace Argus.Server
 			if (Command.controllers != null && Command.controllers.has_key(identifier) && Command.controllers.get(identifier).running) {
 				Command.controllers.get(identifier).write(new OLLMrpc.Notification() {
 					method = "controller.stderr",
-					args = OLLMrpc.args("ss", identifier, text)
+					args = OLLMrpc.args("is", identifier, text)
 				});
 			}
 			request.reply(new OLLMrpc.Response() {
@@ -387,7 +395,7 @@ namespace Argus.Server
 		 * @param request inbound RPC from the agent
 		 * @param identifier {@link Command.identifier} of the run
 		 */
-		public void ended(OLLMrpc.Request request, string identifier)
+		public void ended(OLLMrpc.Request request, int identifier)
 		{
 			if (Command.agents == null || !Command.agents.has_key(identifier)) {
 				request.reply(new OLLMrpc.Response() {
@@ -411,7 +419,7 @@ namespace Argus.Server
 			if (Command.controllers != null && Command.controllers.has_key(identifier) && Command.controllers.get(identifier).running) {
 				Command.controllers.get(identifier).write(new OLLMrpc.Notification() {
 					method = "controller.ended",
-					args = OLLMrpc.args("s", identifier)
+					args = OLLMrpc.args("i", identifier)
 				});
 			}
 			request.reply(new OLLMrpc.Response() {

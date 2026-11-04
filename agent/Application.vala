@@ -69,18 +69,18 @@ namespace Argus.Agent
 		 */
 		internal OLLMrpc.Transport.TlsClient? link { get; private set; }
 
-		private static bool opt_debug;
-		private static bool opt_debug_critical;
-		private static string opt_host;
-		private static int opt_port;
-		private static string opt_pin;
-		private static bool opt_service;
+		protected static bool opt_debug;
+		protected static bool opt_debug_critical;
+		protected static string opt_host;
+		protected static int opt_port;
+		protected static string opt_pin;
+		protected static bool opt_service;
 		private static bool debug_on;
 		private static bool debug_critical_enabled;
 		private static GLib.FileStream? debug_log_file;
 		private static bool debug_log_in_progress;
 
-		private const GLib.OptionEntry[] app_options = {
+		protected const GLib.OptionEntry[] app_options = {
 			{ "debug", 'd', 0, GLib.OptionArg.NONE, ref opt_debug, "Enable debug output", null },
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
 			{ "host", 0, 0, GLib.OptionArg.STRING, ref opt_host, "Argus address", "HOST" },
@@ -174,8 +174,8 @@ namespace Argus.Agent
 		 * registers. The Android app icon opens the registration
 		 * window, and the box says this phone is already registered.
 		 * A registered process starts
-		 * {@link OSQuery.Initialize} and {@link Listen}. The
-		 * Android {@link OSQuery.Initialize} does not query.
+		 * {@link OSQuery.Initialize} and watches the app socket.
+		 * The Android {@link OSQuery.Initialize} does not query.
 		 * With none of those, the process browses and stays up.
 		 *
 		 * @param command_line arguments for this launch
@@ -271,7 +271,9 @@ namespace Argus.Agent
 				var link = this.open_link();
 				if (link != null) {
 					new OSQuery.Initialize(link).start();
-					new Listen(link).start();
+					link.notification.connect(this.notification);
+					link.watch();
+					GLib.debug("watching app socket");
 				}
 				GLib.debug("staying up");
 #if LINUX
@@ -316,7 +318,9 @@ namespace Argus.Agent
 						var link = this.open_link();
 						if (link != null) {
 							new OSQuery.Initialize(link).start();
-							new Listen(link).start();
+							link.notification.connect(this.notification);
+							link.watch();
+							GLib.debug("watching app socket");
 						}
 					}
 					return false;
@@ -333,11 +337,73 @@ namespace Argus.Agent
 				var link = this.open_link();
 				if (link != null) {
 					new OSQuery.Initialize(link).start();
-					new Listen(link).start();
+					link.notification.connect(this.notification);
+					link.watch();
+					GLib.debug("watching app socket");
 				}
 			}
 			this.hold();
 			return 0;
+		}
+
+		/**
+		 * Run a command notification, or follow up on one.
+		 *
+		 * ''agent.run'' hands the ''Argus.Command'' to
+		 * {@link Command.run}. ''agent.send'' writes its text to
+		 * the stdin of the command with that id. Any other
+		 * method returns.
+		 *
+		 * @param notification notification from the app socket
+		 */
+		public void notification(OLLMrpc.Notification notification)
+		{
+			GLib.debug("%s", notification.method);
+			switch (notification.method) {
+				case "agent.send":
+					if (notification.args.size < 2) {
+						return;
+					}
+					var id_value = notification.args.get(0);
+					var text_value = notification.args.get(1);
+					if (id_value == null || text_value == null) {
+						return;
+					}
+					if (!id_value.holds(typeof(int)) ||
+						!text_value.holds(typeof(string))) {
+						return;
+					}
+					var identifier = id_value.get_int();
+					Command.send_lock.lock();
+					Command order = null;
+					if (Command.running != null &&
+						Command.running.has_key(identifier)) {
+						order = Command.running.get(identifier);
+					}
+					Command.send_lock.unlock();
+					if (order == null) {
+						GLib.warning("command %d is not running", identifier);
+						return;
+					}
+					order.send(text_value.get_string());
+					return;
+				case "agent.run":
+					if (notification.args.size == 0) {
+						GLib.warning("no argument");
+						return;
+					}
+					var value = notification.args.get(0);
+					var obj = value.get_object();
+					if (!(obj is Command)) {
+						GLib.warning("%s", value.type().name());
+						return;
+					}
+					var command = (Command) obj;
+					command.run(this.link);
+					return;
+				default:
+					return;
+			}
 		}
 
 		/**

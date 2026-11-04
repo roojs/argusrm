@@ -148,9 +148,18 @@ namespace Argus.Server
 					}
 					var rpc = new SslConnection(conn, this.app) {
 						io = tls,
-						cert_fingerprint = fingerprint,
-						live_handles = true
+						cert_fingerprint = fingerprint
 					};
+					var rows = new Gee.ArrayList<Argus.Shared.Agent>();
+					var int_binds = new Gee.HashMap<string, int>();
+					var text_binds = new Gee.HashMap<string, string>();
+					text_binds.set("fingerprint", fingerprint);
+					Argus.Shared.Agent.query(this.app.db).selectWhere(
+						"WHERE fingerprint = $fingerprint AND status = 1",
+						int_binds, text_binds, rows);
+					if (rows.size > 0) {
+						rpc.agent_id = rows.get(0).id;
+					}
 					rpc.start();
 					this.connections.add(rpc);
 				});

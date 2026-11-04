@@ -33,7 +33,7 @@ namespace Argus.Agent
 	 *
 	 * {{{
 	 * var order = new Argus.Agent.Command();
-	 * order.identifier = "1";
+	 * order.identifier = 1;
 	 * order.command = "true";
 	 * order.run(link);
 	 * }}}
@@ -51,7 +51,7 @@ namespace Argus.Agent
 		/**
 		 * Run identifier from the server.
 		 */
-		public string identifier { get; set; default = ""; }
+		public int identifier { get; set; default = 0; }
 
 		/**
 		 * Command line. {@link run} passes it to ''sh -c''.
@@ -80,7 +80,7 @@ namespace Argus.Agent
 		 *
 		 * {@link send} writes the follow-up text to that command's stdin.
 		 */
-		internal static Gee.HashMap<string, Command> running;
+		internal static Gee.HashMap<int, Command> running;
 
 		/**
 		 * Child. Its stdin, stdout, and stderr pipes stay open.
@@ -139,7 +139,7 @@ namespace Argus.Agent
 				return;
 			}
 			this.child = child;
-			GLib.debug("command %s", this.identifier);
+			GLib.debug("command %d", this.identifier);
 			var stdin_pipe = child.get_stdin_pipe();
 			var stdout_pipe = child.get_stdout_pipe();
 			var stderr_pipe = child.get_stderr_pipe();
@@ -152,7 +152,7 @@ namespace Argus.Agent
 			this.stderr_pipe = stderr_pipe;
 			Command.send_lock.lock();
 			if (Command.running == null) {
-				Command.running = new Gee.HashMap<string, Command>();
+				Command.running = new Gee.HashMap<int, Command>();
 			}
 			Command.running.set(this.identifier, this);
 			Command.send_lock.unlock();
@@ -207,7 +207,7 @@ namespace Argus.Agent
 				try {
 					this.link.call(new OLLMrpc.Request() {
 						method = "Command.ended",
-						args = OLLMrpc.args("s", this.identifier)
+						args = OLLMrpc.args("i", this.identifier)
 					});
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
@@ -251,7 +251,7 @@ namespace Argus.Agent
 		public void send(string text)
 		{
 			if (this.stdin_pipe == null) {
-				GLib.warning("command %s is not running", this.identifier);
+				GLib.warning("command %d is not running", this.identifier);
 				return;
 			}
 			try {
@@ -279,7 +279,7 @@ namespace Argus.Agent
 			try {
 				var response = this.link.call(new OLLMrpc.Request() {
 					method = method,
-					args = OLLMrpc.args("ss", this.identifier, text)
+					args = OLLMrpc.args("is", this.identifier, text)
 				});
 				if (response.error != null) {
 					GLib.warning("command %d", response.error.code);

@@ -37,7 +37,8 @@ namespace Argus.Controller
 	public class Command : GLib.Object, OLLMrpc.Bin.Serializable
 	{
 		public Application app;
-		public string identifier { get; set; default = ""; }
+		public int identifier { get; set; default = 0; }
+		private static int next_identifier = 1;
 		public string command { get; set; default = ""; }
 		public string[] environment { get; set; default = {}; }
 		public string cwd { get; set; default = ""; }
@@ -65,14 +66,20 @@ namespace Argus.Controller
 		public void run()
 		{
 			var id = (int64) 0;
-			if (!int64.try_parse(Application.agent, out id) || id <= 0) {
+			if (!int64.try_parse(Application.agent, out id) || id < 1) {
 				this.stderr("command needs an agent id\n");
 				this.ended();
 				return;
 			}
-			this.identifier = GLib.get_real_time().to_string();
+			this.identifier = Command.next_identifier++;
 			this.command = Application.command;
 			this.app.rpc.notification.connect((notification) => {
+				if (notification.args.size < 1) {
+					return;
+				}
+				if (notification.args.get(0).get_int() != this.identifier) {
+					return;
+				}
 				if (notification.method == "controller.ended") {
 					this.ended();
 					return;

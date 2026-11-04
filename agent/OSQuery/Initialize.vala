@@ -73,6 +73,11 @@ namespace Argus.Agent.OSQuery
 				var code = this.run();
 				Initialize.running = false;
 				GLib.debug("osquery %d", code);
+				GLib.Idle.add(() => {
+					this.link.watch();
+					GLib.debug("watching app socket");
+					return false;
+				});
 				return code;
 			});
 		}

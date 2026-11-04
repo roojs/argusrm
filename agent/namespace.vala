@@ -32,10 +32,11 @@
  * {@link Argus.Shared.OSQuery.Row} objects. {@link OSQuery.Initialize}
  * syncs each table to the server. Android compiles its own
  * {@link OSQuery.Initialize}, which does not query.
- * {@link Listen} takes a command notification. {@link Command}
- * runs it. Linux, Windows, and Android each compile their own
- * file for that class. The Android file does not spawn. A
- * ''agent.send'' notification writes to that command's stdin.
+ * {@link Application.notification} takes a command
+ * notification. {@link Command} runs it. Linux, Windows, and
+ * Android each compile their own file for that class. The
+ * Android file does not spawn. A ''agent.send'' notification
+ * writes to that command's stdin.
  *
  * == Example ==
  *

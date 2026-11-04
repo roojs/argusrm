@@ -29,7 +29,7 @@ namespace Argus.Agent
 	 *
 	 * {{{
 	 * var order = new Argus.Agent.Command();
-	 * order.identifier = "1";
+	 * order.identifier = 1;
 	 * order.command = "true";
 	 * order.run(link);
 	 * }}}
@@ -47,7 +47,7 @@ namespace Argus.Agent
 		/**
 		 * Run identifier from the server.
 		 */
-		public string identifier { get; set; default = ""; }
+		public int identifier { get; set; default = 0; }
 
 		/**
 		 * Command line. {@link run} does not execute it.
@@ -76,7 +76,7 @@ namespace Argus.Agent
 		 *
 		 * {@link send} is the follow-up on that command.
 		 */
-		internal static Gee.HashMap<string, Command> running;
+		internal static Gee.HashMap<int, Command> running;
 
 		/**
 		 * Accept the command and report that it started.
@@ -88,17 +88,17 @@ namespace Argus.Agent
 		 */
 		public void run(OLLMrpc.Transport.TlsClient link)
 		{
-			GLib.warning("command %s was not run", this.identifier);
+			GLib.warning("command %d was not run", this.identifier);
 			Command.send_lock.lock();
 			if (Command.running == null) {
-				Command.running = new Gee.HashMap<string, Command>();
+				Command.running = new Gee.HashMap<int, Command>();
 			}
 			Command.running.set(this.identifier, this);
 			Command.send_lock.unlock();
 			try {
 				var response = link.call(new OLLMrpc.Request() {
 					method = "Command.stdout",
-					args = OLLMrpc.args("ss", this.identifier, "")
+					args = OLLMrpc.args("is", this.identifier, "")
 				});
 				if (response.error != null) {
 					GLib.warning("command %d", response.error.code);
@@ -109,7 +109,7 @@ namespace Argus.Agent
 			try {
 				link.call(new OLLMrpc.Request() {
 					method = "Command.ended",
-					args = OLLMrpc.args("s", this.identifier)
+					args = OLLMrpc.args("i", this.identifier)
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
@@ -123,7 +123,7 @@ namespace Argus.Agent
 		 */
 		public void send(string text)
 		{
-			GLib.warning("command %s was not run", this.identifier);
+			GLib.warning("command %d was not run", this.identifier);
 		}
 	}
 }

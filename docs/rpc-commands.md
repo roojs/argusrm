@@ -84,7 +84,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 🔷 The connected agent has a class that listens for notifications.
 - 🔷 The command class deals with the command notifications.
 - 🔷 Every notification has a method. The listener switches on it.
-- 💩 `Argus.Agent.Listen` in `agent/Listen.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Any other method returns. `start` does not pull one yet: `TlsClient.call` only returns a `Response`.
+- 💩 `Application.notification` in `agent/Application.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Any other method returns. After `open_link` the process connects `TlsClient.notification` and calls `TlsClient.watch`. [2.4-listen.md](plans/2.4-listen.md).
 
 - 🔷 A notification is for one connection. There are two deliveries.
   - A broadcast notification goes to every connection.
@@ -111,7 +111,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 🔷 `Argus.Agent.Command` is a Linux class and a Windows class. They monitor the sockets differently. One class wrapped in ifdefs would be overwhelming.
 - 🚫 A base class is not the split.
 - 💩 `agent/linux/Command.vala`, `agent/Win32/Command.vala`, and `agent/android/Command.vala` are all `Argus.Agent.Command`. The build compiles one of them. Each registers the bin alias `Argus.Command`. Linux runs `sh -c` and watches stdout and stderr with `IOChannel.add_watch`. Windows runs `cmd.exe /c` and waits with `IOChannel.win32_poll`. Stdin, stdout, and stderr stay open on those two. An empty `cwd` or an empty `environment` inherits the agent process. The Android `run` does not spawn. It sends `Command.stdout` with an empty chunk.
-- 💩 Properties on both: `identifier` `s`, `command` `s`, `environment` `as`, `cwd` `s`.
+- 💩 Properties on both: `identifier` `i`, `command` `s`, `environment` `as`, `cwd` `s`.
 - 💩 Each environment entry is `NAME=value`. `cwd` is the current working directory.
 - 💩 The `agent.run` notification `args` hold that one object. The bin alias is `Argus.Command`.
 
@@ -123,7 +123,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 ### `agent.send`
 
 - 🔷 A later notification can follow up on a running command. The method is `agent.send`, and it has an id.
-- 💩 The id is the command `identifier` string. Arguments `ss`: identifier, then the text. `Command.send` writes that text to the command's stdin. Android logs and does not write.
+- 💩 The id is the command `identifier` int. Arguments `is`: identifier, then the text. `Command.send` writes that text to the command's stdin. Android logs and does not write.
 - 💩 `Notification.id` is an int. It is not this id.
 
 ## Server, after those calls
@@ -133,11 +133,11 @@ The agent does not do this. The handler is `server/Command.vala`.
 - 🔷 Argus appends each `Command.stdout` chunk to a file.
 - 💩 Argus appends each `Command.stderr` chunk to the stderr file.
 - 💩 `Command.send` appends its text to the stdin file.
-- 💩 `Command.run` stores `localstatedir/log/argusrm/commands/yyyy/mm/dd/` from the day the command starts. The default is `/var/log/argusrm`. Later stdin, stdout, and stderr append in that directory. The file is `{agent.id}-{identifier}` plus `.stdin`, `.stdout`, or `.stderr`. An identifier of empty, `.`, `..`, or containing `/` is refused.
+- 💩 `Command.run` stores `localstatedir/log/argusrm/commands/yyyy/mm/dd/` from the day the command starts. The default is `/var/log/argusrm`. Later stdin, stdout, and stderr append in that directory. The file is `{agent.id}-{identifier}` plus `.stdin`, `.stdout`, or `.stderr`. An identifier less than `1` is refused.
 - 🔷 Argus then sends a client notification on the controller connection that initialized the run, when that connection is still up.
 - 🔷 A controller that initialized an install can watch that install.
 - 🔷 The type name says the controller receives it.
-- 💩 `Connection.running` is that check. The notification method is `controller.stdout` or `controller.stderr`. Arguments are `ss`: identifier, then that chunk.
+- 💩 `Connection.running` is that check. The notification method is `controller.stdout` or `controller.stderr`. Arguments are `is`: identifier, then that chunk.
 - 💩 The agent calls `Command.ended` when the child is dead. The server then writes `controller.ended`.
 
 ### `Command.run`
@@ -149,22 +149,22 @@ The agent does not do this. The handler is `server/Command.vala`.
 ### `Command.send`
 
 - 🔷 The controller calls this on the server. The server then sends the `send` notification to the agent that accepted that `run`.
-- 💩 Arguments `ss`: identifier, then the text. The same callers as `Command.run`.
+- 💩 Arguments `is`: identifier, then the text. The same callers as `Command.run`.
 
 ### `controller.stdout`
 
 - 🔷 Notification on the controller connection that initialized the run, when that connection is still up.
-- 💩 Argus sends this after each `Command.stdout`. Arguments `ss`: identifier, then that stdout chunk.
+- 💩 Argus sends this after each `Command.stdout`. Arguments `is`: identifier, then that stdout chunk.
 
 ### `controller.stderr`
 
 - 🔷 Notification on the controller connection that initialized the run, when that connection is still up.
-- 💩 Argus sends this after each `Command.stderr`. Arguments `ss`: identifier, then that stderr chunk.
+- 💩 Argus sends this after each `Command.stderr`. Arguments `is`: identifier, then that stderr chunk.
 
 ### `controller.ended`
 
 - 🔷 Notification on the controller connection that initialized the run, when that connection is still up.
-- 💩 Argus sends this after `Command.ended`. Arguments `s`: identifier.
+- 💩 Argus sends this after `Command.ended`. Arguments `i`: identifier.
 
 ---
 
@@ -176,15 +176,15 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 
 - 🔷 The agent sends this as stdout arrives.
 - 🔷 Each call is the next stdout chunk. The command is not resent.
-- 💩 Arguments `ss`: identifier, chunk.
+- 💩 Arguments `is`: identifier, chunk.
 
 ### `Command.stderr`
 
 - 🔷 The agent sends this as stderr arrives.
 - 🔷 Each call is the next stderr chunk. The command is not resent.
-- 💩 Arguments `ss`: identifier, chunk.
+- 💩 Arguments `is`: identifier, chunk.
 
 ### `Command.ended`
 
 - 🔷 The agent sends this when the child is dead.
-- 💩 Arguments `s`: identifier.
+- 💩 Arguments `i`: identifier.

@@ -39,6 +39,24 @@ namespace Argus.Agent.Linux
 					service_mode = true;
 				}
 			}
+			opt_debug = false;
+			opt_debug_critical = false;
+			opt_host = "";
+			opt_port = 0;
+			opt_pin = "";
+			opt_service = false;
+			var opt_context = new GLib.OptionContext(this.application_id);
+			opt_context.set_help_enabled(true);
+			opt_context.add_main_entries(app_options, null);
+			unowned string[] leftover = args;
+			try {
+				opt_context.parse(ref leftover);
+			} catch (GLib.OptionError e) {
+				command_line.printerr("error: %s\n", e.message);
+				command_line.printerr("Run '%s --help' to see a full list of available command line options.\n",
+					args[0]);
+				return 1;
+			}
 			if (service_mode) {
 				if (Posix.geteuid() != 0) {
 					command_line.printerr("Service mode requires root.\n");

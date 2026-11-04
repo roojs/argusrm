@@ -31,7 +31,7 @@ namespace Argus.Agent
 	 *
 	 * {{{
 	 * var order = new Argus.Agent.Command();
-	 * order.identifier = "1";
+	 * order.identifier = 1;
 	 * order.command = "hostname";
 	 * order.run(link);
 	 * }}}
@@ -49,7 +49,7 @@ namespace Argus.Agent
 		/**
 		 * Run identifier from the server.
 		 */
-		public string identifier { get; set; default = ""; }
+		public int identifier { get; set; default = 0; }
 
 		/**
 		 * Command line. {@link run} passes it to ''cmd.exe /c''.
@@ -78,7 +78,7 @@ namespace Argus.Agent
 		 *
 		 * {@link send} writes the follow-up text to that command's stdin.
 		 */
-		internal static Gee.HashMap<string, Command> running;
+		internal static Gee.HashMap<int, Command> running;
 
 		/**
 		 * Stdin of the child. Left open so a later write can reach the
@@ -132,11 +132,11 @@ namespace Argus.Agent
 				GLib.warning("%s", e.message);
 				return;
 			}
-			GLib.debug("command %s pid %d", this.identifier, (int) child);
+			GLib.debug("command %d pid %d", this.identifier, (int) child);
 			this.stdin_fd = stdin_fd;
 			Command.send_lock.lock();
 			if (Command.running == null) {
-				Command.running = new Gee.HashMap<string, Command>();
+				Command.running = new Gee.HashMap<int, Command>();
 			}
 			Command.running.set(this.identifier, this);
 			Command.send_lock.unlock();
@@ -246,7 +246,7 @@ namespace Argus.Agent
 					try {
 						var response = link.call(new OLLMrpc.Request() {
 							method = methods[i],
-							args = OLLMrpc.args("ss", this.identifier, texts[i])
+							args = OLLMrpc.args("is", this.identifier, texts[i])
 						});
 						if (response.error != null) {
 							GLib.warning("command %d", response.error.code);
@@ -261,7 +261,7 @@ namespace Argus.Agent
 			try {
 				link.call(new OLLMrpc.Request() {
 					method = "Command.ended",
-					args = OLLMrpc.args("s", this.identifier)
+					args = OLLMrpc.args("i", this.identifier)
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
@@ -280,7 +280,7 @@ namespace Argus.Agent
 		public void send(string text)
 		{
 			if (this.stdin_fd < 0) {
-				GLib.warning("command %s is not running", this.identifier);
+				GLib.warning("command %d is not running", this.identifier);
 				return;
 			}
 			var channel = new GLib.IOChannel.win32_new_fd(this.stdin_fd);
