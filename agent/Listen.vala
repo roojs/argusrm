@@ -21,10 +21,10 @@ namespace Argus.Agent
 	/**
 	 * Notifications on the open app socket.
 	 *
-	 * A ''run'' notification carries an ''Argus.Command''.
+	 * An ''agent.run'' notification carries an ''Argus.Command''.
 	 * {@link notification} hands that object to {@link Command.run}.
-	 * A ''send'' notification carries the run id and text, and
-	 * {@link Command.send} writes that text to the command's
+	 * An ''agent.send'' notification carries the run id and text,
+	 * and {@link Command.send} writes that text to the command's
 	 * stdin. Any other method returns. Linux, Windows, and
 	 * Android each compile their own {@link Command}.
 	 * {@link OLLMrpc.Transport.TlsClient.call} only returns a
@@ -65,16 +65,16 @@ namespace Argus.Agent
 		/**
 		 * Run a command notification, or follow up on one.
 		 *
-		 * ''run'' hands the ''Argus.Command'' to {@link Command.run}.
-		 * ''send'' writes its text to the stdin of the command
-		 * with that id. Any other method returns.
+		 * ''agent.run'' hands the ''Argus.Command'' to {@link Command.run}.
+		 * ''agent.send'' writes its text to the stdin of the command with
+		 * that id. Any other method returns.
 		 *
 		 * @param notification notification from the app socket
 		 */
 		public void notification(OLLMrpc.Notification notification)
 		{
 			switch (notification.method) {
-				case "send":
+				case "agent.send":
 					if (notification.args.size < 2) {
 						return;
 					}
@@ -101,7 +101,7 @@ namespace Argus.Agent
 					}
 					order.send(text_value.get_string());
 					return;
-				case "run":
+				case "agent.run":
 					if (notification.args.size == 0) {
 						return;
 					}

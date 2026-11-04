@@ -1,4 +1,5 @@
 usr/bin/argus-agent
-usr/share/dbus-1/system.d/org.roojs.ArgusAgent.conf
+usr/share/polkit-1/actions/org.roojs.ArgusAgent.register.policy
 usr/lib/systemd/system/argusrm-agent.service
+etc/init.d/argusrm-agent
 etc/logrotate.d/argusrm-agent

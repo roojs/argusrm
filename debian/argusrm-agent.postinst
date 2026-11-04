@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+if [ "$1" = "configure" ] && [ -n "$2" ]; then
+	if [ -d /run/systemd/system ]; then
+		if systemctl is-enabled --quiet argusrm-agent.service; then
+			deb-systemd-invoke restart argusrm-agent.service
+		fi
+	else
+		for link in /etc/rc?.d/S??argusrm-agent; do
+			if [ -e "$link" ]; then
+				invoke-rc.d argusrm-agent restart
+				break
+			fi
+		done
+	fi
+fi
+
+exit 0

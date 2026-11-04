@@ -74,7 +74,7 @@ namespace Argus.Agent
 		private static string opt_host;
 		private static int opt_port;
 		private static string opt_pin;
-		private static bool opt_register;
+		private static bool opt_service;
 		private static bool debug_on;
 		private static bool debug_critical_enabled;
 		private static GLib.FileStream? debug_log_file;
@@ -86,7 +86,7 @@ namespace Argus.Agent
 			{ "host", 0, 0, GLib.OptionArg.STRING, ref opt_host, "Argus address", "HOST" },
 			{ "port", 0, 0, GLib.OptionArg.INT, ref opt_port, "Argus port", "PORT" },
 			{ "pin", 0, 0, GLib.OptionArg.STRING, ref opt_pin, "Number from the registration window", "PIN" },
-			{ "register", 0, 0, GLib.OptionArg.NONE, ref opt_register, "Open the registration window", null },
+			{ "service", 0, 0, GLib.OptionArg.NONE, ref opt_service, "Run as managed service", null },
 			{ null }
 		};
 
@@ -167,11 +167,9 @@ namespace Argus.Agent
 		 * ''--debug'' shows log lines on stderr. ''--host'', ''--port'',
 		 * and ''--pin'' together call {@link Argus.Shared.Register}
 		 * immediately. ''--pin'' alone waits for the broadcast, then
-		 * registers. ''--register'' opens the window and calls the
-		 * systemd process over D-Bus. That process calls
-		 * {@link Argus.Shared.Register}. The Android app icon
-		 * opens that window, and the box says this phone is
-		 * already registered. A registered process starts
+		 * registers. The Android app icon opens the registration
+		 * window, and the box says this phone is already registered.
+		 * A registered process starts
 		 * {@link OSQuery.Initialize} and {@link Listen}. The
 		 * Android {@link OSQuery.Initialize} does not query.
 		 * With none of those, the process browses and stays up.
@@ -193,7 +191,7 @@ namespace Argus.Agent
 			opt_host = "";
 			opt_port = 0;
 			opt_pin = "";
-			opt_register = false;
+			opt_service = false;
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -218,7 +216,7 @@ namespace Argus.Agent
 			this.host = opt_host;
 			this.port = opt_port;
 			this.pin = opt_pin;
-			var open_window = opt_register;
+			var open_window = false;
 #if ANDROID
 			if (this.host == "" && this.port <= 0) {
 				open_window = true;
@@ -228,21 +226,6 @@ namespace Argus.Agent
 				Gtk.init();
 				var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 				var show_box = GLib.FileUtils.test(cert, GLib.FileTest.EXISTS);
-#if LINUX
-				if (opt_register) {
-					show_box = false;
-					try {
-						var conn = GLib.Bus.get_sync(GLib.BusType.SYSTEM);
-						var reply = conn.call_sync("org.roojs.ArgusAgent",
-							"/org/roojs/ArgusAgent", "org.roojs.ArgusAgent", "Registered",
-							null, new GLib.VariantType("(b)"),
-							GLib.DBusCallFlags.NONE, -1, null);
-						reply.get("(b)", out show_box);
-					} catch (GLib.Error e) {
-						GLib.warning("registration bus: %s", e.message);
-					}
-				}
-#endif
 				if (show_box) {
 					var already = "This machine is already registered.";
 #if ANDROID
@@ -260,9 +243,6 @@ namespace Argus.Agent
 					return 0;
 				}
 				var window = new Argus.Shared.RegisterWindow();
-#if LINUX
-				window.use_bus = true;
-#endif
 				window.show_add();
 				window.present(null);
 				window.closed.connect(() => {
@@ -293,7 +273,6 @@ namespace Argus.Agent
 #if LINUX
 				this.browse.start();
 #endif
-				BusRegistration.start(this);
 				this.hold();
 				return 0;
 			}
@@ -349,7 +328,6 @@ namespace Argus.Agent
 					new Listen(link).start();
 				}
 			}
-			BusRegistration.start(this);
 			this.hold();
 			return 0;
 		}
@@ -417,7 +395,11 @@ namespace Argus.Agent
 			return service_exit;
 		}
 #endif
+#if LINUX
+		var app = new Linux.Application();
+#else
 		var app = new Application();
+#endif
 		return app.run(args);
 	}
 }

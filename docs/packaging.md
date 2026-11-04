@@ -3,8 +3,7 @@
 Argus produces three binary packages from one source tree:
 
 - `argusrm-server` — `/usr/bin/argus` and its systemd service
-- `argusrm-agent` — `/usr/bin/argus-agent`, its D-Bus policy, and its
-  systemd service
+- `argusrm-agent` — `/usr/bin/argus-agent` and its systemd service
 - `argusrm-controller` — `/usr/bin/argus-controller`
 
 `CHANGELOG.md` is the source of truth for release versions, release notes,
@@ -77,23 +76,3 @@ git push origin
 
 GitHub Actions does not make this commit because the private Git server is
 the source of truth and GitHub is its one-way mirror.
-
-## Mirror the private Git server to GitHub
-
-Create an empty GitHub repository (no generated README or license), then
-run this in the bare repository on the Git server:
-
-```sh
-cd /path/to/argusrm.git
-git remote add github git@github.com:OWNER/argusrm.git
-git push --mirror github
-```
-
-The Git server needs an SSH key accepted by GitHub with write access to the
-repository. For later updates, either run the same `git push --mirror
-github` command or configure the Git server's push-mirror feature with that
-GitHub SSH URL.
-
-`--mirror` makes GitHub exactly match the private repository, including
-branches and tags; it also deletes GitHub-only refs. Do not use that command
-if work will be committed directly on GitHub.

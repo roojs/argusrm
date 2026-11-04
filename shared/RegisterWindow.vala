@@ -22,11 +22,11 @@ namespace Argus.Shared
 	 * Registration window for the agent and the controller.
 	 *
 	 * Listens for the pairing service, then asks for the six digits.
-	 * The sixth digit runs the check. OLLMchat ''FileConnectionAdd''
-	 * waits for the Request button. Android sends {@link Browse.label}
-	 * as the requester. Linux and Windows send the host name.
+	 * The sixth digit starts registration. Android sends
+	 * {@link Browse.label} as the requester. Linux and Windows send
+	 * the host name.
 	 */
-	public class RegisterWindow : Adw.PreferencesDialog
+	public class RegisterWindow : Adw.Dialog
 	{
 		/**
 		 * ''tcp://host:port'' that answered hello. Null until then.
@@ -43,14 +43,21 @@ namespace Argus.Shared
 		 */
 		public string server_id { get; private set; default = ""; }
 
-		private Gtk.Label listen_label;
+		/**
+		 * Certificate storage directory.
+		 *
+		 * Empty keeps the current-user default.
+		 */
+		public string data_dir { get; set; default = ""; }
+
+		public Gtk.Label listen_label;
 		private Gtk.Entry pin_entry;
-		private Adw.ActionRow pin_row;
-		private Gtk.Button request_button;
-		private Adw.PreferencesGroup group;
+		private Gtk.Box pin_box;
 		private string found = "";
 		private uint browse_id = 0;
+		private uint close_id = 0;
 		private Browse browse = new Browse();
+		private bool registering = false;
 
 		/**
 		 * The tray asks the service to register.
@@ -60,15 +67,6 @@ namespace Argus.Shared
 		 * it and handles {@link send_pin}.
 		 */
 		public bool use_pipe = false;
-
-		/**
-		 * Linux ''--register'' asks the systemd process.
-		 *
-		 * The window does not call {@link Register}. The agent
-		 * calls that process over D-Bus and stores the code in
-		 * {@link pipe_code}.
-		 */
-		public bool use_bus = false;
 
 		/**
 		 * Registration code written by {@link send_pin}.
@@ -94,6 +92,11 @@ namespace Argus.Shared
 		public signal void dialog_closed();
 
 		/**
+		 * Registration wrote the certificate files.
+		 */
+		public signal void certificate_received();
+
+		/**
 		 * Six digits for the service to register.
 		 *
 		 * The Windows tray connects this and writes the number on
@@ -106,56 +109,81 @@ namespace Argus.Shared
 		public RegisterWindow()
 		{
 			this.title = "Connect to management server";
-			this.set_content_height(360);
-			this.set_content_width(720);
+			this.set_content_height(280);
+			this.set_content_width(480);
 
-			var page = new Adw.PreferencesPage();
-			this.group = new Adw.PreferencesGroup();
+			var content = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+			var header = new Adw.HeaderBar() {
+				show_start_title_buttons = false,
+				show_end_title_buttons = false
+			};
+			var close_button =
+				new Gtk.Button.from_icon_name("window-close-symbolic") {
+					tooltip_text = "Close",
+					css_classes = {"flat"}
+				};
+			close_button.clicked.connect(() => {
+				this.close();
+			});
+			header.pack_end(close_button);
+			content.append(header);
+
+			var body = new Gtk.Box(Gtk.Orientation.VERTICAL, 12) {
+				margin_top = 24,
+				margin_bottom = 24,
+				margin_start = 24,
+				margin_end = 24,
+				valign = Gtk.Align.CENTER,
+				vexpand = true
+			};
+			var pin_label = new Gtk.Label("Enter registration PIN") {
+				xalign = 0.5f,
+				justify = Gtk.Justification.CENTER,
+				css_classes = {"dim-label"}
+			};
 			this.pin_entry = new Gtk.Entry() {
-				placeholder_text = "Six digits",
+				placeholder_text = "000000",
 				max_length = 6,
-				input_purpose = Gtk.InputPurpose.DIGITS
+				input_purpose = Gtk.InputPurpose.DIGITS,
+				xalign = 0.5f,
+				hexpand = true,
+				height_request = 64,
+				css_classes = {"title-1"}
 			};
-			this.pin_row = new Adw.ActionRow() {
-				title = "PIN",
-				visible = false
+			this.pin_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12) {
+				visible = false,
+				margin_top = 12,
+				margin_bottom = 12,
+				margin_start = 12,
+				margin_end = 12
 			};
-			this.pin_row.add_suffix(this.pin_entry);
-			this.group.add(this.pin_row);
-			this.listen_label = new Gtk.Label("Listening") {
+			this.pin_box.append(pin_label);
+			this.pin_box.append(this.pin_entry);
+			body.append(this.pin_box);
+			this.listen_label = new Gtk.Label("Looking for a management server…") {
 				wrap = true,
 				xalign = 0.5f,
 				justify = Gtk.Justification.CENTER,
-				margin_top = 18
+				margin_top = 12,
+				margin_bottom = 12
 			};
-			this.group.add(this.listen_label);
-			page.add(this.group);
-
-			this.request_button = new Gtk.Button() {
-				label = "Request",
-				css_classes = {"suggested-action"},
-				sensitive = false
-			};
-			var footer = new Adw.PreferencesGroup();
-			footer.add(this.request_button);
-			page.add(footer);
-			this.add(page);
+			body.append(this.listen_label);
+			content.append(body);
+			this.set_child(content);
 
 			this.error_occurred.connect((error_message) => {
 				this.listen_label.label = error_message;
-				this.request_button.sensitive = this.found != "";
+				this.registering = false;
+				this.pin_entry.grab_focus();
 				GLib.warning("%s", error_message);
 			});
 			this.pin_entry.changed.connect(() => {
-				if (this.pin_entry.text.strip().length != 6) {
+				if (!this.valid_pin(this.pin_entry.text.strip())) {
 					return;
 				}
 				this.request.begin();
 			});
 			this.pin_entry.activate.connect(() => {
-				this.request.begin();
-			});
-			this.request_button.clicked.connect(() => {
 				this.request.begin();
 			});
 			this.closed.connect(() => {
@@ -164,12 +192,15 @@ namespace Argus.Shared
 					GLib.Source.remove(this.browse_id);
 					this.browse_id = 0;
 				}
+				if (this.close_id != 0) {
+					GLib.Source.remove(this.close_id);
+					this.close_id = 0;
+				}
 				var root = this.get_root() as Gtk.Window;
 				if (root != null) {
 					this.browse.stop();
 				}
 				this.pin_entry.text = "";
-				this.request_button.sensitive = false;
 				this.dialog_closed();
 			});
 		}
@@ -183,10 +214,14 @@ namespace Argus.Shared
 			this.registered_addresses = "";
 			this.server_id = "";
 			this.found = "";
+			this.registering = false;
 			this.pin_entry.text = "";
-			this.pin_row.visible = false;
-			this.listen_label.label = "Listening";
-			this.request_button.sensitive = false;
+			this.pin_box.visible = false;
+			this.listen_label.label = "Looking for a management server…";
+			if (this.close_id != 0) {
+				GLib.Source.remove(this.close_id);
+				this.close_id = 0;
+			}
 			if (this.browse_id != 0) {
 				GLib.Source.remove(this.browse_id);
 				this.browse_id = 0;
@@ -220,9 +255,9 @@ namespace Argus.Shared
 					}
 					this.server_id = hit.substring(0, nl);
 					this.found = hit.substring(nl + 1);
-					this.listen_label.label = this.found;
-					this.pin_row.visible = true;
-					this.request_button.sensitive = true;
+					this.listen_label.label =
+						"Management server found. Enter the six-digit PIN.";
+					this.pin_box.visible = true;
 					this.pin_entry.grab_focus();
 					return false;
 				});
@@ -232,7 +267,9 @@ namespace Argus.Shared
 
 		private async void request()
 		{
-			this.request_button.sensitive = false;
+			if (this.registering) {
+				return;
+			}
 			if (this.found == "") {
 				this.error_occurred("No management server found");
 				return;
@@ -253,30 +290,26 @@ namespace Argus.Shared
 				return;
 			}
 			var pin = this.pin_entry.text.strip();
-			if (pin.length != 6) {
+			if (!this.valid_pin(pin)) {
 				this.error_occurred("Enter the six digits");
 				return;
 			}
-			if (this.use_bus) {
-				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-				try {
-					var conn = GLib.Bus.get_sync(GLib.BusType.SYSTEM);
-					var reply = conn.call_sync("org.roojs.ArgusAgent",
-						"/org/roojs/ArgusAgent", "org.roojs.ArgusAgent", "Register",
-						new GLib.Variant("(s)", pin), new GLib.VariantType("(i)"),
-						GLib.DBusCallFlags.NONE, 120000, null);
-					reply.get("(i)", out this.pipe_code);
-				} catch (GLib.Error e) {
-					GLib.warning("registration bus: %s", e.message);
-				}
-			}
+			this.registering = true;
+			this.listen_label.label = "Registering…";
+			var who = GLib.Environment.get_host_name();
+#if ANDROID
+			who = this.browse.label;
+#endif
 			if (this.use_pipe) {
 				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				this.send_pin(pin);
 			}
-			if (this.use_pipe || this.use_bus) {
+			if (this.use_pipe) {
 				if (this.pipe_code != 0) {
 					var label = "The management server rejected the request.";
+					if (this.pipe_code == 1) {
+						label = "This machine is already registered.";
+					}
 					switch (this.pipe_code) {
 						case (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED:
 							label = "Not registered with the management server.";
@@ -292,15 +325,13 @@ namespace Argus.Shared
 					this.error_occurred(label);
 					return;
 				}
-				this.close();
+				this.registration_succeeded();
 				return;
 			}
-			var registration = new Register();
+			var registration = new Register() {
+				data_dir = this.data_dir
+			};
 			var force_register = false;
-			var who = GLib.Environment.get_host_name();
-#if ANDROID
-			who = this.browse.label;
-#endif
 			while (true) {
 				var code = registration.try_connection(
 					host, (uint16) port, pin, who);
@@ -328,9 +359,37 @@ namespace Argus.Shared
 				}
 				this.registered_url = "tcp://" + host + ":" + port.to_string();
 				this.registered_addresses = registration.addresses;
-				this.close();
+				this.registration_succeeded();
 				return;
 			}
+		}
+
+		private void registration_succeeded()
+		{
+			this.certificate_received();
+			if (!this.registering) {
+				return;
+			}
+			this.listen_label.label =
+				"Registration succeeded. This window will close in 10 seconds.";
+			this.close_id = GLib.Timeout.add_seconds(10, () => {
+				this.close_id = 0;
+				this.close();
+				return false;
+			});
+		}
+
+		private bool valid_pin(string pin)
+		{
+			if (pin.length != 6) {
+				return false;
+			}
+			for (var i = 0; i < pin.length; i++) {
+				if (pin[i] < '0' || pin[i] > '9') {
+					return false;
+				}
+			}
+			return true;
 		}
 	}
 }

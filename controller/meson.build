@@ -7,28 +7,19 @@ deps = [
 	dependency('libsoup-3.0'),
 	meson.get_compiler('c').find_library('ocrpc'),
 ]
-localstatedir = get_option('localstatedir')
-if not localstatedir.startswith('/')
-	localstatedir = get_option('prefix') / localstatedir
-endif
-paths_vala = configure_file(
-	input: 'paths.vala.in',
-	output: 'paths.vala',
-	configuration: {
-		'LOCALSTATEDIR': localstatedir / 'lib' / 'argusrm',
-	},
-)
+deps += shared_dep
 sources = files(
 	'namespace.vala',
 	'Application.vala',
 )
-sources += paths_vala
 executable(
 	'argus-controller',
 	sources,
 	dependencies: deps,
+	c_args: ocsqlite_c_args,
 	vala_args: [
 		'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
+		'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
 	],
 	install: true,
 )

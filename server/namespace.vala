@@ -29,6 +29,8 @@
  * ''ollmfilesd''. {@link Download} is the other socket. It only
  * accepts an HTTPS GET, and it allows or refuses the client
  * certificate. A transfer on that socket is not the app socket.
+ * {@link Command} tells one agent to run a command and stores
+ * the output for the controller that asked.
  *
  * == Example ==
  *

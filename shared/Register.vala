@@ -41,6 +41,14 @@ namespace Argus.Shared
 	public class Register : GLib.Object
 	{
 		/**
+		 * Certificate storage directory.
+		 *
+		 * Empty uses the current user's ''argus'' data directory.
+		 * A privileged caller may set a system agent directory.
+		 */
+		public string data_dir = "";
+
+		/**
 		 * Download socket from the registration reply, ''host:port''.
 		 *
 		 * Empty until a reply stores it. Also written as ''download''
@@ -91,7 +99,11 @@ namespace Argus.Shared
 		public int try_connection(string host, uint16 port, string pin, string requester)
 		{
 			OLLMrpc.rpc_register();
-			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
+			var dir = this.data_dir;
+			if (dir == "") {
+				dir = GLib.Path.build_filename(
+					GLib.Environment.get_user_data_dir(), "argus");
+			}
 			var tls_files = new OLLMrpc.Transport.Cert() {
 				dir = dir,
 				cert_pem = "client.pem",

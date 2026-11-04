@@ -1,0 +1,19 @@
+/*
+ * Copyright (C) 2026 Alan Knowles <alan@roojs.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+namespace Argus
+{
+	public const string AGENT_DATA_DIR = "@AGENT_DATA_DIR@";
+	public const string AGENT_SYSVINIT = "@AGENT_SYSVINIT@";
+	public const string SERVER_SYSCONFDIR = "@SERVER_SYSCONFDIR@";
+	public const string SERVER_DATA_DIR = "@SERVER_DATA_DIR@";
+	public const string LOG_DIR = "@LOG_DIR@";
+	public const int SOCKET_PORT = @SOCKET_PORT@;
+	public const int DOWNLOAD_PORT = @DOWNLOAD_PORT@;
+}

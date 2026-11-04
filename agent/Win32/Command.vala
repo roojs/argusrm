@@ -22,11 +22,10 @@ namespace Argus.Agent
 	 * Run one command on Windows.
 	 *
 	 * The wire name is ''Argus.Command''. {@link run} spawns
-	 * ''cmd.exe /c'' with the working directory and the environment,
-	 * then waits with {@link GLib.IOChannel.win32_poll}. Output goes
-	 * out as ''Command.started'' and ''Command.output'' on the app
-	 * socket. An empty working directory or an empty environment
-	 * inherits this process.
+	 * ''cmd.exe /c'' with the working directory and the environment, then
+	 * waits with {@link GLib.IOChannel.win32_poll}. Stdout goes out as
+	 * ''Command.stdout''. Stderr goes out as ''Command.stderr''. An empty
+	 * working directory or an empty environment inherits this process.
 	 *
 	 * == Example ==
 	 *
@@ -77,24 +76,21 @@ namespace Argus.Agent
 		/**
 		 * Commands still running, keyed by {@link identifier}.
 		 *
-		 * {@link send} writes the follow-up text to that
-		 * command's stdin.
+		 * {@link send} writes the follow-up text to that command's stdin.
 		 */
 		internal static Gee.HashMap<string, Command> running;
 
 		/**
-		 * Stdin of the child. Left open so a later write can
-		 * reach the command.
+		 * Stdin of the child. Left open so a later write can reach the
+		 * command.
 		 */
 		private int stdin_fd = -1;
 
 		/**
 		 * Spawn this command and send its output.
 		 *
-		 * The first ready bytes are the initial output on
-		 * ''Command.started''. A process that has not written
-		 * yet sends an empty initial output. Later reads are
-		 * ''Command.output''.
+		 * Stdout bytes are ''Command.stdout''. Stderr bytes are
+		 * ''Command.stderr''. Each call is that chunk.
 		 *
 		 * @param link app socket already open
 		 */
@@ -109,8 +105,8 @@ namespace Argus.Agent
 		/**
 		 * Spawn this command and poll its stdout and stderr.
 		 *
-		 * Stdin stays open. The first ready bytes are
-		 * ''Command.started''. Later reads are ''Command.output''.
+		 * Stdin stays open. Stdout bytes are ''Command.stdout''. Stderr bytes
+		 * are ''Command.stderr''.
 		 *
 		 * @param link app socket already open
 		 */
@@ -172,7 +168,6 @@ namespace Argus.Agent
 			}
 			var stdout_open = true;
 			var stderr_open = true;
-			var started = false;
 			var wait = 200;
 			while (stdout_open || stderr_open) {
 				var out_fd = GLib.PollFD();
@@ -193,7 +188,8 @@ namespace Argus.Agent
 					GLib.warning("poll failed");
 					break;
 				}
-				string[] chunks = {};
+				string[] methods = {};
+				string[] texts = {};
 				var out_ready = stdout_open &&
 					(polls[0].revents & (GLib.IOCondition.IN | GLib.IOCondition.HUP)) != 0;
 				if (out_ready) {
@@ -214,7 +210,8 @@ namespace Argus.Agent
 					if (got > 0) {
 						var raw = new uint8[got + 1];
 						GLib.Memory.copy(raw, buf, got);
-						chunks += (string) raw;
+						methods += "Command.stdout";
+						texts += (string) raw;
 					}
 				}
 				var err_ready = stderr_open &&
@@ -237,25 +234,12 @@ namespace Argus.Agent
 					if (got > 0) {
 						var raw = new uint8[got + 1];
 						GLib.Memory.copy(raw, buf, got);
-						chunks += (string) raw;
+						methods += "Command.stderr";
+						texts += (string) raw;
 					}
 				}
-				string[] methods = {};
-				string[] texts = {};
-				if (!started) {
-					var initial = "";
-					if (chunks.length > 0) {
-						initial = chunks[0];
-						chunks = chunks[1:chunks.length];
-					}
-					methods += "Command.started";
-					texts += initial;
-					started = true;
+				if (methods.length > 0) {
 					wait = -1;
-				}
-				for (var i = 0; i < chunks.length; i++) {
-					methods += "Command.output";
-					texts += chunks[i];
 				}
 				for (var i = 0; i < methods.length; i++) {
 					Command.send_lock.lock();
@@ -273,28 +257,13 @@ namespace Argus.Agent
 					Command.send_lock.unlock();
 				}
 			}
-			if (!started) {
-				Command.send_lock.lock();
-				try {
-					var response = link.call(new OLLMrpc.Request() {
-						method = "Command.started",
-						args = OLLMrpc.args("ss", this.identifier, "")
-					});
-					if (response.error != null) {
-						GLib.warning("command %d", response.error.code);
-					}
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-				}
-				Command.send_lock.unlock();
-			}
 		}
 
 		/**
 		 * Write text to this command's stdin.
 		 *
-		 * A missing handle is logged. The text is the follow-up
-		 * from a ''send'' notification. The handle stays open.
+		 * A missing handle is logged. The text is the follow-up from an
+		 * ''agent.send'' notification. The handle stays open.
 		 *
 		 * @param text bytes for this command's stdin
 		 */

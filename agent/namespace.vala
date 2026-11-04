@@ -35,7 +35,7 @@
  * {@link Listen} takes a command notification. {@link Command}
  * runs it. Linux, Windows, and Android each compile their own
  * file for that class. The Android file does not spawn. A
- * ''send'' notification writes to that command's stdin.
+ * ''agent.send'' notification writes to that command's stdin.
  *
  * == Example ==
  *

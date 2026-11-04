@@ -3,7 +3,7 @@
 Argus is under development. Release builds provide three packages:
 
 - `argusrm-server` — installs, enables, and starts the server service
-- `argusrm-agent` — installs, enables, and starts the managed-machine service
+- `argusrm-agent` — installs the managed-machine service without starting it
 - `argusrm-controller` — installs the command-line controller; no service
 
 Install the server and controller on the server machine. Install only the
@@ -58,23 +58,16 @@ The controller is currently a local administration command. It uses
 `/var/lib/argusrm/argus.sock` on this server and does not enroll itself.
 Remote desktop and mobile controller enrollment comes later.
 
-### 2. Open registration on the managed machine
+### 2. Register the managed machine
 
-The agent package enables and starts the agent service. On the managed
-machine:
-
-```sh
-systemctl status argusrm-agent.service
-```
-
-Windows opens registration from the tray. On Linux, open the window as the
-signed-in desktop user:
+Run:
 
 ```sh
-argus-agent --register
+argus-agent
 ```
 
-The window waits for a PIN and does not need root privileges.
+On a desktop, Polkit requests administrator access. Without a desktop, run `sudo argus-agent`.
+Registration enables and starts the systemd or SysV service.
 
 ### 3. Issue and enter the PIN
 

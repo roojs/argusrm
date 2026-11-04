@@ -38,6 +38,11 @@ namespace Argus.Server
 	public class SslConnection : OLLMrpc.Transport.Connection
 	{
 		public Application app { get; construct; }
+
+		/**
+		 * ''agent.id'' for this certificate. Zero until
+		 * {@link allow_request} finds an approved row.
+		 */
 		public int64 agent_id { get; private set; default = 0; }
 
 		public SslConnection(GLib.SocketConnection stream, Application app)
@@ -74,6 +79,7 @@ namespace Argus.Server
 			cert_q.selectWhere("WHERE fingerprint = $fingerprint AND status = 1",
 				int_binds, text_binds, rows);
 			if (rows.size > 0) {
+				this.agent_id = rows.get(0).id;
 				return true;
 			}
 			this.reply(request, new OLLMrpc.Response() {

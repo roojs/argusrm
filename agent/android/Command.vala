@@ -81,7 +81,7 @@ namespace Argus.Agent
 		/**
 		 * Accept the command and report that it started.
 		 *
-		 * Sends ''Command.started'' with an empty initial output.
+		 * Sends ''Command.stdout'' with an empty chunk.
 		 * No process is spawned.
 		 *
 		 * @param link app socket already open
@@ -97,7 +97,7 @@ namespace Argus.Agent
 			Command.send_lock.unlock();
 			try {
 				var response = link.call(new OLLMrpc.Request() {
-					method = "Command.started",
+					method = "Command.stdout",
 					args = OLLMrpc.args("ss", this.identifier, "")
 				});
 				if (response.error != null) {

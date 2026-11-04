@@ -21,14 +21,13 @@ namespace Argus.Agent
 	/**
 	 * Run one command on Linux.
 	 *
-	 * The wire name is ''Argus.Command''. {@link run} spawns
-	 * ''sh -c'' with the working directory and the environment.
-	 * Stdin, stdout, and stderr stay open on the child. Stdout
-	 * and stderr are watched with {@link GLib.IOChannel.add_watch},
-	 * the same read used for a bubble command. Lines go out as
-	 * ''Command.started'' and ''Command.output'' on the app
-	 * socket. An empty working directory or an empty environment
-	 * inherits this process.
+	 * The wire name is ''Argus.Command''. {@link run} spawns ''sh -c''
+	 * with the working directory and the environment. Stdin, stdout, and
+	 * stderr stay open on the child. Stdout and stderr are watched with
+	 * {@link GLib.IOChannel.add_watch}, the same read used for a bubble
+	 * command. Stdout lines go out as ''Command.stdout''. Stderr lines go
+	 * out as ''Command.stderr''. An empty working directory or an empty
+	 * environment inherits this process.
 	 *
 	 * == Example ==
 	 *
@@ -79,8 +78,7 @@ namespace Argus.Agent
 		/**
 		 * Commands still running, keyed by {@link identifier}.
 		 *
-		 * {@link send} writes the follow-up text to that
-		 * command's stdin.
+		 * {@link send} writes the follow-up text to that command's stdin.
 		 */
 		internal static Gee.HashMap<string, Command> running;
 
@@ -90,14 +88,13 @@ namespace Argus.Agent
 		private GLib.Subprocess child;
 
 		/**
-		 * App socket for {@link Command.started} and
-		 * {@link Command.output}.
+		 * App socket for {@link Command.stdout} and {@link Command.stderr}.
 		 */
 		private OLLMrpc.Transport.TlsClient link;
 
 		/**
-		 * Stdin of {@link child}. Left open so a later write can
-		 * reach the command.
+		 * Stdin of {@link child}. Left open so a later write can reach the
+		 * command.
 		 */
 		private GLib.OutputStream stdin_pipe;
 
@@ -112,16 +109,11 @@ namespace Argus.Agent
 		private GLib.InputStream stderr_pipe;
 
 		/**
-		 * True after ''Command.started'' has been sent.
-		 */
-		private bool started = false;
-
-		/**
 		 * Spawn this command and watch stdout and stderr.
 		 *
-		 * Returns after the watches are attached. The first line
-		 * is ''Command.started''. Later lines are
-		 * ''Command.output''.
+		 * Returns after the watches are attached. Stdout lines are
+		 * ''Command.stdout''. Stderr lines are ''Command.stderr''. Each call
+		 * is that chunk.
 		 *
 		 * @param link app socket already open
 		 */
@@ -188,10 +180,9 @@ namespace Argus.Agent
 				GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR,
 				(channel, condition) => {
 					if ((condition & GLib.IOCondition.IN) != 0) {
-						this.read_channel(channel);
+						this.read_channel(channel, "Command.stdout");
 					}
 					if ((condition & (GLib.IOCondition.HUP | GLib.IOCondition.ERR)) != 0) {
-						this.started_empty();
 						return false;
 					}
 					return true;
@@ -200,10 +191,9 @@ namespace Argus.Agent
 				GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR,
 				(channel, condition) => {
 					if ((condition & GLib.IOCondition.IN) != 0) {
-						this.read_channel(channel);
+						this.read_channel(channel, "Command.stderr");
 					}
 					if ((condition & (GLib.IOCondition.HUP | GLib.IOCondition.ERR)) != 0) {
-						this.started_empty();
 						return false;
 					}
 					return true;
@@ -213,12 +203,10 @@ namespace Argus.Agent
 		/**
 		 * Read ready lines from one pipe and send them.
 		 *
-		 * The first line is ''Command.started''. Each later line
-		 * is ''Command.output''.
-		 *
 		 * @param channel stdout or stderr of {@link child}
+		 * @param method ''Command.stdout'' or ''Command.stderr''
 		 */
-		private void read_channel(GLib.IOChannel channel)
+		private void read_channel(GLib.IOChannel channel, string method)
 		{
 			while (true) {
 				string buffer = "";
@@ -233,32 +221,15 @@ namespace Argus.Agent
 				if (status != GLib.IOStatus.NORMAL || len == 0) {
 					return;
 				}
-				var method = "Command.output";
-				if (!this.started) {
-					method = "Command.started";
-					this.started = true;
-				}
 				this.report(method, buffer);
 			}
 		}
 
 		/**
-		 * Send ''Command.started'' when the pipes close with no line.
-		 */
-		private void started_empty()
-		{
-			if (this.started) {
-				return;
-			}
-			this.started = true;
-			this.report("Command.started", "");
-		}
-
-		/**
 		 * Write text to this command's stdin.
 		 *
-		 * A missing pipe is logged. The text is the follow-up
-		 * from a ''send'' notification.
+		 * A missing pipe is logged. The text is the follow-up from an
+		 * ''agent.send'' notification.
 		 *
 		 * @param text bytes for this command's stdin
 		 */
@@ -284,7 +255,7 @@ namespace Argus.Agent
 		/**
 		 * Send one command call on the app socket.
 		 *
-		 * @param method ''Command.started'' or ''Command.output''
+		 * @param method ''Command.stdout'' or ''Command.stderr''
 		 * @param text output from the child
 		 */
 		private void report(string method, string text)

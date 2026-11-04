@@ -25,7 +25,7 @@ namespace Argus.Server
 	 * same shape as ''ollmfilesd'': {@link command_line} parses
 	 * {@link app_options}, including ''--debug''. {@link socket} is
 	 * the app RPC. {@link download} is the download socket, fixed
-	 * in the config. The Unix socket under {@link LOCALSTATEDIR}
+	 * in the config. The Unix socket under {@link Argus.SERVER_DATA_DIR}
 	 * is how the controller opens the registration window.
 	 * {@link hold} keeps the process up.
 	 *
@@ -71,7 +71,7 @@ namespace Argus.Server
 
 		/**
 		 * Certificate rows. The file is ''argus.sqlite'' under
-		 * {@link LOCALSTATEDIR}.
+		 * {@link Argus.SERVER_DATA_DIR}.
 		 */
 		public SQ.Database db { get; private set; }
 
@@ -85,7 +85,9 @@ namespace Argus.Server
 		 * starts and stops it.
 		 */
 		public OLLMrpc.Transport.PairPublish publish {
-			get; set; default = new OLLMrpc.Transport.PairPublish();
+			get; set; default = new OLLMrpc.Transport.PairPublish() {
+				min_port = 1
+			};
 		}
 
 		private static bool opt_debug;
@@ -121,13 +123,13 @@ namespace Argus.Server
 			);
 			this.ssl_listen = new SslListen(this);
 			this.download_listen = new Download(this);
-			if (!GLib.FileUtils.test(LOCALSTATEDIR, GLib.FileTest.IS_DIR)) {
-				GLib.DirUtils.create_with_parents(LOCALSTATEDIR, 0755);
+			if (!GLib.FileUtils.test(Argus.SERVER_DATA_DIR, GLib.FileTest.IS_DIR)) {
+				GLib.DirUtils.create_with_parents(Argus.SERVER_DATA_DIR, 0755);
 			}
 			this.db = new SQ.Database(
-				GLib.Path.build_filename(LOCALSTATEDIR, "argus.sqlite"), true);
+				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sqlite"), true);
 			this.listen = new OLLMrpc.Transport.SocketListen(
-				GLib.Path.build_filename(LOCALSTATEDIR, "argus.sock")) {
+				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
 				live_handles = true
 			};
 			this.publish.failed.connect(() => {
@@ -151,13 +153,13 @@ namespace Argus.Server
 		 * ''--debug'' shows log lines on stderr. ''--socket'' is the
 		 * app RPC. ''--download'' is the download socket. When a flag
 		 * is absent, the value is one line in the config under
-		 * {@link SYSCONFDIR}. The default build is
+		 * {@link Argus.SERVER_SYSCONFDIR}. The default build is
 		 * ''/etc/argusrm/socket'' and ''/etc/argusrm/download''.
 		 * Each line is ''host:port'', the same text the agent
 		 * stores. With no line, the process listens on
-		 * ''0.0.0.0'' and the build ports {@link SOCKET_PORT}
-		 * and {@link DOWNLOAD_PORT}. {@link Initialize.fetch_osquery}
-		 * fetches the osquery installers into {@link LOCALSTATEDIR}
+		 * ''0.0.0.0'' and the build ports {@link Argus.SOCKET_PORT}
+		 * and {@link Argus.DOWNLOAD_PORT}. {@link Initialize.fetch_osquery}
+		 * fetches the osquery installers into {@link Argus.SERVER_DATA_DIR}
 		 * before the sockets bind. {@link ClientCert.pair} on the
 		 * Unix socket opens the registration window.
 		 *
@@ -196,7 +198,7 @@ namespace Argus.Server
 			this.socket = opt_socket;
 			this.download = opt_download;
 			if (this.socket == "") {
-				var path = GLib.Path.build_filename(SYSCONFDIR, "socket");
+				var path = GLib.Path.build_filename(Argus.SERVER_SYSCONFDIR, "socket");
 				var text = "";
 				try {
 					GLib.FileUtils.get_contents(path, out text);
@@ -206,10 +208,10 @@ namespace Argus.Server
 				this.socket = text.strip();
 			}
 			if (this.socket == "") {
-				this.socket = "0.0.0.0:" + SOCKET_PORT.to_string();
+				this.socket = "0.0.0.0:" + Argus.SOCKET_PORT.to_string();
 			}
 			if (this.download == "") {
-				var path = GLib.Path.build_filename(SYSCONFDIR, "download");
+				var path = GLib.Path.build_filename(Argus.SERVER_SYSCONFDIR, "download");
 				var text = "";
 				try {
 					GLib.FileUtils.get_contents(path, out text);
@@ -219,9 +221,9 @@ namespace Argus.Server
 				this.download = text.strip();
 			}
 			if (this.download == "") {
-				this.download = "0.0.0.0:" + DOWNLOAD_PORT.to_string();
+				this.download = "0.0.0.0:" + Argus.DOWNLOAD_PORT.to_string();
 			}
-			var tls_dir = GLib.Path.build_filename(LOCALSTATEDIR, "tls");
+			var tls_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "tls");
 			if (!GLib.FileUtils.test(tls_dir, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(tls_dir, 0700);
 			}
@@ -258,11 +260,13 @@ namespace Argus.Server
 			Agent.rpc_register();
 			Daemon.rpc_register();
 			OSQuery.rpc_register();
+			Command.rpc_register();
 			Agent.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
 			OLLMrpc.Request.register("ClientCert", new Agent.for_rpc(this));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
+			OLLMrpc.Request.register("Command", new Command.for_rpc(this));
 			if (!(new Initialize()).fetch_osquery()) {
 				command_line.printerr("error: download store was not created\n");
 				return 1;

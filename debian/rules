@@ -16,3 +16,10 @@ override_dh_auto_install:
 
 override_dh_auto_test:
 	# No automated test suite yet.
+
+override_dh_installsystemd:
+	dh_installsystemd -pargusrm-server
+	dh_installsystemd -pargusrm-agent --no-enable --no-start
+
+override_dh_installinit:
+	dh_installinit -pargusrm-agent --no-enable --no-start

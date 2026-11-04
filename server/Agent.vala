@@ -208,7 +208,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var tls_dir = GLib.Path.build_filename(LOCALSTATEDIR, "tls");
+			var tls_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "tls");
 			var ca_pem = "";
 			var ca_key_pem = "";
 			try {

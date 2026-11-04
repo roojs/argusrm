@@ -1,4 +1,8 @@
-deps = [shared_dep, dependency('gtk4'), dependency('libadwaita-1')]
+deps = [
+	shared_dep,
+	dependency('gtk4'),
+	dependency('libadwaita-1'),
+]
 sources = files(
 	'namespace.vala',
 	'Application.vala',
@@ -6,26 +10,35 @@ sources = files(
 )
 vala_args = ocrpc_vala_args + [
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1', '--pkg', 'libsoup-3.0',
-	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0',
+	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+	'--pkg', 'ocsqlite',
 ]
-c_args = []
+c_args = ocsqlite_c_args
 
 if host_machine.system() == 'linux'
 	deps += dependency('gio-unix-2.0')
+	register_policy = configure_file(
+		input: 'linux/org.roojs.ArgusAgent.register.policy.in',
+		output: 'org.roojs.ArgusAgent.register.policy',
+		configuration: {
+			'AGENT_EXECUTABLE': agent_executable,
+		},
+	)
 	sources += files(
 		'OSQuery/Initialize.vala',
 		'OSQuery/Query.vala',
-		'linux/BusRegistration.vala',
+		'linux/Application.vala',
+		'linux/ServiceManager.vala',
 		'linux/Command.vala',
 		'Listen.vala',
 	)
-	vala_args += ['-D', 'LINUX', '--pkg', 'gio-unix-2.0']
+	vala_args += [
+		'-D', 'LINUX', '--pkg', 'gio-unix-2.0', '--pkg', 'posix',
+	]
 	install_data(
-		'org.roojs.ArgusAgent.conf',
-		install_dir: get_option('datadir') / 'dbus-1' / 'system.d',
+		register_policy,
+		install_dir: get_option('datadir') / 'polkit-1' / 'actions',
 	)
-else
-	sources += files('Win32/BusRegistration.vala')
 endif
 
 if host_machine.system() == 'windows'

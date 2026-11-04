@@ -44,23 +44,16 @@ command. It talks to `/var/lib/argusrm/argus.sock` on this server and does
 not enroll itself. Remote desktop and mobile controller enrollment comes
 later.
 
-## 2. Start the agent on the managed machine
+## 2. Register the agent on the managed machine
 
-On a different machine, enable and start the agent:
-
-```sh
-sudo systemctl enable --now argusrm-agent.service
-```
-
-Windows opens its registration window from the tray. On a Linux desktop,
-open the registration window as the signed-in user:
+On a different machine, run:
 
 ```sh
-argus-agent --register
+argus-agent
 ```
 
-The window waits for the server registration PIN. It does not need root
-privileges; it passes the PIN to the root agent service.
+On a desktop, Polkit requests administrator access. Without a desktop, run `sudo argus-agent`.
+Registration enables and starts the systemd or SysV service.
 
 ## 3. Issue and enter the PIN
 

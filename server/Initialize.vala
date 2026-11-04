@@ -22,7 +22,7 @@ namespace Argus.Server
 	 * Work done before the sockets bind.
 	 *
 	 * {@link fetch_osquery} creates ''packages/osquery'' under
-	 * {@link LOCALSTATEDIR} and fetches the latest stable
+	 * {@link Argus.SERVER_DATA_DIR} and fetches the latest stable
 	 * installers. Other startup work belongs in this class.
 	 *
 	 * == Example ==
@@ -36,7 +36,7 @@ namespace Argus.Server
 	public class Initialize : GLib.Object
 	{
 		/**
-		 * Fetch the osquery installers into {@link LOCALSTATEDIR}.
+		 * Fetch the osquery installers into {@link Argus.SERVER_DATA_DIR}.
 		 *
 		 * Debian, RPM, and Windows files from the latest stable
 		 * release are saved as ''packages/osquery/osquery.deb'',
@@ -49,9 +49,9 @@ namespace Argus.Server
 		 */
 		public bool fetch_osquery()
 		{
-			var packages_dir = GLib.Path.build_filename(LOCALSTATEDIR, "packages");
+			var packages_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "packages");
 			var osquery_dir = GLib.Path.build_filename(packages_dir, "osquery");
-			var legacy_dir = GLib.Path.build_filename(LOCALSTATEDIR, "osquery");
+			var legacy_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "osquery");
 			if (!GLib.FileUtils.test(packages_dir, GLib.FileTest.IS_DIR)) {
 				if (GLib.DirUtils.create_with_parents(packages_dir, 0755) != 0) {
 					GLib.warning("download store %s", packages_dir);

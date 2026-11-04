@@ -70,10 +70,7 @@ fi
 %systemd_postun_with_restart argusrm-server.service
 
 %post -n argusrm-agent
-%systemd_post argusrm-agent.service
-if [ "$1" -eq 1 ]; then
-  systemctl enable --now argusrm-agent.service >/dev/null 2>&1 || :
-fi
+systemctl daemon-reload
 
 %preun -n argusrm-agent
 %systemd_preun argusrm-agent.service
@@ -91,8 +88,9 @@ fi
 %files -n argusrm-agent
 %license LICENSE
 %{_bindir}/argus-agent
-%{_datadir}/dbus-1/system.d/org.roojs.ArgusAgent.conf
+%{_datadir}/polkit-1/actions/org.roojs.ArgusAgent.register.policy
 %{_prefix}/lib/systemd/system/argusrm-agent.service
+%{_sysconfdir}/init.d/argusrm-agent
 %config(noreplace) %{_sysconfdir}/logrotate.d/argusrm-agent
 
 %files -n argusrm-controller

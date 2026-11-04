@@ -55,7 +55,7 @@ namespace Argus.Controller
 		 * Open the registration window for sixty seconds.
 		 *
 		 * Prints the pin after Argus accepts it. The Unix socket
-		 * is ''argus.sock'' under {@link LOCALSTATEDIR}.
+		 * is ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when the window was opened, otherwise the
@@ -67,7 +67,7 @@ namespace Argus.Controller
 			var n = GLib.Random.int_range(0, 1000000);
 			var pin = "%06d".printf(n);
 			var rpc = new OLLMrpc.Client("", "",
-				GLib.Path.build_filename(LOCALSTATEDIR, "argus.sock"));
+				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock"));
 			rpc.debug = false;
 			var loop = new GLib.MainLoop();
 			var code = 1;

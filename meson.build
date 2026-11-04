@@ -13,6 +13,18 @@ project(
 	],
 )
 
+fs = import('fs')
+cc = meson.get_compiler('c')
+ocsqlite_c_args = []
+if not cc.has_header('ocsqlite.h')
+	ocsqlite_header_dir = meson.project_source_root() / '..' / 'OLLMchat' / 'build' / 'libocsqlite'
+	if not fs.exists(ocsqlite_header_dir / 'ocsqlite.h')
+		error('ocsqlite.h is not installed')
+	endif
+	ocsqlite_c_args = ['-I' + ocsqlite_header_dir]
+endif
+ocsqlite_dep = cc.find_library('ocsqlite')
+
 ocrpc_dep = declare_dependency()
 ocrpc_vala_args = []
 
@@ -31,6 +43,41 @@ else
 	ocrpc_vala_args = ['--pkg', 'ocrpc']
 endif
 
+sysconfdir = get_option('sysconfdir')
+if not sysconfdir.startswith('/')
+	sysconfdir = get_option('prefix') / sysconfdir
+endif
+localstatedir = get_option('localstatedir')
+if not localstatedir.startswith('/')
+	localstatedir = get_option('prefix') / localstatedir
+endif
+bindir = get_option('bindir')
+if not bindir.startswith('/')
+	bindir = get_option('prefix') / bindir
+endif
+agent_executable = bindir / 'argus-agent'
+paths_vala = configure_file(
+	input: 'paths.vala.in',
+	output: 'paths.vala',
+	configuration: {
+		'AGENT_DATA_DIR': localstatedir / 'lib' / 'argusrm-agent' / 'argus',
+		'AGENT_SYSVINIT': sysconfdir / 'init.d' / 'argusrm-agent',
+		'SERVER_SYSCONFDIR': sysconfdir / 'argusrm',
+		'SERVER_DATA_DIR': localstatedir / 'lib' / 'argusrm',
+		'LOG_DIR': localstatedir / 'log' / 'argusrm',
+		'SOCKET_PORT': get_option('socket_port').to_string(),
+		'DOWNLOAD_PORT': get_option('download_port').to_string(),
+	},
+)
+agent_sysvinit = configure_file(
+	input: 'packaging/sysvinit/argusrm-agent.in',
+	output: 'argusrm-agent',
+	configuration: {
+		'AGENT_EXECUTABLE': agent_executable,
+		'AGENT_STATE_DIR': localstatedir / 'lib' / 'argusrm-agent',
+		'LOG_DIR': localstatedir / 'log' / 'argusrm',
+	},
+)
 subdir('shared')
 subdir('agent')
 if host_machine.system() != 'android'
@@ -43,6 +90,11 @@ if host_machine.system() == 'linux'
 		'packaging/systemd/argusrm-agent.service',
 		'packaging/systemd/argusrm-server.service',
 		install_dir: get_option('prefix') / 'lib' / 'systemd' / 'system',
+	)
+	install_data(
+		agent_sysvinit,
+		install_dir: get_option('sysconfdir') / 'init.d',
+		install_mode: 'rwxr-xr-x',
 	)
 	install_data(
 		'packaging/logrotate/argusrm-agent',

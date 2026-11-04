@@ -43,7 +43,11 @@ namespace Argus.Server
 			get; set; default = new GLib.SocketService();
 		}
 		private bool listening = false;
-		private Gee.ArrayList<SslConnection> connections {
+		/**
+		 * App-socket connections. {@link Command} writes one
+		 * notification to the connection for that agent.
+		 */
+		internal Gee.ArrayList<SslConnection> connections {
 			get; set; default = new Gee.ArrayList<SslConnection>();
 		}
 

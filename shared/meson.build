@@ -7,7 +7,9 @@ shared_deps = [
 	dependency('libsoup-3.0'),
 	dependency('gtk4'),
 	dependency('libadwaita-1'),
+	dependency('sqlite3'),
 	ocrpc_dep,
+	ocsqlite_dep,
 ]
 shared_osquery_sources = files(
 	'SQ/Interface.vala',
@@ -23,11 +25,14 @@ shared_sources = files(
 	'namespace.vala',
 	'Register.vala',
 	'RegisterWindow.vala',
-	'SQLiteCompat.vala',
 )
+shared_sources += paths_vala
 shared_sources += shared_osquery_sources
-shared_vala_args = ocrpc_vala_args + ['--pkg', 'gtk4', '--pkg', 'libadwaita-1']
-shared_c_args = []
+shared_vala_args = ocrpc_vala_args + [
+	'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
+	'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+]
+shared_c_args = ocsqlite_c_args
 
 if host_machine.system() == 'windows'
 	shared_sources += files('windows/Browse.vala')
