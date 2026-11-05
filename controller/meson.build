@@ -8,9 +8,17 @@ deps = [
 	meson.get_compiler('c').find_library('ocrpc'),
 ]
 deps += shared_dep
+controller_vala_args = [
+	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
+	'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+]
+if host_machine.system() == 'linux'
+	controller_vala_args += ['-D', 'LINUX', '--pkg', 'posix']
+endif
 sources = files(
 	'namespace.vala',
 	'Application.vala',
+	'Connection.vala',
 	'Pin.vala',
 	'Agents.vala',
 	'Command.vala',
@@ -20,10 +28,7 @@ executable(
 	sources,
 	dependencies: deps,
 	c_args: ocsqlite_c_args,
-	vala_args: [
-		'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
-		'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
-	],
+	vala_args: controller_vala_args,
 	install: true,
 )
 command_test = executable(

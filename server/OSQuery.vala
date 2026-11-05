@@ -49,24 +49,21 @@ namespace Argus.Server
 			if (OLLMrpc.Bin.alias_to_gtype == null ||
 				!OLLMrpc.Bin.alias_to_gtype.has_key(name)) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error((int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown osquery row class")
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown osquery row class")
 				});
 				return;
 			}
 			var row_type = OLLMrpc.Bin.alias_to_gtype.get(name);
 			if (!row_type.is_a(typeof(Argus.Shared.OSQuery.Row))) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error((int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"invalid osquery row class")
+					error = new OLLMrpc.Error.INVALID_REQUEST("invalid osquery row class")
 				});
 				return;
 			}
 			var model = (Argus.Shared.OSQuery.Row) GLib.Object.new(row_type);
 			if (!model.sync(this.app.db, connection.agent_id, rows)) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error((int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"invalid " + name + " row")
+					error = new OLLMrpc.Error.INVALID_REQUEST("invalid " + name + " row")
 				});
 				return;
 			}

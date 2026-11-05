@@ -5,7 +5,7 @@
 **Pointer:** `docs/bug-fix-process.md`. `docs/guide-to-writing-plans.md` — **Checklist for plans**. Proposed Vala must follow `docs/coding-standards.md`.
 
 ℹ️ Related: `../2026-11-04-elevation-dialog-and-pin-used.md` does **not** fix this.
-ℹ️ `docs/plans/2.1.2-root-registration-ui.md`, `docs/plans/3.0-server.md` Phase 3.
+ℹ️ `docs/plans/done/2.1.2-DONE-root-registration-ui.md`, `docs/plans/3.0-server.md` Phase 3.
 
 ---
 

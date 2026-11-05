@@ -25,7 +25,8 @@
  * {@link RegisterWindow} is the six-digit dialog for the agent and
  * the controller. The sixth digit calls {@link Register}.
  * {@link OSQuery.Row} is one osquery row. The agent and the
- * server both use those objects.
+ * server both use those objects. {@link SQT.Task} and the other
+ * SQT rows are the task and script tables.
  *
  * == Example ==
  *

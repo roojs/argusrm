@@ -31,6 +31,8 @@
  * certificate. A transfer on that socket is not the app socket.
  * {@link Command} tells one agent to run a command and stores
  * the output for the controller that asked.
+ * {@link SQT.Task} manages tasks, templates, and draft targets.
+ * {@link SQT.Scheduler} wakes due tasks on the main context.
  *
  * == Example ==
  *

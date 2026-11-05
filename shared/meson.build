@@ -21,15 +21,25 @@ shared_osquery_sources = files(
 	'OSQuery/LoggedInUsers.vala',
 	'OSQuery/InterfaceAddresses.vala',
 )
+shared_sqt_sources = files(
+	'SQT/namespace.vala',
+	'SQT/Task.vala',
+	'SQT/TaskTarget.vala',
+	'SQT/Script.vala',
+	'SQT/ScriptAgent.vala',
+	'SQT/ScriptRepository.vala',
+)
 shared_sources = files(
 	'namespace.vala',
 	'Agent.vala',
+	'Registration/Data.vala',
 	'Register.vala',
 	'RegisterWindow.vala',
 	'Notice.vala',
 )
 shared_sources += paths_vala
 shared_sources += shared_osquery_sources
+shared_sources += shared_sqt_sources
 shared_vala_args = ocrpc_vala_args + [
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
 	'--pkg', 'sqlite3', '--pkg', 'ocsqlite',

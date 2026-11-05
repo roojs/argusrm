@@ -56,6 +56,8 @@ namespace Argus.Server
 		 * ''Agent.request_registration''.
 		 *
 		 * A stored row with status 1 may call the other methods.
+		 * A pending controller row becomes active on its first
+		 * ''RPC-Daemon.hello''.
 		 *
 		 * @param request inbound RPC
 		 * @return true when the method may run
@@ -67,8 +69,7 @@ namespace Argus.Server
 			}
 			if (this.cert_fingerprint == "") {
 				this.reply(request, new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST, "client certificate required")
+					error = new OLLMrpc.Error.INVALID_REQUEST("client certificate required")
 				});
 				return false;
 			}
@@ -77,15 +78,25 @@ namespace Argus.Server
 			var int_binds = new Gee.HashMap<string, int>();
 			var text_binds = new Gee.HashMap<string, string>();
 			text_binds.set("fingerprint", this.cert_fingerprint);
-			cert_q.selectWhere("WHERE fingerprint = $fingerprint AND status = 1",
+			cert_q.selectWhere("WHERE fingerprint = $fingerprint",
 				int_binds, text_binds, rows);
 			if (rows.size > 0) {
-				this.agent_id = rows.get(0).id;
-				return true;
+				var row = rows.get(0);
+				if (row.status == 1) {
+					this.agent_id = row.id;
+					return true;
+				}
+				if (row.status == 0 && row.is_controller &&
+					request.method == "RPC-Daemon.hello") {
+					row.status = 1;
+					cert_q.updateById(row);
+					this.app.db.backupDB();
+					this.agent_id = row.id;
+					return true;
+				}
 			}
 			this.reply(request, new OLLMrpc.Response() {
-				error = new OLLMrpc.Error((int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED,
-					"certificate not registered")
+				error = new OLLMrpc.Error.CERT_NOT_REGISTERED("certificate not registered")
 			});
 			return false;
 		}

@@ -76,6 +76,11 @@ namespace Argus.Server
 		public SQ.Database db { get; private set; }
 
 		/**
+		 * Background task scheduler.
+		 */
+		public SQT.Scheduler scheduler { get; private set; }
+
+		/**
 		 * Unix socket the controller uses for {@link Agent.pair}.
 		 */
 		public OLLMrpc.Transport.SocketListen listen { get; private set; }
@@ -126,8 +131,26 @@ namespace Argus.Server
 			if (!GLib.FileUtils.test(Argus.SERVER_DATA_DIR, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(Argus.SERVER_DATA_DIR, 0755);
 			}
+			var git_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "git");
+			var scripts_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "scripts");
+			if (!GLib.FileUtils.test(git_dir, GLib.FileTest.IS_DIR)) {
+				GLib.DirUtils.create_with_parents(git_dir, 0755);
+			}
+			if (!GLib.FileUtils.test(scripts_dir, GLib.FileTest.IS_DIR)) {
+				GLib.DirUtils.create_with_parents(scripts_dir, 0755);
+			}
+			Ggit.init();
+			if (!GLib.FileUtils.test(GLib.Path.build_filename(scripts_dir, ".git"),
+				GLib.FileTest.EXISTS)) {
+				try {
+					Ggit.Repository.init_repository(GLib.File.new_for_path(scripts_dir), false);
+				} catch (GLib.Error e) {
+					GLib.warning("scripts git init: %s", e.message);
+				}
+			}
 			this.db = new SQ.Database(
 				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sqlite"), true);
+			this.scheduler = new SQT.Scheduler(this);
 			this.listen = new OLLMrpc.Transport.SocketListen(
 				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
 				live_handles = true
@@ -140,6 +163,7 @@ namespace Argus.Server
 			});
 			this.shutdown.connect(() => {
 				this.publish.stop();
+				this.scheduler.stop();
 				this.listen.stop();
 				this.db.backup_real();
 				this.ssl_listen.stop();
@@ -227,26 +251,26 @@ namespace Argus.Server
 			if (!GLib.FileUtils.test(tls_dir, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(tls_dir, 0700);
 			}
-			var ca_pem = GLib.Path.build_filename(tls_dir, "ollmrpc-ca.pem");
-			var ca_key = GLib.Path.build_filename(tls_dir, "ollmrpc-ca-key.pem");
-			if (!GLib.FileUtils.test(ca_pem, GLib.FileTest.EXISTS)) {
-				try {
-					GLib.FileUtils.set_contents(ca_pem,
-						(string) GLib.resources_lookup_data("/ollmrpc/ollmrpc-ca.pem",
-							GLib.ResourceLookupFlags.NONE).get_data());
-				} catch (GLib.Error e) {
-					GLib.error("extract CA PEM: %s", e.message);
-				}
+			var ca_pem = GLib.Path.build_filename(tls_dir, "server-ca.pem");
+			var ca_key = GLib.Path.build_filename(tls_dir, "server-ca-key.pem");
+			if (!GLib.FileUtils.test(ca_pem, GLib.FileTest.EXISTS)
+				|| !GLib.FileUtils.test(ca_key, GLib.FileTest.EXISTS)) {
+				GLib.FileUtils.remove(ca_pem);
+				GLib.FileUtils.remove(ca_key);
+				GLib.FileUtils.remove(GLib.Path.build_filename(tls_dir, "server.pem"));
+				GLib.FileUtils.remove(GLib.Path.build_filename(tls_dir, "server-key.pem"));
+				GLib.FileUtils.remove(GLib.Path.build_filename(tls_dir, "server.csr"));
 			}
-			if (!GLib.FileUtils.test(ca_key, GLib.FileTest.EXISTS)) {
-				try {
-					GLib.FileUtils.set_contents(ca_key,
-						(string) GLib.resources_lookup_data("/ollmrpc/ollmrpc-ca-key.pem",
-							GLib.ResourceLookupFlags.NONE).get_data());
-				} catch (GLib.Error e) {
-					GLib.error("extract CA key: %s", e.message);
-				}
-			}
+			var ca = new OLLMrpc.Transport.Cert() {
+				dir = tls_dir,
+				cert_pem = "server-ca.pem",
+				key_pem = "server-ca-key.pem",
+				trust_pem = "server-ca.pem",
+				cn = "Argus Server CA",
+				certificate_authority = true
+			};
+			ca.ensure();
+			GLib.FileUtils.chmod(ca_key, 0600);
 			this.tls.dir = tls_dir;
 			this.tls.ca_pem_path = ca_pem;
 			this.tls.ca_key_path = ca_key;
@@ -258,16 +282,25 @@ namespace Argus.Server
 				return 1;
 			}
 			Agent.rpc_register();
+			Registration.rpc_register();
 			Argus.Shared.Agent.rpc_register();
 			Daemon.rpc_register();
 			OSQuery.rpc_register();
 			Command.rpc_register();
+			SQT.ScriptRepository.rpc_register();
+			SQT.Script.rpc_register();
+			SQT.Task.rpc_register();
 			Argus.Shared.Agent.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
+			Argus.Shared.SQT.init_db(this.db);
 			OLLMrpc.Request.register("Agent", new Agent.for_rpc(this));
+			OLLMrpc.Request.register("Registration", new Registration(this));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
 			OLLMrpc.Request.register("Command", new Command.for_rpc(this));
+			OLLMrpc.Request.register("ScriptRepository", new SQT.ScriptRepository.for_rpc(this));
+			OLLMrpc.Request.register("Script", new SQT.Script.for_rpc(this));
+			OLLMrpc.Request.register("Task", new SQT.Task.for_rpc(this));
 			if (!(new Initialize()).fetch_osquery()) {
 				command_line.printerr("error: download store was not created\n");
 				return 1;
@@ -287,6 +320,7 @@ namespace Argus.Server
 				command_line.printerr("error: download socket did not bind\n");
 				return 1;
 			}
+			this.scheduler.start();
 			GLib.debug("staying up");
 			this.hold();
 			return 0;

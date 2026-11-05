@@ -33,12 +33,16 @@ namespace Argus.Shared
 	 */
 	public class Agent : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable
 	{
+		private static SQ.Database db;
+
 		public int64 id { get; set; default = 0; }
 		public string fingerprint { get; set; default = ""; }
 		public int status { get; set; default = 0; }
 		public string ip { get; set; default = ""; }
 		public int64 created { get; set; default = 0; }
 		public string requester { get; set; default = ""; }
+		public string username { get; set; default = ""; }
+		public string hostname { get; set; default = ""; }
 		public bool is_controller { get; set; default = false; }
 
 		/**
@@ -61,12 +65,44 @@ namespace Argus.Shared
 		}
 
 		/**
+		 * Validate that an RPC request came from a controller.
+		 *
+		 * The Unix socket has no certificate and is the local controller.
+		 * A TLS caller must have an active controller row for its certificate.
+		 * An invalid caller receives the error response here.
+		 *
+		 * @param request inbound RPC request
+		 * @return true when the caller is a controller
+		 */
+		public static bool is_a_controller(OLLMrpc.Request request)
+		{
+			if (request.connection.cert_fingerprint == "") {
+				return true;
+			}
+			var rows = new Gee.ArrayList<Agent>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			text_binds.set("fingerprint", request.connection.cert_fingerprint);
+			Agent.query(Agent.db).selectWhere(
+				"WHERE fingerprint = $fingerprint AND status = 1 AND is_controller = 1",
+				int_binds, text_binds, rows);
+			if (rows.size > 0) {
+				return true;
+			}
+			request.reply(new OLLMrpc.Response() {
+				error = new OLLMrpc.Error.INVALID_REQUEST("controller only")
+			});
+			return false;
+		}
+
+		/**
 		 * Create ''agent'', migrating the old ''client_cert'' table.
 		 *
 		 * @param db Argus database
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			Agent.db = db;
 			string errmsg;
 			db.db.exec("ALTER TABLE client_cert RENAME TO agent;", null, out errmsg);
 			var ddl = """
@@ -77,6 +113,8 @@ namespace Argus.Shared
 					ip            TEXT NOT NULL DEFAULT '',
 					created       INT64 NOT NULL DEFAULT 0,
 					requester     TEXT NOT NULL DEFAULT '',
+					username      TEXT NOT NULL DEFAULT '',
+					hostname      TEXT NOT NULL DEFAULT '',
 					is_controller INTEGER NOT NULL DEFAULT 0
 				);
 				""";
@@ -87,6 +125,22 @@ namespace Argus.Shared
 				"""
 				ALTER TABLE agent ADD COLUMN
 					is_controller INTEGER NOT NULL DEFAULT 0;
+				""",
+				null,
+				out errmsg
+			);
+			db.db.exec(
+				"""
+				ALTER TABLE agent ADD COLUMN
+					username TEXT NOT NULL DEFAULT '';
+				""",
+				null,
+				out errmsg
+			);
+			db.db.exec(
+				"""
+				ALTER TABLE agent ADD COLUMN
+					hostname TEXT NOT NULL DEFAULT '';
 				""",
 				null,
 				out errmsg

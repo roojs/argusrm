@@ -24,12 +24,12 @@ namespace Argus.Shared
 	 * Adapts the registration half of ''FilesdClient.try_connection'':
 	 * a TLS connection, ''Agent.request_registration'', then
 	 * {@link OLLMrpc.Transport.Cert} files under the user data
-	 * directory ''argus''. The call includes the OS family so the
-	 * server can choose the download. The reply string array is
-	 * the client certificate, the CA, the download socket, the
-	 * download URL path, then listen addresses. The app socket is
-	 * the host and port this call used, written as ''server'' next
-	 * to those files.
+	 * directory ''argus''. The call includes the OS family and explicit
+	 * controller identity fields. The server uses the family to choose
+	 * the agent download. The reply string array is the client certificate,
+	 * the CA, the download socket, the download URL path, then listen
+	 * addresses. The app socket is the host and port this call used,
+	 * written as ''server'' next to those files.
 	 *
 	 * == Example ==
 	 *
@@ -74,11 +74,32 @@ namespace Argus.Shared
 		public string addresses = "";
 
 		/**
+		 * True stores this registration as a control client.
+		 *
+		 * Agents leave this false. Controllers set it explicitly.
+		 */
+		public bool is_controller = false;
+
+		/**
+		 * Operating-system login name for a controller registration.
+		 *
+		 * Agents leave this empty.
+		 */
+		public string username = "";
+
+		/**
+		 * Machine name for a controller registration.
+		 *
+		 * Agents leave this empty.
+		 */
+		public string hostname = "";
+
+		/**
 		 * Register this machine while the Argus window is open.
 		 *
 		 * Sends ''pin'', the certificate request, ''requester'',
-		 * and the OS family. Windows sends ''windows''. Android
-		 * sends ''android''. Linux asks
+		 * the OS family, and the controller identity fields.
+		 * Windows sends ''windows''. Android sends ''android''. Linux asks
 		 * {@link GLib.Environment.get_os_info} for ''ID'' and
 		 * ''ID_LIKE''. That reads ''/etc/os-release''. Debian and
 		 * Ubuntu send ''debian''.
@@ -164,7 +185,8 @@ namespace Argus.Shared
 				};
 				response = link.call(new OLLMrpc.Request() {
 					method = "Agent.request_registration",
-					args = OLLMrpc.args("ssss", pin, csr, requester, family)
+					args = OLLMrpc.args("ssssbss", pin, csr, requester,
+						family, this.is_controller, this.username, this.hostname)
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);

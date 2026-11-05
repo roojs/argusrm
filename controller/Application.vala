@@ -36,11 +36,13 @@ namespace Argus.Controller
 	{
 		public static bool pin;
 		public static bool agents;
+		public static string give_certificate;
 		public static string agent;
 		public static string command;
 		private const GLib.OptionEntry[] app_options = {
 			{ "pin", 0, 0, GLib.OptionArg.NONE, ref pin, "Show a registration PIN", null },
 			{ "agents", 0, 0, GLib.OptionArg.NONE, ref agents, "List registered agents", null },
+			{ "give-me-a-certificate", 0, 0, GLib.OptionArg.STRING, ref give_certificate, "Issue a local controller certificate", "USERNAME" },
 			{ "agent", 0, 0, GLib.OptionArg.STRING, ref agent, "Agent id", "ID" },
 			{ "command", 0, 0, GLib.OptionArg.STRING, ref command, "Command to run", "COMMAND" },
 			{ null }
@@ -79,9 +81,11 @@ namespace Argus.Controller
 		{
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
+			Argus.Shared.Registration.Data.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			pin = false;
 			agents = false;
+			give_certificate = "";
 			agent = "";
 			command = "";
 			var args = command_line.get_arguments();
@@ -101,15 +105,32 @@ namespace Argus.Controller
 				command_line.printerr("%s\n", e.message);
 				return 1;
 			}
-			var chosen = 0;
-			chosen += pin ? 1 : 0;
-			chosen += agents ? 1 : 0;
-			chosen += agent != "" || command != "" ? 1 : 0;
+			var chosen = (pin ? 1 : 0)
+				+ (agents ? 1 : 0)
+				+ (give_certificate != "" ? 1 : 0)
+				+ (agent != "" || command != "" ? 1 : 0);
 			if (chosen != 1) {
-				command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --agent ID --command COMMAND...\n");
+				command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --give-me-a-certificate USERNAME\n  argus-controller --agent ID --command COMMAND...\n");
 				return 1;
 			}
-			if (agent == "" && !pin && !agents) {
+#if LINUX
+			if (give_certificate != "" && Posix.geteuid() != 0) {
+				var data = new Argus.Shared.Registration.Data() {
+					error = "root is required"
+				};
+				command_line.print("%s\n", Json.gobject_to_data(data, null));
+				return 1;
+			}
+#else
+			if (give_certificate != "") {
+				var data = new Argus.Shared.Registration.Data() {
+					error = "local certificate issue is Linux only"
+				};
+				command_line.print("%s\n", Json.gobject_to_data(data, null));
+				return 1;
+			}
+#endif
+			if (agent == "" && !pin && !agents && give_certificate == "") {
 				command_line.printerr("command needs --agent ID\n");
 				return 1;
 			}
@@ -117,8 +138,10 @@ namespace Argus.Controller
 			if (command != "") {
 				parts.add(command);
 			}
-			parts.add_all_array(leftover[1:leftover.length]);
-			if (!pin && !agents && parts.size < 1) {
+			if (give_certificate == "") {
+				parts.add_all_array(leftover[1:leftover.length]);
+			}
+			if (!pin && !agents && give_certificate == "" && parts.size < 1) {
 				command_line.printerr("command needs --command\n");
 				return 1;
 			}
@@ -131,41 +154,89 @@ namespace Argus.Controller
 			this.rpc.debug = false;
 			this.loop = new GLib.MainLoop();
 			this.code = 1;
-			this.cli.print("Connecting to the local Argus server...\n");
+			if (give_certificate == "") {
+				this.cli.print("Connecting to the local Argus server...\n");
+			}
 			this.rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
 				args = OLLMrpc.args("is", 1, "argus-controller")
-			}, null, (obj, res) => {
-				var opened = this.rpc.connect.end(res);
-				if (!opened) {
+			}, null, this.on_connect);
+			this.loop.run();
+			return this.code;
+		}
+
+		/**
+		 * Handle the completed connection to the local Argus server.
+		 *
+		 * @param rpc the Unix client
+		 * @param res the finished connection
+		 */
+		public void on_connect(GLib.Object? rpc, GLib.AsyncResult res)
+		{
+			var opened = this.rpc.connect.end(res);
+			if (!opened) {
+				if (give_certificate != "") {
+					var data = new Argus.Shared.Registration.Data() {
+						error = this.rpc.connect_error
+					};
+					this.cli.print("%s\n", Json.gobject_to_data(data, null));
+				}
+				if (give_certificate == "") {
 					this.cli.printerr("%s\n", this.rpc.connect_error);
-					this.loop.quit();
-					return;
 				}
-				if (pin) {
-					new Pin(this).run();
-					return;
-				}
-				if (agents) {
-					new Agents(this).run();
-					return;
-				}
-				var command = new Command(this);
-				command.ref();
-				command.stdout.connect((text) => {
-					this.cli.print("%s", text);
-				});
-				command.stderr.connect((text) => {
-					this.cli.printerr("%s", text);
-				});
-				command.ended.connect(() => {
+				this.loop.quit();
+				return;
+			}
+			if (give_certificate != "") {
+				this.rpc.call.begin(new OLLMrpc.Request() {
+					method = "Registration.certificate",
+					args = OLLMrpc.args("s", give_certificate)
+				}, (call_obj, call_res) => {
+					try {
+						var response = this.rpc.call.end(call_res);
+						if (response.error != null) {
+							var data = new Argus.Shared.Registration.Data() {
+								error = response.error.message
+							};
+							this.cli.print("%s\n", Json.gobject_to_data(data, null));
+							this.loop.quit();
+							return;
+						}
+						this.cli.print("%s\n", Json.gobject_to_data((Argus.Shared.Registration.Data) response.retval, null));
+					} catch (GLib.Error e) {
+						var data = new Argus.Shared.Registration.Data() {
+							error = e.message
+						};
+						this.cli.print("%s\n", Json.gobject_to_data(data, null));
+						this.loop.quit();
+						return;
+					}
 					this.code = 0;
 					this.loop.quit();
 				});
-				command.run();
+				return;
+			}
+			if (pin) {
+				new Pin(this).run();
+				return;
+			}
+			if (agents) {
+				new Agents(this).run();
+				return;
+			}
+			var command = new Command(this);
+			command.ref();
+			command.stdout.connect((text) => {
+				this.cli.print("%s", text);
 			});
-			this.loop.run();
-			return this.code;
+			command.stderr.connect((text) => {
+				this.cli.printerr("%s", text);
+			});
+			command.ended.connect(() => {
+				this.code = 0;
+				this.loop.quit();
+			});
+			command.run();
 		}
 	}
 

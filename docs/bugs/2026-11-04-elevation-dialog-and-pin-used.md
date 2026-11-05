@@ -4,7 +4,7 @@
 
 **Pointer:** `docs/bug-fix-process.md`. `docs/guide-to-writing-plans.md` — **Checklist for plans**. Proposed Vala must follow `docs/coding-standards.md`.
 
-ℹ️ Related: `docs/plans/2.1-registration-flow.md`, `docs/plans/2.1.1-linux-startup-polkit.md`, `docs/plans/3.0-server.md` Phase 2.
+ℹ️ Related: `docs/plans/2.1-registration-flow.md`, `docs/plans/done/2.1.1-DONE-linux-startup-polkit.md`, `docs/plans/3.0-server.md` Phase 2.
 
 ---
 

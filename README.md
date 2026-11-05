@@ -38,7 +38,8 @@ commands. The registration window itself runs as the signed-in desktop user.
 
 ## Project documentation
 
-- [Overview](docs/plans/1.0-overview.md)
+- [Aims](docs/plans/1.0-aims.md)
+- [Implementation](docs/plans/1.1-implementation.md)
 - [Installing packages](docs/install-packages.md)
 - [Installing from source](docs/install-source.md)
 - [Building](docs/build.md)

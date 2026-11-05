@@ -29,7 +29,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the app socket. The client certificate does not exist yet.
 - Direction: agent calls the server.
-- Arguments `ssss`: the pin, the certificate request PEM, the requester, the OS family.
+- Arguments `ssssbss`: the pin, certificate request PEM, requester, OS family, controller flag, username, and hostname.
   - Windows sends `windows`. Android sends `android`.
   - Linux reads `/etc/os-release` before the call, through `GLib.Environment.get_os_info` for `ID` and `ID_LIKE`. Debian and Ubuntu send `debian`. Fedora, RHEL, CentOS, and SUSE send `rpm`.
   - When that file does not decide, `dpkg` on `PATH` sends `debian` and `rpm` on `PATH` sends `rpm`.
@@ -40,6 +40,17 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - Index 3 is the download URL path, including the extension. The agent writes that as `download-path`. The server chooses it from the OS family.
   - Later entries are listen addresses.
 - ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
+
+### `Registration.certificate`
+
+- Socket: the Unix socket.
+- Direction: privileged controller calls the server.
+- Arguments `s`: the controller user's operating-system login name.
+- The server requires Unix peer uid `0`.
+- Reply `retval` `o`: `Argus.Shared.Registration.Data`.
+  - It contains the private key, client certificate, CA certificate, server name, addresses, and TLS port.
+  - The server stores a pending controller row with `status = 0`.
+- ℹ️ The method is `server/Registration.vala`.
 
 ### `Agent.list`
 
@@ -65,7 +76,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 ## Downloads
 
-Not an RPC call. [1.0 Sockets](plans/1.0-overview.md).
+Not an RPC call. [1.1](plans/1.1-implementation.md).
 
 - 🔷 The download socket only listens for download requests.
 - 🔷 The agent fetches with a standard HTTP GET over TLS.
@@ -84,7 +95,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 🔷 The connected agent has a class that listens for notifications.
 - 🔷 The command class deals with the command notifications.
 - 🔷 Every notification has a method. The listener switches on it.
-- 💩 `Application.notification` in `agent/Application.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Any other method returns. After `open_link` the process connects `TlsClient.notification` and calls `TlsClient.watch`. [2.4-listen.md](plans/2.4-listen.md).
+- 💩 `Application.notification` in `agent/Application.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Any other method returns. After `open_link` the process connects `TlsClient.notification` and calls `TlsClient.watch`. [2.4-DONE-listen.md](plans/done/2.4-DONE-listen.md).
 
 - 🔷 A notification is for one connection. There are two deliveries.
   - A broadcast notification goes to every connection.
@@ -188,3 +199,13 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 
 - 🔷 The agent sends this when the child is dead.
 - 💩 Arguments `i`: identifier.
+
+---
+
+## Tasks
+
+Controller calls for the script library and tasks. Defined in [7.1](plans/7.1-tasks-implementation.md).
+
+- `ScriptRepository.clone` `o`, `pull` `i`, `remove` `i`, `list` — in the tree. Clone uses libgit2 (`Ggit`). The row is written after the checkout succeeds.
+- `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `enable` `ii`, `disable` `ii`, `agents` `i`
+- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `approve` `i`, `duplicate` `i`, `targets` `i`

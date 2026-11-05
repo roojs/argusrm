@@ -140,37 +140,16 @@ namespace Argus.Server
 		{
 			if (agent_id < 1) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"controller does not run commands"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("controller does not run commands")
 				});
 				return;
 			}
-			var caller = request.connection as SslConnection;
-			if (caller != null) {
-				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
-				var int_binds = new Gee.HashMap<string, int>();
-				int_binds.set("id", (int) caller.agent_id);
-				Argus.Shared.Agent.query(this.app.db).selectWhere(
-					"WHERE id = $id AND is_controller = 1",
-					int_binds, null, rows);
-				if (rows.size == 0) {
-					request.reply(new OLLMrpc.Response() {
-						error = new OLLMrpc.Error(
-							(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-							"controller only"
-						)
-					});
-					return;
-				}
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
 			}
 			if (order.identifier < 1) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"invalid command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("invalid command")
 				});
 				return;
 			}
@@ -183,10 +162,7 @@ namespace Argus.Server
 					now.format("%Y"), now.format("%m"), now.format("%d"));
 				if (GLib.DirUtils.create_with_parents(dir, 0755) != 0) {
 					request.reply(new OLLMrpc.Response() {
-						error = new OLLMrpc.Error(
-							(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-							"could not store output"
-						)
+						error = new OLLMrpc.Error.INTERNAL_ERROR("could not store output")
 					});
 					return;
 				}
@@ -204,10 +180,7 @@ namespace Argus.Server
 				return;
 			}
 			request.reply(new OLLMrpc.Response() {
-				error = new OLLMrpc.Error(
-					(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-					"unknown agent"
-				)
+				error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
 			});
 		}
 
@@ -224,30 +197,12 @@ namespace Argus.Server
 		 */
 		public void send(OLLMrpc.Request request, int identifier, string text)
 		{
-			var caller = request.connection as SslConnection;
-			if (caller != null) {
-				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
-				var int_binds = new Gee.HashMap<string, int>();
-				int_binds.set("id", (int) caller.agent_id);
-				Argus.Shared.Agent.query(this.app.db).selectWhere(
-					"WHERE id = $id AND is_controller = 1",
-					int_binds, null, rows);
-				if (rows.size == 0) {
-					request.reply(new OLLMrpc.Response() {
-						error = new OLLMrpc.Error(
-							(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-							"controller only"
-						)
-					});
-					return;
-				}
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
 			}
 			if (Command.agents == null || !Command.agents.has_key(identifier) || !Command.agents.get(identifier).running) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
@@ -256,10 +211,7 @@ namespace Argus.Server
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not store output"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not store output")
 				});
 				return;
 			}
@@ -290,20 +242,14 @@ namespace Argus.Server
 		{
 			if (Command.agents == null || !Command.agents.has_key(identifier)) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
 			var caller = request.connection as SslConnection;
 			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
@@ -312,10 +258,7 @@ namespace Argus.Server
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not store output"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not store output")
 				});
 				return;
 			}
@@ -347,20 +290,14 @@ namespace Argus.Server
 		{
 			if (Command.agents == null || !Command.agents.has_key(identifier)) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
 			var caller = request.connection as SslConnection;
 			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
@@ -369,10 +306,7 @@ namespace Argus.Server
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not store output"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not store output")
 				});
 				return;
 			}
@@ -399,20 +333,14 @@ namespace Argus.Server
 		{
 			if (Command.agents == null || !Command.agents.has_key(identifier)) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
 			var caller = request.connection as SslConnection;
 			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"unknown command"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}

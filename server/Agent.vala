@@ -46,7 +46,7 @@ namespace Argus.Server
 		{
 			OLLMrpc.Request.add_class(
 				"Agent", typeof(Agent),
-				"request_registration", "ssss",
+				"request_registration", "ssssbss",
 				"pair", "s",
 				"list", ""
 			);
@@ -66,31 +66,31 @@ namespace Argus.Server
 		 * @param csr PEM certificate request
 		 * @param requester device string stored with the row
 		 * @param family ''debian'', ''rpm'', ''windows'', or ''android''
+		 * @param is_controller true for a controller certificate
+		 * @param username controller operating-system login name
+		 * @param hostname controller machine name
 		 */
 		public void request_registration(
 			OLLMrpc.Request request,
 			string pin,
 			string csr,
 			string requester,
-			string family
+			string family,
+			bool is_controller,
+			string username,
+			string hostname
 		) {
 			var rpc = request.connection as SslConnection;
 			if (rpc == null) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"socket registration only"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("socket registration only")
 				});
 				return;
 			}
 			var listen = this.app.ssl_listen;
 			if (pin != listen.pin || listen.pin == "") {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"number rejected"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("number rejected")
 				});
 				this.app.broadcast(new OLLMrpc.Notification() {
 					method = "event.pair",
@@ -101,10 +101,7 @@ namespace Argus.Server
 			var init_ret = GnuTLS.global_init();
 			if (init_ret < 0) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not sign"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
 				return;
 			}
@@ -115,20 +112,14 @@ namespace Argus.Server
 			var crq = GnuTLS.X509.CertificateRequest.create();
 			if (crq.import(ref csr_datum, GnuTLS.X509.CertificateFormat.PEM) < 0) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"bad csr"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("bad csr")
 				});
 				return;
 			}
 			var crt = GnuTLS.X509.Certificate.create();
 			if (gnutls_x509_crt_set_crq(crt, crq) < 0 || crt.set_version(3) < 0) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"bad csr"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("bad csr")
 				});
 				return;
 			}
@@ -142,31 +133,24 @@ namespace Argus.Server
 				|| crt.set_expiration_time(
 					now + (time_t) (3650 * 24 * 60 * 60)) < 0) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not sign"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
 				return;
 			}
-			var tls_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "tls");
 			var ca_pem = "";
 			var ca_key_pem = "";
 			try {
 				GLib.FileUtils.get_contents(
-					GLib.Path.build_filename(tls_dir, "ollmrpc-ca.pem"),
+					this.app.tls.ca_pem_path,
 					out ca_pem
 				);
 				GLib.FileUtils.get_contents(
-					GLib.Path.build_filename(tls_dir, "ollmrpc-ca-key.pem"),
+					this.app.tls.ca_key_path,
 					out ca_key_pem
 				);
 			} catch (GLib.Error e) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not sign"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
 				return;
 			}
@@ -187,10 +171,7 @@ namespace Argus.Server
 				|| crt.sign2(
 					ca_crt, ca_key, GnuTLS.DigestAlgorithm.SHA256, 0) < 0) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not sign"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
 				return;
 			}
@@ -200,10 +181,7 @@ namespace Argus.Server
 			if (crt.export(
 				GnuTLS.X509.CertificateFormat.PEM, crt_buf, ref crt_len) < 0) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not sign"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
 				return;
 			}
@@ -218,10 +196,7 @@ namespace Argus.Server
 				);
 			} catch (GLib.Error e) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR,
-						"could not sign"
-					)
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
 				return;
 			}
@@ -231,7 +206,9 @@ namespace Argus.Server
 				status = 1,
 				created = new GLib.DateTime.now_utc().to_unix(),
 				requester = requester,
-				is_controller = false
+				username = username,
+				hostname = hostname,
+				is_controller = is_controller
 			});
 			this.app.db.backupDB();
 			listen.pin = "";
@@ -243,13 +220,13 @@ namespace Argus.Server
 				this.pending_pair = null;
 			}
 			var path = "";
-			if (family == "debian") {
+			if (!is_controller && family == "debian") {
 				path = "/osquery/osquery.deb";
 			}
-			if (family == "rpm") {
+			if (!is_controller && family == "rpm") {
 				path = "/osquery/osquery.rpm";
 			}
-			if (family == "windows") {
+			if (!is_controller && family == "windows") {
 				path = "/osquery/osquery.msi";
 			}
 			var socket = this.app.socket;
@@ -357,10 +334,7 @@ namespace Argus.Server
 			}
 			if (pin != listen.pin || listen.pin == "") {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error(
-						(int) OLLMrpc.RpcErrorCode.INVALID_REQUEST,
-						"number rejected"
-					)
+					error = new OLLMrpc.Error.INVALID_REQUEST("number rejected")
 				});
 				this.app.broadcast(new OLLMrpc.Notification() {
 					method = "event.pair",

@@ -12,7 +12,7 @@
 
 **Pointer:** `docs/bug-fix-process.md`. `docs/guide-to-writing-plans.md` — **Checklist for plans**.
 
-ℹ️ Parent: [2.4-listen.md](../../plans/2.4-listen.md).
+ℹ️ Parent: [2.4-DONE-listen.md](../../plans/done/2.4-DONE-listen.md).
 ℹ️ Library hunk: `/home/alan/gitlive/OLLMchat/docs/bugs/done/2026-11-04-FIXED-tlsclient-watch-timeout.md`.
 
 ---

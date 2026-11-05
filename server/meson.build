@@ -6,12 +6,14 @@ deps = [
 	dependency('json-glib-1.0'),
 	dependency('libsoup-3.0'),
 	dependency('gnutls'),
+	dependency('libgit2-glib-1.0'),
 	meson.get_compiler('c').find_library('ocrpc'),
 ]
 deps += shared_dep
 server_vala_args = [
 	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
 	'--pkg', 'gnutls', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+	'--pkg', 'libgit2-glib-1.0',
 ]
 sources = files(
 	'namespace.vala',
@@ -21,8 +23,14 @@ sources = files(
 	'SslListen.vala',
 	'SslConnection.vala',
 	'Agent.vala',
+	'Registration.vala',
 	'OSQuery.vala',
 	'Command.vala',
+	'SQT/Script.vala',
+	'SQT/ScriptRepository.vala',
+	'SQT/Scheduler.vala',
+	'SQT/Task.vala',
+	'Git/Callbacks.vala',
 	'Daemon.vala',
 	'Download.vala',
 )
