@@ -55,6 +55,9 @@ namespace Argus.Controller
 		private Gee.HashMap<string, Argus.Shared.Registration.Data> credentials {
 			get; set; default = new Gee.HashMap<string, Argus.Shared.Registration.Data>();
 		}
+		private Gee.HashMap<string, string> answered {
+			get; set; default = new Gee.HashMap<string, string>();
+		}
 		private int next = 0;
 		private int address_index = 0;
 		private int generation = 0;
@@ -143,6 +146,7 @@ namespace Argus.Controller
 			this.connections.clear();
 			this.reached.clear();
 			this.credentials.clear();
+			this.answered.clear();
 			this.next = 0;
 			this.address_index = 0;
 			this.page("Checking connections", "", {}, {});
@@ -276,6 +280,7 @@ namespace Argus.Controller
 						GLib.warning("%s", e.message);
 					}
 					this.reached.add(connection);
+					this.answered.set(connection.name, host);
 					this.next++;
 					this.address_index = 0;
 					this.probe(ticket);
@@ -308,7 +313,6 @@ namespace Argus.Controller
 		 */
 		private void arm_local_offer(int ticket)
 		{
-			this.disarm_local_offer();
 			this.probe_offer = GLib.Timeout.add_seconds(5, () => {
 				this.probe_offer = 0;
 				if (ticket != this.generation || !this.running || this.opened) {
@@ -321,18 +325,6 @@ namespace Argus.Controller
 		}
 
 		/**
-		 * Drop a pending local-deregister offer.
-		 */
-		private void disarm_local_offer()
-		{
-			if (this.probe_offer == 0) {
-				return;
-			}
-			GLib.Source.remove(this.probe_offer);
-			this.probe_offer = 0;
-		}
-
-		/**
 		 * Replace the heading, body, and action buttons.
 		 *
 		 * @param heading large centred title
@@ -342,7 +334,10 @@ namespace Argus.Controller
 		 */
 		private void page(string heading, string body, string[] labels, string[] responses)
 		{
-			this.disarm_local_offer();
+			if (this.probe_offer != 0) {
+				GLib.Source.remove(this.probe_offer);
+				this.probe_offer = 0;
+			}
 			this.title = heading;
 			this.heading.label = heading;
 			this.body.label = body;
@@ -656,17 +651,69 @@ namespace Argus.Controller
 				return;
 			}
 			this.generation++;
-			this.disarm_local_offer();
 			this.opened = true;
 			var issued = new Argus.Shared.Registration.Data();
 			if (this.credentials.has_key(connection.name)) {
 				issued = this.credentials.get(connection.name);
 			}
 			issued.name = connection.name;
-			var window = new Window(this.app, connection, issued);
-			this.app.window = window;
-			window.present();
-			this.close();
+			var host = this.answered.get(connection.name);
+			if (host == null || host == "") {
+				this.opened = false;
+				this.page("Could not connect", "The saved server did not answer.",
+					{ "Deregister locally", "Retry", "Log in to register" },
+					{ "local", "retry", "register" });
+				return;
+			}
+			GLib.TlsCertificate certificate;
+			GLib.TlsDatabase trust;
+			try {
+				var pem = issued.client_certificate + "\n" + issued.private_key;
+				certificate = new GLib.TlsCertificate.from_pem(pem, pem.length);
+				var dir = GLib.Environment.get_user_runtime_dir();
+				if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
+					throw new GLib.FileError.FAILED(
+						"Could not create the runtime directory");
+				}
+				var ca_path = GLib.Path.build_filename(dir, "argusrm-ca.pem");
+				GLib.FileUtils.set_contents(ca_path, issued.ca_certificate);
+				GLib.FileUtils.chmod(ca_path, 0600);
+				trust = GLib.TlsFileDatabase.@new(ca_path);
+			} catch (GLib.Error e) {
+				this.opened = false;
+				this.page("Could not connect", e.message,
+					{ "Retry", "Log in to register" }, { "retry", "register" });
+				return;
+			}
+			var rpc = new OLLMrpc.Client("", "",
+				"tcp://" + host + ":" + connection.port.to_string()) {
+				live_handles = true
+			};
+			rpc.debug = false;
+			rpc.configure_tls.connect((tls) => {
+				tls.certificate = certificate;
+				tls.database = trust;
+			});
+			this.app.rpc = rpc;
+			rpc.connect.begin(new OLLMrpc.Request() {
+				method = "RPC-Daemon.hello",
+				args = OLLMrpc.args("is", 1, "argus-controller")
+			}, null, (obj, res) => {
+				if (!this.running) {
+					return;
+				}
+				var opened = rpc.connect.end(res);
+				if (!opened) {
+					this.opened = false;
+					this.page("Could not connect", rpc.connect_error,
+						{ "Retry", "Log in to register" }, { "retry", "register" });
+					return;
+				}
+				var window = new Window(this.app, connection, issued);
+				this.app.window = window;
+				window.present();
+				this.close();
+			});
 		}
 	}
 }

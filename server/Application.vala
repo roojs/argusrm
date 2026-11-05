@@ -81,13 +81,13 @@ namespace Argus.Server
 		public SQT.Scheduler scheduler { get; private set; }
 
 		/**
-		 * Unix socket the controller uses for {@link Agent.pair}.
+		 * Unix socket the controller uses for {@link Agent.offer}.
 		 */
 		public OLLMrpc.Transport.SocketListen listen { get; private set; }
 
 		/**
-		 * mDNS publish for the registration window. {@link Agent.pair}
-		 * starts and stops it.
+		 * mDNS publish for the registration window.
+		 * {@link Agent.offer} starts it. Shutdown stops it.
 		 */
 		public OLLMrpc.Transport.PairPublish publish {
 			get; set; default = new OLLMrpc.Transport.PairPublish() {
@@ -184,7 +184,7 @@ namespace Argus.Server
 		 * ''0.0.0.0'' and the build ports {@link Argus.SOCKET_PORT}
 		 * and {@link Argus.DOWNLOAD_PORT}. {@link Initialize.fetch_osquery}
 		 * fetches the osquery installers into {@link Argus.SERVER_DATA_DIR}
-		 * before the sockets bind. {@link Agent.pair} on the
+		 * before the sockets bind. {@link Agent.offer} on the
 		 * Unix socket opens the registration window.
 		 *
 		 * @param command_line arguments for this launch

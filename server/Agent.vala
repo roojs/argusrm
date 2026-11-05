@@ -25,8 +25,6 @@ namespace Argus.Server
 	{
 		public Application app { get; private set; }
 
-		private OLLMrpc.Request? pending_pair = null;
-
 		public Agent()
 		{
 			Object();
@@ -47,7 +45,7 @@ namespace Argus.Server
 			OLLMrpc.Request.add_class(
 				"Agent", typeof(Agent),
 				"request_registration", "ssssbss",
-				"pair", "s",
+				"offer", "",
 				"list", ""
 			);
 		}
@@ -59,10 +57,15 @@ namespace Argus.Server
 		);
 
 		/**
-		 * Sign ''csr'' when ''pin'' matches {@link SslListen.pin}.
+		 * Pair a machine. Sign ''csr'' when ''pin'' matches
+		 * {@link SslListen.pin}.
+		 *
+		 * This is the other half of {@link offer}. A wrong number
+		 * is ''number rejected''. The matching number closes the
+		 * window and tells the controller.
 		 *
 		 * @param request inbound RPC on the app socket
-		 * @param pin six digits from the controller
+		 * @param pin six digits from the offer
 		 * @param csr PEM certificate request
 		 * @param requester device string stored with the row
 		 * @param family ''debian'', ''rpm'', ''windows'', or ''android''
@@ -213,12 +216,7 @@ namespace Argus.Server
 			this.app.db.backupDB();
 			listen.pin = "";
 			this.app.publish.stop();
-			if (this.pending_pair != null) {
-				this.pending_pair.reply(new OLLMrpc.Response() {
-					msg = "used"
-				});
-				this.pending_pair = null;
-			}
+			this.app.download_listen.listen();
 			var path = "";
 			if (!is_controller && family == "debian") {
 				path = "/osquery/osquery.deb";
@@ -229,13 +227,18 @@ namespace Argus.Server
 			if (!is_controller && family == "windows") {
 				path = "/osquery/osquery.msi";
 			}
-			var socket = this.app.socket;
-			var colon = socket.last_index_of(":");
-			var host = "";
-			var port_text = "";
+			var host = this.app.socket;
+			var port_text = Argus.SOCKET_PORT.to_string();
+			var colon = this.app.socket.last_index_of(":");
 			if (colon > 0) {
-				host = socket.substring(0, colon);
-				port_text = socket.substring(colon + 1);
+				host = this.app.socket.substring(0, colon);
+				port_text = this.app.socket.substring(colon + 1);
+			}
+			if (host == "") {
+				host = "0.0.0.0";
+			}
+			if (port_text == "") {
+				port_text = Argus.SOCKET_PORT.to_string();
 			}
 			var packed = new Gee.ArrayList<string>();
 			packed.add(crt_pem);
@@ -265,91 +268,73 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Set {@link SslListen.pin} from the controller.
+		 * Offer a registration number.
 		 *
-		 * @param request inbound RPC from the controller
-		 * @param pin six digits, or empty to close the window
+		 * The controller calls this with no arguments. The reply
+		 * is the six digits. This opens the app socket and
+		 * publishes its addresses. The download socket opens
+		 * from {@link request_registration}, after the machine
+		 * is registered. That call is the machine that types
+		 * the number. The number lasts sixty seconds, or until
+		 * that call, or until this connection closes.
+		 *
+		 * @param request inbound RPC from a controller
 		 */
-		public void pair(OLLMrpc.Request request, string pin)
+		public void offer(OLLMrpc.Request request)
 		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var n = GLib.Random.int_range(0, 1000000);
+			var issued = "%06d".printf(n);
 			var listen = this.app.ssl_listen;
-			if (!(request.connection is SslConnection)) {
-				listen.pin = pin;
-				if (pin == "") {
-					this.app.publish.stop();
-					if (this.pending_pair != null) {
-						this.pending_pair.reply(new OLLMrpc.Response() {
-							msg = "ok"
-						});
-						this.pending_pair = null;
-					}
-					request.reply(new OLLMrpc.Response() {
-						msg = "ok"
-					});
-					return;
-				}
-				var socket = this.app.socket;
-				var colon = socket.last_index_of(":");
-				if (colon > 0) {
-					var host = socket.substring(0, colon);
-					var parsed = 0;
-					int.try_parse(socket.substring(colon + 1), out parsed);
-					if (parsed >= 1 && parsed <= 65535) {
-						string[] addrs = {};
-						if (host == "0.0.0.0") {
-							addrs = OLLMrpc.Transport.TcpListen.ifaces();
-						}
-						if (host != "" && host != "0.0.0.0") {
-							addrs = { host };
-						}
-						this.app.publish.start(addrs, (uint16) parsed);
-					}
-				}
-				if (this.pending_pair != null) {
-					this.pending_pair.reply(new OLLMrpc.Response() {
-						msg = "ok"
-					});
-				}
-				this.pending_pair = request;
-				var owner = request.connection;
-				GLib.Timeout.add(250, () => {
-					if (listen.pin != pin) {
-						return false;
-					}
-					if (owner.running) {
-						return true;
-					}
-					listen.pin = "";
-					this.app.publish.stop();
-					if (this.pending_pair != null) {
-						this.pending_pair.reply(new OLLMrpc.Response() {
-							msg = "ok"
-						});
-						this.pending_pair = null;
-					}
-					GLib.debug("registration closed after controller disconnected");
+			listen.pin = issued;
+			listen.listen();
+			var host = this.app.socket;
+			var parsed = Argus.SOCKET_PORT;
+			var colon = this.app.socket.last_index_of(":");
+			if (colon > 0) {
+				host = this.app.socket.substring(0, colon);
+				int.try_parse(this.app.socket.substring(colon + 1), out parsed);
+			}
+			if (host == "") {
+				host = "0.0.0.0";
+			}
+			if (parsed < 1 || parsed > 65535) {
+				parsed = Argus.SOCKET_PORT;
+			}
+			string[] addrs = {};
+			if (host == "0.0.0.0") {
+				addrs = OLLMrpc.Transport.TcpListen.ifaces();
+			}
+			if (host != "0.0.0.0") {
+				addrs = { host };
+			}
+			this.app.publish.start(addrs, (uint16) parsed);
+			var owner = request.connection;
+			GLib.Timeout.add_seconds(60, () => {
+				if (listen.pin != issued) {
 					return false;
-				});
-				return;
-			}
-			if (pin != listen.pin || listen.pin == "") {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("number rejected")
-				});
-				this.app.broadcast(new OLLMrpc.Notification() {
-					method = "event.pair",
-					action = "rejected"
-				});
-				return;
-			}
-			listen.pin = "";
-			this.app.publish.stop();
-			request.reply(new OLLMrpc.Response() {
-				msg = "ok"
+				}
+				listen.pin = "";
+				this.app.publish.stop();
+				return false;
 			});
-			this.app.broadcast(new OLLMrpc.Notification() {
-				method = "event.pair",
-				action = "done"
+			GLib.Timeout.add(250, () => {
+				if (listen.pin != issued) {
+					return false;
+				}
+				if (owner.running) {
+					return true;
+				}
+				listen.pin = "";
+				this.app.publish.stop();
+				GLib.debug("registration closed after controller disconnected");
+				return false;
+			});
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("s", issued),
+				msg = "ok"
 			});
 		}
 

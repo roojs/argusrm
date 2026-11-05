@@ -52,7 +52,7 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Six digits from {@link Agent.pair}. Empty unless
+		 * Six digits from {@link Agent.offer}. Empty unless
 		 * the registration window is open.
 		 */
 		public string pin { get; set; default = ""; }
@@ -65,8 +65,9 @@ namespace Argus.Server
 		/**
 		 * Bind the TLS bin socket from {@link Application.socket}.
 		 *
-		 * Returns false when the address is empty or the port is
-		 * outside 1–65535. Bind failure logs a warning and returns
+		 * A missing port uses {@link Argus.SOCKET_PORT}. Returns
+		 * false when that port is outside 1–65535. Bind failure
+		 * logs a warning and returns
 		 * false. A client certificate is required unless
 		 * {@link pin} is set. A bad identity flag alone is
 		 * ignored, the same as ''ollmfilesd''.
@@ -80,13 +81,16 @@ namespace Argus.Server
 			}
 			var socket = this.app.socket;
 			var colon = socket.last_index_of(":");
-			var host = "";
-			var port = 0;
+			var host = socket;
+			var port = Argus.SOCKET_PORT;
 			if (colon > 0) {
 				host = socket.substring(0, colon);
 				int.try_parse(socket.substring(colon + 1), out port);
 			}
-			if (socket == "" || colon <= 0 || host == "" || port < 1 || port > 65535) {
+			if (host == "") {
+				host = "0.0.0.0";
+			}
+			if (port < 1 || port > 65535) {
 				return false;
 			}
 			var parsed = new GLib.InetSocketAddress.from_string(host, (uint16) port);

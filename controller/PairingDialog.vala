@@ -21,11 +21,12 @@ namespace Argus.Controller
 	/**
 	 * One-minute window that shows a PIN while a machine pairs.
 	 *
-	 * {@link open} draws a new six-digit PIN and a line that counts
-	 * down from sixty seconds. ''event.pair'' says ''number rejected''
-	 * or closes after one machine pairs. The title bar closes the
-	 * dialog and clears the PIN. {@link pairing} is true only while
-	 * the dialog is open.
+	 * {@link open} asks the controller's open server connection for
+	 * a six-digit number and counts down from sixty seconds.
+	 * ''event.pair'' says ''number rejected'' or closes after one
+	 * machine pairs. The title bar closes the dialog and clears
+	 * the number. {@link pairing} is true only while the dialog
+	 * is open.
 	 *
 	 * == Example ==
 	 *
@@ -37,7 +38,6 @@ namespace Argus.Controller
 	public class PairingDialog : Adw.Dialog
 	{
 		private unowned Window window;
-		private OLLMrpc.Client? rpc;
 		private Gtk.Label title_label;
 		private Gtk.Label pin_label;
 		private Gtk.Label note;
@@ -46,6 +46,7 @@ namespace Argus.Controller
 		private int remaining = 60;
 		private int generation = 0;
 		private bool finished = false;
+		private bool wired = false;
 
 		/**
 		 * True while this dialog is counting down.
@@ -108,12 +109,11 @@ namespace Argus.Controller
 					return;
 				}
 				this.finished = true;
-				this.arm("");
 			});
 		}
 
 		/**
-		 * Show a new PIN and start the sixty-second line.
+		 * Ask the open server connection for a number.
 		 *
 		 * @param kind ''Agent'' or ''Controller''
 		 */
@@ -122,9 +122,32 @@ namespace Argus.Controller
 			if (this.pairing) {
 				return;
 			}
-			var n = GLib.Random.int_range(0, 1000000);
-			var pin = "%06d".printf(n);
-			this.pin_label.label = pin;
+			var rpc = this.window.app.rpc;
+			if (rpc == null || !rpc.connected) {
+				var down = new Argus.Shared.Notice(
+					"Could not start pairing", "The server connection is not open.");
+				down.add_response("ok", "OK");
+				down.present(this.window);
+				return;
+			}
+			if (!this.wired) {
+				this.wired = true;
+				rpc.notification.connect((notification) => {
+					if (this.finished || notification.method != "event.pair") {
+						return;
+					}
+					if (notification.action == "rejected") {
+						this.note.label = "number rejected";
+						return;
+					}
+					if (notification.action != "done") {
+						return;
+					}
+					this.finished = true;
+					this.close();
+				});
+			}
+			this.pin_label.label = "";
 			this.note.label = "";
 			this.remaining = 60;
 			this.line.fraction = 1;
@@ -134,103 +157,54 @@ namespace Argus.Controller
 			this.title = heading;
 			this.title_label.label = heading;
 			this.generation++;
-			var ticket = this.generation;
-			var rpc = new OLLMrpc.Client("", "",
-				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
-				live_handles = true
-			};
-			rpc.debug = false;
-			this.rpc = rpc;
-			rpc.notification.connect((notification) => {
-				if (ticket != this.generation || this.finished) {
-					return;
-				}
-				if (notification.method != "event.pair") {
-					return;
-				}
-				if (notification.action == "rejected") {
-					this.note.label = "number rejected";
-					return;
-				}
-				if (notification.action != "done") {
-					return;
-				}
-				this.finished = true;
-				this.close();
-			});
-			rpc.connect.begin(new OLLMrpc.Request() {
-				method = "RPC-Daemon.hello",
-				args = OLLMrpc.args("is", 1, "argus-controller")
-			}, null, (obj, res) => {
-				if (ticket != this.generation) {
-					return;
-				}
-				var opened = rpc.connect.end(res);
-				if (!opened) {
-					this.pairing = false;
-					var down = new Argus.Shared.Notice(
-						"Could not start pairing", rpc.connect_error);
-					down.add_response("ok", "OK");
-					down.present(this.window);
-					return;
-				}
-				this.present(this.window);
-				this.tick_id = GLib.Timeout.add_seconds(1, () => {
-					if (ticket != this.generation) {
-						return false;
-					}
-					this.remaining -= 1;
-					this.line.fraction = this.remaining / 60.0;
-					if (this.remaining > 0) {
-						return true;
-					}
-					this.tick_id = 0;
-					this.close();
-					return false;
-				});
-				this.arm(pin);
-			});
+			this.present(this.window);
+			this.arm();
 		}
 
 		/**
-		 * Send ''pin'' to ''Agent.pair''.
-		 *
-		 * Empty clears the window. ''used'' or ''ok'' closes it.
-		 *
-		 * @param pin six digits, or empty
+		 * Ask ''Agent.offer'' for the six digits.
 		 */
-		private void arm(string pin)
+		private void arm()
 		{
-			var rpc = this.rpc;
+			var rpc = this.window.app.rpc;
 			if (rpc == null) {
 				return;
 			}
 			var ticket = this.generation;
 			rpc.call.begin(new OLLMrpc.Request() {
-				method = "Agent.pair",
-				args = OLLMrpc.args("s", pin)
+				method = "Agent.offer"
 			}, (obj, res) => {
-				if (ticket != this.generation) {
+				if (ticket != this.generation || this.finished) {
 					return;
 				}
 				try {
 					var response = rpc.call.end(res);
-					if (this.finished || pin == "") {
-						return;
-					}
 					if (response.error != null) {
 						this.note.label = response.error.message;
 						return;
 					}
-					if (response.msg == "used" || response.msg == "ok") {
-						this.finished = true;
-						this.close();
+					var number = response.retval as string;
+					if (number == null || number.length != 6) {
+						this.note.label = "The server did not return a number.";
+						return;
 					}
-				} catch (GLib.Error e) {
-					if (this.finished || pin == "") {
-						if (pin == "") {
-							GLib.warning("%s", e.message);
+					this.pin_label.label = number;
+					this.tick_id = GLib.Timeout.add_seconds(1, () => {
+						if (ticket != this.generation) {
+							return false;
 						}
+						this.remaining -= 1;
+						this.line.fraction = this.remaining / 60.0;
+						if (this.remaining > 0) {
+							return true;
+						}
+						this.tick_id = 0;
+						this.close();
+						return false;
+					});
+				} catch (GLib.Error e) {
+					if (this.finished) {
+						GLib.warning("%s", e.message);
 						return;
 					}
 					this.note.label = e.message;

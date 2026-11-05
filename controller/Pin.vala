@@ -21,9 +21,9 @@ namespace Argus.Controller
 	/**
 	 * Registration PIN on the command line.
 	 *
-	 * Creates a six-digit pin, prints it, and sends it with
-	 * ''Agent.pair''. Sixty seconds later it sends an empty
-	 * pin. {@link Application} already hellos.
+	 * Asks ''Agent.offer'' for a six-digit pin and prints it.
+	 * The number lasts sixty seconds. {@link Application}
+	 * already hellos.
 	 *
 	 * == Example ==
 	 *
@@ -45,12 +45,16 @@ namespace Argus.Controller
 		 */
 		public void run()
 		{
-			var n = GLib.Random.int_range(0, 1000000);
-			var pin = "%06d".printf(n);
-			this.app.cli.print("Registration PIN: %s\nRegistration is open for 60 seconds. Press Ctrl+C to close it early.\n", pin);
+			this.app.rpc.notification.connect((notification) => {
+				if (notification.method != "event.pair" || notification.action != "done") {
+					return;
+				}
+				this.app.cli.print("Registration PIN has been used.\n");
+				this.app.code = 0;
+				this.app.loop.quit();
+			});
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Agent.pair",
-				args = OLLMrpc.args("s", pin)
+				method = "Agent.offer"
 			}, (obj, res) => {
 				try {
 					var response = this.app.rpc.call.end(res);
@@ -59,28 +63,22 @@ namespace Argus.Controller
 						this.app.loop.quit();
 						return;
 					}
-					if (response.msg == "used") {
-						this.app.cli.print("Registration PIN has been used.\n");
+					var pin = response.retval as string;
+					if (pin == null || pin.length != 6) {
+						this.app.cli.printerr("The server did not return a number.\n");
+						this.app.loop.quit();
+						return;
 					}
+					this.app.cli.print("Registration PIN: %s\nRegistration is open for 60 seconds. Press Ctrl+C to close it early.\n", pin);
 				} catch (GLib.Error e) {
 					this.app.cli.printerr("%s\n", e.message);
 					this.app.loop.quit();
 					return;
 				}
-				this.app.code = 0;
-				this.app.loop.quit();
 			});
 			GLib.Timeout.add_seconds(60, () => {
-				this.app.rpc.call.begin(new OLLMrpc.Request() {
-					method = "Agent.pair",
-					args = OLLMrpc.args("s", "")
-				}, (obj, res) => {
-					try {
-						this.app.rpc.call.end(res);
-					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
-					}
-				});
+				this.app.code = 0;
+				this.app.loop.quit();
 				return false;
 			});
 		}

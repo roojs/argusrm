@@ -653,8 +653,7 @@ namespace Argus.Server.SQT
 			target.ended = now;
 			target.success = code;
 			Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
-			var controller = target.is_watched ?
-				Argus.Server.Command.watcher((int) target.id) : null;
+			var controller = target.is_watched ? Argus.Server.Command.watcher((int) target.id) : null;
 			if (controller != null && controller.running) {
 				var text = message.has_suffix("\n") ? message : message + "\n";
 				controller.write(new OLLMrpc.Notification() {
