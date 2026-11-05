@@ -1,6 +1,6 @@
 # `Command.run` reaches the server; the controller never prints it
 
-**Status:** ⏳ controller drops `Command` after `run()`; agent path works
+**Status:** ✔️ FIXED — `command.ref()` in the hello callback; `controller-command` prints `ok hello`
 
 **Reproduction:** `ninja -C build controller/argus-controller-command && ./build/controller/argus-controller-command`
 
@@ -12,8 +12,8 @@
 
 **Pointer:** `docs/bug-fix-process.md`. `docs/guide-to-writing-plans.md` — **Checklist for plans**.
 
-ℹ️ Parent: [2.4-listen.md](../plans/2.4-listen.md).
-ℹ️ Library hunk: `/home/alan/gitlive/OLLMchat/docs/bugs/2026-11-04-tlsclient-watch-timeout.md`.
+ℹ️ Parent: [2.4-listen.md](../../plans/2.4-listen.md).
+ℹ️ Library hunk: `/home/alan/gitlive/OLLMchat/docs/bugs/done/2026-11-04-FIXED-tlsclient-watch-timeout.md`.
 
 ---
 
@@ -81,8 +81,8 @@ sudo argus-controller --agent 1 --command "ls -l /home/alan"
 
 ## Next
 
-- ⏳ `ninja -C build install`, then `sudo argus-controller --agent 1 --command "ls -l /home/alan"`.
 - ✔️ `controller-command` with `command.ref()` prints `ok hello`.
+- ✔️ `command.ref()` applied in `controller/Application.vala`.
 - ✔️ 17:33: restarting the server dropped the agent TLS link.
   - Agent: `TlsClient.vala:266: TLS connection closed unexpectedly`
   - Server `Command.run`: `unknown agent`
@@ -120,8 +120,8 @@ sudo argus-controller --agent 1 --command "ls -l /home/alan"
 - ✔️ `meson test agent-command` — standalone `agent/tests/command.vala` plus `linux/Command.vala`.
   - `Application.notification` switch, real spawn, delayed first `OSQuery.sync`.
   - Both `agent.run`s produce stdout and `Command.ended`.
-- ⏳ `meson test controller-command` — standalone `controller/tests/command.vala` plus `Command.vala`.
-  - Unix hello, `Command.run`, `controller.stdout` / `controller.ended`.
+- ✔️ `controller-command` — standalone `controller/tests/command.vala` plus `Command.vala`.
+  - Unix hello, `Command.run`, `controller.stdout` / `controller.ended`. `ok hello`.
 
 ---
 

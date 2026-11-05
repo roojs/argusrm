@@ -1,10 +1,10 @@
 # Linux service never sends osquery rows after registration
 
-**Status:** ✔️ applied in tree; await device verify
+**Status:** ✔️ FIXED — Linux service reads `AGENT_DATA_DIR`; live `osquery 0`
 
 **Pointer:** `docs/bug-fix-process.md`. `docs/guide-to-writing-plans.md` — **Checklist for plans**. Proposed Vala must follow `docs/coding-standards.md`.
 
-ℹ️ Related: `docs/bugs/2026-11-04-elevation-dialog-and-pin-used.md` does **not** fix this.
+ℹ️ Related: `../2026-11-04-elevation-dialog-and-pin-used.md` does **not** fix this.
 ℹ️ `docs/plans/2.1.2-root-registration-ui.md`, `docs/plans/3.0-server.md` Phase 3.
 
 ---
@@ -60,7 +60,7 @@
 - 🚫 Do not change Windows or Android paths in this log.
 - ℹ️ An already-registered desktop run calls `setup()` and skips the PIN.
   - `setup()` starts the service only when it is down.
-  - The running dialog with `Close` / `Restart` is `docs/bugs/2026-11-04-elevation-dialog-and-pin-used.md`.
+  - The running dialog with `Close` / `Restart` is `../2026-11-04-elevation-dialog-and-pin-used.md`.
 
 ### `agent/Application.vala` — `open_link`: Linux uses `AGENT_DATA_DIR`
 
@@ -178,5 +178,4 @@
 ## Next
 
 - 🔷 `✔️` Fences applied in `agent/Application.vala`, `agent/OSQuery/Initialize.vala`, `agent/Download.vala`.
-- 🔷 `⏳` After Linux registration, the service posts `system_info`, `cpu_info`, `logged_in_users`, and `interface_addresses`.
-- ℹ️ The service then aborted on an empty table. That is `docs/bugs/2026-11-04-osquery-sync-kills-agent.md`.
+- ✔️ Live service posted osquery after the path fix. Empty tables are `2026-11-04-FIXED-osquery-sync-kills-agent.md`.

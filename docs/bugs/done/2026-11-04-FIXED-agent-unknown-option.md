@@ -1,6 +1,6 @@
 # `argus-agent --agents` shows the admin dialog
 
-**Status:** ✔️ applied in tree
+**Status:** ✔️ FIXED — unknown options print and exit `1` before the admin dialog
 
 **Pointer:** `docs/bug-fix-process.md`
 

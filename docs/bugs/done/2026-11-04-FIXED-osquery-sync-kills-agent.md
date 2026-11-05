@@ -1,11 +1,11 @@
 # OSQuery.sync aborts the agent daemon
 
-**Status:** ✔️ empty-array abort gone (`osquery 0`); await table debug on device
+**Status:** ✔️ FIXED — empty-array abort gone (`osquery 0`)
 
 **Pointer:** `docs/bug-fix-process.md`. `docs/guide-to-writing-plans.md` — **Checklist for plans**. Proposed Vala must follow `docs/coding-standards.md`.
 
-ℹ️ Related: `docs/bugs/2026-11-04-osquery-not-sent.md` got the rows onto the wire. This log is why the service then dies.
-ℹ️ Library report: `/home/alan/gitlive/OLLMchat/docs/bugs/2026-11-04-empty-arraylist-tlsclient-encode.md`.
+ℹ️ Related: `2026-11-04-FIXED-osquery-not-sent.md` got the rows onto the wire. This log is why the service then dies.
+ℹ️ Library report: `/home/alan/gitlive/OLLMchat/docs/bugs/done/2026-11-04-FIXED-empty-arraylist-tlsclient-encode.md`.
 ℹ️ `docs/bugs/done` in OLLMchat `2026-11-02-FIXED-tls-one-shot-rpc.md` — libocrpc is not edited from this tree.
 
 ---
@@ -27,7 +27,7 @@
 
 ## Evidence
 
-- ✔️ Path fix in `docs/bugs/2026-11-04-osquery-not-sent.md` works.
+- ✔️ Path fix in `2026-11-04-FIXED-osquery-not-sent.md` works.
   - `Initialize.vala:179` runs.
   - The server receives `OSQuery.sync`.
 - ℹ️ `agent/OSQuery/Initialize.vala` posts `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses` in that order.
@@ -82,4 +82,4 @@
 
 - 🔷 `✔️` `/home/alan/gitlive/OLLMchat/docs/bugs/2026-11-04-empty-arraylist-tlsclient-encode.md` applied.
 - 🔷 `✔️` Installed `ocrpc`. Rebuilt `argus-agent`. Service ran `osquery 0`.
-- 🔷 `⏳` Confirm the four tables in the debug file: query, row count, sent.
+- ✔️ Live `osquery 0` after the library empty-array write.

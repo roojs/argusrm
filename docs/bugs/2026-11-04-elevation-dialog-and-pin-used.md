@@ -112,7 +112,7 @@
 - 💩 Agent `TlsClient` live listen stays out of this log.
   - `Listen.start` is still a stub.
 - ℹ️ Osquery rows not reaching the server is a different bug.
-  - `docs/bugs/2026-11-04-osquery-not-sent.md`.
+  - `docs/bugs/done/2026-11-04-FIXED-osquery-not-sent.md`.
   - Registration writes `AGENT_DATA_DIR`. The service reads the root user data dir.
 
 ### `agent/linux/Application.vala` — `command_line`: elevation dialog before Polkit
@@ -485,4 +485,4 @@
 - 🔷 `⏳` Desktop: standard-user `argus-agent` shows the admin / escalate-privileges dialog / `OK`, then Polkit, then the root PIN window or the running dialog.
 - 🔷 `⏳` Already registered: `Close` quits. `Restart` restarts the service, then quits.
 - 🔷 `⏳` Correct PIN hides the input and the title. Controller prints that the PIN was used and exits.
-- ℹ️ Osquery send is `docs/bugs/2026-11-04-osquery-not-sent.md`.
+- ℹ️ Osquery send is `docs/bugs/done/2026-11-04-FIXED-osquery-not-sent.md`.
