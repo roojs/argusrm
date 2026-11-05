@@ -39,6 +39,7 @@ namespace Argus.Shared.SQT
 		public bool is_script { get; set; default = false; }
 		public string command { get; set; default = ""; }
 		public int64 script_id { get; set; default = 0; }
+		public string run_as { get; set; default = ""; }
 		public bool is_template { get; set; default = false; }
 		public bool is_draft { get; set; default = true; }
 		public int64 scheduled { get; set; default = 0; }
@@ -78,6 +79,7 @@ namespace Argus.Shared.SQT
 					is_script   INTEGER NOT NULL DEFAULT 0,
 					command     TEXT NOT NULL DEFAULT '',
 					script_id   INTEGER NOT NULL DEFAULT 0,
+					run_as      TEXT NOT NULL DEFAULT '',
 					is_template INTEGER NOT NULL DEFAULT 0,
 					is_draft    INTEGER NOT NULL DEFAULT 1,
 					scheduled   INT64 NOT NULL DEFAULT 0,
@@ -89,6 +91,9 @@ namespace Argus.Shared.SQT
 			}
 			db.db.exec(
 				"ALTER TABLE task ADD COLUMN is_draft INTEGER NOT NULL DEFAULT 1;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE task ADD COLUMN run_as TEXT NOT NULL DEFAULT '';",
 				null, out errmsg);
 			db.db.exec(
 				"UPDATE task SET is_draft = 0 WHERE id IN " +

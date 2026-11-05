@@ -261,7 +261,7 @@ namespace Argus.Agent
 			try {
 				link.call(new OLLMrpc.Request() {
 					method = "Command.ended",
-					args = OLLMrpc.args("i", this.identifier)
+					args = OLLMrpc.args("ii", this.identifier, 0)
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);

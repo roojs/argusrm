@@ -23,7 +23,8 @@ namespace Argus.Server
 	 *
 	 * The privileged controller calls this handler on ''argus.sock''.
 	 * It generates a pending controller credential without writing the
-	 * private key to disk.
+	 * private key to disk. {@link deregister} removes that row for
+	 * the same login.
 	 *
 	 * == Example ==
 	 *
@@ -48,7 +49,8 @@ namespace Argus.Server
 		public static void rpc_register()
 		{
 			Argus.Shared.Registration.Data.rpc_register();
-			OLLMrpc.Request.add_class("Registration", typeof(Registration), "certificate", "s");
+			OLLMrpc.Request.add_class("Registration", typeof(Registration),
+				"certificate", "s", "deregister", "s");
 		}
 
 		/**
@@ -208,6 +210,66 @@ namespace Argus.Server
 			this.app.db.backupDB();
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", data),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Remove this login's controller row for one fingerprint.
+		 *
+		 * The desktop calls this on ''argus.sock''. The peer user
+		 * must own the row. A missing row is still success.
+		 *
+		 * @param request inbound RPC on the Unix socket
+		 * @param fingerprint SHA256 of the client certificate
+		 */
+		public void deregister(OLLMrpc.Request request, string fingerprint)
+		{
+			if (request.connection is SslConnection) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("Unix socket only")
+				});
+				return;
+			}
+			if (fingerprint == "") {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("fingerprint is required")
+				});
+				return;
+			}
+			var uid = (uint) 0;
+			try {
+				if (request.connection.stream == null) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INVALID_REQUEST("user is required")
+					});
+					return;
+				}
+				uid = request.connection.stream.get_socket().get_credentials().get_unix_user();
+			} catch (GLib.Error e) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("user is required")
+				});
+				return;
+			}
+			unowned var pwd = Posix.getpwuid(uid);
+			if (pwd == null) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("user is required")
+				});
+				return;
+			}
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			int_binds.set("is_controller", 1);
+			text_binds.set("fingerprint", fingerprint);
+			text_binds.set("username", pwd.pw_name);
+			Argus.Shared.Agent.query(this.app.db).deleteWhere(
+				"WHERE fingerprint = $fingerprint AND is_controller = $is_controller " +
+					"AND username = $username",
+				int_binds, text_binds);
+			this.app.db.backupDB();
+			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
 			});
 		}

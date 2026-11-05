@@ -72,6 +72,7 @@ namespace Argus.Server.SQT
 				"update", "o",
 				"list", "",
 				"target", "iv",
+				"watch", "i",
 				"approve", "ib",
 				"duplicate", "i",
 				"targets", "i"
@@ -232,9 +233,9 @@ namespace Argus.Server.SQT
 			task_binds.set("id", task_id);
 			Argus.Shared.SQT.Task.query(this.app.db).selectWhere(
 				"WHERE id = $id", task_binds, null, tasks);
-			if (tasks.size == 0 || tasks.get(0).script_id < 1) {
+			if (tasks.size == 0) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown task or task has no enabled script")
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown task")
 				});
 				return;
 			}
@@ -251,24 +252,35 @@ namespace Argus.Server.SQT
 			foreach (var row in existing) {
 				existing_agents.set((int) row.agent_id, row);
 			}
-			var enabled = new Gee.ArrayList<Argus.Shared.SQT.ScriptAgent>();
-			var enabled_binds = new Gee.HashMap<string, int>();
-			enabled_binds.set("script_id", (int) tasks.get(0).script_id);
-			Argus.Shared.SQT.ScriptAgent.query(this.app.db).selectWhere(
-				"WHERE script_id = $script_id", enabled_binds, null, enabled);
-			var enabled_agents = new Gee.HashMap<int, bool>();
-			foreach (var script_agent in enabled) {
-				enabled_agents.set((int) script_agent.agent_id, true);
+			var allowed = new Gee.HashMap<int, bool>();
+			if (tasks.get(0).script_id > 0) {
+				var enabled = new Gee.ArrayList<Argus.Shared.SQT.ScriptAgent>();
+				var enabled_binds = new Gee.HashMap<string, int>();
+				enabled_binds.set("script_id", (int) tasks.get(0).script_id);
+				Argus.Shared.SQT.ScriptAgent.query(this.app.db).selectWhere(
+					"WHERE script_id = $script_id", enabled_binds, null, enabled);
+				foreach (var script_agent in enabled) {
+					allowed.set((int) script_agent.agent_id, true);
+				}
+			} else {
+				var agents = new Gee.ArrayList<Argus.Shared.Agent>();
+				Argus.Shared.Agent.query(this.app.db).select("WHERE status = 1", agents);
+				foreach (var agent in agents) {
+					allowed.set((int) agent.id, true);
+				}
 			}
 			for (var i = 0; i < agent_ids.n_children(); i++) {
 				var agent_id = agent_ids.get_child_value(i).get_int32();
-				if (!enabled_agents.has_key(agent_id)) {
-					request.reply(new OLLMrpc.Response() {
-						error = new OLLMrpc.Error.INVALID_REQUEST(
-							"script is not enabled on agent " + agent_id.to_string())
-					});
-					return;
+				if (allowed.has_key(agent_id)) {
+					continue;
 				}
+				var message = tasks.get(0).script_id > 0 ?
+					"script is not enabled on agent " + agent_id.to_string() :
+					"unknown agent " + agent_id.to_string();
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST(message)
+				});
+				return;
 			}
 			var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
 			for (var i = 0; i < agent_ids.n_children(); i++) {
@@ -337,9 +349,48 @@ namespace Argus.Server.SQT
 			}
 			tasks.get(0).is_draft = !approved;
 			Argus.Shared.SQT.Task.query(this.app.db).updateById(tasks.get(0));
+			if (!approved) {
+				foreach (var row in rows) {
+					row.is_watched = false;
+					Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(row);
+					Argus.Server.Command.unwatch((int) row.id);
+				}
+			}
 			this.app.db.backupDB();
 			this.app.scheduler.reschedule();
 			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Remember that this controller wants the live output for one target.
+		 *
+		 * @param request inbound RPC from the controller
+		 * @param target_id ''task_target.id''
+		 */
+		public void watch(OLLMrpc.Request request, int target_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			var binds = new Gee.HashMap<string, int>();
+			binds.set("id", target_id);
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).selectWhere(
+				"WHERE id = $id AND ended = 0", binds, null, rows);
+			if (rows.size == 0) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown target")
+				});
+				return;
+			}
+			rows.get(0).is_watched = true;
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(rows.get(0));
+			Argus.Server.Command.watch(target_id, request.connection);
+			this.app.db.backupDB();
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows.get(0)),
 				msg = "ok"
 			});
 		}
@@ -416,11 +467,12 @@ namespace Argus.Server.SQT
 		}
 
 		/**
-		 * Walk the targets of one due task.
+		 * Walk the targets of one due task and send each ready one.
 		 *
-		 * This is the scheduler entry point. Command dispatch is deliberately
-		 * still a placeholder: ready targets are identified and logged, but
-		 * are not marked started until the real command has been sent.
+		 * This is the scheduler entry point. The first successful send writes
+		 * {@link Argus.Shared.SQT.TaskTarget.started} and the log identifier.
+		 * A machine that is already running, or has no app-socket connection,
+		 * waits 60 seconds. A missing script fails that target.
 		 *
 		 * @param task_id ''task.id''
 		 */
@@ -454,6 +506,10 @@ namespace Argus.Server.SQT
 				busy_agents.set((int) target.agent_id, true);
 			}
 			var rescheduled = false;
+			var started = false;
+			var line_error = "";
+			var line = this.command_text(tasks.get(0), out line_error);
+			var sender = new Argus.Server.Command.for_rpc(this.app);
 			foreach (var target in targets) {
 				if (busy_agents.has_key((int) target.agent_id)) {
 					target.scheduled = now + 60;
@@ -461,13 +517,186 @@ namespace Argus.Server.SQT
 					rescheduled = true;
 					continue;
 				}
+				if (line == null) {
+					this.fail_target(target, 1, line_error);
+					continue;
+				}
+				var order = new Argus.Server.Command() {
+					command = line
+				};
+				OLLMrpc.Transport.Connection? controller = null;
+				if (target.is_watched) {
+					controller = Argus.Server.Command.watcher((int) target.id);
+				}
+				var send_error = "";
+				if (!sender.dispatch(target.agent_id, order, controller, out send_error)) {
+					if (controller != null && controller.running) {
+						this.fail_target(target, 127, send_error);
+					} else {
+						target.scheduled = now + 60;
+						Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
+						rescheduled = true;
+					}
+					continue;
+				}
 				busy_agents.set((int) target.agent_id, true);
-				GLib.debug("task %d target %s ready",
-					task_id, target.agent_id.to_string());
+				target.started = now;
+				target.identifier = order.identifier;
+				Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
+				started = true;
+				GLib.debug("task %d target %s started %d",
+					task_id, target.agent_id.to_string(), order.identifier);
 			}
-			if (rescheduled) {
+			if (rescheduled || started) {
 				this.app.db.backupDB();
 			}
+		}
+
+		/**
+		 * Store the exit code for one sent target.
+		 *
+		 * When no target on that task is still open, the task is completed.
+		 *
+		 * @param identifier log identifier written by {@link run}
+		 * @param exit_code process exit code
+		 */
+		public void finish(int identifier, int exit_code)
+		{
+			if (identifier < 1 || this.app == null || this.app.db == null) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			var binds = new Gee.HashMap<string, int>();
+			binds.set("identifier", identifier);
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).selectWhere(
+				"WHERE identifier = $identifier AND ended = 0",
+				binds, null, rows);
+			if (rows.size == 0) {
+				return;
+			}
+			var now = new GLib.DateTime.now_utc().to_unix();
+			rows.get(0).ended = now;
+			rows.get(0).success = exit_code;
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(rows.get(0));
+			this.complete_task((int) rows.get(0).task_id, now);
+			this.app.db.backupDB();
+		}
+
+		/**
+		 * Shell text for one task.
+		 *
+		 * A library script is the file body. A one-line command or a
+		 * generated script is {@link Argus.Shared.SQT.Task.command}.
+		 *
+		 * @param task task being dispatched
+		 * @param error reason the text could not be read
+		 * @return the text, or null
+		 */
+		private string? command_text(Argus.Shared.SQT.Task task, out string error)
+		{
+			error = "";
+			if (task.script_id < 1) {
+				if (task.command == "") {
+					error = "invalid task";
+					return null;
+				}
+				return task.command;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.Script>();
+			var binds = new Gee.HashMap<string, int>();
+			binds.set("id", (int) task.script_id);
+			Argus.Shared.SQT.Script.query(this.app.db).selectWhere(
+				"WHERE id = $id", binds, null, rows);
+			if (rows.size == 0) {
+				error = "unknown script";
+				return null;
+			}
+			var root = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "scripts");
+			if (rows.get(0).script_repository_id > 0) {
+				var repositories = new Gee.ArrayList<Argus.Shared.SQT.ScriptRepository>();
+				var repository_binds = new Gee.HashMap<string, int>();
+				repository_binds.set("id", (int) rows.get(0).script_repository_id);
+				Argus.Shared.SQT.ScriptRepository.query(this.app.db).selectWhere(
+					"WHERE id = $id", repository_binds, null, repositories);
+				if (repositories.size == 0) {
+					error = "unknown repository";
+					return null;
+				}
+				root = GLib.Path.build_filename(
+					Argus.SERVER_DATA_DIR, "git", repositories.get(0).name);
+			}
+			var full_path = GLib.Path.build_filename(root, rows.get(0).path);
+			if (GLib.FileUtils.test(full_path, GLib.FileTest.IS_SYMLINK)) {
+				error = "invalid path";
+				return null;
+			}
+			var body = "";
+			try {
+				GLib.FileUtils.get_contents(full_path, out body);
+			} catch (GLib.Error e) {
+				error = e.message;
+				return null;
+			}
+			return body;
+		}
+
+		/**
+		 * Close a target that never started and tell its controller.
+		 *
+		 * @param target row that will not be sent
+		 * @param code value stored on {@link Argus.Shared.SQT.TaskTarget.success}
+		 * @param message text for ''controller.stderr''
+		 */
+		private void fail_target(Argus.Shared.SQT.TaskTarget target, int code, string message)
+		{
+			var now = new GLib.DateTime.now_utc().to_unix();
+			target.ended = now;
+			target.success = code;
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
+			var controller = target.is_watched ?
+				Argus.Server.Command.watcher((int) target.id) : null;
+			if (controller != null && controller.running) {
+				var text = message.has_suffix("\n") ? message : message + "\n";
+				controller.write(new OLLMrpc.Notification() {
+					method = "controller.stderr",
+					args = OLLMrpc.args("is", target.identifier, text)
+				});
+				controller.write(new OLLMrpc.Notification() {
+					method = "controller.ended",
+					args = OLLMrpc.args("i", target.identifier)
+				});
+			}
+			this.complete_task((int) target.task_id, now);
+			this.app.db.backupDB();
+		}
+
+		/**
+		 * Write {@link Argus.Shared.SQT.Task.completed} when every target has ended.
+		 *
+		 * @param task_id ''task.id''
+		 * @param now unix time to store
+		 */
+		private void complete_task(int task_id, int64 now)
+		{
+			var open = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			var binds = new Gee.HashMap<string, int>();
+			binds.set("task_id", task_id);
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).selectWhere(
+				"WHERE task_id = $task_id AND ended = 0 AND is_cancelled = 0",
+				binds, null, open);
+			if (open.size > 0) {
+				return;
+			}
+			var tasks = new Gee.ArrayList<Argus.Shared.SQT.Task>();
+			var task_binds = new Gee.HashMap<string, int>();
+			task_binds.set("id", task_id);
+			Argus.Shared.SQT.Task.query(this.app.db).selectWhere(
+				"WHERE id = $id", task_binds, null, tasks);
+			if (tasks.size == 0 || tasks.get(0).completed > 0) {
+				return;
+			}
+			tasks.get(0).completed = now;
+			Argus.Shared.SQT.Task.query(this.app.db).updateById(tasks.get(0));
 		}
 	}
 }

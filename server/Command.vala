@@ -21,13 +21,13 @@ namespace Argus.Server
 	/**
 	 * One command the server asks an agent to run.
 	 *
-	 * The wire name is ''Argus.Command''. {@link run} writes a client
-	 * notification on that agent's app-socket connection. {@link send}
+	 * The wire name is ''Argus.Command''. A task dispatch writes
+	 * ''agent.run'' on that agent's app-socket connection. {@link send}
 	 * writes a follow-up to the same connection. {@link stdout} and
 	 * {@link stderr} are the chunks the agent sends back. Stdin, stdout,
 	 * and stderr are appended under {@link Argus.LOG_DIR}, then a client
-	 * notification goes to the controller that called {@link run} when
-	 * that connection is still up.
+	 * notification goes to a controller watching that target when
+	 * that connection is still up. An unwatched target is not sent one.
 	 *
 	 * == Example ==
 	 *
@@ -47,11 +47,10 @@ namespace Argus.Server
 			OLLMrpc.Bin.register("Argus.Command", typeof(Command));
 			OLLMrpc.Request.add_class(
 				"Command", typeof(Command),
-				"run", "xo",
 				"send", "is",
 				"stdout", "is",
 				"stderr", "is",
-				"ended", "i"
+				"ended", "ii"
 			);
 		}
 
@@ -101,6 +100,16 @@ namespace Argus.Server
 		private static Gee.HashMap<int, string> logs;
 
 		/**
+		 * Controller connection for each watched target, keyed by target id.
+		 *
+		 * {@link Argus.Server.SQT.Task.run} copies it onto {@link controllers}
+		 * when that target is sent.
+		 */
+		private static Gee.HashMap<int, OLLMrpc.Transport.Connection> tasks;
+
+		private static int next_identifier = 0;
+
+		/**
 		 * Empty instance for the bin decoder.
 		 */
 		public Command()
@@ -121,37 +130,73 @@ namespace Argus.Server
 				Command.agents = new Gee.HashMap<int, SslConnection>();
 				Command.controllers = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
 				Command.logs = new Gee.HashMap<int, string>();
+				Command.tasks = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
 			}
+		}
+
+		/**
+		 * Remember the controller watching one target.
+		 *
+		 * Output for a later dispatch goes to this connection when it is
+		 * still up. {@link Argus.Shared.SQT.TaskTarget.is_watched} is the
+		 * flag that this stream was asked for.
+		 *
+		 * @param target_id ''task_target.id''
+		 * @param connection controller that asked to watch
+		 */
+		public static void watch(int target_id, OLLMrpc.Transport.Connection connection)
+		{
+			if (Command.tasks == null) {
+				Command.tasks = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
+			}
+			Command.tasks.set(target_id, connection);
+		}
+
+		/**
+		 * Drop the controller remembered for a task.
+		 *
+		 * @param target_id ''task_target.id''
+		 */
+		public static void unwatch(int target_id)
+		{
+			if (Command.tasks != null) {
+				Command.tasks.unset(target_id);
+			}
+		}
+
+		/**
+		 * Controller connection stored for a target, or null.
+		 *
+		 * @param target_id ''task_target.id''
+		 * @return the watching connection
+		 */
+		public static OLLMrpc.Transport.Connection? watcher(int target_id)
+		{
+			if (Command.tasks == null || !Command.tasks.has_key(target_id)) {
+				return null;
+			}
+			return Command.tasks.get(target_id);
 		}
 
 		/**
 		 * Tell one agent to run this command.
 		 *
-		 * The caller is the Unix socket, or a TLS connection whose agent row
-		 * has ''is_controller'' set. The notification method is
-		 * ''agent.run''. Its argument is this object. The caller's connection
-		 * receives later output for {@link identifier}.
+		 * The notification method is ''agent.run''. {@link identifier} is
+		 * assigned here when it is still 0. The watching controller receives
+		 * later output for that identifier.
 		 *
-		 * @param request inbound RPC from the controller
 		 * @param agent_id ''agent.id'' of the machine that runs it
 		 * @param order command to send
+		 * @param controller watching connection, or null
+		 * @param error reason the send did not happen
+		 * @return true when ''agent.run'' was written
 		 */
-		public void run(OLLMrpc.Request request, int64 agent_id, Command order)
+		public bool dispatch(int64 agent_id, Command order,
+			OLLMrpc.Transport.Connection? controller, out string error)
 		{
-			if (agent_id < 1) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("controller does not run commands")
-				});
-				return;
-			}
-			if (!Argus.Shared.Agent.is_a_controller(request)) {
-				return;
-			}
-			if (order.identifier < 1) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("invalid command")
-				});
-				return;
+			error = "unknown agent";
+			if (agent_id < 1 || this.app == null || this.app.ssl_listen == null) {
+				return false;
 			}
 			foreach (var connection in this.app.ssl_listen.connections) {
 				if (!connection.running || connection.agent_id != agent_id) {
@@ -161,27 +206,46 @@ namespace Argus.Server
 				var dir = GLib.Path.build_filename(Argus.LOG_DIR, "commands",
 					now.format("%Y"), now.format("%m"), now.format("%d"));
 				if (GLib.DirUtils.create_with_parents(dir, 0755) != 0) {
-					request.reply(new OLLMrpc.Response() {
-						error = new OLLMrpc.Error.INTERNAL_ERROR("could not store output")
-					});
-					return;
+					error = "could not store output";
+					return false;
+				}
+				if (order.identifier < 1) {
+					order.identifier = this.allocate_identifier();
 				}
 				connection.write(new OLLMrpc.Notification() {
 					method = "agent.run",
 					args = OLLMrpc.args("o", order)
 				});
 				Command.agents.set(order.identifier, connection);
-				Command.controllers.set(order.identifier, request.connection);
 				Command.logs.set(order.identifier, dir);
+				if (controller != null) {
+					Command.controllers.set(order.identifier, controller);
+				}
 				GLib.debug("run command %d on agent %s", order.identifier, agent_id.to_string());
-				request.reply(new OLLMrpc.Response() {
-					msg = "ok"
-				});
-				return;
+				error = "";
+				return true;
 			}
-			request.reply(new OLLMrpc.Response() {
-				error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
-			});
+			return false;
+		}
+
+		/**
+		 * Next log identifier, above any identifier already stored.
+		 *
+		 * @return an identifier of at least 1
+		 */
+		private int allocate_identifier()
+		{
+			if (Command.next_identifier == 0 && this.app != null && this.app.db != null) {
+				var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+				Argus.Shared.SQT.TaskTarget.query(this.app.db).select("", rows);
+				foreach (var row in rows) {
+					if (row.identifier > Command.next_identifier) {
+						Command.next_identifier = row.identifier;
+					}
+				}
+			}
+			Command.next_identifier++;
+			return Command.next_identifier;
 		}
 
 		/**
@@ -326,10 +390,15 @@ namespace Argus.Server
 		/**
 		 * Tell the controller the child is dead.
 		 *
+		 * The exit code is stored on the task target that owns this
+		 * identifier. The controller notification stays ''controller.ended''
+		 * with that identifier.
+		 *
 		 * @param request inbound RPC from the agent
 		 * @param identifier {@link Command.identifier} of the run
+		 * @param exit_code process exit code
 		 */
-		public void ended(OLLMrpc.Request request, int identifier)
+		public void ended(OLLMrpc.Request request, int identifier, int exit_code)
 		{
 			if (Command.agents == null || !Command.agents.has_key(identifier)) {
 				request.reply(new OLLMrpc.Response() {
@@ -343,6 +412,9 @@ namespace Argus.Server
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
+			}
+			if (this.app != null) {
+				new Argus.Server.SQT.Task.for_rpc(this.app).finish(identifier, exit_code);
 			}
 			if (Command.controllers != null && Command.controllers.has_key(identifier) && Command.controllers.get(identifier).running) {
 				Command.controllers.get(identifier).write(new OLLMrpc.Notification() {

@@ -42,6 +42,7 @@ namespace Argus.Shared.SQT
 		public int64 ended { get; set; default = 0; }
 		public int success { get; set; default = 0; }
 		public bool is_cancelled { get; set; default = false; }
+		public bool is_watched { get; set; default = false; }
 		public int timeout { get; set; default = 0; }
 		public int identifier { get; set; default = 0; }
 
@@ -82,6 +83,7 @@ namespace Argus.Shared.SQT
 					ended        INT64 NOT NULL DEFAULT 0,
 					success      INTEGER NOT NULL DEFAULT 0,
 					is_cancelled INTEGER NOT NULL DEFAULT 0,
+					is_watched   INTEGER NOT NULL DEFAULT 0,
 					timeout      INTEGER NOT NULL DEFAULT 0,
 					identifier   INTEGER NOT NULL DEFAULT 0
 				);
@@ -91,6 +93,9 @@ namespace Argus.Shared.SQT
 			}
 			db.db.exec(
 				"ALTER TABLE task_target ADD COLUMN scheduled INT64 NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE task_target ADD COLUMN is_watched INTEGER NOT NULL DEFAULT 0;",
 				null, out errmsg);
 		}
 	}

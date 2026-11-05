@@ -199,15 +199,21 @@ namespace Argus.Agent
 					return true;
 				});
 			this.child.wait_async.begin(null, (obj, res) => {
+				var code = 1;
 				try {
 					this.child.wait_async.end(res);
+					if (this.child.get_if_exited()) {
+						code = this.child.get_exit_status();
+					} else if (this.child.get_if_signaled()) {
+						code = 128 + this.child.get_term_sig();
+					}
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
 				}
 				try {
 					this.link.call(new OLLMrpc.Request() {
 						method = "Command.ended",
-						args = OLLMrpc.args("i", this.identifier)
+						args = OLLMrpc.args("ii", this.identifier, code)
 					});
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);

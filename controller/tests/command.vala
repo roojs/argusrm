@@ -41,10 +41,11 @@ namespace Argus.Controller
 /**
  * Unix loopback for the controller command path.
  *
- * {@link Argus.Controller.Command.run} sends ''Command.run''.
- * After the reply, the peer writes ''controller.stdout'' then
- * ''controller.ended''. A {@link GLib.Object.ref} keeps the
- * command until the process exits. The CLI exits 0 only after ended.
+ * {@link Argus.Controller.Command.run} sends ''Task.create'',
+ * ''Task.target'', ''Task.watch'', then ''Task.approve''. After approve, the peer
+ * writes ''controller.stdout'' then ''controller.ended''. A
+ * {@link GLib.Object.ref} keeps the command until the process exits.
+ * The CLI exits 0 only after ended.
  *
  * == Example ==
  *
@@ -56,6 +57,8 @@ namespace Argus.Controller
 int main(string[] args)
 {
 	OLLMrpc.rpc_register();
+	Argus.Shared.SQT.Task.rpc_register();
+	Argus.Shared.SQT.TaskTarget.rpc_register();
 	Argus.Controller.Command.rpc_register();
 	Argus.Controller.State.got_stdout = "";
 	Argus.Controller.State.got_ended = 0;
@@ -103,16 +106,39 @@ int main(string[] args)
 				return 1;
 			}
 			try {
-				Argus.Controller.State.bin.write(new OLLMrpc.Response() {
-					id = req.id,
-					msg = "ok"
-				});
+				if (req.method == "Task.create") {
+					Argus.Controller.State.bin.write(new OLLMrpc.Response() {
+						id = req.id,
+						retval = OLLMrpc.val("o", new Argus.Shared.SQT.Task() {
+							id = 1,
+							command = "echo hello"
+						}),
+						msg = "ok"
+					});
+				} else if (req.method == "Task.target") {
+					var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+					rows.add(new Argus.Shared.SQT.TaskTarget() {
+						id = 1,
+						task_id = 1,
+						agent_id = 1
+					});
+					Argus.Controller.State.bin.write(new OLLMrpc.Response() {
+						id = req.id,
+						retval = OLLMrpc.val("o", rows),
+						msg = "ok"
+					});
+				} else {
+					Argus.Controller.State.bin.write(new OLLMrpc.Response() {
+						id = req.id,
+						msg = "ok"
+					});
+				}
 				Argus.Controller.State.bin.out_stream.flush();
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return 1;
 			}
-			if (req.method != "Command.run") {
+			if (req.method != "Task.approve") {
 				continue;
 			}
 			GLib.Thread.usleep(200 * 1000);

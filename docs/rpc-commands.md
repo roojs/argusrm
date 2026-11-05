@@ -129,7 +129,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 ### `agent.run`
 
 - 🔷 Every notification has a method. `agent.run` starts the command.
-- 💩 Arguments: one `Argus.Command`. `Command.run` takes it.
+- 💩 Arguments: one `Argus.Command`. `Task.run` sends it.
 
 ### `agent.send`
 
@@ -144,18 +144,17 @@ The agent does not do this. The handler is `server/Command.vala`.
 - 🔷 Argus appends each `Command.stdout` chunk to a file.
 - 💩 Argus appends each `Command.stderr` chunk to the stderr file.
 - 💩 `Command.send` appends its text to the stdin file.
-- 💩 `Command.run` stores `localstatedir/log/argusrm/commands/yyyy/mm/dd/` from the day the command starts. The default is `/var/log/argusrm`. Later stdin, stdout, and stderr append in that directory. The file is `{agent.id}-{identifier}` plus `.stdin`, `.stdout`, or `.stderr`. An identifier less than `1` is refused.
-- 🔷 Argus then sends a client notification on the controller connection that initialized the run, when that connection is still up.
+- 💩 `Task.run` stores `localstatedir/log/argusrm/commands/yyyy/mm/dd/` from the day the command starts. The default is `/var/log/argusrm`. Later stdin, stdout, and stderr append in that directory. The file is `{agent.id}-{identifier}` plus `.stdin`, `.stdout`, or `.stderr`. An identifier less than `1` is refused.
+- 🔷 Argus then sends a client notification on the controller that set `task_target.is_watched`, when that connection is still up. An unwatched target does not send one.
 - 🔷 A controller that initialized an install can watch that install.
 - 🔷 The type name says the controller receives it.
 - 💩 `Connection.running` is that check. The notification method is `controller.stdout` or `controller.stderr`. Arguments are `is`: identifier, then that chunk.
-- 💩 The agent calls `Command.ended` when the child is dead. The server then writes `controller.ended`.
+- 💩 The agent calls `Command.ended` when the child is dead. Arguments `ii`: identifier, then the exit code. The server stores that code on the task target and writes `controller.ended`.
 
 ### `Command.run`
 
-- 🔷 The controller calls this on the server. The server then sends the `run` notification to one agent.
-- 💩 Arguments `xo`: `agent.id`, then one `Argus.Command`.
-- 💩 The Unix socket may call it. A TLS connection may call it when that agent row has `is_controller` set.
+- 🔷 The controller does not call this. `--command` creates a task, adds the agent, and approves it. [7.1 Phase 1.5](plans/7.1-tasks-implementation.md).
+- 🔷 `Task.run` sends `agent.run` with one `Argus.Command`.
 
 ### `Command.send`
 
@@ -198,7 +197,7 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 ### `Command.ended`
 
 - 🔷 The agent sends this when the child is dead.
-- 💩 Arguments `i`: identifier.
+- 💩 Arguments `ii`: identifier, then the exit code.
 
 ---
 
@@ -208,4 +207,4 @@ Controller calls for the script library and tasks. Defined in [7.1](plans/7.1-ta
 
 - `ScriptRepository.clone` `o`, `pull` `i`, `remove` `i`, `list` — in the tree. Clone uses libgit2 (`Ggit`). The row is written after the checkout succeeds.
 - `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `enable` `ii`, `disable` `ii`, `agents` `i`
-- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `approve` `i`, `duplicate` `i`, `targets` `i`
+- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `watch` `i`, `approve` `ib`, `duplicate` `i`, `targets` `i`

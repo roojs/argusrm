@@ -19,11 +19,13 @@
 namespace Argus.Controller
 {
 	/**
-	 * Command-line controller for Argus.
+	 * Controller for Argus.
 	 *
-	 * A {@link GLib.Application} with no drawing. {@link command_line}
+	 * With no command on a desktop, {@link Bootstrap} checks saved
+	 * connections and may open {@link Window}. {@link command_line}
 	 * hellos on the Unix socket, then runs one of {@link Pin},
-	 * {@link Agents}, or {@link Command}. No flag prints usage.
+	 * {@link Agents}, or {@link Command}. No flag on a headless
+	 * machine prints usage.
 	 *
 	 * == Example ==
 	 *
@@ -49,6 +51,10 @@ namespace Argus.Controller
 		};
 		public GLib.ApplicationCommandLine cli { get; set; }
 		public OLLMrpc.Client rpc { get; set; }
+		/**
+		 * Main window opened after a connection answers.
+		 */
+		public Window window { get; set; }
 		public GLib.MainLoop loop { get; set; }
 		public int code { get; set; default = 1; }
 
@@ -68,10 +74,10 @@ namespace Argus.Controller
 		}
 
 		/**
-		 * Parse the flags, hello, then run one command.
+		 * Parse the flags, then run one command or the startup window.
 		 *
-		 * The Unix socket is ''argus.sock'' under
-		 * {@link Argus.SERVER_DATA_DIR}.
+		 * No flag on a desktop opens {@link Bootstrap}. The Unix
+		 * socket is ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when the command finished, otherwise the
@@ -82,6 +88,8 @@ namespace Argus.Controller
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
 			Argus.Shared.Registration.Data.rpc_register();
+			Argus.Shared.SQT.Task.rpc_register();
+			Argus.Shared.SQT.TaskTarget.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			pin = false;
 			agents = false;
@@ -109,9 +117,22 @@ namespace Argus.Controller
 				+ (agents ? 1 : 0)
 				+ (give_certificate != "" ? 1 : 0)
 				+ (agent != "" || command != "" ? 1 : 0);
-			if (chosen != 1) {
+			if (chosen > 1) {
 				command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --give-me-a-certificate USERNAME\n  argus-controller --agent ID --command COMMAND...\n");
 				return 1;
+			}
+			if (chosen == 0) {
+				var display = GLib.Environment.get_variable("DISPLAY");
+				var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
+				if ((display == null || display == "") && (wayland == null || wayland == "")) {
+					command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --give-me-a-certificate USERNAME\n  argus-controller --agent ID --command COMMAND...\n");
+					return 1;
+				}
+				Gtk.init();
+				var bootstrap = new Bootstrap(this);
+				bootstrap.present(null);
+				this.hold();
+				return 0;
 			}
 #if LINUX
 			if (give_certificate != "" && Posix.geteuid() != 0) {

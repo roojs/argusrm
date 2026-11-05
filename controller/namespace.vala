@@ -17,11 +17,12 @@
  */
 
 /**
- * Command-line controller for Argus.
+ * Controller for Argus.
  *
- * {@link Application} hellos on the Unix socket, then runs
- * {@link Pin}, {@link Agents}, or {@link Command}. ''--pin''
- * is the registration window. ''--agents'' prints ''id'' and
+ * With no command on a desktop, {@link Bootstrap} checks saved
+ * connections and may open {@link Window}. {@link Application}
+ * hellos on the Unix socket, then runs {@link Pin}, {@link Agents},
+ * or {@link Command}. ''--agents'' prints ''id'' and
  * ''requester''. ''--agent'' and ''--command'' run a line on
  * that machine.
  *

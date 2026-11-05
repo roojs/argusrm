@@ -63,6 +63,11 @@ else
 	shared_deps += dependency('avahi-client')
 endif
 
+if host_machine.system() == 'linux'
+	shared_deps += dependency('libsecret-1')
+	shared_vala_args += ['-D', 'LINUX', '--pkg', 'libsecret-1']
+endif
+
 shared_lib = static_library(
 	'argus-shared',
 	shared_sources,

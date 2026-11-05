@@ -133,7 +133,7 @@ namespace Argus.Server.SQT
 			Argus.Shared.SQT.TaskTarget.query(this.app.db).select(
 				"WHERE started = 0 AND ended = 0 AND is_cancelled = 0", targets);
 			var now = new GLib.DateTime.now_utc().to_unix();
-			var next = (int64) -1;
+			var next = (int64) (-1);
 			foreach (var target in targets) {
 				if (!task_rows.has_key((int) target.task_id)) {
 					continue;

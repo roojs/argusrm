@@ -21,9 +21,10 @@ namespace Argus.Controller
 	/**
 	 * Run one command on a registered agent.
 	 *
-	 * The wire alias is ''Argus.Command''. {@link run} sends
-	 * ''Command.run'' on the Unix socket. Notifications emit
-	 * {@link stdout}, {@link stderr}, and {@link ended}.
+	 * {@link run} creates a one-line task, adds {@link Application.agent}
+	 * as its target, watches that target, and approves it. The scheduler
+	 * sends the line.
+	 * Notifications emit {@link stdout}, {@link stderr}, and {@link ended}.
 	 * The CLI connects those. A desktop can draw them.
 	 *
 	 * == Example ==
@@ -37,8 +38,7 @@ namespace Argus.Controller
 	public class Command : GLib.Object, OLLMrpc.Bin.Serializable
 	{
 		public Application app;
-		public int identifier { get; set; default = 0; }
-		private static int next_identifier = 1;
+		public int64 task_id { get; set; default = 0; }
 		public string command { get; set; default = ""; }
 		public string[] environment { get; set; default = {}; }
 		public string cwd { get; set; default = ""; }
@@ -61,25 +61,17 @@ namespace Argus.Controller
 		}
 
 		/**
-		 * Send the command.
+		 * Create the one-line task and approve it.
 		 */
 		public void run()
 		{
 			var id = (int64) 0;
-			if (!int64.try_parse(Application.agent, out id) || id < 1) {
-				this.stderr("command needs an agent id\n");
-				this.ended();
+			if (!int64.try_parse(Application.agent, out id) || id < 1 || id > int32.MAX) {
+				this.fail("command needs an agent id");
 				return;
 			}
-			this.identifier = Command.next_identifier++;
 			this.command = Application.command;
 			this.app.rpc.notification.connect((notification) => {
-				if (notification.args.size < 1) {
-					return;
-				}
-				if (notification.args.get(0).get_int() != this.identifier) {
-					return;
-				}
 				if (notification.method == "controller.ended") {
 					this.ended();
 					return;
@@ -96,30 +88,123 @@ namespace Argus.Controller
 					this.stderr(text);
 				}
 			});
+			var row = new Argus.Shared.SQT.Task() {
+				command = this.command,
+				is_script = false,
+				script_id = 0,
+				scheduled = new GLib.DateTime.now_utc().to_unix() + 1
+			};
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Command.run",
-				args = OLLMrpc.args("xo", id, this)
-			}, this.on_reply);
+				method = "Task.create",
+				args = OLLMrpc.args("o", row)
+			}, (obj, res) => {
+				this.on_created(id, res);
+			});
 		}
 
 		/**
-		 * Take the ''Command.run'' reply.
+		 * Add the agent after the task row exists.
 		 *
-		 * @param rpc the Unix client
-		 * @param res the finished call
+		 * @param agent_id ''agent.id''
+		 * @param res the finished ''Task.create'' call
 		 */
-		public void on_reply(GLib.Object? rpc, GLib.AsyncResult res)
+		private void on_created(int64 agent_id, GLib.AsyncResult res)
 		{
 			try {
 				var response = this.app.rpc.call.end(res);
 				if (response.error != null) {
-					this.stderr(response.error.message + "\n");
-					this.ended();
+					this.fail(response.error.message);
+					return;
 				}
+				var row = response.retval as Argus.Shared.SQT.Task;
+				if (row == null || row.id < 1) {
+					this.fail("invalid task");
+					return;
+				}
+				this.task_id = row.id;
+				var agents = new GLib.Variant.array(
+					new GLib.VariantType("i"),
+					{ new GLib.Variant.int32((int32) agent_id) });
+				this.app.rpc.call.begin(new OLLMrpc.Request() {
+					method = "Task.target",
+					args = OLLMrpc.args("iv", (int) this.task_id, agents)
+				}, (obj, target_res) => {
+					this.on_targeted(target_res);
+				});
 			} catch (GLib.Error e) {
-				this.stderr(e.message + "\n");
-				this.ended();
+				this.fail(e.message);
 			}
+		}
+
+		/**
+		 * Watch the new target, then approve the task.
+		 *
+		 * @param res the finished ''Task.target'' call
+		 */
+		private void on_targeted(GLib.AsyncResult res)
+		{
+			try {
+				var response = this.app.rpc.call.end(res);
+				if (response.error != null) {
+					this.fail(response.error.message);
+					return;
+				}
+				var targets = response.retval as Gee.ArrayList<Argus.Shared.SQT.TaskTarget>;
+				if (targets == null || targets.size < 1 || targets.get(0).id < 1) {
+					this.fail("invalid task");
+					return;
+				}
+				this.app.rpc.call.begin(new OLLMrpc.Request() {
+					method = "Task.watch",
+					args = OLLMrpc.args("i", (int) targets.get(0).id)
+				}, (obj, watch_res) => {
+					this.on_watched(watch_res);
+				});
+			} catch (GLib.Error e) {
+				this.fail(e.message);
+			}
+		}
+
+		/**
+		 * Approve the task once its output is being watched.
+		 *
+		 * @param res the finished ''Task.watch'' call
+		 */
+		private void on_watched(GLib.AsyncResult res)
+		{
+			try {
+				var response = this.app.rpc.call.end(res);
+				if (response.error != null) {
+					this.fail(response.error.message);
+					return;
+				}
+				this.app.rpc.call.begin(new OLLMrpc.Request() {
+					method = "Task.approve",
+					args = OLLMrpc.args("ib", (int) this.task_id, true)
+				}, (obj, approve_res) => {
+					try {
+						var approved = this.app.rpc.call.end(approve_res);
+						if (approved.error != null) {
+							this.fail(approved.error.message);
+						}
+					} catch (GLib.Error e) {
+						this.fail(e.message);
+					}
+				});
+			} catch (GLib.Error e) {
+				this.fail(e.message);
+			}
+		}
+
+		/**
+		 * Print one failure and finish the command.
+		 *
+		 * @param message text for {@link stderr}
+		 */
+		private void fail(string message)
+		{
+			this.stderr(message.has_suffix("\n") ? message : message + "\n");
+			this.ended();
 		}
 	}
 }

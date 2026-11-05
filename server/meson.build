@@ -13,7 +13,7 @@ deps += shared_dep
 server_vala_args = [
 	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
 	'--pkg', 'gnutls', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
-	'--pkg', 'libgit2-glib-1.0',
+	'--pkg', 'libgit2-glib-1.0', '--pkg', 'posix',
 ]
 sources = files(
 	'namespace.vala',
