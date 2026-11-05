@@ -39,7 +39,7 @@ namespace Argus.Agent
 		internal static string after = "";
 		internal static GLib.MainLoop loop;
 
-		public void run(OLLMrpc.Transport.TlsClient link)
+		public void run(Argus.Agent.TlsClient link)
 		{
 			GLib.debug("command %d", this.identifier);
 			if (Command.during == "") {
@@ -187,7 +187,7 @@ int main(string[] args)
 		GLib.Thread.usleep(2 * 1000000);
 		return 0;
 	});
-	var link = new OLLMrpc.Transport.TlsClient("127.0.0.1", (uint16) inet.port) {
+	var link = new Argus.Agent.TlsClient("127.0.0.1", (uint16) inet.port) {
 		accept_any = true
 	};
 	try {

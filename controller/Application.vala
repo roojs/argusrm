@@ -150,18 +150,19 @@ namespace Argus.Controller
 					new Agents(this).run();
 					return;
 				}
-				var order = new Command(this);
-				order.stdout.connect((text) => {
+				var command = new Command(this);
+				command.ref();
+				command.stdout.connect((text) => {
 					this.cli.print("%s", text);
 				});
-				order.stderr.connect((text) => {
+				command.stderr.connect((text) => {
 					this.cli.printerr("%s", text);
 				});
-				order.ended.connect(() => {
+				command.ended.connect(() => {
 					this.code = 0;
 					this.loop.quit();
 				});
-				order.run();
+				command.run();
 			});
 			this.loop.run();
 			return this.code;
