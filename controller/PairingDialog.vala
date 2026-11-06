@@ -59,6 +59,7 @@ namespace Argus.Controller
 		public PairingDialog(Window window)
 		{
 			this.window = window;
+			Argus.Shared.Notice.edge(this);
 			this.title = "Register";
 			this.set_content_width(560);
 			var css = new Gtk.CssProvider();

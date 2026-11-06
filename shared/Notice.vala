@@ -48,7 +48,37 @@ namespace Argus.Shared
 		 */
 		public signal void responded(string response);
 
+		private static bool styled = false;
 		private Gtk.Box actions;
+
+		/**
+		 * Draw an edge on a dialog.
+		 *
+		 * A dialog presented over another dialog uses the same
+		 * background, so the edge is the only outline.
+		 *
+		 * @param dialog the dialog to outline
+		 */
+		public static void edge(Adw.Dialog dialog)
+		{
+			dialog.add_css_class("argus-dialog");
+			if (Notice.styled) {
+				return;
+			}
+			var display = Gdk.Display.get_default();
+			if (display == null) {
+				return;
+			}
+			Notice.styled = true;
+			var css = new Gtk.CssProvider();
+			css.load_from_string(
+				"dialog.argus-dialog {" +
+				" background-color: @card_bg_color;" +
+				" border: 1px solid @borders;" +
+				" }");
+			Gtk.StyleContext.add_provider_for_display(
+				display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+		}
 
 		/**
 		 * Create the dialog.
@@ -58,6 +88,7 @@ namespace Argus.Shared
 		 */
 		public Notice(string heading, string body)
 		{
+			Notice.edge(this);
 			this.title = heading;
 			this.set_content_height(280);
 			this.set_content_width(480);

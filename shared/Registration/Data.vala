@@ -23,7 +23,8 @@ namespace Argus.Shared.Registration
 	 *
 	 * The running server returns this object over the Unix RPC connection.
 	 * The privileged controller command serializes it to standard output.
-	 * {@link deregister} removes the server row for this certificate.
+	 * {@link deregister} removes the server row for this certificate
+	 * on the TLS connection already open, then closes that connection.
 	 * If the server does not answer, the dialog can still remove the
 	 * keyring secret and the saved connection.
 	 *
@@ -67,13 +68,16 @@ namespace Argus.Shared.Registration
 		/**
 		 * Remove this controller's server row and saved login.
 		 *
-		 * The server call has five seconds. If it does not answer,
+		 * The call uses the TLS connection already open for this
+		 * certificate. The connection closes after the server
+		 * answers. The call has five seconds. If it does not answer,
 		 * the dialog can still drop the saved login. {@link finished}
 		 * reports the outcome. ''name'' selects the saved row.
 		 *
 		 * @param parent window that presents the dialogs
+		 * @param rpc open TLS client for this server
 		 */
-		public void deregister(Gtk.Widget parent)
+		public void deregister(Gtk.Widget parent, OLLMrpc.Client rpc)
 		{
 			this.deregister_parent = parent;
 			if (this.client_certificate == "") {
@@ -90,11 +94,10 @@ namespace Argus.Shared.Registration
 			}
 			var fingerprint = GLib.Checksum.compute_for_data(
 				GLib.ChecksumType.SHA256, cert.certificate.data);
-			var rpc = new OLLMrpc.Client("", "",
-				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
-				live_handles = true
-			};
-			rpc.debug = false;
+			if (!rpc.connected) {
+				this.offer_local("The server did not answer.");
+				return;
+			}
 			var settled = false;
 			uint wait = 0;
 			wait = GLib.Timeout.add_seconds(5, () => {
@@ -106,10 +109,10 @@ namespace Argus.Shared.Registration
 				this.offer_local("The server did not answer.");
 				return false;
 			});
-			rpc.connect.begin(new OLLMrpc.Request() {
-				method = "RPC-Daemon.hello",
-				args = OLLMrpc.args("is", 1, "argus-controller")
-			}, null, (obj, res) => {
+			rpc.call.begin(new OLLMrpc.Request() {
+				method = "Registration.deregister",
+				args = OLLMrpc.args("s", fingerprint)
+			}, (call_obj, call_res) => {
 				if (settled) {
 					return;
 				}
@@ -118,32 +121,19 @@ namespace Argus.Shared.Registration
 					GLib.Source.remove(wait);
 					wait = 0;
 				}
-				var opened = rpc.connect.end(res);
-				if (!opened) {
-					var message = rpc.connect_error;
-					if (message == "") {
-						message = "The server did not answer.";
-					}
-					this.offer_local(message);
+				var response = new OLLMrpc.Response();
+				try {
+					response = rpc.call.end(call_res);
+				} catch (GLib.Error e) {
+					this.offer_local(e.message);
 					return;
 				}
-				rpc.call.begin(new OLLMrpc.Request() {
-					method = "Registration.deregister",
-					args = OLLMrpc.args("s", fingerprint)
-				}, (call_obj, call_res) => {
-					var response = new OLLMrpc.Response();
-					try {
-						response = rpc.call.end(call_res);
-					} catch (GLib.Error e) {
-						this.offer_local(e.message);
-						return;
-					}
-					if (response.error != null) {
-						this.fail(response.error.message);
-						return;
-					}
-					this.clear_and_finish();
-				});
+				if (response.error != null) {
+					this.fail(response.error.message);
+					return;
+				}
+				rpc.disconnect();
+				this.clear_and_finish();
 			});
 		}
 

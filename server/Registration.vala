@@ -21,10 +21,10 @@ namespace Argus.Server
 	/**
 	 * Local controller certificate registration.
 	 *
-	 * The privileged controller calls this handler on ''argus.sock''.
+	 * The privileged controller calls {@link certificate} on ''argus.sock''.
 	 * It generates a pending controller credential without writing the
-	 * private key to disk. {@link deregister} removes that row for
-	 * the same login.
+	 * private key to disk. {@link deregister} removes that row on the
+	 * open TLS connection, then the desktop closes that connection.
 	 *
 	 * == Example ==
 	 *
@@ -215,47 +215,29 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Remove this login's controller row for one fingerprint.
+		 * Remove this certificate's controller row.
 		 *
-		 * The desktop calls this on ''argus.sock''. The peer user
-		 * must own the row. A missing row is still success.
+		 * The desktop calls this on the TLS connection already open
+		 * for that certificate, then closes the connection. The
+		 * fingerprint must be the peer certificate. A missing row
+		 * is still success.
 		 *
-		 * @param request inbound RPC on the Unix socket
+		 * @param request inbound RPC on the app socket
 		 * @param fingerprint SHA256 of the client certificate
 		 */
 		public void deregister(OLLMrpc.Request request, string fingerprint)
 		{
-			if (request.connection is SslConnection) {
+			var ssl = request.connection as SslConnection;
+			if (ssl == null) {
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("Unix socket only")
+					error = new OLLMrpc.Error.INVALID_REQUEST("TCP only")
 				});
 				return;
 			}
-			if (fingerprint == "") {
+			if (fingerprint == "" || ssl.cert_fingerprint == "" ||
+				fingerprint != ssl.cert_fingerprint) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("fingerprint is required")
-				});
-				return;
-			}
-			var uid = (uint) 0;
-			try {
-				if (request.connection.stream == null) {
-					request.reply(new OLLMrpc.Response() {
-						error = new OLLMrpc.Error.INVALID_REQUEST("user is required")
-					});
-					return;
-				}
-				uid = request.connection.stream.get_socket().get_credentials().get_unix_user();
-			} catch (GLib.Error e) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("user is required")
-				});
-				return;
-			}
-			unowned var pwd = Posix.getpwuid(uid);
-			if (pwd == null) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("user is required")
 				});
 				return;
 			}
@@ -263,10 +245,8 @@ namespace Argus.Server
 			var text_binds = new Gee.HashMap<string, string>();
 			int_binds.set("is_controller", 1);
 			text_binds.set("fingerprint", fingerprint);
-			text_binds.set("username", pwd.pw_name);
 			Argus.Shared.Agent.query(this.app.db).deleteWhere(
-				"WHERE fingerprint = $fingerprint AND is_controller = $is_controller " +
-					"AND username = $username",
+				"WHERE fingerprint = $fingerprint AND is_controller = $is_controller",
 				int_binds, text_binds);
 			this.app.db.backupDB();
 			request.reply(new OLLMrpc.Response() {

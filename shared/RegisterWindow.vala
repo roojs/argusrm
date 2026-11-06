@@ -29,6 +29,13 @@ namespace Argus.Shared
 	public class RegisterWindow : Adw.Dialog
 	{
 		/**
+		 * Certificate and listen addresses from a successful registration.
+		 *
+		 * Null until {@link certificate_received}.
+		 */
+		public Argus.Shared.Registration.Data? issued { get; private set; }
+
+		/**
 		 * ''tcp://host:port'' that answered hello. Null until then.
 		 */
 		public string? registered_url { get; private set; }
@@ -67,6 +74,23 @@ namespace Argus.Shared
 		 * it and handles {@link send_pin}.
 		 */
 		public bool use_pipe = false;
+
+		/**
+		 * True stores this registration as a controller.
+		 *
+		 * Agents leave this false.
+		 */
+		public bool is_controller = false;
+
+		/**
+		 * Operating-system login name for a controller registration.
+		 */
+		public string username = "";
+
+		/**
+		 * Machine name for a controller registration.
+		 */
+		public string hostname = "";
 
 		/**
 		 * Registration code written by {@link send_pin}.
@@ -108,6 +132,7 @@ namespace Argus.Shared
 
 		public RegisterWindow()
 		{
+			Notice.edge(this);
 			this.title = "Connect to management server";
 			this.set_content_height(280);
 			this.set_content_width(480);
@@ -210,6 +235,7 @@ namespace Argus.Shared
 		 */
 		public void show_add()
 		{
+			this.issued = null;
 			this.registered_url = null;
 			this.registered_addresses = "";
 			this.server_id = "";
@@ -329,7 +355,10 @@ namespace Argus.Shared
 				return;
 			}
 			var registration = new Register() {
-				data_dir = this.data_dir
+				data_dir = this.data_dir,
+				is_controller = this.is_controller,
+				username = this.username,
+				hostname = this.hostname
 			};
 			var force_register = false;
 			while (true) {
@@ -359,9 +388,85 @@ namespace Argus.Shared
 				}
 				this.registered_url = "tcp://" + host + ":" + port.to_string();
 				this.registered_addresses = registration.addresses;
+				if (!this.remember(host, (int) port, registration.addresses)) {
+					return;
+				}
 				this.registration_succeeded();
 				return;
 			}
+		}
+
+		/**
+		 * Build {@link issued} from the files this window just wrote.
+		 *
+		 * ''addresses'' is one ''host:port'' per line. The connected
+		 * host is included when the reply did not list it.
+		 *
+		 * @param host address that accepted the registration
+		 * @param port app socket port
+		 * @param addresses listen addresses from the reply
+		 * @return false when the files or the address could not be read
+		 */
+		private bool remember(string host, int port, string addresses)
+		{
+			var dir = this.data_dir;
+			if (dir == "") {
+				dir = GLib.Path.build_filename(
+					GLib.Environment.get_user_data_dir(), "argus");
+			}
+			var client = "";
+			var key = "";
+			var ca = "";
+			try {
+				GLib.FileUtils.get_contents(
+					GLib.Path.build_filename(dir, "client.pem"), out client);
+				GLib.FileUtils.get_contents(
+					GLib.Path.build_filename(dir, "client-key.pem"), out key);
+				GLib.FileUtils.get_contents(
+					GLib.Path.build_filename(dir, "ollmrpc-ca.pem"), out ca);
+			} catch (GLib.Error e) {
+				this.error_occurred(e.message);
+				return false;
+			}
+			string[] hosts = {};
+			foreach (var line in addresses.split("\n")) {
+				var text = line.strip();
+				if (text == "") {
+					continue;
+				}
+				var mark = text.last_index_of(":");
+				if (mark > 0) {
+					hosts += text.substring(0, mark);
+					continue;
+				}
+				hosts += text;
+			}
+			var listed = false;
+			foreach (var one in hosts) {
+				if (one == host) {
+					listed = true;
+				}
+			}
+			if (host != "" && !listed) {
+				string[] with_host = { host };
+				foreach (var one in hosts) {
+					with_host += one;
+				}
+				hosts = with_host;
+			}
+			if (host == "" || port < 1) {
+				this.error_occurred("The server did not return a connection.");
+				return false;
+			}
+			this.issued = new Argus.Shared.Registration.Data() {
+				name = host,
+				port = port,
+				addresses = hosts,
+				private_key = key,
+				client_certificate = client,
+				ca_certificate = ca
+			};
+			return true;
 		}
 
 		private void registration_succeeded()

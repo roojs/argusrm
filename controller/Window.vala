@@ -26,8 +26,8 @@ namespace Argus.Controller
 	 * ''Deregister this controller'' calls
 	 * {@link Argus.Shared.Registration.Data.deregister}. OK after
 	 * deletion quits.
-	 * ''Register'' opens {@link PairingDialog} for an agent or
-	 * another controller.
+	 * ''Register agent'' and ''Register controller'' open
+	 * {@link PairingDialog}.
 	 *
 	 * == Example ==
 	 *
@@ -76,10 +76,8 @@ namespace Argus.Controller
 			var header = new Adw.HeaderBar();
 			var menu = new GLib.Menu();
 			menu.append("Deregister this controller", "win.deregister");
-			var register = new GLib.Menu();
-			register.append("Agent", "win.register('Agent')");
-			register.append("Controller", "win.register('Controller')");
-			menu.append_submenu("Register", register);
+			menu.append("Register agent", "win.register('Agent')");
+			menu.append("Register controller", "win.register('Controller')");
 			var cog = new Gtk.MenuButton() {
 				icon_name = "emblem-system-symbolic",
 				menu_model = menu,
@@ -91,7 +89,7 @@ namespace Argus.Controller
 			this.deregister_action = new GLib.SimpleAction("deregister", null);
 			this.deregister_action.activate.connect(() => {
 				this.deregister_action.set_enabled(false);
-				this.issued.deregister(this);
+				this.issued.deregister(this, this.app.rpc);
 			});
 			var register_action = new GLib.SimpleAction("register", GLib.VariantType.STRING);
 			register_action.activate.connect((parameter) => {
