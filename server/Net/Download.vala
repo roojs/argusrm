@@ -16,7 +16,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Server
+namespace Argus.Server.Net
 {
 	/**
 	 * HTTPS GET listener for the download socket.
@@ -24,13 +24,12 @@ namespace Argus.Server
 	 * Binds {@link Application.download}. A download is a standard
 	 * HTTP GET over TLS. The client certificate is required. This
 	 * socket is not the app socket, so a transfer does not clog
-	 * RPC. Not {@link Argus.Agent.Download.fetch}, and not
-	 * ''Download.get''.
+	 * RPC. Not {@link Argus.Agent.Download.fetch}.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var files = new Argus.Server.Download(app);
+	 * var files = new Argus.Server.Net.Download(app);
 	 * if (files.listen()) {
 	 *     // bound
 	 * }

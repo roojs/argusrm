@@ -61,7 +61,7 @@ namespace Argus.Server
 		 */
 		public void certificate(OLLMrpc.Request request, string username)
 		{
-			if (request.connection is SslConnection) {
+			if (request.connection is Net.SslConnection) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("Unix socket only")
 				});
@@ -220,14 +220,15 @@ namespace Argus.Server
 		 * The desktop calls this on the TLS connection already open
 		 * for that certificate, then closes the connection. The
 		 * fingerprint must be the peer certificate. A missing row
-		 * is still success.
+		 * is still success. The allowlist is refreshed from the
+		 * rows that remain.
 		 *
 		 * @param request inbound RPC on the app socket
 		 * @param fingerprint SHA256 of the client certificate
 		 */
 		public void deregister(OLLMrpc.Request request, string fingerprint)
 		{
-			var ssl = request.connection as SslConnection;
+			var ssl = request.connection as Net.SslConnection;
 			if (ssl == null) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("TCP only")
@@ -249,6 +250,7 @@ namespace Argus.Server
 				"WHERE fingerprint = $fingerprint AND is_controller = $is_controller",
 				int_binds, text_binds);
 			this.app.db.backupDB();
+			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
 			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
 			});

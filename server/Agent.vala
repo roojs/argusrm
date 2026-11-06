@@ -58,11 +58,13 @@ namespace Argus.Server
 
 		/**
 		 * Pair a machine. Sign ''csr'' when ''pin'' matches
-		 * {@link SslListen.pin}.
+		 * {@link Net.SslListen.pin}.
 		 *
 		 * This is the other half of {@link offer}. A wrong number
 		 * is ''number rejected''. The matching number closes the
-		 * window and tells the controller.
+		 * window and tells the controller. The peer address is stored
+		 * on the new row without its port. The allowlist is refreshed
+		 * and the firewall enabled again.
 		 *
 		 * @param request inbound RPC on the app socket
 		 * @param pin six digits from the offer
@@ -83,7 +85,7 @@ namespace Argus.Server
 			string username,
 			string hostname
 		) {
-			var rpc = request.connection as SslConnection;
+			var rpc = request.connection as Net.SslConnection;
 			if (rpc == null) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("socket registration only")
@@ -203,10 +205,26 @@ namespace Argus.Server
 				});
 				return;
 			}
+			var peer = "";
+			if (rpc.stream == null) {
+				GLib.warning("registration has no peer address");
+			} else {
+				try {
+					var remote = rpc.stream.get_remote_address() as GLib.InetSocketAddress;
+					if (remote == null) {
+						GLib.warning("registration has no peer address");
+					} else {
+						peer = remote.get_address().to_string();
+					}
+				} catch (GLib.Error e) {
+					GLib.warning("could not read registration address: %s", e.message);
+				}
+			}
 			var q = Argus.Shared.Agent.query(this.app.db);
 			q.insert(new Argus.Shared.Agent() {
 				fingerprint = fingerprint,
 				status = 1,
+				ip = peer,
 				created = new GLib.DateTime.now_utc().to_unix(),
 				requester = requester,
 				username = username,
@@ -216,6 +234,8 @@ namespace Argus.Server
 			this.app.db.backupDB();
 			listen.pin = "";
 			this.app.publish.stop();
+			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			this.app.firewall.enable();
 			this.app.download_listen.listen();
 			var path = "";
 			if (!is_controller && family == "debian") {
@@ -276,7 +296,9 @@ namespace Argus.Server
 		 * from {@link request_registration}, after the machine
 		 * is registered. That call is the machine that types
 		 * the number. The number lasts sixty seconds, or until
-		 * that call, or until this connection closes.
+		 * that call, or until this connection closes. The firewall
+		 * is disabled while the broadcast runs and enabled when
+		 * that window ends.
 		 *
 		 * @param request inbound RPC from a controller
 		 */
@@ -311,6 +333,7 @@ namespace Argus.Server
 				addrs = { host };
 			}
 			this.app.publish.start(addrs, (uint16) parsed);
+			this.app.firewall.disable();
 			var owner = request.connection;
 			GLib.Timeout.add_seconds(60, () => {
 				if (listen.pin != issued) {
@@ -318,6 +341,7 @@ namespace Argus.Server
 				}
 				listen.pin = "";
 				this.app.publish.stop();
+				this.app.firewall.enable();
 				return false;
 			});
 			GLib.Timeout.add(250, () => {
@@ -329,6 +353,7 @@ namespace Argus.Server
 				}
 				listen.pin = "";
 				this.app.publish.stop();
+				this.app.firewall.enable();
 				GLib.debug("registration closed after controller disconnected");
 				return false;
 			});
@@ -351,6 +376,41 @@ namespace Argus.Server
 				retval = OLLMrpc.val("o", rows),
 				msg = "ok"
 			});
+		}
+
+		/**
+		 * Registered addresses this machine can reach.
+		 *
+		 * Distinct active ''agent.ip'' values are parsed, then kept
+		 * when {@link Net.Interfaces.route} returns a source. A private
+		 * route counts. No route leaves the address out. Invalid stored
+		 * text is logged and left out.
+		 * {@link Net.NFTables.apply} receives only these addresses.
+		 *
+		 * @param db agent table
+		 * @param interfaces local addresses and routes
+		 * @return the IPv4 and IPv6 allowlist
+		 */
+		public static Gee.ArrayList<GLib.InetAddress> allowlist(SQ.Database db, Net.Interfaces interfaces)
+		{
+			var kept = new Gee.ArrayList<GLib.InetAddress>((a, b) => {
+				return a.equal(b);
+			});
+			var query = Argus.Shared.Agent.query(db);
+			foreach (var text in query.fetchAllString(query.selectPrepare(
+				"SELECT DISTINCT ip FROM agent WHERE status = 1 AND ip != ''"))) {
+				var address = new GLib.InetAddress.from_string(text);
+				if (address == null) {
+					GLib.warning("stored address is not an IP: %s", text);
+					continue;
+				}
+				var source = interfaces.route(address);
+				if (source == null) {
+					continue;
+				}
+				kept.add(address);
+			}
+			return kept;
 		}
 	}
 }

@@ -45,7 +45,7 @@ namespace Argus.Server
 		 */
 		public void sync(OLLMrpc.Request request, string name, Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo> rows)
 		{
-			var connection = (SslConnection) request.connection;
+			var connection = (Net.SslConnection) request.connection;
 			if (OLLMrpc.Bin.alias_to_gtype == null ||
 				!OLLMrpc.Bin.alias_to_gtype.has_key(name)) {
 				request.reply(new OLLMrpc.Response() {

@@ -16,20 +16,20 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Server
+namespace Argus.Server.Net
 {
 	/**
 	 * TLS bin listener for the app socket.
 	 *
-	 * Binds {@link Application.socket}. Registration, commands,
-	 * identity, and warnings stay on this socket. The handshake
-	 * requires a client certificate, unless {@link pin} is set.
-	 * Same product CA as {@link Download}. This is not the file daemon.
+	 * {@link SslListen} constructs one after the TLS handshake.
+	 * Registration, commands, identity, and warnings stay on this
+	 * socket. The handshake requires a client certificate, unless
+	 * {@link pin} is set. Same product CA as {@link Download}.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var ssl = new Argus.Server.SslListen(app);
+	 * var ssl = new Argus.Server.Net.SslListen(app);
 	 * if (ssl.listen()) {
 	 *     // bound
 	 * }
@@ -43,6 +43,7 @@ namespace Argus.Server
 			get; set; default = new GLib.SocketService();
 		}
 		private bool listening = false;
+
 		/**
 		 * App-socket connections. {@link Command} writes one
 		 * notification to the connection for that agent.
@@ -67,10 +68,9 @@ namespace Argus.Server
 		 *
 		 * A missing port uses {@link Argus.SOCKET_PORT}. Returns
 		 * false when that port is outside 1–65535. Bind failure
-		 * logs a warning and returns
-		 * false. A client certificate is required unless
-		 * {@link pin} is set. A bad identity flag alone is
-		 * ignored, the same as ''ollmfilesd''.
+		 * logs a warning and returns false. A client certificate is
+		 * required unless {@link pin} is set. A bad identity flag
+		 * alone is ignored, the same as ''ollmfilesd''.
 		 *
 		 * @return true when the app socket is up
 		 */

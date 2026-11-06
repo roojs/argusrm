@@ -22,11 +22,11 @@
  * {@link Application} is the headless process.
  * {@link Initialize.fetch_osquery} fetches the osquery
  * installers before the sockets bind. {@link Agent} signs
- * a certificate while {@link SslListen.pin} is set.
+ * a certificate while {@link Net.SslListen.pin} is set.
  * {@link GitHub.Release} is the release record that fetch reads.
- * {@link SslListen} is the app
+ * {@link Net.SslListen} is the app
  * socket: bin RPC over TLS, the same listen shape as
- * ''ollmfilesd''. {@link Download} is the other socket. It only
+ * ''ollmfilesd''. {@link Net.Download} is the other socket. It only
  * accepts an HTTPS GET, and it allows or refuses the client
  * certificate. A transfer on that socket is not the app socket.
  * {@link Command} tells one agent to run a command and stores

@@ -16,7 +16,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Server
+namespace Argus.Server.Net
 {
 	/**
 	 * Bin connection on the app socket.
@@ -28,7 +28,7 @@ namespace Argus.Server
 	 * == Example ==
 	 *
 	 * {{{
-	 * var rpc = new Argus.Server.SslConnection(conn, app) {
+	 * var rpc = new Argus.Server.Net.SslConnection(conn, app) {
 	 *     io = tls,
 	 *     cert_fingerprint = fingerprint
 	 * };
@@ -78,8 +78,7 @@ namespace Argus.Server
 			var int_binds = new Gee.HashMap<string, int>();
 			var text_binds = new Gee.HashMap<string, string>();
 			text_binds.set("fingerprint", this.cert_fingerprint);
-			cert_q.selectWhere("WHERE fingerprint = $fingerprint",
-				int_binds, text_binds, rows);
+			cert_q.selectWhere("WHERE fingerprint = $fingerprint", int_binds, text_binds, rows);
 			if (rows.size > 0) {
 				var row = rows.get(0);
 				if (row.status == 1) {

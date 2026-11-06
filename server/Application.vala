@@ -59,15 +59,28 @@ namespace Argus.Server
 		}
 
 		/**
-		 * App socket. {@link command_line} calls {@link SslListen.listen}.
+		 * App socket. {@link command_line} calls
+		 * {@link Net.SslListen.listen}.
 		 */
-		public SslListen ssl_listen { get; private set; }
+		public Net.SslListen ssl_listen { get; private set; }
 
 		/**
 		 * Download socket. {@link command_line} calls
-		 * {@link Download.listen}.
+		 * {@link Net.Download.listen}.
 		 */
-		public Download download_listen { get; private set; }
+		public Net.Download download_listen { get; private set; }
+
+		/**
+		 * Local addresses. Construction marks which of them are internal.
+		 */
+		public Net.Interfaces interfaces { get; private set; }
+
+		/**
+		 * Firewall for the app socket port. {@link command_line}
+		 * builds it, applies {@link Agent.allowlist}, and enables it
+		 * before that socket accepts connections.
+		 */
+		public Net.NFTables firewall { get; private set; }
 
 		/**
 		 * Certificate rows. The file is ''argus.sqlite'' under
@@ -126,8 +139,9 @@ namespace Argus.Server
 				application_id: "org.roojs.Argus",
 				flags: GLib.ApplicationFlags.HANDLES_COMMAND_LINE | GLib.ApplicationFlags.NON_UNIQUE
 			);
-			this.ssl_listen = new SslListen(this);
-			this.download_listen = new Download(this);
+			this.ssl_listen = new Net.SslListen(this);
+			this.download_listen = new Net.Download(this);
+			this.interfaces = new Net.Interfaces();
 			if (!GLib.FileUtils.test(Argus.SERVER_DATA_DIR, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(Argus.SERVER_DATA_DIR, 0755);
 			}
@@ -281,7 +295,6 @@ namespace Argus.Server
 				command_line.printerr("error: CA trust was not loaded\n");
 				return 1;
 			}
-			Agent.rpc_register();
 			Registration.rpc_register();
 			Argus.Shared.Agent.rpc_register();
 			Daemon.rpc_register();
@@ -303,6 +316,26 @@ namespace Argus.Server
 			OLLMrpc.Request.register("Task", new SQT.Task.for_rpc(this));
 			if (!(new Initialize()).fetch_osquery()) {
 				command_line.printerr("error: download store was not created\n");
+				return 1;
+			}
+			var colon = this.socket.last_index_of(":");
+			var port = Argus.SOCKET_PORT;
+			if (colon > 0 && !int.try_parse(this.socket.substring(colon + 1), out port)) {
+				command_line.printerr("error: app socket port is invalid\n");
+				return 1;
+			}
+			if (port < 1 || port > 65535) {
+				command_line.printerr("error: app socket port is invalid\n");
+				return 1;
+			}
+			this.firewall = new Net.NFTables((uint16) port);
+			if (!this.firewall.apply(Agent.allowlist(this.db, this.interfaces))) {
+				command_line.printerr("error: firewall allowlist was not applied\n");
+				return 1;
+			}
+			this.firewall.enable();
+			if (!this.firewall.enabled) {
+				command_line.printerr("error: firewall was not enabled\n");
 				return 1;
 			}
 			if (!this.listen.start()) {
@@ -384,11 +417,5 @@ namespace Argus.Server
 			this.listen.broadcast(notification);
 			this.ssl_listen.broadcast(notification);
 		}
-	}
-
-	int main(string[] args)
-	{
-		var app = new Application();
-		return app.run(args);
 	}
 }

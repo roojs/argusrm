@@ -89,7 +89,7 @@ namespace Argus.Server
 		/**
 		 * Agent connection for each run, keyed by {@link identifier}.
 		 */
-		private static Gee.HashMap<int, SslConnection> agents;
+		private static Gee.HashMap<int, Net.SslConnection> agents;
 
 		/**
 		 * Log directory for each run, keyed by {@link identifier}.
@@ -127,7 +127,7 @@ namespace Argus.Server
 			Object();
 			this.app = app;
 			if (Command.agents == null) {
-				Command.agents = new Gee.HashMap<int, SslConnection>();
+				Command.agents = new Gee.HashMap<int, Net.SslConnection>();
 				Command.controllers = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
 				Command.logs = new Gee.HashMap<int, string>();
 				Command.tasks = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
@@ -310,7 +310,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var caller = request.connection as SslConnection;
+			var caller = request.connection as Net.SslConnection;
 			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
@@ -358,7 +358,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var caller = request.connection as SslConnection;
+			var caller = request.connection as Net.SslConnection;
 			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
@@ -406,7 +406,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var caller = request.connection as SslConnection;
+			var caller = request.connection as Net.SslConnection;
 			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
