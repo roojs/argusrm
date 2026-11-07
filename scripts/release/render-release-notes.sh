@@ -12,7 +12,7 @@ repo="${GITHUB_REPOSITORY:-roojs/argusrm}"
 {
 	echo "Argus is under development and is not ready for production use."
 	echo
-	echo "This release contains the AppImage, Windows, and available Android builds for \`${TAG}\`."
+	echo "This release contains the AppImage, Windows, and Android builds for \`${TAG}\`."
 	echo
 	echo "Debian and RPM files are on [${TAG}-packages](https://github.com/${repo}/releases/tag/${TAG}-packages)."
 	echo

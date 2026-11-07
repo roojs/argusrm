@@ -62,7 +62,7 @@ jobs:
     needs: verify
     uses: ./.github/workflows/x-android.yml
     with:
-      non_blocking: true
+      non_blocking: false
     permissions:
       contents: read
 
@@ -95,12 +95,23 @@ jobs:
           done
           package_files=(artifacts/packages/*)
           main_files=(artifacts/main/*)
+          apk_files=(artifacts/main/*.apk)
+          appimage_files=(artifacts/main/*.AppImage)
+          windows_files=(artifacts/main/*.exe)
           ((${#package_files[@]})) || {
             echo "No Debian or RPM artifacts were downloaded" >&2
             exit 1
           }
-          ((${#main_files[@]})) || {
-            echo "No AppImage, Windows, or Android artifacts were downloaded" >&2
+          ((${#appimage_files[@]})) || {
+            echo "No AppImage was downloaded" >&2
+            exit 1
+          }
+          ((${#windows_files[@]})) || {
+            echo "No Windows installer was downloaded" >&2
+            exit 1
+          }
+          ((${#apk_files[@]})) || {
+            echo "No Android APK was downloaded" >&2
             exit 1
           }
           chmod +x scripts/release/changelog.sh \
@@ -111,7 +122,7 @@ jobs:
           {
             echo "Debian and Fedora package files for ${GITHUB_REF_NAME}."
             echo
-            echo "AppImage, Windows, and available Android builds are on ${GITHUB_REF_NAME}."
+            echo "AppImage, Windows, and Android builds are on ${GITHUB_REF_NAME}."
           } > package-notes.md
           gh release create "${package_tag}" "${package_files[@]}" \
             --repo "${GITHUB_REPOSITORY}" \
