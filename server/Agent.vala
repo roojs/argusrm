@@ -291,7 +291,8 @@ namespace Argus.Server
 		 * Offer a registration number.
 		 *
 		 * The controller calls this with no arguments. The reply
-		 * is the six digits. This opens the app socket and
+		 * is the six digits, then the public address. This opens
+		 * the app socket and
 		 * publishes its addresses. The download socket opens
 		 * from {@link request_registration}, after the machine
 		 * is registered. That call is the machine that types
@@ -357,8 +358,18 @@ namespace Argus.Server
 				GLib.debug("registration closed after controller disconnected");
 				return false;
 			});
+			var address = "";
+			try {
+				address = this.app.interfaces.public_ip();
+			} catch (GLib.Error e) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INTERNAL_ERROR(e.message)
+				});
+				return;
+			}
+			var reply = new string[] { issued, address };
 			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("s", issued),
+				retval = OLLMrpc.val("as", reply),
 				msg = "ok"
 			});
 		}

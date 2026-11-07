@@ -23,9 +23,10 @@ namespace Argus.Agent
 	 *
 	 * A {@link GLib.Application} with no window. Arguments are the same
 	 * shape as ''ollmfilesd'': {@link command_line} parses
-	 * {@link app_options}, including ''--debug''. {@link host},
+	 * {@link app_options}, including ''--debug''. ''--server'' is
+	 * the management IP. {@link host},
 	 * {@link port}, and {@link pin} are the registration properties.
-		 * {@link hold} keeps the process up. With no host and port,
+	 * {@link hold} keeps the process up. With no address,
 	 * {@link Argus.Shared.Browse} looks for the broadcast. On
 	 * Windows, {@link Win32.Service} starts this when the Service
 	 * Control Manager launches ''argus-agent''. ''argus-tray'' is
@@ -73,6 +74,7 @@ namespace Argus.Agent
 		protected static bool opt_debug_critical;
 		protected static string opt_host;
 		protected static int opt_port;
+		protected static string opt_server;
 		protected static string opt_pin;
 		protected static bool opt_service;
 		private static bool debug_on;
@@ -85,6 +87,7 @@ namespace Argus.Agent
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
 			{ "host", 0, 0, GLib.OptionArg.STRING, ref opt_host, "Argus address", "HOST" },
 			{ "port", 0, 0, GLib.OptionArg.INT, ref opt_port, "Argus port", "PORT" },
+			{ "server", 0, 0, GLib.OptionArg.STRING, ref opt_server, "Argus server IP address", "IP" },
 			{ "pin", 0, 0, GLib.OptionArg.STRING, ref opt_pin, "Number from the registration window", "PIN" },
 			{ "service", 0, 0, GLib.OptionArg.NONE, ref opt_service, "Run as managed service", null },
 			{ null }
@@ -168,8 +171,10 @@ namespace Argus.Agent
 		/**
 		 * Parse arguments, register when asked, and stay up.
 		 *
-		 * ''--debug'' shows log lines on stderr. ''--host'', ''--port'',
-		 * and ''--pin'' together call {@link Argus.Shared.Register}
+		 * ''--debug'' shows log lines on stderr. ''--server'' is the
+		 * management IP. ''--port'' overrides {@link Argus.SOCKET_PORT}.
+		 * ''--server'' or ''--host'' with ''--port'' and ''--pin'' call
+		 * {@link Argus.Shared.Register}
 		 * immediately. ''--pin'' alone waits for the broadcast, then
 		 * registers. The Android app icon opens the registration
 		 * window, and the box says this phone is already registered.
@@ -194,6 +199,7 @@ namespace Argus.Agent
 			opt_debug_critical = false;
 			opt_host = "";
 			opt_port = 0;
+			opt_server = "";
 			opt_pin = "";
 			opt_service = false;
 			var args = command_line.get_arguments();
@@ -220,6 +226,25 @@ namespace Argus.Agent
 			this.host = opt_host;
 			this.port = opt_port;
 			this.pin = opt_pin;
+			if (opt_server != "" && opt_host != "") {
+				command_line.printerr("registration needs one address\n");
+				return 1;
+			}
+			if (opt_server != "") {
+				var inet = new GLib.InetAddress.from_string(opt_server.strip());
+				if (inet == null || inet.is_any || inet.is_multicast) {
+					command_line.printerr("registration needs an IP address\n");
+					return 1;
+				}
+				this.host = inet.to_string();
+				if (this.port <= 0) {
+					this.port = Argus.SOCKET_PORT;
+				}
+				if (this.port > 65535) {
+					command_line.printerr("registration needs an IP address\n");
+					return 1;
+				}
+			}
 			var open_window = false;
 #if ANDROID
 			if (this.host == "" && this.port <= 0) {

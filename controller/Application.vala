@@ -25,7 +25,8 @@ namespace Argus.Controller
 	 * connections and may open {@link Window}. {@link command_line}
 	 * hellos on the Unix socket, then runs one of {@link Pin},
 	 * {@link Agents}, or {@link Command}. No flag on a headless
-	 * machine prints usage.
+	 * root machine opens registration. Any other headless launch
+	 * with no flag prints usage.
 	 *
 	 * == Example ==
 	 *
@@ -76,8 +77,9 @@ namespace Argus.Controller
 		/**
 		 * Parse the flags, then run one command or the startup window.
 		 *
-		 * No flag on a desktop opens {@link Bootstrap}. The Unix
-		 * socket is ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
+		 * No flag on a desktop opens {@link Bootstrap}. No flag on a
+		 * headless root machine opens registration. The Unix socket
+		 * is ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when the command finished, otherwise the
@@ -124,15 +126,25 @@ namespace Argus.Controller
 			if (chosen == 0) {
 				var display = GLib.Environment.get_variable("DISPLAY");
 				var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
-				if ((display == null || display == "") && (wayland == null || wayland == "")) {
-					command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --give-me-a-certificate USERNAME\n  argus-controller --agent ID --command COMMAND...\n");
-					return 1;
+				var headless = (display == null || display == "") && (wayland == null || wayland == "");
+				if (headless) {
+#if LINUX
+					if (Posix.geteuid() == 0) {
+						pin = true;
+					}
+#endif
+					if (!pin) {
+						command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --give-me-a-certificate USERNAME\n  argus-controller --agent ID --command COMMAND...\n");
+						return 1;
+					}
 				}
-				Gtk.init();
-				var bootstrap = new Bootstrap(this);
-				bootstrap.present(null);
-				this.hold();
-				return 0;
+				if (!headless) {
+					Gtk.init();
+					var bootstrap = new Bootstrap(this);
+					bootstrap.present(null);
+					this.hold();
+					return 0;
+				}
 			}
 #if LINUX
 			if (give_certificate != "" && Posix.geteuid() != 0) {

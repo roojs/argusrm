@@ -184,12 +184,12 @@ namespace Argus.Controller
 						this.note.label = response.error.message;
 						return;
 					}
-					var number = response.retval as string;
-					if (number == null || number.length != 6) {
+					var reply = (string[]) response.retval;
+					if (reply.length < 1 || reply[0].length != 6) {
 						this.note.label = "The server did not return a number.";
 						return;
 					}
-					this.pin_label.label = number;
+					this.pin_label.label = reply[0];
 					this.tick_id = GLib.Timeout.add_seconds(1, () => {
 						if (ticket != this.generation) {
 							return false;

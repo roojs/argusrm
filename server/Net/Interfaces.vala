@@ -26,6 +26,7 @@ namespace Argus.Server.Net
 	 * Construction reads the addresses on this machine and marks each
 	 * one public or internal. {@link route} asks netlink which of those
 	 * addresses the kernel would use as the source and remembers the answer.
+	 * {@link public_ip} connects to https://ifconfig.me over IPv4.
 	 *
 	 * == Example ==
 	 *
@@ -183,6 +184,42 @@ namespace Argus.Server.Net
 			}
 			this.unrouted.add(key);
 			return null;
+		}
+
+		/**
+		 * Public IPv4 address seen for this machine.
+		 *
+		 * Resolves ifconfig.me as IPv4 and connects there with
+		 * libsoup. The reply body is the address. Local
+		 * interfaces are not consulted.
+		 *
+		 * @return that address
+		 * @throws GLib.Error when the lookup or the request fails,
+		 *   or the body is not an IPv4 address
+		 */
+		public string public_ip() throws GLib.Error
+		{
+			var found = GLib.Resolver.get_default().lookup_by_name_with_flags(
+				"ifconfig.me", GLib.ResolverNameLookupFlags.IPV4_ONLY, null);
+			if (found.length() == 0) {
+				throw new GLib.ResolverError.NOT_FOUND("ifconfig.me");
+			}
+			var session = new Soup.Session.with_options(
+				"remote-connectable", new GLib.InetSocketAddress(found.nth_data(0), 443),
+				null);
+			var message = new Soup.Message("GET", "https://ifconfig.me");
+			message.request_headers.append("User-Agent", "argusrm");
+			message.request_headers.append("Accept", "text/plain");
+			var body = session.send_and_read(message, null);
+			if (message.status_code != 200) {
+				throw new GLib.IOError.FAILED("ifconfig.me returned %u".printf(message.status_code));
+			}
+			var text = ((string) body.get_data()).strip();
+			var inet = new GLib.InetAddress.from_string(text);
+			if (inet == null || inet.get_family() != GLib.SocketFamily.IPV4) {
+				throw new GLib.IOError.FAILED("ifconfig.me returned %s".printf(text));
+			}
+			return inet.to_string();
 		}
 	}
 }

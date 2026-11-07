@@ -22,8 +22,9 @@ namespace Argus.Controller
 	 * Registration PIN on the command line.
 	 *
 	 * Asks ''Agent.offer'' for a six-digit pin and prints it.
-	 * The number lasts sixty seconds. {@link Application}
-	 * already hellos.
+	 * The number lasts sixty seconds. It then recommends the
+	 * agent command for a remote terminal, using the public
+	 * address from that reply. {@link Application} already hellos.
 	 *
 	 * == Example ==
 	 *
@@ -63,13 +64,17 @@ namespace Argus.Controller
 						this.app.loop.quit();
 						return;
 					}
-					var pin = response.retval as string;
-					if (pin == null || pin.length != 6) {
+					var reply = (string[]) response.retval;
+					if (reply.length != 2 || reply[0].length != 6) {
 						this.app.cli.printerr("The server did not return a number.\n");
 						this.app.loop.quit();
 						return;
 					}
+					var pin = reply[0];
 					this.app.cli.print("Registration PIN: %s\nRegistration is open for 60 seconds. Press Ctrl+C to close it early.\n", pin);
+					this.app.cli.print("""On a remote terminal you can use:
+sudo argus-agent --server %s --pin %s
+""".printf(reply[1], pin));
 				} catch (GLib.Error e) {
 					this.app.cli.printerr("%s\n", e.message);
 					this.app.loop.quit();

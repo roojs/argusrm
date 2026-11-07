@@ -1,1 +1,2 @@
 usr/bin/argus-controller
+usr/share/polkit-1/actions/org.roojs.ArgusController.register.policy

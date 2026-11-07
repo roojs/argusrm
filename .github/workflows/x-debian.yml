@@ -39,7 +39,9 @@ jobs:
             build-essential devscripts debhelper meson ninja-build pkg-config valac \
             libglib2.0-dev libgee-0.8-dev libjson-glib-dev libsoup-3.0-dev \
             libgnutls28-dev libsqlite3-dev libgtk-4-dev libadwaita-1-dev \
-            libavahi-gobject-dev libocrpc-dev libocsqlite-dev
+            libavahi-gobject-dev libavahi-client-dev libsecret-1-dev \
+            libgit2-glib-1.0-dev libnftables-dev libnl-3-dev libnl-route-3-dev \
+            libocrpc-dev libocsqlite-dev
 
       - name: Build three Debian packages
         run: |

@@ -17,6 +17,12 @@ Build-Depends:
  libgtk-4-dev,
  libadwaita-1-dev,
  libavahi-gobject-dev,
+ libavahi-client-dev,
+ libsecret-1-dev,
+ libgit2-glib-1.0-dev,
+ libnftables-dev,
+ libnl-3-dev,
+ libnl-route-3-dev,
  libocrpc-dev,
  libocsqlite-dev
 Standards-Version: 4.6.2
@@ -38,12 +44,12 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
 Description: Argus remote management agent
- This package installs the agent on a managed Linux machine and runs it as
- a systemd service.
+ This package installs the agent on a managed Linux machine. Registration
+ enables and starts its systemd or SysV service.
 
 Package: argusrm-controller
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Argus command-line controller
- This package contains the command-line client used to control the local
- Argus server, including opening an agent enrollment window.
+Description: Argus controller
+ This package contains the desktop and command-line controller. It enrolls
+ with an Argus server, lists agents, and runs a command on one agent.

@@ -30,43 +30,5 @@ sudo meson install -C build
 sudo systemctl daemon-reload
 ```
 
-## 1. Start the Argus server
-
-On the server machine, enable and start the server:
-
-```sh
-sudo systemctl enable --now argusrm-server.service
-systemctl status argusrm-server.service
-```
-
-The installed `argus-controller` is currently a local administration
-command. It talks to `/var/lib/argusrm/argus.sock` on this server and does
-not enroll itself. Remote desktop and mobile controller enrollment comes
-later.
-
-## 2. Register the agent on the managed machine
-
-On a different machine, run:
-
-```sh
-argus-agent
-```
-
-On a desktop, Polkit requests administrator access. Without a desktop, run `sudo argus-agent`.
-Registration enables and starts the systemd or SysV service.
-
-## 3. Issue and enter the PIN
-
-Back on the server, run:
-
-```sh
-sudo argus-controller
-```
-
-It reports that it is connecting, prints a six-digit PIN, and keeps
-registration open for 60 seconds. Press Ctrl+C to close it early. Enter that
-PIN in the waiting agent window. The root agent service performs registration
-and stores the certificate.
-
-Service logs are written to `/var/log/argusrm/server.log` and
-`/var/log/argusrm/agent.log`.
+A source install does not enable or start the services. Starting the server
+and registering a managed machine are in [Setup](setup.md).

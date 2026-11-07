@@ -20,8 +20,7 @@ for registered agents and controllers.
 To add a managed machine:
 
 1. Install and start the Argus agent. Windows presents registration from the
-   tray application. The Linux registration flow is awaiting approval in
-   `docs/plans/2.1-registration-flow.md`.
+   tray application. The Linux steps are in [Setup](docs/setup.md).
 2. On the server, run `sudo argus-controller`. It prints a six-digit PIN and
    opens registration for 60 seconds.
 3. Enter that PIN on the managed machine. The server verifies it, creates a
@@ -42,6 +41,7 @@ commands. The registration window itself runs as the signed-in desktop user.
 - [Implementation](docs/plans/1.1-implementation.md)
 - [Installing packages](docs/install-packages.md)
 - [Installing from source](docs/install-source.md)
+- [Setup](docs/setup.md)
 - [Building](docs/build.md)
 - [Packaging and releases](docs/packaging.md)
 
