@@ -11,6 +11,7 @@
 #endif
 
 #include <windows.h>
+#include <winsvc.h>
 #include <shellapi.h>
 #include <commctrl.h>
 #include <psapi.h>
