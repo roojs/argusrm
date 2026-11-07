@@ -100,7 +100,6 @@ valadoc_sources += files(
   '../server/SQT/Task.vala',
   '../server/Git/Callbacks.vala',
   '../server/Daemon.vala',
-  '../server/main.vala',
   # controller sources
   '../controller/namespace.vala',
   '../controller/Application.vala',
@@ -144,9 +143,6 @@ valadoc_docs = custom_target('valadoc',
     '--pkg=libnftables',
     '--pkg=libnl-3.0',
     '-D', 'LINUX',
-    # One valadoc package is one program. The agent, server, and controller
-    # each keep their own main; this define leaves those entry points out.
-    '-D', 'VALADOC',
     # Don't use --pkg for internal code.
     # - valadoc processes source files directly, so it doesn't need VAPI files.
     # Using --pkg would cause duplicate definition errors since the VAPI contains the same definitions.

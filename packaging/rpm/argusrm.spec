@@ -101,5 +101,6 @@ systemctl daemon-reload
 %files -n argusrm-controller
 %license LICENSE
 %{_bindir}/argus-controller
+%{_datadir}/polkit-1/actions/org.roojs.ArgusController.register.policy
 
 %changelog

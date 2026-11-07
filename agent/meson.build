@@ -33,6 +33,7 @@ if host_machine.system() == 'linux'
 		'linux/Application.vala',
 		'linux/ServiceManager.vala',
 		'linux/Command.vala',
+		'linux/main.vala',
 	)
 	vala_args += [
 		'-D', 'LINUX', '--pkg', 'gio-unix-2.0', '--pkg', 'posix',
@@ -56,6 +57,7 @@ if host_machine.system() == 'windows'
 		'Win32/register-pipe.c',
 		'Win32/tray/Tray.vala',
 		'Win32/Command.vala',
+		'Win32/main.vala',
 	)
 	vala_args += [
 		'--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32',
@@ -68,7 +70,11 @@ if host_machine.system() == 'android'
 	if not meson.version().version_compare('>=1.8.0')
 		error('Android agent requires Meson >= 1.8.0 for android_exe_type')
 	endif
-	sources += files('android/OSQuery/Initialize.vala', 'android/Command.vala')
+	sources += files(
+		'android/OSQuery/Initialize.vala',
+		'android/Command.vala',
+		'android/main.vala',
+	)
 	vala_args += ['-D', 'ANDROID']
 	executable(
 		'argus-agent',

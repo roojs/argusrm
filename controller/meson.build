@@ -47,6 +47,7 @@ sources = files(
 executable(
 	'argus-controller',
 	sources,
+	files('main.vala'),
 	dependencies: deps,
 	c_args: ocsqlite_c_args,
 	vala_args: controller_vala_args,

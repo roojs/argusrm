@@ -42,6 +42,7 @@ jobs:
           cp -a ../OLLMchat/scripts/android/. scripts/android/
           cp -a ../OLLMchat/android/pixiewood-wraps android/
           cp -a ../OLLMchat/android/pixiewood-extra.cross android/
+          cp -a ../OLLMchat/android/local-build.local.env android/
           cp -a ../OLLMchat/libocrpc vendor/
           cp -a ../OLLMchat/vapi vendor/
           chmod +x scripts/android/*.sh

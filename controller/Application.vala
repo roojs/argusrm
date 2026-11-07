@@ -272,12 +272,4 @@ namespace Argus.Controller
 			command.run();
 		}
 	}
-
-#if !VALADOC
-	int main(string[] args)
-	{
-		var app = new Application();
-		return app.run(args);
-	}
-#endif
 }

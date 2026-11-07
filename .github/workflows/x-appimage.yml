@@ -57,7 +57,7 @@ jobs:
           ./scripts/ci/enable-roojs-apt.sh
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config file wget \
-            meson valac squashfs-tools \
+            meson valac gobject-introspection libgirepository1.0-dev squashfs-tools \
             libglib2.0-dev libgee-0.8-dev libjson-glib-dev libsoup-3.0-dev \
             libgnutls28-dev libsqlite3-dev libgtk-4-dev libadwaita-1-dev \
             libavahi-gobject-dev libavahi-client-dev libsecret-1-dev \

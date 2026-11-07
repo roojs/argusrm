@@ -37,6 +37,7 @@ commands. The registration window itself runs as the signed-in desktop user.
 
 ## Project documentation
 
+- [API reference](https://roojs.github.io/argusrm/argus/index.htm)
 - [Aims](docs/plans/1.0-aims.md)
 - [Implementation](docs/plans/1.1-implementation.md)
 - [Installing packages](docs/install-packages.md)
