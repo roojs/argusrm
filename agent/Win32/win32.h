@@ -1,5 +1,6 @@
-/* Include order for the tray binding. No program logic.
- * Same includes as Snappr src/Win32/win32.h. */
+/* Include order for the Windows binding. No program logic.
+ * Tray headers match Snappr src/Win32/win32.h. winsvc.h and
+ * wtsapi32.h are the service additions. */
 #ifndef ARGUS_WIN32_H
 #define ARGUS_WIN32_H
 

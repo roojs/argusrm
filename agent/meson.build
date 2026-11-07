@@ -62,7 +62,11 @@ if host_machine.system() == 'windows'
 		'--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32',
 		'-D', 'WINDOWS',
 	]
-	c_args += ['-I' + meson.current_source_dir() / 'Win32']
+	c_args += [
+		'-D_WIN32_WINNT=0x0601',
+		'-D_WIN32_IE=0x0601',
+		'-I' + meson.current_source_dir() / 'Win32',
+	]
 endif
 
 if host_machine.system() == 'android'

@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: roojs/OLLMchat
-          ref: 1cba1934e04be1ce16a650e52d5c00af68a3d572
+          ref: v1.4.8
           path: OLLMchat
 
       - name: Install Android build dependencies

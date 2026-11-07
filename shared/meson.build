@@ -63,6 +63,9 @@ elif host_machine.system() == 'android'
 		'--vapidir', meson.current_source_dir() / 'android', '--pkg', 'pair-browse',
 		'-D', 'ANDROID',
 	]
+	# Generated Browse.c includes <pair-browse.h>. The header sits next to
+	# the C file, and the generated source is compiled from the build tree.
+	shared_c_args += ['-I' + meson.current_source_dir() / 'android']
 else
 	shared_sources += files('Browse.vala')
 	shared_deps += dependency('avahi-gobject')
