@@ -72,6 +72,20 @@ jobs:
             cp -aL "$target" "$jni"
           fi
 
+          # Pixiewood symlinks org/gtk/android at the GTK glue sources.
+          # Gradle does not compile that symlink, so ArgusApplication cannot
+          # see RuntimeApplication. Copy the sources into the project.
+          gtk_java=.pixiewood/android/app/src/main/java/org/gtk/android
+          if [[ -L "$gtk_java" ]]; then
+            target="$(readlink -f "$gtk_java")"
+            rm "$gtk_java"
+            cp -aL "$target" "$gtk_java"
+          fi
+          if [[ ! -f "$gtk_java/RuntimeApplication.java" ]]; then
+            echo "GTK Android Java sources missing: $gtk_java" >&2
+            exit 1
+          fi
+
           java_dir=.pixiewood/android/app/src/main/java/org/roojs/argus
           mkdir -p "$java_dir"
           cp shared/android/ArgusApplication.java "$java_dir/"
