@@ -53,29 +53,31 @@ executable(
 	vala_args: controller_vala_args,
 	install: true,
 )
-command_test = executable(
-	'argus-controller-command',
-	files('tests/command.vala', 'Command.vala'),
-	dependencies: [
-		dependency('glib-2.0'),
-		dependency('gio-2.0'),
-		dependency('gio-unix-2.0'),
-		dependency('gee-0.8'),
-		dependency('json-glib-1.0'),
-		dependency('libsoup-3.0'),
-		dependency('gtk4'),
-		dependency('libadwaita-1'),
-		dependency('sqlite3'),
-		meson.get_compiler('c').find_library('ocrpc'),
-		shared_dep,
-	],
-	c_args: ocsqlite_c_args,
-	vala_args: ocrpc_vala_args + [
-		'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0',
-		'--pkg', 'libsoup-3.0', '--pkg', 'gio-unix-2.0',
-		'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
-		'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
-	],
-	install: false,
-)
-test('controller-command', command_test, timeout: 10, is_parallel: false)
+if host_machine.system() == 'linux'
+	command_test = executable(
+		'argus-controller-command',
+		files('tests/command.vala', 'Command.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gio-2.0'),
+			dependency('gio-unix-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			dependency('libsoup-3.0'),
+			dependency('gtk4'),
+			dependency('libadwaita-1'),
+			dependency('sqlite3'),
+			meson.get_compiler('c').find_library('ocrpc'),
+			shared_dep,
+		],
+		c_args: ocsqlite_c_args,
+		vala_args: ocrpc_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0',
+			'--pkg', 'libsoup-3.0', '--pkg', 'gio-unix-2.0',
+			'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
+			'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+		],
+		install: false,
+	)
+	test('controller-command', command_test, timeout: 10, is_parallel: false)
+endif

@@ -127,23 +127,25 @@ else
 		install: false,
 	)
 	test('agent-sync-lag', sync_lag_test, timeout: 15)
-	command_test = executable(
-		'argus-agent-command',
-		files('tests/command.vala', 'linux/Command.vala'),
-		dependencies: [
-			dependency('glib-2.0'),
-			dependency('gio-2.0'),
-			dependency('gio-unix-2.0'),
-			dependency('gee-0.8'),
-			dependency('json-glib-1.0'),
-			dependency('libsoup-3.0'),
-			ocrpc_dep,
-		],
-		vala_args: ocrpc_vala_args + [
-			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0',
-			'--pkg', 'libsoup-3.0', '--pkg', 'gio-unix-2.0', '--pkg', 'posix',
-		],
-		install: false,
-	)
-	test('agent-command', command_test, timeout: 8, is_parallel: false)
+	if host_machine.system() == 'linux'
+		command_test = executable(
+			'argus-agent-command',
+			files('tests/command.vala', 'linux/Command.vala'),
+			dependencies: [
+				dependency('glib-2.0'),
+				dependency('gio-2.0'),
+				dependency('gio-unix-2.0'),
+				dependency('gee-0.8'),
+				dependency('json-glib-1.0'),
+				dependency('libsoup-3.0'),
+				ocrpc_dep,
+			],
+			vala_args: ocrpc_vala_args + [
+				'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0',
+				'--pkg', 'libsoup-3.0', '--pkg', 'gio-unix-2.0', '--pkg', 'posix',
+			],
+			install: false,
+		)
+		test('agent-command', command_test, timeout: 8, is_parallel: false)
+	endif
 endif
