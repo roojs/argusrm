@@ -36,7 +36,7 @@ namespace Argus.Shared
 		public Argus.Shared.Registration.Data? issued { get; private set; }
 
 		/**
-		 * ''tcp://host:port'' that answered hello. Null until then.
+		 * {{{tcp://host:port}}} that answered hello. Null until then.
 		 */
 		public string? registered_url { get; private set; }
 

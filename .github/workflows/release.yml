@@ -34,9 +34,15 @@ jobs:
     permissions:
       contents: read
 
-  rpm:
+  build-rpm-fedora:
+    name: Fedora
     needs: verify
     uses: ./.github/workflows/x-rpm.yml
+    with:
+      job_name: Fedora 44 RPMs
+      distro: fedora
+      image: fedora:44
+      artifact_name: argusrm-rpm-fedora
     permissions:
       contents: read
 
@@ -62,7 +68,7 @@ jobs:
 
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [debian, rpm, appimage, windows, android]
+    needs: [debian, build-rpm-fedora, appimage, windows, android]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

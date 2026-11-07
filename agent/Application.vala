@@ -480,6 +480,7 @@ namespace Argus.Agent
 		}
 	}
 
+#if !VALADOC
 	int main(string[] args)
 	{
 #if WINDOWS
@@ -501,4 +502,5 @@ namespace Argus.Agent
 #endif
 		return app.run(args);
 	}
+#endif
 }

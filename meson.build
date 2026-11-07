@@ -102,3 +102,7 @@ if host_machine.system() == 'linux'
 		install_dir: get_option('sysconfdir') / 'logrotate.d',
 	)
 endif
+
+if get_option('docs') and host_machine.system() != 'android'
+	subdir('docs')
+endif

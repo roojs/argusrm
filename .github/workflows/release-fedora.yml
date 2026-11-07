@@ -1,5 +1,7 @@
 name: Release - Fedora
 
+# Manual Fedora 44 RPM build. Tags still go through Release (release.yml).
+
 on:
   workflow_dispatch:
 
@@ -9,5 +11,11 @@ permissions:
   contents: read
 
 jobs:
-  rpm:
+  build-rpm-fedora:
+    name: Fedora 44 RPMs
     uses: ./.github/workflows/x-rpm.yml
+    with:
+      job_name: Fedora 44 RPMs
+      distro: fedora
+      image: fedora:44
+      artifact_name: argusrm-rpm-fedora

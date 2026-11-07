@@ -1,3 +1,6 @@
+# NOTE: If you add/remove/change source files in this directory, you MUST also
+# update docs/meson.build to include the same files in the valadoc input list.
+
 deps = [
 	shared_dep,
 	dependency('gtk4'),

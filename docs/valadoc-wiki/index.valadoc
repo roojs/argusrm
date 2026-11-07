@@ -1,0 +1,45 @@
+== Argus API - Package Overview ==
+
+This documentation covers the Argus server, agent, controller, and the code they share.
+
+== Shared ==
+
+* shared — namespace: ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.html|Argus.Shared]]''. Code the agent and the controller both use.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Register.html|Register]]'' sends the certificate registration call. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Browse.html|Browse]]'' finds the ''_rpc._tcp'' broadcast. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.RegisterWindow.html|RegisterWindow]]'' is the six-digit dialog.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Registration.html|Registration]]'' — ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Registration.Data.html|Data]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Agent.html|Agent]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Notice.html|Notice]]''.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.html|OSQuery]]'' — one osquery row. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.Row.html|Row]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.SystemInfo.html|SystemInfo]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.CpuInfo.html|CpuInfo]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.LoggedInUsers.html|LoggedInUsers]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.InterfaceAddresses.html|InterfaceAddresses]]''.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.html|SQT]]'' — task and script tables. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.Task.html|Task]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.TaskTarget.html|TaskTarget]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.Script.html|Script]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.ScriptAgent.html|ScriptAgent]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.ScriptRepository.html|ScriptRepository]]''.
+
+== Agent ==
+
+* agent — namespace: ''[[https://roojs.github.io/argusrm/argus/Argus.Agent.html|Argus.Agent]]''. The program that runs on a managed machine.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Agent.Application.html|Application]]'' is the service process. ''[[https://roojs.github.io/argusrm/argus/Argus.Agent.Download.html|Download]]'' fetches the osquery installer. ''[[https://roojs.github.io/argusrm/argus/Argus.Agent.Command.html|Command]]'' runs a command.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Agent.OSQuery.html|OSQuery]]'' — ''[[https://roojs.github.io/argusrm/argus/Argus.Agent.OSQuery.Initialize.html|Initialize]]'' installs osquery. ''[[https://roojs.github.io/argusrm/argus/Argus.Agent.OSQuery.Query.html|Query]]'' runs ''osqueryi --json''.
+
+== Server ==
+
+* server — namespace: ''[[https://roojs.github.io/argusrm/argus/Argus.Server.html|Argus.Server]]''. The control server.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Application.html|Application]]'' is the headless process. ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Initialize.html|Initialize]]'' fetches the osquery installers. ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Agent.html|Agent]]'' signs a certificate. ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Registration.html|Registration]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Command.html|Command]]'' tells one agent to run a command.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Net.html|Net]]'' — ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Net.SslListen.html|SslListen]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Net.SslConnection.html|SslConnection]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Net.Download.html|Download]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Net.NFTables.html|NFTables]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Net.Address.html|Address]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Net.Interfaces.html|Interfaces]]''.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Server.GitHub.html|GitHub]]'' — ''[[https://roojs.github.io/argusrm/argus/Argus.Server.GitHub.Release.html|Release]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.GitHub.Asset.html|Asset]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Git.html|Git]]'' — ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Git.Callbacks.html|Callbacks]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Server.Daemon.html|Daemon]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Server.OSQuery.html|OSQuery]]''.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Server.SQT.html|SQT]]'' — ''[[https://roojs.github.io/argusrm/argus/Argus.Server.SQT.Task.html|Task]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.SQT.Script.html|Script]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.SQT.ScriptRepository.html|ScriptRepository]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Server.SQT.Scheduler.html|Scheduler]]''.
+
+== Controller ==
+
+* controller — namespace: ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.html|Argus.Controller]]''. Desktop and local administration.
+
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Application.html|Application]]'' hellos on the Unix socket. ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Bootstrap.html|Bootstrap]]'' may open ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Window.html|Window]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Pin.html|Pin]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Agents.html|Agents]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Command.html|Command]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Connection.html|Connection]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.PairingDialog.html|PairingDialog]]''.
+
+== Reference ==
+
+  * [[https://vala.dev|Vala]] — Vala language site (external).

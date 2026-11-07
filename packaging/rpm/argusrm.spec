@@ -24,7 +24,12 @@ BuildRequires: pkgconfig(gnutls)
 BuildRequires: pkgconfig(sqlite3)
 BuildRequires: pkgconfig(gtk4)
 BuildRequires: pkgconfig(libadwaita-1)
+BuildRequires: pkgconfig(libsecret-1)
 BuildRequires: pkgconfig(avahi-gobject)
+BuildRequires: pkgconfig(avahi-client)
+BuildRequires: pkgconfig(libgit2-glib-1.0)
+BuildRequires: pkgconfig(libnftables)
+BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: libocrpc-devel
 BuildRequires: libocsqlite-devel
 Recommends: avahi
@@ -51,7 +56,7 @@ agent enrollment windows.
 %autosetup -n argusrm-%{version}
 
 %build
-%meson
+%meson -Ddocs=false
 %meson_build
 
 %install

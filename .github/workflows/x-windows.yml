@@ -73,7 +73,7 @@ jobs:
         working-directory: argusrm
         run: |
           meson setup build-windows \
-            --prefix=/ucrt64 --buildtype=release
+            --prefix=/ucrt64 --buildtype=release -Ddocs=false
           meson compile -C build-windows ./agent/argus-agent:executable
 
       - name: Build NSIS installer

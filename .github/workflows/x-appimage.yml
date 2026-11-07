@@ -1,9 +1,12 @@
 name: X - AppImage build
 
+# The real sqgipkg Linux AppImage job. Start Release - AppImage, not this file.
+
 on:
   workflow_call:
     inputs:
       refresh_cache:
+        description: Rebuild sqgipkg and Meson caches from scratch
         type: boolean
         default: false
 
@@ -11,70 +14,82 @@ env:
   APPIMAGE_EXTRACT_AND_RUN: '1'
   DEBIAN_FRONTEND: noninteractive
   ROOJS_APT_SUITE: plucky
+  TZ: UTC
 
 jobs:
   appimage:
+    name: AppImage
     runs-on: ubuntu-24.04
+    # Ubuntu 24.04 has no roojs suite. The build needs plucky.
     container:
       image: ubuntu:25.04
     steps:
-      - name: Install checkout tools
+      - name: Install git
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git ca-certificates curl gnupg sudo
+          apt-get install -y --no-install-recommends git ca-certificates curl sudo
 
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           path: argusrm
 
-      - uses: actions/cache@v4
+      - name: Restore sqgipkg dependency cache
+        uses: actions/cache@v4
         with:
-          path: |
-            argusrm/.sqgipkg
-            argusrm/build-linux-x86_64
-          key: argusrm-appimage-v1-${{ inputs.refresh_cache && github.run_id || 'stable' }}-${{ hashFiles('argusrm/sqgipkg.json', 'argusrm/**/*.vala', 'argusrm/**/meson.build') }}
+          path: argusrm/.sqgipkg
+          key: sqgipkg-deps-v1-${{ inputs.refresh_cache && github.run_id || 'stable' }}-${{ hashFiles('argusrm/sqgipkg.json', 'argusrm/scripts/release/sqgi.revision') }}
+          restore-keys: |
+            sqgipkg-deps-v1-stable-
 
-      - name: Enable RooJS packages
+      - name: Restore sqgipkg Meson build cache
+        uses: actions/cache@v4
+        with:
+          path: argusrm/build-linux-x86_64
+          key: sqgipkg-meson-v1-${{ inputs.refresh_cache && github.run_id || 'stable' }}-${{ hashFiles('argusrm/**/*.vala', 'argusrm/**/meson.build', 'argusrm/meson.build', 'argusrm/sqgipkg.json') }}
+          restore-keys: |
+            sqgipkg-meson-v1-stable-
+
+      - name: Install host build dependencies
         working-directory: argusrm
         run: |
-          install -d -m 0755 /etc/apt/keyrings
-          curl -fsSL https://roojs.github.io/repos/key.gpg |
-            gpg --batch --yes --dearmor -o /etc/apt/keyrings/roojs.gpg
-          curl -fsSL https://roojs.github.io/repos/sources |
-            sed "s/@suite@/${ROOJS_APT_SUITE}/" \
-            > /etc/apt/sources.list.d/roojs.sources
-          apt-get update
-          apt-get install -y --no-install-recommends \
+          chmod +x scripts/ci/enable-roojs-apt.sh
+          ./scripts/ci/enable-roojs-apt.sh
+          sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config file wget \
             meson valac squashfs-tools \
             libglib2.0-dev libgee-0.8-dev libjson-glib-dev libsoup-3.0-dev \
             libgnutls28-dev libsqlite3-dev libgtk-4-dev libadwaita-1-dev \
-            libavahi-gobject-dev libocrpc-dev libocsqlite-dev
+            libavahi-gobject-dev libavahi-client-dev libsecret-1-dev \
+            libocrpc-dev libocsqlite-dev
 
       - name: Read sqgi revision
         id: sqgi
         working-directory: argusrm
         run: |
-          rev="$(grep -v '^[[:space:]]*#' scripts/release/sqgi.revision |
-            grep -v '^[[:space:]]*$' | tr -d '[:space:]')"
-          test -n "$rev"
+          rev="$(grep -v '^[[:space:]]*#' scripts/release/sqgi.revision | grep -v '^[[:space:]]*$' | head -n1 | tr -d '[:space:]')"
+          if [ -z "$rev" ]; then
+            echo "Missing sqgi revision in scripts/release/sqgi.revision" >&2
+            exit 1
+          fi
           echo "rev=$rev" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - name: Checkout sqgi (runtime + sqgipkg)
+        uses: actions/checkout@v4
         with:
           repository: supercamel/sqgi
           path: sqgi
           ref: ${{ steps.sqgi.outputs.rev }}
 
-      - name: Build sqgi
+      - name: Build and install sqgi
         run: |
           cmake -S sqgi -B sqgi/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DSQ_ENABLE_JIT=ON
           cmake --build sqgi/build
-          cmake --install sqgi/build --prefix /usr/local
-          ldconfig
+          sudo cmake --install sqgi/build --prefix /usr/local
+          sudo ldconfig
 
-      - name: Build AppImage
+      - name: Build Linux x86_64 AppImage
         working-directory: argusrm
         run: |
           chmod +x scripts/release/changelog.sh \
@@ -86,7 +101,8 @@ jobs:
           cp dist-linux-x86_64/ArgusController.AppImage \
             "artifacts/ArgusController-${version}-x86_64.AppImage"
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: argusrm-appimage
           path: argusrm/artifacts/*.AppImage

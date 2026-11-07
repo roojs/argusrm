@@ -6,7 +6,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@
 
 override_dh_auto_configure:
-	meson setup build-debian --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+	meson setup build-debian --prefix=/usr --sysconfdir=/etc --localstatedir=/var -Ddocs=false
 
 override_dh_auto_build:
 	meson compile -C build-debian

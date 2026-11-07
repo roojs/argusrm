@@ -1,5 +1,7 @@
 name: X - Debian package build
 
+# The real dpkg-buildpackage job. Start Release - Debian, not this file.
+
 on:
   workflow_call:
 
@@ -16,25 +18,19 @@ jobs:
       ROOJS_APT_SUITE: plucky
       TZ: UTC
     steps:
-      - name: Install checkout tools
+      - name: Install git
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git ca-certificates curl gnupg
+          apt-get install -y --no-install-recommends git ca-certificates curl
 
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Enable RooJS packages
+      - name: Enable roojs APT and install build dependencies
         run: |
-          install -d -m 0755 /etc/apt/keyrings
-          curl -fsSL https://roojs.github.io/repos/key.gpg |
-            gpg --batch --yes --dearmor -o /etc/apt/keyrings/roojs.gpg
-          curl -fsSL https://roojs.github.io/repos/sources |
-            sed "s/@suite@/${ROOJS_APT_SUITE}/" \
-            > /etc/apt/sources.list.d/roojs.sources
-          apt-get update
-
-      - name: Install build dependencies
-        run: |
+          set -euo pipefail
+          chmod +x scripts/ci/enable-roojs-apt.sh
+          ./scripts/ci/enable-roojs-apt.sh
           apt-get install -y --no-install-recommends \
             build-essential devscripts debhelper meson ninja-build pkg-config valac \
             libglib2.0-dev libgee-0.8-dev libjson-glib-dev libsoup-3.0-dev \
@@ -59,7 +55,8 @@ jobs:
           mkdir -p artifacts
           cp -v ../argusrm-{server,agent,controller}_*.deb artifacts/
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Debian artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: argusrm-debian
           path: artifacts/*.deb

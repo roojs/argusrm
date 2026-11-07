@@ -10,6 +10,7 @@ args=(
 	--sysconfdir=/etc
 	--localstatedir=/var
 	--buildtype=release
+	-Ddocs=false
 )
 if [[ -n "${SQGI_LINUX_MESON_CROSS_FILE:-}" ]]; then
 	args+=(--cross-file "${SQGI_LINUX_MESON_CROSS_FILE}")

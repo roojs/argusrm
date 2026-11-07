@@ -1,0 +1,106 @@
+name: X - Publish Valadoc to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      # Only trigger on changes to source files that affect documentation
+      - 'shared/**/*.vala'
+      - 'agent/**/*.vala'
+      - 'server/**/*.vala'
+      - 'controller/**/*.vala'
+      - 'paths.vala.in'
+      - 'docs/meson.build'
+      - 'docs/valadoc-wiki/**'
+      - 'docs/run-valadoc.sh'
+      - 'docs/fix-valadoc-index-links.sh'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  valadoc:
+    name: Generate Valadoc
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:25.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      ROOJS_APT_SUITE: plucky
+      TZ: UTC
+    steps:
+      - name: Install git
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates curl
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # CI helper (not the user install path — see https://roojs.github.io/repos/).
+      - name: Enable roojs APT and install build dependencies
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ci/enable-roojs-apt.sh
+          ./scripts/ci/enable-roojs-apt.sh
+          apt-get install -y --no-install-recommends \
+            meson \
+            ninja-build \
+            valac \
+            valadoc \
+            pkg-config \
+            build-essential \
+            libglib2.0-dev \
+            libgee-0.8-dev \
+            libjson-glib-dev \
+            libsoup-3.0-dev \
+            libgnutls28-dev \
+            libsqlite3-dev \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            libavahi-gobject-dev \
+            libavahi-client-dev \
+            libsecret-1-dev \
+            libgit2-glib-1.0-dev \
+            libnftables-dev \
+            libnl-3-dev \
+            libnl-route-3-dev \
+            libocrpc-dev \
+            libocsqlite-dev
+
+      - name: Setup meson build
+        run: |
+          meson setup build --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+
+      - name: Build documentation
+        run: |
+          # Build only the valadoc documentation target
+          ninja -C build docs/valadoc
+
+      - name: Create .nojekyll file
+        run: |
+          touch build/valadoc/.nojekyll
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/valadoc
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/master'
+    needs: valadoc
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -26,7 +26,7 @@ namespace Argus.Server.Net
 	 * Construction reads the addresses on this machine and marks each
 	 * one public or internal. {@link route} asks netlink which of those
 	 * addresses the kernel would use as the source and remembers the answer.
-	 * {@link public_ip} connects to https://ifconfig.me over IPv4.
+	 * {@link public_ip} connects to {{{https://ifconfig.me}}} over IPv4.
 	 *
 	 * == Example ==
 	 *
