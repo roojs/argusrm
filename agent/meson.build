@@ -13,8 +13,13 @@ sources = files(
 )
 vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1', '--pkg', 'libsoup-3.0',
-	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+	'--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
 ]
+# Android passes gee-0.8.vapi as a source via dependency('gee-0.8').
+# --pkg=gee-0.8 looks for a host package and fails in the Pixiewood build.
+if host_machine.system() != 'android'
+	vala_args += ['--pkg', 'gee-0.8']
+endif
 c_args = ocsqlite_c_args
 
 if host_machine.system() == 'linux'
