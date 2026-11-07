@@ -24,6 +24,10 @@
             "libavahi-gobject-dev",
             "libavahi-client-dev",
             "libsecret-1-dev",
+            "libgit2-glib-1.0-dev",
+            "libnftables-dev",
+            "libnl-3-dev",
+            "libnl-route-3-dev",
             "libocrpc-dev",
             "libocsqlite-dev"
           ]

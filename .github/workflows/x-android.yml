@@ -35,7 +35,7 @@ jobs:
             meson nasm ninja-build openjdk-17-jdk pkg-config python3 \
             sassc unzip valac
 
-      - name: Stage pinned Android tooling and RPC library
+      - name: Stage pinned Android tooling and libraries
         working-directory: argusrm
         run: |
           mkdir -p scripts/android android vendor
@@ -44,6 +44,7 @@ jobs:
           cp -a ../OLLMchat/android/pixiewood-extra.cross android/
           cp -a ../OLLMchat/android/local-build.local.env android/
           cp -a ../OLLMchat/libocrpc vendor/
+          cp -a ../OLLMchat/libocsqlite vendor/
           cp -a ../OLLMchat/vapi vendor/
           chmod +x scripts/android/*.sh
 

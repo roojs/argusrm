@@ -43,9 +43,9 @@ shared_sources = files(
 shared_sources += paths_vala
 shared_sources += shared_osquery_sources
 shared_sources += shared_sqt_sources
-shared_vala_args = ocrpc_vala_args + [
+shared_vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
-	'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+	'--pkg', 'sqlite3',
 ]
 shared_c_args = ocsqlite_c_args
 

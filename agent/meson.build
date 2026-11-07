@@ -11,10 +11,9 @@ sources = files(
 	'Application.vala',
 	'Download.vala',
 )
-vala_args = ocrpc_vala_args + [
+vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1', '--pkg', 'libsoup-3.0',
 	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
-	'--pkg', 'ocsqlite',
 ]
 c_args = ocsqlite_c_args
 
