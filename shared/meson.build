@@ -53,7 +53,10 @@ if host_machine.system() == 'windows'
 	shared_sources += files('windows/Browse.vala')
 	shared_deps += meson.get_compiler('c').find_library('dnsapi')
 	shared_vala_args += ['--vapidir', meson.current_source_dir() / 'windows', '--pkg', 'windns']
-	shared_c_args += ['-DUNICODE', '-D_UNICODE']
+	shared_c_args += [
+		'-DUNICODE', '-D_UNICODE',
+		'-I' + meson.current_source_dir() / 'windows',
+	]
 elif host_machine.system() == 'android'
 	shared_sources += files('android/Browse.vala', 'android/pair-browse.c')
 	shared_vala_args += [
