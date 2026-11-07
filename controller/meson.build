@@ -10,12 +10,12 @@ deps = [
 	dependency('libsoup-3.0'),
 	dependency('gtk4'),
 	dependency('libadwaita-1'),
-	meson.get_compiler('c').find_library('ocrpc'),
+	ocrpc_dep,
 ]
 deps += shared_dep
-controller_vala_args = [
-	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
-	'--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+controller_vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
+	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
+	'--pkg', 'sqlite3',
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
 ]
 if host_machine.system() == 'linux'
@@ -44,15 +44,28 @@ sources = files(
 	'Agents.vala',
 	'Command.vala',
 )
-executable(
-	'argus-controller',
-	sources,
-	files('main.vala'),
-	dependencies: deps,
-	c_args: ocsqlite_c_args,
-	vala_args: controller_vala_args,
-	install: true,
-)
+if host_machine.system() == 'android'
+	executable(
+		'argus-controller',
+		sources,
+		files('main.vala'),
+		dependencies: deps,
+		c_args: ocsqlite_c_args,
+		vala_args: controller_vala_args,
+		android_exe_type: 'application',
+		install: true,
+	)
+else
+	executable(
+		'argus-controller',
+		sources,
+		files('main.vala'),
+		dependencies: deps,
+		c_args: ocsqlite_c_args,
+		vala_args: controller_vala_args,
+		install: true,
+	)
+endif
 if host_machine.system() == 'linux'
 	command_test = executable(
 		'argus-controller-command',

@@ -98,11 +98,9 @@ agent_sysvinit = configure_file(
 )
 subdir('shared')
 subdir('agent')
+subdir('controller')
 if host_machine.system() == 'linux'
 	subdir('server')
-endif
-if host_machine.system() != 'android'
-	subdir('controller')
 endif
 
 if host_machine.system() == 'linux'

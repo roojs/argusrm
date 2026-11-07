@@ -1,6 +1,6 @@
 /* Windows DNS-SD browse. Names match windns.h and winerror.h. */
 
-[CCode (cprefix = "", lower_case_cprefix = "", cheader_filename = "windns.h")]
+[CCode (cprefix = "", lower_case_cprefix = "", cheader_filename = "windows.h,windns.h")]
 namespace Argus.Shared.Windows {
 
 	[CCode (cheader_filename = "windns.h")]
