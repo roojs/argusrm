@@ -41,6 +41,18 @@ notes="$(scripts/release/changelog.sh notes)"
 	exit 1
 }
 
+pinned_ollm="$(awk -F': ' '/^[[:space:]]*OLLMCHAT_RELEASE:/ { print $2; exit }' .github/workflows/x-windows.yml)"
+latest_ollm="$(gh api 'repos/roojs/OLLMchat/releases?per_page=30' --jq '[.[] | select(.draft|not) | select(.prerelease|not) | select(.tag_name|test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))][0].tag_name')"
+[[ -n "${pinned_ollm}" && -n "${latest_ollm}" ]] || {
+	echo "error: could not compare the Windows OLLMchat pin with the latest release" >&2
+	exit 1
+}
+[[ "${pinned_ollm}" == "${latest_ollm}" ]] || {
+	echo "error: Windows needs updating" >&2
+	echo "error: .github/workflows/x-windows.yml pins ${pinned_ollm}; latest OLLMchat release is ${latest_ollm}" >&2
+	exit 1
+}
+
 if [[ -n "$(git status --porcelain)" ]]; then
 	echo "error: working tree is not clean; commit or stash first" >&2
 	git status --short >&2

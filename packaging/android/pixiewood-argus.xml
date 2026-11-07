@@ -14,11 +14,18 @@
       <meta:requires>
         <meta:internet>always</meta:internet>
       </meta:requires>
+      <meta:branding>
+        <meta:color type="primary" scheme_preference="light">#3584e4</meta:color>
+        <meta:color type="primary" scheme_preference="dark">#1c71d8</meta:color>
+      </meta:branding>
       <meta:releases>
         <meta:release version="0.1.0" date="2026-11-03"/>
       </meta:releases>
     </meta:component>
   </metainfo>
+  <style>
+    <theme name="adw"/>
+  </style>
   <dependencies>
     <glib>
       <patch>hack</patch>

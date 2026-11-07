@@ -9,6 +9,8 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      OLLMCHAT_RELEASE: v1.4.8
     defaults:
       run:
         shell: msys2 {0}
@@ -23,12 +25,6 @@ jobs:
         with:
           path: argusrm
 
-      - uses: actions/checkout@v4
-        with:
-          repository: roojs/OLLMchat
-          ref: 1cba1934e04be1ce16a650e52d5c00af68a3d572
-          path: OLLMchat
-
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -36,7 +32,6 @@ jobs:
           update: true
           install: >-
             base-devel
-            git
             unzip
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-vala
@@ -45,29 +40,26 @@ jobs:
             mingw-w64-ucrt-x86_64-pkg-config
             mingw-w64-ucrt-x86_64-gtk4
             mingw-w64-ucrt-x86_64-libadwaita
-            mingw-w64-ucrt-x86_64-gtksourceview5
             mingw-w64-ucrt-x86_64-libgee
             mingw-w64-ucrt-x86_64-libsoup3
             mingw-w64-ucrt-x86_64-gnutls
             mingw-w64-ucrt-x86_64-json-glib
             mingw-w64-ucrt-x86_64-libxml2
             mingw-w64-ucrt-x86_64-sqlite3
-            mingw-w64-ucrt-x86_64-libgit2-glib
-            mingw-w64-ucrt-x86_64-gobject-introspection
-            mingw-w64-ucrt-x86_64-libtree-sitter
-            mingw-w64-ucrt-x86_64-openblas
-            mingw-w64-ucrt-x86_64-lapack
             mingw-w64-ucrt-x86_64-curl
-            mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-nsis
 
-      - name: Build and install OLLM runtime libraries
-        working-directory: OLLMchat
+      - name: Install OLLMchat Windows libraries
         run: |
-          chmod +x scripts/ci/windows-msys2-build.sh
-          scripts/ci/windows-msys2-build.sh
-          meson configure build-windows --prefix=/ucrt64
-          meson install -C build-windows --no-rebuild
+          set -euo pipefail
+          version="${OLLMCHAT_RELEASE#v}"
+          base="https://github.com/roojs/OLLMchat/releases/download/${OLLMCHAT_RELEASE}"
+          mkdir -p ollm-libs
+          for name in libocrpc libocsqlite; do
+            curl -fsSL -o "ollm-libs/${name}.pkg.tar.zst" \
+              "${base}/mingw-w64-ucrt-x86_64-${name}-${version}-1-any.pkg.tar.zst"
+          done
+          pacman -U --noconfirm ollm-libs/*.pkg.tar.zst
 
       - name: Build Argus
         working-directory: argusrm
