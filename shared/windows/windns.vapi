@@ -39,7 +39,7 @@ namespace Argus.Shared.Windows {
 		public DNS_PTR_DATAW DataPTR;
 	}
 
-	[CCode (cheader_filename = "windns-include.h", has_target = false)]
+	[CCode (cname = "PDNS_SERVICE_BROWSE_CALLBACK", cheader_filename = "windns-include.h", has_target = false)]
 	public delegate void DNS_SERVICE_BROWSE_CALLBACK (uint32 status, void* context, DNS_RECORDW* record);
 
 	[CCode (cheader_filename = "windns-include.h", has_type_id = false, destroy_function = "")]
@@ -72,7 +72,7 @@ namespace Argus.Shared.Windows {
 		public uint32 dwInterfaceIndex;
 	}
 
-	[CCode (cheader_filename = "windns-include.h", has_target = false)]
+	[CCode (cname = "PDNS_SERVICE_RESOLVE_COMPLETE", cheader_filename = "windns-include.h", has_target = false)]
 	public delegate void DNS_SERVICE_RESOLVE_COMPLETE (uint32 status, void* context, DNS_SERVICE_INSTANCE* instance);
 
 	[CCode (cheader_filename = "windns-include.h", has_type_id = false, destroy_function = "")]

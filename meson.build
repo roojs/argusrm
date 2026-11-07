@@ -32,6 +32,13 @@ if host_machine.system() == 'android'
 	if not fs.exists(meson.project_source_root() / 'vendor' / 'libocsqlite' / 'meson.build')
 		error('Android builds require vendor/libocsqlite staged from the pinned OLLMchat revision')
 	endif
+	# Android subprojects build these libraries without Vala bindings, so
+	# Meson does not pass --pkg for them. The host valac still has the
+	# bindings.
+	add_project_arguments([
+		'--pkg=json-glib-1.0',
+		'--pkg=libsoup-3.0',
+	], language: 'vala')
 	subdir('vendor/libocsqlite')
 	subdir('vendor/libocrpc')
 	ocrpc_dep = ocrpc_vapi_dep

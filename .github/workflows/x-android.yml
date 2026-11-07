@@ -32,6 +32,7 @@ jobs:
             libglib-perl libglib2.0-dev-bin libgtk-4-dev libipc-run-perl \
             libjson-perl libset-scalar-perl libxml-libxml-perl \
             libxml-libxslt-perl libtext-template-perl libxml2-utils \
+            libjson-glib-dev libsoup-3.0-dev \
             meson nasm ninja-build openjdk-17-jdk pkg-config python3 \
             sassc unzip valac
 
