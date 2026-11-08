@@ -13,7 +13,7 @@ deps = [
 	dependency('libnftables'),
 	meson.get_compiler('c').find_library('ocrpc'),
 ]
-deps += shared_dep
+deps += shared_server_dep
 libnl = dependency('libnl-3.0')
 nl_route = meson.get_compiler('c').find_library('nl-route-3', required: false)
 if not nl_route.found()
@@ -39,6 +39,7 @@ sources = files(
 	'Initialize.vala',
 	'GitHub.vala',
 	'Agent.vala',
+	'RegistrationData.vala',
 	'Registration.vala',
 	'OSQuery.vala',
 	'Command.vala',

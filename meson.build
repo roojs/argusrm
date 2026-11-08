@@ -103,6 +103,17 @@ agent_sysvinit = configure_file(
 		'LOG_DIR': localstatedir / 'log' / 'argusrm',
 	},
 )
+server_executable = bindir / 'argus'
+server_sysvinit = configure_file(
+	input: 'packaging/sysvinit/argusrm-server.in',
+	output: 'argusrm-server',
+	configuration: {
+		'SERVER_EXECUTABLE': server_executable,
+		'SERVER_DATA_DIR': localstatedir / 'lib' / 'argusrm',
+		'SERVER_SYSCONFDIR': sysconfdir / 'argusrm',
+		'LOG_DIR': localstatedir / 'log' / 'argusrm',
+	},
+)
 subdir('shared')
 subdir('agent')
 subdir('controller')
@@ -118,6 +129,7 @@ if host_machine.system() == 'linux'
 	)
 	install_data(
 		agent_sysvinit,
+		server_sysvinit,
 		install_dir: get_option('sysconfdir') / 'init.d',
 		install_mode: 'rwxr-xr-x',
 	)

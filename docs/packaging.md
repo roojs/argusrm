@@ -2,8 +2,8 @@
 
 Argus produces three binary packages from one source tree:
 
-- `argusrm-server` — `/usr/bin/argus` and its systemd service
-- `argusrm-agent` — `/usr/bin/argus-agent` and its systemd service
+- `argusrm-server` — `/usr/bin/argus`, its systemd unit, and its SysV init script
+- `argusrm-agent` — `/usr/bin/argus-agent`, its systemd unit, and its SysV init script
 - `argusrm-controller` — `/usr/bin/argus-controller`
 
 `CHANGELOG.md` is the source of truth for release versions, release notes,

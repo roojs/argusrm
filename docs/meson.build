@@ -91,6 +91,7 @@ valadoc_sources += files(
   '../server/Initialize.vala',
   '../server/GitHub.vala',
   '../server/Agent.vala',
+  '../server/RegistrationData.vala',
   '../server/Registration.vala',
   '../server/OSQuery.vala',
   '../server/Command.vala',

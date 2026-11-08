@@ -6,16 +6,21 @@ The **server** coordinates. The **agent** runs on each managed machine, receives
 
 ## 1. Start the server
 
-A package install enables and starts the server. After a source install, do that yourself:
+A package install enables and starts the server. After a source install, do that yourself.
+
+On systemd:
 
 ```sh
 sudo systemctl enable --now argusrm-server.service
+systemctl status argusrm-server.service
 ```
 
-On the server machine:
+On SysV init, including an LXC container that is not running systemd:
 
 ```sh
-systemctl status argusrm-server.service
+sudo update-rc.d argusrm-server defaults
+sudo service argusrm-server start
+service argusrm-server status
 ```
 
 ## 2. Open registration
@@ -80,7 +85,7 @@ It prints:
 Registration succeeded. The Argus agent is running and connected.
 ```
 
-`--server` is that IPv4 address. `--pin` is the six digits from the server. Registration enables and starts the agent service. The agent stores its certificate and then connects to the server.
+`--server` is that IPv4 address. `--pin` is the six digits from the server. Registration enables and starts the agent service. On systemd that is `argusrm-agent.service`. On SysV init it is `/etc/init.d/argusrm-agent`. The agent stores its certificate and then connects to the server.
 
 Logs are in `/var/log/argusrm/server.log` and `/var/log/argusrm/agent.log`.
 

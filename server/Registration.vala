@@ -48,7 +48,7 @@ namespace Argus.Server
 		 */
 		public static void rpc_register()
 		{
-			Argus.Shared.Registration.Data.rpc_register();
+			RegistrationData.rpc_register();
 			OLLMrpc.Request.add_class("Registration", typeof(Registration),
 				"certificate", "s", "deregister", "s");
 		}
@@ -161,7 +161,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var data = new Argus.Shared.Registration.Data() {
+			var data = new RegistrationData() {
 				private_key = (string) private_key_buf,
 				client_certificate = (string) certificate_buf,
 				ca_certificate = ca_pem,
