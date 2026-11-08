@@ -86,9 +86,8 @@ printf '%s\n' "${notes}"
 echo "----------------"
 
 git tag -a "${tag}" -m "${tag}"
-git tag -a "${package_tag}" -m "${package_tag}"
 branch="$(git branch --show-current)"
 git push -u origin "${branch}"
-git push origin "${tag}" "${package_tag}"
+git push origin "${tag}"
 
 echo "Pushed ${tag}. The GitHub mirror will start the release workflow."

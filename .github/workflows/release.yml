@@ -84,20 +84,18 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          mkdir -p artifacts/main artifacts/packages
+          release_files=()
           for file in artifacts/*; do
             [[ -f "${file}" ]] || continue
             case "${file}" in
-              *.deb|*.rpm) mv "${file}" artifacts/packages/ ;;
-              *.AppImage|*.exe|*.apk) mv "${file}" artifacts/main/ ;;
+              *.deb|*.rpm|*.AppImage|*.exe|*.apk) release_files+=("${file}") ;;
               *) echo "Unknown release artifact: ${file}" >&2; exit 1 ;;
             esac
           done
-          package_files=(artifacts/packages/*)
-          main_files=(artifacts/main/*)
-          apk_files=(artifacts/main/*.apk)
-          appimage_files=(artifacts/main/*.AppImage)
-          windows_files=(artifacts/main/*.exe)
+          package_files=(artifacts/*.deb artifacts/*.rpm)
+          apk_files=(artifacts/*.apk)
+          appimage_files=(artifacts/*.AppImage)
+          windows_files=(artifacts/*.exe)
           ((${#package_files[@]})) || {
             echo "No Debian or RPM artifacts were downloaded" >&2
             exit 1
@@ -118,25 +116,11 @@ jobs:
             scripts/release/render-release-notes.sh
           scripts/release/render-release-notes.sh \
             "${GITHUB_REF_NAME}" release-notes.md
-          package_tag="${GITHUB_REF_NAME}-packages"
-          {
-            echo "Debian and Fedora package files for ${GITHUB_REF_NAME}."
-            echo
-            echo "AppImage, Windows, and Android builds are on ${GITHUB_REF_NAME}."
-          } > package-notes.md
-          gh release create "${package_tag}" "${package_files[@]}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --target "${GITHUB_SHA}" \
-            --title "${GITHUB_REF_NAME} packages" \
-            --notes-file package-notes.md \
-            --latest=false \
-          || gh release upload "${package_tag}" "${package_files[@]}" \
-            --repo "${GITHUB_REPOSITORY}" --clobber
-          gh release create "${GITHUB_REF_NAME}" "${main_files[@]}" \
+          gh release create "${GITHUB_REF_NAME}" "${release_files[@]}" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME}" \
             --notes-file release-notes.md \
-          || gh release upload "${GITHUB_REF_NAME}" "${main_files[@]}" \
+          || gh release upload "${GITHUB_REF_NAME}" "${release_files[@]}" \
             --repo "${GITHUB_REPOSITORY}" --clobber
           gh release edit "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" --latest

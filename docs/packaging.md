@@ -51,8 +51,8 @@ change that heading to the version:
 
 Commit that change and make sure the working tree is clean. The human
 release command then verifies the changelog, checks it against
-`meson.build`, creates annotated `vX.Y.Z` and `vX.Y.Z-packages` tags, and
-pushes the branch and tags:
+`meson.build`, creates an annotated `vX.Y.Z` tag, and pushes the branch
+and tag:
 
 ```sh
 chmod +x scripts/release.sh scripts/release/*.sh
@@ -61,8 +61,8 @@ chmod +x scripts/release.sh scripts/release/*.sh
 
 When `origin` is the private Git server, push the tag there first and let
 the mirror send it to GitHub. GitHub Actions starts when GitHub receives the
-tag. Debian and RPM files are published on `vX.Y.Z-packages`; AppImage,
-Windows, and the Android APK are published on `vX.Y.Z`.
+tag. Debian packages, Fedora RPMs, the AppImage, Windows installer, and
+Android APK are published together on `vX.Y.Z`.
 
 After a successful release, finalize the changelog on the private source
 repository and commit it:
