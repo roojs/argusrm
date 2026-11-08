@@ -25,6 +25,13 @@
   </metainfo>
   <style>
     <theme name="adw"/>
+    <icon type="generate">
+      <drawable
+        target="foreground"
+        type="avd"
+        path="src://android/icon-foreground.xml"/>
+      <color target="background">#3584e4</color>
+    </icon>
   </style>
   <dependencies>
     <glib>
