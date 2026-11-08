@@ -8,7 +8,19 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
-## [0.1.0] - Unreleased
+## [0.1.1] - Unreleased
+
+### Changed
+
+- The server no longer links GTK or libadwaita. Those libraries stay with the agent and the controller.
+- The server registration reply is its own record. The controller keeps the shared registration record, and the reply on the socket is unchanged.
+
+### Added
+
+- The server package includes a SysV init script. Setup covers systemd and SysV init, including an LXC container that is not running systemd.
+- Packages install from the RooJS repository by name.
+
+## [0.1.0] - 2026-11-08
 
 ### Added
 
