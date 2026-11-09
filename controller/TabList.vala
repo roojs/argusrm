@@ -70,7 +70,6 @@ namespace Argus.Controller
 		 * @param title header text
 		 */
 		public signal void chosen(string key, string title);
-		private static bool styled = false;
 
 		/**
 		 * Build the place list and the pinned Settings row.
@@ -78,20 +77,6 @@ namespace Argus.Controller
 		public TabList()
 		{
 			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
-			if (!TabList.styled) {
-				var display = Gdk.Display.get_default();
-				if (display != null) {
-					TabList.styled = true;
-					var css = new Gtk.CssProvider();
-					css.load_from_string(
-						".tab-list-settings {" +
-						" background-color: var(--window-bg-color);" +
-						" border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);" +
-						" }");
-					Gtk.StyleContext.add_provider_for_display(
-						display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
-				}
-			}
 			this.hexpand = true;
 			this.vexpand = true;
 			var list = new Gtk.ListBox() {

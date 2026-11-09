@@ -30,7 +30,7 @@ namespace Argus.Controller
 	 * A cog on the sidebar opens the menu.
 	 * ''Deregister this controller'' calls
 	 * {@link Argus.Shared.Registration.Data.deregister}. OK after
-	 * deletion quits. ''Agent Controller'' is on the Agents page.
+	 * deletion quits. ''Agent or Controller'' is on the Agents page.
 	 * It opens {@link Dialog.Pairing}.
 	 *
 	 * == Example ==
@@ -71,7 +71,6 @@ namespace Argus.Controller
 		private bool was_connected = true;
 		private bool closed = false;
 		private int64 next_reconnect = 0;
-		private static bool rows_styled = false;
 
 		/**
 		 * Create the window for one server.
@@ -99,7 +98,6 @@ namespace Argus.Controller
 				this.deregister_action.set_enabled(true);
 			});
 			this.title = "Argus RM";
-			Window.style_rows();
 			this.set_default_size(960, 640);
 			var header = new Adw.HeaderBar();
 			var menu = new GLib.Menu();
@@ -254,33 +252,6 @@ namespace Argus.Controller
 				}
 			});
 			return true;
-		}
-
-		/**
-		 * Alternate row tint for the column views.
-		 *
-		 * Libadwaita does not stripe a column view. Even rows take a
-		 * light mix of the current text colour, the same mix the
-		 * stylesheet uses for a quiet hover.
-		 */
-		private static void style_rows()
-		{
-			if (Window.rows_styled) {
-				return;
-			}
-			var display = Gdk.Display.get_default();
-			if (display == null) {
-				return;
-			}
-			Window.rows_styled = true;
-			var css = new Gtk.CssProvider();
-			css.load_from_string(
-				"columnview > listview > row:nth-child(even):not(:selected) {" +
-				" background-color: color-mix(in srgb, currentColor 6%, transparent);" +
-				" }" +
-				".offline-title { color: #c01c28; }");
-			Gtk.StyleContext.add_provider_for_display(
-				display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 		}
 	}
 }

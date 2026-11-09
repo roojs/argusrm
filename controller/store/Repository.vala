@@ -144,7 +144,8 @@ namespace Argus.Controller.Store
 		/**
 		 * Fetch ''ScriptRepository.list'' and replace {@link items}.
 		 *
-		 * A newer call drops the previous reply.
+		 * A newer call drops the previous reply. An empty list is
+		 * omitted on the wire, so an unset return is no rows.
 		 */
 		public void load()
 		{
@@ -174,11 +175,18 @@ namespace Argus.Controller.Store
 					this.failed("Could not list repositories", response.error.message);
 					return;
 				}
-				var listed = response.retval as Gee.ArrayList<Argus.Shared.SQT.ScriptRepository>;
-				if (listed == null) {
+				Gee.ArrayList<Argus.Shared.SQT.ScriptRepository> listed;
+				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
+					listed = (Gee.ArrayList<Argus.Shared.SQT.ScriptRepository>) response.retval.get_object();
+				} else if (response.retval.type() == GLib.Type.INVALID) {
+					listed = new Gee.ArrayList<Argus.Shared.SQT.ScriptRepository>();
+				} else {
 					this.busy = false;
 					this.failed("Could not list repositories", "invalid reply");
 					return;
+				}
+				if (listed == null) {
+					listed = new Gee.ArrayList<Argus.Shared.SQT.ScriptRepository>();
 				}
 				foreach (var row in listed) {
 					row.password = "";
@@ -253,10 +261,12 @@ namespace Argus.Controller.Store
 					this.failed("Could not pull", response.error.message);
 					return;
 				}
-				var scripts = response.retval as Gee.ArrayList<Argus.Shared.SQT.Script>;
 				var count = 0;
-				if (scripts != null) {
-					count = scripts.size;
+				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
+					var scripts = (Gee.ArrayList<Argus.Shared.SQT.Script>) response.retval.get_object();
+					if (scripts != null) {
+						count = scripts.size;
+					}
 				}
 				this.busy = false;
 				this.pulled(count);

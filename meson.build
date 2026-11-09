@@ -80,8 +80,8 @@ bindir = get_option('bindir')
 if not bindir.startswith('/')
 	bindir = get_option('prefix') / bindir
 endif
-agent_executable = bindir / 'argus-agent'
-agent_cli_executable = bindir / 'argus-agent-cli'
+agent_executable = bindir / 'argusrm-agent-gtk'
+agent_cli_executable = bindir / 'argusrm-agent'
 paths_vala = configure_file(
 	input: 'paths.vala.in',
 	output: 'paths.vala',
@@ -105,7 +105,7 @@ agent_sysvinit = configure_file(
 		'LOG_DIR': localstatedir / 'log' / 'argusrm',
 	},
 )
-server_executable = bindir / 'argus'
+server_executable = bindir / 'argusrm-server'
 server_sysvinit = configure_file(
 	input: 'packaging/sysvinit/argusrm-server.in',
 	output: 'argusrm-server',
@@ -139,6 +139,14 @@ if host_machine.system() == 'linux'
 		'packaging/logrotate/argusrm-agent',
 		'packaging/logrotate/argusrm-server',
 		install_dir: get_option('sysconfdir') / 'logrotate.d',
+	)
+	install_data(
+		'packaging/xdg/argusrm-agent-gtk.desktop',
+		install_dir: get_option('sysconfdir') / 'xdg' / 'autostart',
+	)
+	install_data(
+		'packaging/dbus/org.roojs.ArgusAgent.conf',
+		install_dir: get_option('datadir') / 'dbus-1' / 'system.d',
 	)
 endif
 

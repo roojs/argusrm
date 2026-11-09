@@ -73,7 +73,7 @@ namespace Argus.Controller
 					var pin = reply[0];
 					this.app.cli.print("Registration PIN: %s\nRegistration is open for 60 seconds. Press Ctrl+C to close it early.\n", pin);
 					this.app.cli.print("""On a remote terminal you can use:
-sudo argus-agent-cli --server %s --pin %s
+sudo argusrm-agent --server %s --pin %s
 """.printf(reply[1], pin));
 				} catch (GLib.Error e) {
 					this.app.cli.printerr("%s\n", e.message);

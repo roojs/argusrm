@@ -188,14 +188,22 @@ namespace Argus.Server.Net
 					Argus.Shared.Agent.query(this.app.db).selectWhere(
 						"WHERE fingerprint = $fingerprint AND status = 1",
 						int_binds, text_binds, rows);
+					var known = false;
 					if (rows.size > 0) {
 						var row = rows.get(0);
 						row.last_connected = new GLib.DateTime.now_utc().to_unix();
 						Argus.Shared.Agent.query(this.app.db).updateById(row);
 						rpc.agent_id = row.id;
+						known = true;
 					}
 					rpc.start();
 					this.connections.add(rpc);
+					if (known) {
+						this.app.broadcast(new OLLMrpc.Notification() {
+							method = "event.agent",
+							action = "connected"
+						});
+					}
 				});
 				return true;
 			});

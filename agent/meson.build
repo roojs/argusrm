@@ -94,8 +94,12 @@ if host_machine.system() == 'android'
 		install: true,
 	)
 else
+	installed_name = 'argus-agent'
+	if host_machine.system() == 'linux'
+		installed_name = 'argusrm-agent-gtk'
+	endif
 	executable(
-		'argus-agent',
+		installed_name,
 		sources,
 		dependencies: deps,
 		vala_args: vala_args,
@@ -106,7 +110,7 @@ else
 		# Same classes as the desktop agent, without the registration window.
 		# Left out of valadoc because the type names are already documented.
 		executable(
-			'argus-agent-cli',
+			'argusrm-agent',
 			files(
 				'namespace.vala',
 				'Application.vala',

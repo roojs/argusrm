@@ -116,7 +116,10 @@ namespace Argus.Controller
 					this.fail(response.error.message);
 					return;
 				}
-				var row = response.retval as Argus.Shared.SQT.Task;
+				Argus.Shared.SQT.Task row = null;
+				if (response.retval.type().is_a(typeof(Argus.Shared.SQT.Task))) {
+					row = (Argus.Shared.SQT.Task) response.retval.get_object();
+				}
 				if (row == null || row.id < 1) {
 					this.fail("invalid task");
 					return;
@@ -149,7 +152,10 @@ namespace Argus.Controller
 					this.fail(response.error.message);
 					return;
 				}
-				var targets = response.retval as Gee.ArrayList<Argus.Shared.SQT.TaskTarget>;
+				Gee.ArrayList<Argus.Shared.SQT.TaskTarget> targets = null;
+				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
+					targets = (Gee.ArrayList<Argus.Shared.SQT.TaskTarget>) response.retval.get_object();
+				}
 				if (targets == null || targets.size < 1 || targets.get(0).id < 1) {
 					this.fail("invalid task");
 					return;

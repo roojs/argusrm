@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Argus RM Agent
+Exec=argusrm-agent-gtk
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

@@ -28,6 +28,8 @@ namespace Argus.Controller.Tab
 	 * asks, then deletes the selection.
 	 * Right-click a column header to show or hide columns.
 	 * Registered starts hidden.
+	 * The Kind cell of the controller this window is using
+	 * has a green background.
 	 * The store loads when the page is shown.
 	 *
 	 * == Example ==
@@ -68,7 +70,7 @@ namespace Argus.Controller.Tab
 			var register_add = new Gtk.Button() {
 				child = new Adw.ButtonContent() {
 					icon_name = "list-add-symbolic",
-					label = "Agent Controller"
+					label = "Agent or Controller"
 				},
 				tooltip_text = "Register an agent or a controller"
 			};
@@ -117,6 +119,18 @@ namespace Argus.Controller.Tab
 				((Argus.Shared.Agent) item.item).bind_property("username",
 					(Gtk.Label) item.child, "label", GLib.BindingFlags.SYNC_CREATE);
 			});
+			var mine = "";
+			if (window.issued.client_certificate != "") {
+				try {
+					var cert = new GLib.TlsCertificate.from_pem(
+						window.issued.client_certificate,
+						window.issued.client_certificate.length);
+					mine = GLib.Checksum.compute_for_data(
+						GLib.ChecksumType.SHA256, cert.certificate.data);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			}
 			var kind_factory = new Gtk.SignalListItemFactory();
 			kind_factory.setup.connect((obj) => {
 				var item = (Gtk.ListItem) obj;
@@ -128,8 +142,19 @@ namespace Argus.Controller.Tab
 			});
 			kind_factory.bind.connect((obj) => {
 				var item = (Gtk.ListItem) obj;
-				((Argus.Shared.Agent) item.item).bind_property("display_kind",
-					(Gtk.Label) item.child, "label", GLib.BindingFlags.SYNC_CREATE);
+				var row = (Argus.Shared.Agent) item.item;
+				var label = (Gtk.Label) item.child;
+				row.bind_property("display_kind",
+					label, "label", GLib.BindingFlags.SYNC_CREATE);
+				if (mine != "" && row.fingerprint == mine) {
+					label.add_css_class("argus-this-controller");
+					return;
+				}
+				label.remove_css_class("argus-this-controller");
+			});
+			kind_factory.unbind.connect((obj) => {
+				var item = (Gtk.ListItem) obj;
+				((Gtk.Label) item.child).remove_css_class("argus-this-controller");
 			});
 			var registered_factory = new Gtk.SignalListItemFactory();
 			registered_factory.setup.connect((obj) => {
@@ -604,10 +629,11 @@ namespace Argus.Controller.Tab
 				this.store.load();
 			});
 			this.window.app.rpc.notification.connect((notification) => {
-				if (notification.method != "event.pair") {
-					return;
+				var refresh = notification.method == "event.agent";
+				if (notification.method == "event.pair" && notification.action == "done") {
+					refresh = true;
 				}
-				if (notification.action != "done") {
+				if (!refresh) {
 					return;
 				}
 				this.store.load();

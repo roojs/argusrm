@@ -60,6 +60,22 @@ namespace Argus.Shared
 		public bool is_controller { get; set; default = false; }
 
 		/**
+		 * The grid reads the display text. These three sources
+		 * change after the row is on screen.
+		 */
+		construct {
+			this.notify["status"].connect(() => {
+				this.notify_property("display-registered");
+			});
+			this.notify["last-connected"].connect(() => {
+				this.notify_property("display-last");
+			});
+			this.notify["connected"].connect(() => {
+				this.notify_property("display-connected");
+			});
+		}
+
+		/**
 		 * Name shown for this machine.
 		 *
 		 * Hostname when it is set, otherwise the requester,

@@ -2,14 +2,14 @@
   "name": "ArgusController",
   "entry": {
     "type": "native",
-    "linux": "build-linux-x86_64/controller/argus-controller"
+    "linux": "build-linux-x86_64/controller/argusrm-controller"
   },
   "linux": {
     "arches": [
       {
         "arch": "x86_64",
         "build_dir": "build-linux-x86_64",
-        "entry_linux": "build-linux-x86_64/controller/argus-controller",
+        "entry_linux": "build-linux-x86_64/controller/argusrm-controller",
         "deb": {
           "download": true,
           "packages": [
@@ -39,7 +39,7 @@
             "dir": ".",
             "build": [
               "./scripts/release/meson-sqgipkg-setup.sh \"$SQGI_LINUX_BUILD_DIR\"",
-              "meson compile -C \"$SQGI_LINUX_BUILD_DIR\" ./controller/argus-controller:executable"
+              "meson compile -C \"$SQGI_LINUX_BUILD_DIR\" ./controller/argusrm-controller:executable"
             ]
           }
         ]

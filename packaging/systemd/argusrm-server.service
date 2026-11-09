@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/argus
+ExecStart=/usr/bin/argusrm-server
 Restart=on-failure
 RestartSec=5s
 StateDirectory=argusrm

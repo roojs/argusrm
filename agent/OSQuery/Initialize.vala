@@ -203,6 +203,7 @@ namespace Argus.Agent.OSQuery
 					args = OLLMrpc.args("so", class_name, rows)
 				});
 			} catch (GLib.Error e) {
+				Argus.Agent.Application.connection_down = true;
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}

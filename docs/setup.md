@@ -2,7 +2,7 @@
 
 Install the packages first. [Installing packages](install-packages.md) covers that. A source install is [Building](build.md). This page is what you do after the programs are on the machines.
 
-The **server** coordinates. The **agent** runs on each managed machine, receives a certificate, and then connects to the server. The **controller** primarily runs on a desktop, where it signs in and manages that server. It can also run on the server to perform basic registration.
+The **server** coordinates. The **agent** runs on each managed machine, receives a certificate, and then connects to the server. The **controller** runs on a desktop, where it signs in and manages that server. On the server, `argusrm-controller-cli` opens registration. That command does not use GTK.
 
 ## 1. Start the server
 
@@ -28,7 +28,7 @@ service argusrm-server status
 On the server:
 
 ```sh
-sudo argus-controller
+sudo argusrm-controller-cli
 ```
 
 It prints:
@@ -38,10 +38,10 @@ Connecting to the local Argus Remote Manager server...
 Registration PIN: 123456
 Registration is open for 60 seconds. Press Ctrl+C to close it early.
 On a remote terminal you can use:
-sudo argus-agent-cli --server 203.0.113.10 --pin 123456
+sudo argusrm-agent --server 203.0.113.10 --pin 123456
 ```
 
-On this server, `argus-controller` is a local administration command. It uses `/var/lib/argusrm/argus.sock` and does not enroll itself. The address in that command is the server's public IPv4 address. Public registration uses IPv4 only. IPv6 is not supported.
+On this server, `argusrm-controller-cli` is the command-line controller shipped with the server package. It does not use GTK. It uses `/var/lib/argusrm/argus.sock` and does not enroll itself. The address in that command is the server's public IPv4 address. Public registration uses IPv4 only. IPv6 is not supported.
 
 ## 3. Register a managed machine
 
@@ -50,7 +50,7 @@ On this server, `argus-controller` is a local administration command. It uses `/
 On the same network, where the machine can hear the server, run:
 
 ```sh
-argus-agent
+argusrm-agent
 ```
 
 Polkit requests administrator access, then the registration window asks for the PIN.
@@ -60,7 +60,7 @@ Polkit requests administrator access, then the registration window asks for the 
 Without a desktop, on a machine that can hear the server, run:
 
 ```sh
-sudo argus-agent-cli
+sudo argusrm-agent
 ```
 
 It prints:
@@ -76,7 +76,7 @@ Registration succeeded. The Argus Remote Manager agent is running and connected.
 When the machine cannot hear the server, run the command printed in step 2, as root:
 
 ```sh
-sudo argus-agent-cli --server 203.0.113.10 --pin 123456
+sudo argusrm-agent --server 203.0.113.10 --pin 123456
 ```
 
 It prints:
@@ -94,7 +94,7 @@ Logs are in `/var/log/argusrm/server.log` and `/var/log/argusrm/agent.log`.
 On the desktop:
 
 ```sh
-argus-controller
+argusrm-controller
 ```
 
 The window offers "Log in to local machine" and "Connect a remote machine".

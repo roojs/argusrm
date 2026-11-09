@@ -1,6 +1,14 @@
 # NOTE: If you add/remove/change source files in this directory, you MUST also
 # update docs/meson.build to include the same files in the valadoc input list.
 
+gnome = import('gnome')
+controller_resources = gnome.compile_resources(
+	'argus-controller-resources',
+	'resources/argusrm.gresource.xml',
+	source_dir: 'resources',
+	c_name: 'argus_controller_resources',
+)
+
 deps = [
 	dependency('glib-2.0'),
 	dependency('gobject-2.0'),
@@ -41,6 +49,7 @@ endif
 sources = files(
 	'namespace.vala',
 	'Application.vala',
+	'Command.vala',
 	'Connection.vala',
 	'dialog/Bootstrap.vala',
 	'dialog/Pairing.vala',
@@ -52,14 +61,12 @@ sources = files(
 	'tab/Settings.vala',
 	'TabList.vala',
 	'Window.vala',
-	'cli/Pin.vala',
-	'Agents.vala',
-	'Command.vala',
 )
 if host_machine.system() == 'android'
 	executable(
 		'argus-controller',
 		sources,
+		controller_resources,
 		files('main.vala'),
 		dependencies: deps,
 		c_args: ocsqlite_c_args,
@@ -69,8 +76,9 @@ if host_machine.system() == 'android'
 	)
 else
 	executable(
-		'argus-controller',
+		'argusrm-controller',
 		sources,
+		controller_resources,
 		files('main.vala'),
 		dependencies: deps,
 		c_args: ocsqlite_c_args,
@@ -105,4 +113,29 @@ if host_machine.system() == 'linux'
 		install: false,
 	)
 	test('controller-command', command_test, timeout: 10, is_parallel: false)
+	# Command-line controller for the server package. No GTK.
+	# Left out of valadoc because the type name is already documented.
+	executable(
+		'argusrm-controller-cli',
+		files(
+			'namespace.vala',
+			'cli/Application.vala',
+			'cli/main.vala',
+			'cli/Pin.vala',
+			'Agents.vala',
+			'Command.vala',
+		),
+		dependencies: [
+			shared_cli_dep,
+			dependency('gio-unix-2.0'),
+		],
+		c_args: ocsqlite_c_args,
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'libsoup-3.0',
+			'--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+			'--pkg', 'gio-unix-2.0', '--pkg', 'posix',
+			'-D', 'LINUX',
+		],
+		install: true,
+	)
 endif

@@ -370,6 +370,9 @@ namespace Argus.Shared
 				}
 				if (code != 0) {
 					var label = "The management server rejected the request.";
+					if (code == 1) {
+						label = "This machine is already registered.";
+					}
 					switch (code) {
 						case (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED:
 							label = "Not registered with the management server.";

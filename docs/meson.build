@@ -105,6 +105,7 @@ valadoc_sources += files(
   # controller sources
   '../controller/namespace.vala',
   '../controller/Application.vala',
+  '../controller/Command.vala',
   '../controller/Connection.vala',
   '../controller/dialog/Bootstrap.vala',
   '../controller/dialog/Pairing.vala',
@@ -116,9 +117,8 @@ valadoc_sources += files(
   '../controller/tab/Settings.vala',
   '../controller/TabList.vala',
   '../controller/Window.vala',
-  '../controller/cli/Pin.vala',
-  '../controller/Agents.vala',
-  '../controller/Command.vala',
+  # cli/Application.vala, cli/Pin.vala, and Agents.vala are the
+  # command-line build. That Application repeats this class.
 )
 valadoc_docs = custom_target('valadoc',
   input: valadoc_sources,
