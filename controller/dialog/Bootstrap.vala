@@ -474,7 +474,7 @@ namespace Argus.Controller.Dialog
 			try {
 				executable = GLib.FileUtils.read_link("/proc/self/exe");
 			} catch (GLib.FileError e) {
-				this.page("Could not resolve argus-controller", e.message,
+				this.page("Could not resolve argusrm-controller", e.message,
 					{ "Retry", "Log in to register" }, { "retry", "register" });
 				return;
 			}
@@ -838,8 +838,9 @@ namespace Argus.Controller.Dialog
 					app.rpc.disconnect();
 					previous.leaving = true;
 				}
-				var window = new Window(app, connection, issued);
+				/* The agent page connects notifications while the window is built. */
 				app.rpc = rpc;
+				var window = new Window(app, connection, issued);
 				app.running_window = true;
 				app.window = window;
 				window.present();

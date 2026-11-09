@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/argus-agent-cli --service
+ExecStart=/usr/bin/argusrm-agent --service
 Restart=on-failure
 RestartSec=5s
 StateDirectory=argusrm-agent

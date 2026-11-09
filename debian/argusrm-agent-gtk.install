@@ -1,2 +1,3 @@
-usr/bin/argus-agent
+usr/bin/argusrm-agent-gtk
 usr/share/polkit-1/actions/org.roojs.ArgusAgent.register.policy
+etc/xdg/autostart/argusrm-agent-gtk.desktop

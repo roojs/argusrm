@@ -193,6 +193,9 @@ namespace Argus.Shared
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			if (response.error != null) {
+				if (response.error.message == "This machine is already registered.") {
+					return 1;
+				}
 				return response.error.code;
 			}
 			var packed = (string[]) response.retval;

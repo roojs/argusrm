@@ -19,8 +19,8 @@ override_dh_auto_test:
 
 override_dh_installsystemd:
 	dh_installsystemd -pargusrm-server
-	dh_installsystemd -pargusrm-agent-cli --no-enable --no-start
+	dh_installsystemd -pargusrm-agent --no-enable --no-start
 
 override_dh_installinit:
 	dh_installinit -pargusrm-server
-	dh_installinit -pargusrm-agent-cli --no-enable --no-start
+	dh_installinit -pargusrm-agent --no-enable --no-start

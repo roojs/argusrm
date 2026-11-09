@@ -127,9 +127,15 @@ namespace Argus.Controller.Store
 		}
 
 		/**
-		 * Fetch ''Agent.list'' and replace {@link items}.
+		 * Fetch ''Agent.list'' and apply it to {@link items}.
 		 *
-		 * A newer call drops the previous reply.
+		 * The first reply fills the list. A later reply copies
+		 * status, last connected, and connected onto the object
+		 * already in the grid, appends a new id, and drops an id
+		 * that is gone. The grid is not cleared. A newer call
+		 * drops a reply that is still waiting.
+		 * An empty list is omitted on the wire, so an unset return
+		 * is no rows.
 		 */
 		public void load()
 		{
@@ -156,14 +162,50 @@ namespace Argus.Controller.Store
 					this.failed("Could not list machines", response.error.message);
 					return;
 				}
-				var listed = response.retval as Gee.ArrayList<Argus.Shared.Agent>;
-				if (listed == null) {
+				Gee.ArrayList<Argus.Shared.Agent> listed;
+				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
+					listed = (Gee.ArrayList<Argus.Shared.Agent>) response.retval.get_object();
+				} else if (response.retval.type() == GLib.Type.INVALID) {
+					listed = new Gee.ArrayList<Argus.Shared.Agent>();
+				} else {
 					this.busy = false;
 					this.failed("Could not list machines", "invalid reply");
 					return;
 				}
+				if (listed == null) {
+					listed = new Gee.ArrayList<Argus.Shared.Agent>();
+				}
 				this.empty = listed.size == 0;
-				this.items = listed;
+				if (this.items_store.size == 0) {
+					this.items = listed;
+					this.busy = false;
+					return;
+				}
+				var by_id = new Gee.HashMap<string, Argus.Shared.Agent>();
+				foreach (var row in this.items_store) {
+					by_id.set(row.id.to_string(), row);
+				}
+				var seen = new Gee.HashMap<string, bool>();
+				foreach (var row in listed) {
+					var key = row.id.to_string();
+					seen.set(key, true);
+					if (!by_id.has_key(key)) {
+						this.items_store.add(row);
+						this.items_changed((uint) (this.items_store.size - 1), 0, 1);
+						continue;
+					}
+					var current = by_id.get(key);
+					current.status = row.status;
+					current.last_connected = row.last_connected;
+					current.connected = row.connected;
+				}
+				for (var i = this.items_store.size - 1; i >= 0; i--) {
+					if (seen.has_key(this.items_store.get(i).id.to_string())) {
+						continue;
+					}
+					this.items_store.remove_at(i);
+					this.items_changed((uint) i, 1, 0);
+				}
 				this.busy = false;
 			});
 		}

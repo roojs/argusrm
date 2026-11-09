@@ -1,0 +1,24 @@
+columnview > listview > row:nth-child(even):not(:selected) {
+	background-color: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.argus-this-controller {
+	background-color: #2ec27e;
+	color: #ffffff;
+}
+
+.offline-title {
+	color: #c01c28;
+}
+
+.tab-list-settings {
+	background-color: var(--window-bg-color);
+	border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.pairing-pin {
+	font-size: 64px;
+	font-weight: 800;
+	letter-spacing: 0.35em;
+	font-family: monospace;
+}

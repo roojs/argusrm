@@ -106,7 +106,8 @@ namespace Argus.Server.Net
 		 */
 		public override void stop()
 		{
-			if (this.running && this.agent_id > 0) {
+			var tell = this.running && this.agent_id > 0;
+			if (tell) {
 				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 				var int_binds = new Gee.HashMap<string, int>();
 				var text_binds = new Gee.HashMap<string, string>();
@@ -119,6 +120,12 @@ namespace Argus.Server.Net
 				}
 			}
 			base.stop();
+			if (tell) {
+				this.app.broadcast(new OLLMrpc.Notification() {
+					method = "event.agent",
+					action = "disconnected"
+				});
+			}
 		}
 	}
 }

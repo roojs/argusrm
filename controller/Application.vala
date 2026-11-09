@@ -22,11 +22,9 @@ namespace Argus.Controller
 	 * Controller for Argus.
 	 *
 	 * With no command on a desktop, {@link Dialog.Bootstrap} checks saved
-	 * connections and may open {@link Window}. {@link command_line}
-	 * hellos on the Unix socket, then runs one of {@link Pin},
-	 * {@link Agents}, or {@link Command}. No flag on a headless
-	 * root machine opens registration. Any other headless launch
-	 * with no flag prints usage.
+	 * connections and may open {@link Window}. ''--give-me-a-certificate''
+	 * issues the local login certificate. A registration PIN, the
+	 * agent list, and a command are ''argusrm-controller-cli''.
 	 *
 	 * == Example ==
 	 *
@@ -37,17 +35,31 @@ namespace Argus.Controller
 	 */
 	public class Application : GLib.Application
 	{
-		public static bool pin;
-		public static bool agents;
 		public static string give_certificate;
-		public static string agent;
-		public static string command;
+		/**
+		 * Agent id for {@link Command.run}.
+		 *
+		 * The command-line controller sets this. The desktop registers
+		 * the type so a later window can send the same object.
+		 */
+		public static string agent = "";
+		/**
+		 * Shell line for {@link Command.run}.
+		 *
+		 * The command-line controller sets this. The desktop registers
+		 * the type so a later window can send the same object.
+		 */
+		public static string command = "";
+		private static bool opt_debug;
+		private static bool opt_debug_critical;
+		private static bool debug_on;
+		private static bool debug_critical_enabled;
+		private static GLib.FileStream? debug_log_file;
+		private static bool debug_log_in_progress;
 		private const GLib.OptionEntry[] app_options = {
-			{ "pin", 0, 0, GLib.OptionArg.NONE, ref pin, "Show a registration PIN", null },
-			{ "agents", 0, 0, GLib.OptionArg.NONE, ref agents, "List registered agents", null },
+			{ "debug", 'd', 0, GLib.OptionArg.NONE, ref opt_debug, "Enable debug output", null },
+			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
 			{ "give-me-a-certificate", 0, 0, GLib.OptionArg.STRING, ref give_certificate, "Issue a local controller certificate", "USERNAME" },
-			{ "agent", 0, 0, GLib.OptionArg.STRING, ref agent, "Agent id", "ID" },
-			{ "command", 0, 0, GLib.OptionArg.STRING, ref command, "Command to run", "COMMAND" },
 			{ null }
 		};
 		public GLib.ApplicationCommandLine cli { get; set; }
@@ -79,14 +91,20 @@ namespace Argus.Controller
 				application_id: "org.roojs.ArgusController",
 				flags: GLib.ApplicationFlags.HANDLES_COMMAND_LINE | GLib.ApplicationFlags.NON_UNIQUE
 			);
+			GLib.Log.set_default_handler((dom, lvl, msg) => {
+				Application.debug_log(dom, lvl, msg);
+			});
 		}
 
 		/**
 		 * Parse the flags, then run one command or the startup window.
 		 *
-		 * No flag on a desktop opens {@link Dialog.Bootstrap}. No flag on a
-		 * headless root machine opens registration. The Unix socket
-		 * is ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
+		 * ''--debug'' shows log lines on stderr. No flag on a desktop
+		 * loads ''/argusrm/style.css'', then opens
+		 * {@link Dialog.Bootstrap}. ''--give-me-a-certificate''
+		 * issues the local login certificate. No desktop tells you to
+		 * run ''argusrm-controller-cli''. The Unix socket is
+		 * ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when the command finished, otherwise the
@@ -102,11 +120,9 @@ namespace Argus.Controller
 			Argus.Shared.SQT.Script.rpc_register();
 			Argus.Shared.SQT.ScriptRepository.rpc_register();
 			Argus.Controller.Command.rpc_register();
-			pin = false;
-			agents = false;
 			give_certificate = "";
-			agent = "";
-			command = "";
+			opt_debug = false;
+			opt_debug_critical = false;
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -124,39 +140,30 @@ namespace Argus.Controller
 				command_line.printerr("%s\n", e.message);
 				return 1;
 			}
-			var chosen = (pin ? 1 : 0)
-				+ (agents ? 1 : 0)
-				+ (give_certificate != "" ? 1 : 0)
-				+ (agent != "" || command != "" ? 1 : 0);
-			if (chosen > 1) {
-				command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --give-me-a-certificate USERNAME\n  argus-controller --agent ID --command COMMAND...\n");
-				return 1;
-			}
-			if (chosen == 0) {
+			debug_on = opt_debug;
+			debug_critical_enabled = opt_debug_critical;
+			if (give_certificate == "") {
 				var display = GLib.Environment.get_variable("DISPLAY");
 				var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
-				var headless = (display == null || display == "") && (wayland == null || wayland == "");
-				if (headless) {
-#if LINUX
-					if (Posix.geteuid() == 0) {
-						pin = true;
-					}
-#endif
-					if (!pin) {
-						command_line.printerr("Usage:\n  argus-controller --pin\n  argus-controller --agents\n  argus-controller --give-me-a-certificate USERNAME\n  argus-controller --agent ID --command COMMAND...\n");
-						return 1;
-					}
+				if ((display == null || display == "") && (wayland == null || wayland == "")) {
+					command_line.printerr("Run argusrm-controller-cli on the server.\n");
+					return 1;
 				}
-				if (!headless) {
-					Adw.init();
-					var bootstrap = new Dialog.Bootstrap(this);
-					bootstrap.present(null);
-					this.hold();
-					return 0;
+				Adw.init();
+				var screen = Gdk.Display.get_default();
+				if (screen != null) {
+					var css = new Gtk.CssProvider();
+					css.load_from_resource("/argusrm/style.css");
+					Gtk.StyleContext.add_provider_for_display(
+						screen, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 				}
+				var bootstrap = new Dialog.Bootstrap(this);
+				bootstrap.present(null);
+				this.hold();
+				return 0;
 			}
 #if LINUX
-			if (give_certificate != "" && Posix.geteuid() != 0) {
+			if (Posix.geteuid() != 0) {
 				var data = new Argus.Shared.Registration.Data() {
 					error = "root is required"
 				};
@@ -164,30 +171,12 @@ namespace Argus.Controller
 				return 1;
 			}
 #else
-			if (give_certificate != "") {
-				var data = new Argus.Shared.Registration.Data() {
-					error = "local certificate issue is Linux only"
-				};
-				command_line.print("%s\n", Json.gobject_to_data(data, null));
-				return 1;
-			}
+			var data = new Argus.Shared.Registration.Data() {
+				error = "local certificate issue is Linux only"
+			};
+			command_line.print("%s\n", Json.gobject_to_data(data, null));
+			return 1;
 #endif
-			if (agent == "" && !pin && !agents && give_certificate == "") {
-				command_line.printerr("command needs --agent ID\n");
-				return 1;
-			}
-			var parts = new Gee.ArrayList<string>();
-			if (command != "") {
-				parts.add(command);
-			}
-			if (give_certificate == "") {
-				parts.add_all_array(leftover[1:leftover.length]);
-			}
-			if (!pin && !agents && give_certificate == "" && parts.size < 1) {
-				command_line.printerr("command needs --command\n");
-				return 1;
-			}
-			command = string.joinv(" ", parts.to_array());
 			this.cli = command_line;
 			this.rpc = new OLLMrpc.Client("", "",
 				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
@@ -196,9 +185,6 @@ namespace Argus.Controller
 			this.rpc.debug = false;
 			this.loop = new GLib.MainLoop();
 			this.code = 1;
-			if (give_certificate == "") {
-				this.cli.print("Connecting to the local Argus Remote Manager server...\n");
-			}
 			this.rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
 				args = OLLMrpc.args("is", 1, "argus-controller")
@@ -217,68 +203,84 @@ namespace Argus.Controller
 		{
 			var opened = this.rpc.connect.end(res);
 			if (!opened) {
-				if (give_certificate != "") {
-					var data = new Argus.Shared.Registration.Data() {
-						error = this.rpc.connect_error
-					};
-					this.cli.print("%s\n", Json.gobject_to_data(data, null));
-				}
-				if (give_certificate == "") {
-					this.cli.printerr("%s\n", this.rpc.connect_error);
-				}
+				var data = new Argus.Shared.Registration.Data() {
+					error = this.rpc.connect_error
+				};
+				this.cli.print("%s\n", Json.gobject_to_data(data, null));
 				this.loop.quit();
 				return;
 			}
-			if (give_certificate != "") {
-				this.rpc.call.begin(new OLLMrpc.Request() {
-					method = "Registration.certificate",
-					args = OLLMrpc.args("s", give_certificate)
-				}, (call_obj, call_res) => {
-					try {
-						var response = this.rpc.call.end(call_res);
-						if (response.error != null) {
-							var data = new Argus.Shared.Registration.Data() {
-								error = response.error.message
-							};
-							this.cli.print("%s\n", Json.gobject_to_data(data, null));
-							this.loop.quit();
-							return;
-						}
-						this.cli.print("%s\n", Json.gobject_to_data((Argus.Shared.Registration.Data) response.retval, null));
-					} catch (GLib.Error e) {
+			this.rpc.call.begin(new OLLMrpc.Request() {
+				method = "Registration.certificate",
+				args = OLLMrpc.args("s", give_certificate)
+			}, (call_obj, call_res) => {
+				try {
+					var response = this.rpc.call.end(call_res);
+					if (response.error != null) {
 						var data = new Argus.Shared.Registration.Data() {
-							error = e.message
+							error = response.error.message
 						};
 						this.cli.print("%s\n", Json.gobject_to_data(data, null));
 						this.loop.quit();
 						return;
 					}
-					this.code = 0;
+					this.cli.print("%s\n", Json.gobject_to_data((Argus.Shared.Registration.Data) response.retval, null));
+				} catch (GLib.Error e) {
+					var data = new Argus.Shared.Registration.Data() {
+						error = e.message
+					};
+					this.cli.print("%s\n", Json.gobject_to_data(data, null));
 					this.loop.quit();
-				});
-				return;
-			}
-			if (pin) {
-				new Pin(this).run();
-				return;
-			}
-			if (agents) {
-				new Agents(this).run();
-				return;
-			}
-			var command = new Command(this);
-			command.ref();
-			command.stdout.connect((text) => {
-				this.cli.print("%s", text);
-			});
-			command.stderr.connect((text) => {
-				this.cli.printerr("%s", text);
-			});
-			command.ended.connect(() => {
+					return;
+				}
 				this.code = 0;
 				this.loop.quit();
 			});
-			command.run();
+		}
+
+		/**
+		 * Write one log line, and show it when ''--debug'' is on.
+		 *
+		 * Critical lines are always shown. ''--debug-critical'' aborts
+		 * on a critical line. Every line is also appended to the cache
+		 * log for this application.
+		 *
+		 * @param domain log domain, empty when the caller passed none
+		 * @param level log level
+		 * @param message log text
+		 */
+		private static void debug_log(string? domain, GLib.LogLevelFlags level, string message)
+		{
+			if (debug_log_in_progress) {
+				return;
+			}
+			var timestamp = (new GLib.DateTime.now_local()).format("%H:%M:%S.%f");
+			var shown_domain = domain == null ? "" : domain;
+			var show = debug_on || (level & GLib.LogLevelFlags.LEVEL_CRITICAL) != 0;
+			if (show) {
+				GLib.stderr.printf(timestamp + ": " + level.to_string() + " : " +
+					shown_domain + " : " + message + "\n");
+			}
+			if ((level & GLib.LogLevelFlags.LEVEL_CRITICAL) != 0 && debug_critical_enabled) {
+				GLib.error("Critical warning: [%s] %s", shown_domain, message);
+			}
+			debug_log_in_progress = true;
+			if (debug_log_file == null) {
+				var log_dir = GLib.Path.build_filename(GLib.Environment.get_user_cache_dir(), "argusrm");
+				var log_file_path = GLib.Path.build_filename(log_dir, "controller.log");
+				if (!GLib.FileUtils.test(log_dir, GLib.FileTest.IS_DIR)) {
+					GLib.DirUtils.create_with_parents(log_dir, 0755);
+				}
+				debug_log_file = GLib.FileStream.open(log_file_path, "w");
+				if (debug_log_file == null) {
+					GLib.stderr.printf("ERROR: FAILED TO OPEN DEBUG LOG FILE: Unable to open file stream\n");
+					debug_log_in_progress = false;
+					return;
+				}
+			}
+			debug_log_file.puts(timestamp + ": " + level.to_string() + " : " + message + "\n");
+			debug_log_file.flush();
+			debug_log_in_progress = false;
 		}
 	}
 }

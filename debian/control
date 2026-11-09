@@ -37,35 +37,36 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
 Description: Argus Remote Manager server
  Argus Remote Manager enrolls managed machines, provides authenticated
- downloads, and coordinates remote management operations.
+ downloads, and coordinates remote management operations. This package
+ includes argusrm-controller-cli, the command-line controller that opens
+ registration on the server. That command does not use GTK.
 
-Package: argusrm-agent-cli
+Package: argusrm-agent
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
-Replaces: argusrm-agent (<< 0.1.1-1)
-Breaks: argusrm-agent (<< 0.1.1-1)
+Replaces: argusrm-agent-cli
+Breaks: argusrm-agent-cli
 Description: Argus Remote Manager command-line agent
  This package installs the agent on a managed Linux machine. The command
- is argus-agent-cli. It does not use GTK. Registration from the command
+ is argusrm-agent. It does not use GTK. Registration from the command
  line enables and starts its systemd or SysV service. This is the package
  to install on a server.
 
 Package: argusrm-agent-gtk
 Architecture: any
-Depends: argusrm-agent-cli (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: argusrm-agent (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
-Replaces: argusrm-agent (<< 0.1.1-1)
-Breaks: argusrm-agent (<< 0.1.1-1)
 Description: Argus Remote Manager agent with a registration window
- This package adds the argus-agent command, which opens a desktop window
- for registration. The service itself is the command-line agent. Install
- argusrm-agent-cli alone on a machine without a desktop.
+ This package adds the argusrm-agent-gtk command, which opens a desktop
+ window for registration, and starts that window at login. The service
+ itself is the command-line agent. Install argusrm-agent alone on a
+ machine without a desktop.
 
 Package: argusrm-controller
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Argus Remote Manager controller
- This package contains the desktop and command-line controller. It enrolls
- with an Argus Remote Manager server, lists agents, and runs a command on
- one agent.
+ This package contains the desktop controller. It enrolls with an Argus
+ Remote Manager server and opens the management window. Registration on
+ the server uses argusrm-controller-cli from the server package.

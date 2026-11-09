@@ -22,9 +22,10 @@ namespace Argus.Shared
 	 * Standard message dialog for the agent.
 	 *
 	 * Same size and chrome as {@link RegisterWindow}: 480×280, a
-	 * close-only header, a centred heading and body, then action
-	 * buttons. The elevation prompt and the already-registered
-	 * prompt use this instead of {@link Adw.AlertDialog}.
+	 * header titled Argus Remote Manager, a centred heading and
+	 * body, then action buttons. The elevation prompt and the
+	 * already-registered prompt use this instead of
+	 * {@link Adw.AlertDialog}.
 	 *
 	 * == Example ==
 	 *
@@ -58,15 +59,14 @@ namespace Argus.Shared
 		 */
 		public Notice(string heading, string body)
 		{
-			this.title = heading;
+			this.title = "Argus Remote Manager";
 			this.set_content_height(280);
 			this.set_content_width(480);
 
 			var content = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
 			var header = new Adw.HeaderBar() {
 				show_start_title_buttons = false,
-				show_end_title_buttons = false,
-				show_title = false
+				show_end_title_buttons = false
 			};
 			var close_button =
 				new Gtk.Button.from_icon_name("window-close-symbolic") {

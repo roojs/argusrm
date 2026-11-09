@@ -1,11 +1,12 @@
 # Building Argus Remote Manager
 
-Argus Remote Manager uses Meson and Ninja. A source build installs all three Linux programs:
+Argus Remote Manager uses Meson and Ninja. A source build installs the Linux programs:
 
-- `argus` — server
-- `argus-agent` — desktop registration window
-- `argus-agent-cli` — command-line agent, and the program the service runs
-- `argus-controller` — local server controller
+- `argusrm-server` — server
+- `argusrm-controller-cli` — command-line controller installed with the server; it does not use GTK
+- `argusrm-agent` — command-line agent, and the program the service runs
+- `argusrm-agent-gtk` — desktop registration window
+- `argusrm-controller` — desktop controller
 
 It also installs the server and agent systemd units and SysV init scripts.
 It does not enable or start either service.

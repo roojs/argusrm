@@ -1,4 +1,5 @@
-usr/bin/argus
+usr/bin/argusrm-server
+usr/bin/argusrm-controller-cli
 usr/lib/systemd/system/argusrm-server.service
 etc/init.d/argusrm-server
 etc/logrotate.d/argusrm-server

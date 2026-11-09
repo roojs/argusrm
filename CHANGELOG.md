@@ -12,12 +12,14 @@ package changelogs.
 
 ### Changed
 
+- Linux commands are `argusrm-server`, `argusrm-agent`, `argusrm-agent-gtk`, `argusrm-controller`, and `argusrm-controller-cli`. The command-line agent package is `argusrm-agent`. On a desktop, `argusrm-agent` starts `argusrm-agent-gtk` and exits. Login starts that window from `/etc/xdg/autostart/argusrm-agent-gtk.desktop`.
+- The server package includes `argusrm-controller-cli`. That command opens registration and does not use GTK. On a machine without a desktop, `argusrm-controller` no longer opens registration.
 - The server no longer links GTK or libadwaita. Those libraries stay with the agent and the controller.
 - The server registration reply is its own record. The controller keeps the shared registration record, and the reply on the socket is unchanged.
 
 ### Added
 
-- The agent is packaged as argusrm-agent-cli and argusrm-agent-gtk. Servers install the command-line agent, `argus-agent-cli`, which does not link GTK. `argus-agent` is the registration window.
+- The agent is packaged as argusrm-agent and argusrm-agent-gtk. Servers install the command-line agent, `argusrm-agent`, which does not link GTK. `argusrm-agent-gtk` is the registration window.
 - The server package includes a SysV init script. Setup covers systemd and SysV init, including an LXC container that is not running systemd.
 - Packages install from the RooJS repository by name.
 

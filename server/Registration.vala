@@ -56,6 +56,9 @@ namespace Argus.Server
 		/**
 		 * Generate one pending controller credential.
 		 *
+		 * An active controller for this login on this machine is
+		 * refused. A pending row for that same login is replaced.
+		 *
 		 * @param request inbound RPC on the Unix socket
 		 * @param username controller operating-system login name
 		 */
@@ -96,6 +99,31 @@ namespace Argus.Server
 			var key = GnuTLS.X509.PrivateKey.create();
 			var crt = GnuTLS.X509.Certificate.create();
 			var hostname = GLib.Environment.get_host_name();
+			var existing = new Gee.ArrayList<Argus.Shared.Agent>();
+			var found_binds = new Gee.HashMap<string, int>();
+			var found_text = new Gee.HashMap<string, string>();
+			found_binds.set("status", 1);
+			found_binds.set("is_controller", 1);
+			found_text.set("username", username);
+			found_text.set("hostname", hostname);
+			try {
+				Argus.Shared.Agent.query(this.app.db).selectWhere(
+					"WHERE status = $status AND is_controller = $is_controller " +
+						"AND username = $username AND hostname = $hostname",
+					found_binds, found_text, existing);
+			} catch (GLib.Error e) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not read registration")
+				});
+				return;
+			}
+			if (existing.size > 0) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST(
+						"This machine is already registered.")
+				});
+				return;
+			}
 			var common_name = username + "@" + hostname;
 			if (key.generate(GnuTLS.PKAlgorithm.RSA, 3072) < 0 ||
 				crt.set_version(3) < 0 ||

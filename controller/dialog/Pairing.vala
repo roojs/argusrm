@@ -61,14 +61,6 @@ namespace Argus.Controller.Dialog
 			this.window = window;
 			this.title = "Register";
 			this.set_content_width(560);
-			var css = new Gtk.CssProvider();
-			css.load_from_string(
-				".pairing-pin { font-size: 64px; font-weight: 800; letter-spacing: 0.35em; font-family: monospace; }");
-			var display = Gdk.Display.get_default();
-			if (display != null) {
-				Gtk.StyleContext.add_provider_for_display(display, css,
-					Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
-			}
 			var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
 			this.title_label = new Gtk.Label("Register") {
 				css_classes = { "title" }

@@ -31,6 +31,7 @@ namespace Argus.Agent.Linux
 
 		public override int command_line(GLib.ApplicationCommandLine command_line)
 		{
+			GLib.Environment.set_application_name("Argus Remote Management Agent");
 			var display = GLib.Environment.get_variable("DISPLAY");
 			var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
 			this.is_desktop = (display != null && display != "") || (wayland != null && wayland != "");
@@ -64,7 +65,7 @@ namespace Argus.Agent.Linux
 				return 1;
 			}
 			if (leftover.length > 1) {
-				command_line.printerr("argus-agent does not accept registration arguments.\n");
+				command_line.printerr("argusrm-agent-gtk does not accept registration arguments.\n");
 				return 1;
 			}
 			if (service_mode) {
@@ -101,12 +102,13 @@ namespace Argus.Agent.Linux
 				return this.cli(command_line);
 			}
 			if (!this.is_desktop) {
-				command_line.printerr("Run argus-agent as root.\n");
+				command_line.printerr("Run argusrm-agent-gtk as root.\n");
 				return 1;
 			}
 			if (opt_server != "") {
 				Gtk.init();
-				var rejected = new Argus.Shared.Notice("argus-agent does not accept --server", "");
+				var rejected = new Argus.Shared.Notice("argusrm-agent-gtk does not accept --server", "");
+				rejected.title = "Argus Remote Management Agent";
 				rejected.add_response("ok", "OK");
 				rejected.closed.connect(() => {
 					this.quit();
@@ -119,6 +121,7 @@ namespace Argus.Agent.Linux
 			var pkexec = GLib.Environment.find_program_in_path("pkexec");
 			if (pkexec == null) {
 				var missing = new Argus.Shared.Notice("Could not request administrator access", "pkexec was not found.");
+				missing.title = "Argus Remote Management Agent";
 				missing.add_response("ok", "OK");
 				missing.closed.connect(() => {
 					this.quit();
@@ -131,7 +134,8 @@ namespace Argus.Agent.Linux
 			try {
 				executable = GLib.FileUtils.read_link("/proc/self/exe");
 			} catch (GLib.FileError e) {
-				var missing = new Argus.Shared.Notice("Could not resolve argus-agent", e.message);
+				var missing = new Argus.Shared.Notice("Could not resolve argusrm-agent-gtk", e.message);
+				missing.title = "Argus Remote Management Agent";
 				missing.add_response("ok", "OK");
 				missing.closed.connect(() => {
 					this.quit();
@@ -142,6 +146,7 @@ namespace Argus.Agent.Linux
 			}
 			var launched = false;
 			var notice = new Argus.Shared.Notice("This application needs to run as admin", "You will be prompted to escalate privileges.");
+			notice.title = "Argus Remote Management Agent";
 			notice.add_response("ok", "OK");
 			notice.responded.connect((response) => {
 				launched = this.on_start_admin(response, pkexec, executable);
@@ -176,7 +181,6 @@ namespace Argus.Agent.Linux
 			var session_wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
 			var session_runtime = GLib.Environment.get_variable("XDG_RUNTIME_DIR");
 			var session_xauth = GLib.Environment.get_variable("XAUTHORITY");
-			var session_bus = GLib.Environment.get_variable("DBUS_SESSION_BUS_ADDRESS");
 			var env_bin = GLib.Environment.find_program_in_path("env");
 			string[] argv = { pkexec };
 			if (env_bin != null) {
@@ -193,9 +197,6 @@ namespace Argus.Agent.Linux
 				if (session_xauth != null && session_xauth != "") {
 					argv += "XAUTHORITY=" + session_xauth;
 				}
-				if (session_bus != null && session_bus != "") {
-					argv += "DBUS_SESSION_BUS_ADDRESS=" + session_bus;
-				}
 			}
 			argv += executable;
 			GLib.Subprocess proc;
@@ -203,6 +204,7 @@ namespace Argus.Agent.Linux
 				proc = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.NONE);
 			} catch (GLib.Error e) {
 				var failed = new Argus.Shared.Notice("Could not request administrator access", e.message);
+				failed.title = "Argus Remote Management Agent";
 				failed.add_response("ok", "OK");
 				failed.closed.connect(() => {
 					this.quit();
@@ -215,6 +217,7 @@ namespace Argus.Agent.Linux
 					proc.wait_async.end(res);
 				} catch (GLib.Error e) {
 					var failed = new Argus.Shared.Notice("Could not request administrator access", e.message);
+					failed.title = "Argus Remote Management Agent";
 					failed.add_response("ok", "OK");
 					failed.closed.connect(() => {
 						this.quit();
@@ -227,6 +230,7 @@ namespace Argus.Agent.Linux
 					return;
 				}
 				var denied = new Argus.Shared.Notice("Could not request administrator access", "Administrator access was not granted.");
+				denied.title = "Argus Remote Management Agent";
 				denied.add_response("ok", "OK");
 				denied.closed.connect(() => {
 					this.quit();
@@ -248,8 +252,10 @@ namespace Argus.Agent.Linux
 		 * Register this machine from the desktop.
 		 *
 		 * The service is set up first. An existing certificate
-		 * shows the running notice. Otherwise the registration
-		 * window opens. Command-line registration is {@link cli}.
+		 * shows the running notice. Not connected offers
+		 * Configure, which opens the registration window.
+		 * Otherwise the registration window opens.
+		 * Command-line registration is {@link cli}.
 		 *
 		 * @return zero when a window is open
 		 */
@@ -261,6 +267,7 @@ namespace Argus.Agent.Linux
 			} catch (GLib.Error e) {
 				Gtk.init();
 				var failed = new Argus.Shared.Notice("Could not set up the Argus agent service", e.message);
+				failed.title = "Argus Remote Management Agent";
 				failed.add_response("ok", "OK");
 				failed.closed.connect(() => {
 					this.quit();
@@ -273,10 +280,40 @@ namespace Argus.Agent.Linux
 			if (GLib.FileUtils.test(certificate, GLib.FileTest.EXISTS)) {
 				Gtk.init();
 				var failed = false;
-				var notice = new Argus.Shared.Notice("Argus agent is running", "");
+				var configuring = false;
+				var offer_configure = false;
+				var heading = "Argus agent is running";
+				var detail = "Not connected to the management server.";
+				try {
+					switch (service.status()) {
+						case ServiceStatus.CONNECTED:
+							detail = "Connected to the management server.";
+							break;
+
+						case ServiceStatus.RUNNING:
+							offer_configure = true;
+							break;
+
+						case ServiceStatus.STOPPED:
+							heading = "Argus agent is not running";
+							detail = "The Argus agent service is not running.";
+							break;
+					}
+				} catch (GLib.Error e) {
+					detail = e.message;
+				}
+				var notice = new Argus.Shared.Notice(heading, detail);
+				notice.title = "Argus Remote Management Agent";
 				notice.add_response("close", "Close");
 				notice.add_response("restart", "Restart");
+				if (offer_configure) {
+					notice.add_response("configure", "Configure");
+				}
 				notice.responded.connect((response) => {
+					if (response == "configure") {
+						configuring = true;
+						return;
+					}
 					if (response != "restart") {
 						return;
 					}
@@ -285,6 +322,7 @@ namespace Argus.Agent.Linux
 					} catch (GLib.Error e) {
 						failed = true;
 						var error_notice = new Argus.Shared.Notice("Could not restart the Argus agent service", e.message);
+						error_notice.title = "Argus Remote Management Agent";
 						error_notice.add_response("ok", "OK");
 						error_notice.closed.connect(() => {
 							this.quit();
@@ -293,6 +331,10 @@ namespace Argus.Agent.Linux
 					}
 				});
 				notice.closed.connect(() => {
+					if (configuring) {
+						this.present_registration(service);
+						return;
+					}
 					if (!failed) {
 						this.quit();
 					}
@@ -302,9 +344,24 @@ namespace Argus.Agent.Linux
 				return 0;
 			}
 			Gtk.init();
+			this.present_registration(service);
+			this.hold();
+			return 0;
+		}
+
+		/**
+		 * Open registration for this machine.
+		 *
+		 * A certificate from the window restarts the service.
+		 *
+		 * @param service the agent service
+		 */
+		private void present_registration(ServiceManager service)
+		{
 			var window = new Argus.Shared.RegisterWindow() {
 				data_dir = Argus.AGENT_DATA_DIR
 			};
+			window.title = "Argus Remote Management Agent";
 			window.show_add();
 			window.certificate_received.connect(() => {
 				try {
@@ -322,8 +379,6 @@ namespace Argus.Agent.Linux
 			window.closed.connect(() => {
 				this.quit();
 			});
-			this.hold();
-			return 0;
 		}
 
 		/**

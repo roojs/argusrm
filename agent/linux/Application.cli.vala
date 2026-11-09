@@ -29,7 +29,9 @@ namespace Argus.Agent.Linux
 	 * The desktop program is {@link Application} in
 	 * ''linux/Application.vala''. This copy has no registration
 	 * window. Root with no ''--service'' registers from the
-	 * terminal. The service is ''argus-agent-cli --service''.
+	 * terminal. The service is ''argusrm-agent --service''.
+	 * A normal user on a desktop starts ''argusrm-agent-gtk''
+	 * when that program is installed, then this process exits.
 	 */
 	internal class Application : Argus.Agent.Application, ServiceManagerInterface
 	{
@@ -67,7 +69,7 @@ namespace Argus.Agent.Linux
 				return 1;
 			}
 			if (leftover.length > 1) {
-				command_line.printerr("argus-agent-cli does not accept registration arguments.\n");
+				command_line.printerr("argusrm-agent does not accept registration arguments.\n");
 				return 1;
 			}
 			if (service_mode) {
@@ -100,8 +102,26 @@ namespace Argus.Agent.Linux
 			if (Posix.geteuid() == 0) {
 				return this.cli(command_line);
 			}
-			command_line.printerr("Run argus-agent-cli as root.\n");
-			return 1;
+			var display = GLib.Environment.get_variable("DISPLAY");
+			var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
+			var gtk_agent = GLib.Environment.find_program_in_path("argusrm-agent-gtk");
+			if ((display == null || display == "") && (wayland == null || wayland == "")) {
+				command_line.printerr("Run argusrm-agent as root.\n");
+				return 1;
+			}
+			if (gtk_agent == null) {
+				command_line.printerr("Run argusrm-agent as root.\n");
+				return 1;
+			}
+			GLib.Pid child;
+			try {
+				GLib.Process.spawn_async(null, {gtk_agent}, null,
+					GLib.SpawnFlags.SEARCH_PATH, null, out child);
+			} catch (GLib.SpawnError e) {
+				command_line.printerr("%s\n", e.message);
+				return 1;
+			}
+			return 0;
 		}
 
 		public ServiceStatus status() throws GLib.DBusError, GLib.IOError

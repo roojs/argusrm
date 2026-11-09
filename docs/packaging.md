@@ -2,10 +2,10 @@
 
 Argus Remote Manager produces four binary packages from one source tree:
 
-- `argusrm-server` — `/usr/bin/argus`, its systemd unit, and its SysV init script
-- `argusrm-agent-cli` — `/usr/bin/argus-agent-cli`, its systemd unit, and its SysV init script
-- `argusrm-agent-gtk` — `/usr/bin/argus-agent`, the desktop registration window
-- `argusrm-controller` — `/usr/bin/argus-controller`
+- `argusrm-server` — `/usr/bin/argusrm-server`, `/usr/bin/argusrm-controller-cli`, its systemd unit, and its SysV init script
+- `argusrm-agent` — `/usr/bin/argusrm-agent`, its systemd unit, and its SysV init script
+- `argusrm-agent-gtk` — `/usr/bin/argusrm-agent-gtk`, the desktop registration window, and `/etc/xdg/autostart/argusrm-agent-gtk.desktop`
+- `argusrm-controller` — `/usr/bin/argusrm-controller`
 
 `CHANGELOG.md` is the source of truth for release versions, release notes,
 and package changelogs. The version being released must also match

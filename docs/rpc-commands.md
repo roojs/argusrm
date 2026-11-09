@@ -39,6 +39,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - Index 2 is the download socket `host:port`. The agent writes that as `download`.
   - Index 3 is the download URL path, including the extension. The agent writes that as `download-path`. The server chooses it from the OS family.
   - Later entries are app-socket listen addresses. The client stores that port as `server`, not the registration port it dialed.
+- A controller that already has an active row for that username and hostname is refused with `This machine is already registered.`
 - ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
 
 ### `Registration.certificate`
@@ -47,6 +48,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: privileged controller calls the server.
 - Arguments `s`: the controller user's operating-system login name.
 - The server requires Unix peer uid `0`.
+- An active controller row for the same login and hostname is refused with `This machine is already registered.`
 - Reply `retval` `o`: `Argus.Shared.Registration.Data`.
   - It contains the private key, client certificate, CA certificate, server name, addresses, and TLS port.
   - The server stores a pending controller row with `status = 0`.

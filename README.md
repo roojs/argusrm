@@ -13,7 +13,7 @@ When the Argus Remote Manager server first starts, it downloads the osquery inst
 To add a managed machine:
 
 1. Install and start the Argus Remote Manager agent. Windows presents registration from the tray application. The Linux steps are in [Setup](docs/setup.md).
-2. On the server, run `sudo argus-controller`. It prints a six-digit PIN and opens registration for 60 seconds.
+2. On the server, run `sudo argusrm-controller-cli`. It prints a six-digit PIN and opens registration for 60 seconds. That command is part of the server package and does not use GTK.
 3. Enter that PIN on the managed machine. The server verifies it, creates a certificate for that machine, and sends the certificate securely to the agent.
 
 The PIN only permits enrollment during that short registration window. At all other times, the server rejects unknown machines and accepts connections only from clients with a previously issued certificate.

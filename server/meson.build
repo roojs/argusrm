@@ -51,7 +51,7 @@ sources = files(
 	'Daemon.vala',
 )
 executable(
-	'argus',
+	'argusrm-server',
 	sources,
 	files('main.vala'),
 	dependencies: deps,
