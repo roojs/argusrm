@@ -238,7 +238,10 @@ namespace Argus.Agent.Linux
 
 		public ServiceStatus status() throws GLib.DBusError, GLib.IOError
 		{
-			return this.link == null ? ServiceStatus.RUNNING : ServiceStatus.CONNECTED;
+			if (this.connection == null || Argus.Agent.Application.connection_down) {
+				return ServiceStatus.RUNNING;
+			}
+			return ServiceStatus.CONNECTED;
 		}
 
 		/**

@@ -40,10 +40,131 @@ namespace Argus.Shared
 		public int status { get; set; default = 0; }
 		public string ip { get; set; default = ""; }
 		public int64 created { get; set; default = 0; }
+		/**
+		 * Unix time of the latest app-socket session.
+		 *
+		 * Set when the session opens and again when it closes.
+		 * Zero when this machine has never connected.
+		 */
+		public int64 last_connected { get; set; default = 0; }
+		/**
+		 * True while an app-socket connection for this row is open.
+		 *
+		 * ''Agent.list'' sets this from the live connections.
+		 * It is not a column.
+		 */
+		public bool connected { get; set; default = false; }
 		public string requester { get; set; default = ""; }
 		public string username { get; set; default = ""; }
 		public string hostname { get; set; default = ""; }
 		public bool is_controller { get; set; default = false; }
+
+		/**
+		 * Name shown for this machine.
+		 *
+		 * Hostname when it is set, otherwise the requester,
+		 * otherwise the row id.
+		 */
+		public string display_name {
+			owned get {
+				if (this.hostname != "") {
+					return this.hostname;
+				}
+				if (this.requester != "") {
+					return this.requester;
+				}
+				return this.id.to_string();
+			}
+		}
+
+		/**
+		 * ''Controller'' or ''Agent''.
+		 */
+		public string display_kind {
+			owned get {
+				if (this.is_controller) {
+					return "Controller";
+				}
+				return "Agent";
+			}
+		}
+
+		/**
+		 * ''Yes'' when {@link status} is 1. ''Pending'' otherwise.
+		 */
+		public string display_registered {
+			owned get {
+				if (this.status == 1) {
+					return "Yes";
+				}
+				return "Pending";
+			}
+		}
+
+		/**
+		 * Local date and time of {@link created}. Empty when unset.
+		 */
+		public string display_created {
+			owned get {
+				if (this.created < 1) {
+					return "";
+				}
+				var when = new GLib.DateTime.from_unix_local(this.created);
+				if (when == null) {
+					return "";
+				}
+				var text = when.format("%Y-%m-%d %H:%M");
+				if (text == null) {
+					return "";
+				}
+				return text;
+			}
+		}
+
+		/**
+		 * ''Yes'' while {@link connected} is true. ''No'' otherwise.
+		 */
+		public string display_connected {
+			owned get {
+				if (this.connected) {
+					return "Yes";
+				}
+				return "No";
+			}
+		}
+
+		/**
+		 * Local date and time of {@link last_connected}.
+		 * Empty when unset.
+		 */
+		public string display_last {
+			owned get {
+				if (this.last_connected < 1) {
+					return "";
+				}
+				var when = new GLib.DateTime.from_unix_local(this.last_connected);
+				if (when == null) {
+					return "";
+				}
+				var text = when.format("%Y-%m-%d %H:%M");
+				if (text == null) {
+					return "";
+				}
+				return text;
+			}
+		}
+
+		/**
+		 * Grid labels are derived. They are not stored or sent.
+		 */
+		public override void bin_write_prop(
+			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop) throws GLib.Error
+		{
+			if (prop.name.has_prefix("display-")) {
+				return;
+			}
+			this.bin_default_write_prop(ctx, prop);
+		}
 
 		/**
 		 * Register the wire name ''Argus.Agent''.
@@ -115,7 +236,8 @@ namespace Argus.Shared
 					requester     TEXT NOT NULL DEFAULT '',
 					username      TEXT NOT NULL DEFAULT '',
 					hostname      TEXT NOT NULL DEFAULT '',
-					is_controller INTEGER NOT NULL DEFAULT 0
+					is_controller INTEGER NOT NULL DEFAULT 0,
+					last_connected INT64 NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
@@ -141,6 +263,14 @@ namespace Argus.Shared
 				"""
 				ALTER TABLE agent ADD COLUMN
 					hostname TEXT NOT NULL DEFAULT '';
+				""",
+				null,
+				out errmsg
+			);
+			db.db.exec(
+				"""
+				ALTER TABLE agent ADD COLUMN
+					last_connected INT64 NOT NULL DEFAULT 0;
 				""",
 				null,
 				out errmsg

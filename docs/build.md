@@ -1,20 +1,76 @@
-# Building Argus
+# Building Argus Remote Manager
 
-Argus uses Meson and Ninja. A normal Linux installation is system-wide:
+Argus Remote Manager uses Meson and Ninja. A source build installs all three Linux programs:
+
+- `argus` — server
+- `argus-agent` — desktop registration window
+- `argus-agent-cli` — command-line agent, and the program the service runs
+- `argus-controller` — local server controller
+
+It also installs the server and agent systemd units and SysV init scripts.
+It does not enable or start either service.
+
+A normal installation is system-wide:
 
 - Programs: `/usr/bin`
 - Configuration: `/etc/argusrm`
 - Runtime data: `/var/lib/argusrm`
 - Service logs: `/var/log/argusrm/server.log` and `/var/log/argusrm/agent.log`
 
-## Requirements
+The project defaults to the system prefix `/usr`, not `/usr/local` or
+`~/.local`.
 
-- Meson 1.0 or newer
-- Ninja
-- A C compiler and the Vala compiler
-- GLib, GObject, GIO, Gee, JSON-GLib, libsoup 3, GTK 4, libadwaita, Avahi, GnuTLS, and SQLite development files
-- The `ocrpc` and `ocsqlite` libraries and Vala API files
-- `ocsqlite.h`; the build also accepts it from a sibling `OLLMchat/build/libocsqlite` directory
+## Dependencies
+
+`libocrpc` and `libocsqlite` come from the
+[roojs package repositories](https://roojs.github.io/repos/). Add that
+repository before installing the packages below. Meson also accepts
+`ocsqlite.h` from a sibling `OLLMchat/build/libocsqlite` directory when
+the header is not installed.
+
+### Debian and Ubuntu
+
+```sh
+sudo apt install \
+  build-essential \
+  meson \
+  ninja-build \
+  pkg-config \
+  valac \
+  libglib2.0-dev \
+  libgee-0.8-dev \
+  libjson-glib-dev \
+  libsoup-3.0-dev \
+  libgnutls28-dev \
+  libsqlite3-dev \
+  libgtk-4-dev \
+  libadwaita-1-dev \
+  libavahi-gobject-dev \
+  libavahi-client-dev \
+  libsecret-1-dev \
+  libgit2-glib-1.0-dev \
+  libnftables-dev \
+  libnl-3-dev \
+  libnl-route-3-dev \
+  libocrpc-dev \
+  libocsqlite-dev
+```
+
+### Fedora
+
+```sh
+sudo dnf install --setopt=install_weak_deps=False \
+  meson ninja-build gcc vala \
+  libocrpc-devel libocsqlite-devel \
+  'pkgconfig(glib-2.0)' 'pkgconfig(gio-unix-2.0)' \
+  'pkgconfig(gee-0.8)' 'pkgconfig(json-glib-1.0)' \
+  'pkgconfig(libsoup-3.0)' 'pkgconfig(gnutls)' \
+  'pkgconfig(sqlite3)' 'pkgconfig(gtk4)' \
+  'pkgconfig(libadwaita-1)' 'pkgconfig(libsecret-1)' \
+  'pkgconfig(avahi-gobject)' 'pkgconfig(avahi-client)' \
+  'pkgconfig(libgit2-glib-1.0)' 'pkgconfig(libnftables)' \
+  'pkgconfig(libnl-3.0)'
+```
 
 ## Configure and build
 
@@ -25,14 +81,21 @@ meson setup build
 meson compile -C build
 ```
 
-The project defaults to the system prefix `/usr`, not `/usr/local` or
-`~/.local`.
-
 ## Install
 
 ```sh
 sudo meson install -C build
 ```
+
+On systemd, reload the unit files:
+
+```sh
+sudo systemctl daemon-reload
+```
+
+On SysV init the scripts are `/etc/init.d/argusrm-server` and
+`/etc/init.d/argusrm-agent`. Starting the server and registering a managed
+machine are in [Setup](setup.md).
 
 ## Uninstall
 

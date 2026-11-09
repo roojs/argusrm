@@ -21,38 +21,41 @@ namespace Argus.Agent.OSQuery
 	/**
 	 * Install osquery, query it, and sync the rows.
 	 *
-	 * {@link start} runs {@link run} on a thread so the service
-	 * loop stays up. Windows and Linux use {@link Download}
-	 * for the registration URL path when ''osqueryi'' is
-	 * missing, then install that file.
-	 * ''OSQuery.sync'' sends one table: the registered row name and
+	 * {@link start} runs {@link run} on the caller. Windows and
+	 * Linux use {@link Download} for the registration URL path
+	 * when ''osqueryi'' is missing, then install that file.
+	 * ''OSQuery.sync'' sends one table on
+	 * {@link Application.connection}: the registered row name and
 	 * the array of row objects.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * new Argus.Agent.OSQuery.Initialize(link).start();
+	 * new Argus.Agent.OSQuery.Initialize(application).start();
 	 * }}}
 	 */
 	public class Initialize : GLib.Object
 	{
 		/**
-		 * App socket opened by {@link Application.open_link}.
+		 * Agent that owns the server connection.
+		 *
+		 * {@link sync_table} sends on {@link Application.connection}
+		 * at that moment.
 		 */
-		private OLLMrpc.Transport.TlsClient link;
+		private Application application;
 
 		/**
-		 * @param link app socket already open
+		 * @param application agent whose server connection is open
 		 */
-		public Initialize(OLLMrpc.Transport.TlsClient link)
+		public Initialize(Application application)
 		{
-			this.link = link;
+			this.application = application;
 		}
 
 		/**
-		 * True while {@link run} is on its thread.
+		 * True while {@link run} is in progress.
 		 *
-		 * {@link start} returns without a second thread when this
+		 * {@link start} returns without a second run when this
 		 * is set.
 		 */
 		private static bool running = false;
@@ -61,7 +64,7 @@ namespace Argus.Agent.OSQuery
 		 * Install osquery when needed, query, and sync.
 		 *
 		 * Returns immediately when a run is already in progress.
-		 * The result is logged from the thread.
+		 * The result is logged from this call.
 		 */
 		public void start()
 		{
@@ -69,17 +72,9 @@ namespace Argus.Agent.OSQuery
 				return;
 			}
 			Initialize.running = true;
-			new GLib.Thread<int>("osquery", () => {
-				var code = this.run();
-				Initialize.running = false;
-				GLib.debug("osquery %d", code);
-				GLib.Idle.add(() => {
-					this.link.watch();
-					GLib.debug("watching app socket");
-					return false;
-				});
-				return code;
-			});
+			var code = this.run();
+			Initialize.running = false;
+			GLib.debug("osquery %d", code);
 		}
 
 		/**
@@ -87,7 +82,7 @@ namespace Argus.Agent.OSQuery
 		 *
 		 * Windows and Linux fetch the registration URL path and
 		 * install that file when ''osqueryi'' is not already on
-		 * the machine. Each sync goes to the app socket,
+		 * the machine. Each sync goes to the server connection,
 		 * including an empty array.
 		 *
 		 * @return zero when every sync succeeds, otherwise an
@@ -196,9 +191,14 @@ namespace Argus.Agent.OSQuery
 			var row_type = OLLMrpc.Bin.alias_to_gtype.get(class_name);
 			new Query(osqueryi, row_type).select("SELECT * FROM " + table, rows);
 			GLib.debug("SELECT * FROM %s %d rows", table, rows.size);
+			var connection = this.application.connection;
+			if (connection == null) {
+				GLib.warning("server connection is not open");
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
 			OLLMrpc.Response response;
 			try {
-				response = this.link.call(new OLLMrpc.Request() {
+				response = connection.call(new OLLMrpc.Request() {
 					method = "OSQuery.sync",
 					args = OLLMrpc.args("so", class_name, rows)
 				});

@@ -81,6 +81,7 @@ if not bindir.startswith('/')
 	bindir = get_option('prefix') / bindir
 endif
 agent_executable = bindir / 'argus-agent'
+agent_cli_executable = bindir / 'argus-agent-cli'
 paths_vala = configure_file(
 	input: 'paths.vala.in',
 	output: 'paths.vala',
@@ -98,7 +99,7 @@ agent_sysvinit = configure_file(
 	input: 'packaging/sysvinit/argusrm-agent.in',
 	output: 'argusrm-agent',
 	configuration: {
-		'AGENT_EXECUTABLE': agent_executable,
+		'AGENT_EXECUTABLE': agent_cli_executable,
 		'AGENT_STATE_DIR': localstatedir / 'lib' / 'argusrm-agent',
 		'LOG_DIR': localstatedir / 'log' / 'argusrm',
 	},

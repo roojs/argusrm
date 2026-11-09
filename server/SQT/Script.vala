@@ -168,7 +168,7 @@ namespace Argus.Server.SQT
 				index.add_path(path);
 				index.write();
 				var tree = repository.lookup_tree(index.write_tree());
-				var signature = new Ggit.Signature.now("Argus", "argus@localhost");
+				var signature = new Ggit.Signature.now("Argus RM", "argus@localhost");
 				Ggit.Commit[] parents = {};
 				if (!repository.is_empty()) {
 					parents += repository.get_head().lookup() as Ggit.Commit;
@@ -252,7 +252,7 @@ namespace Argus.Server.SQT
 				index.add_path(rows.get(0).path);
 				index.write();
 				var tree = repository.lookup_tree(index.write_tree());
-				var signature = new Ggit.Signature.now("Argus", "argus@localhost");
+				var signature = new Ggit.Signature.now("Argus RM", "argus@localhost");
 				Ggit.Commit[] parents = { repository.get_head().lookup() as Ggit.Commit };
 				repository.create_commit("HEAD", signature, signature, null,
 					"Update " + rows.get(0).path, tree, parents);

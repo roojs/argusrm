@@ -16,7 +16,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Controller
+namespace Argus.Controller.Dialog
 {
 	/**
 	 * Startup window for saved server connections.
@@ -36,11 +36,15 @@ namespace Argus.Controller
 	 * here. A saved server is used only when that certificate
 	 * is present. Success shows ''Server registered'', then
 	 * probes the saved addresses and opens the main window.
+		 * {@link Tab.Settings} opens this again. Pass ''add'' to
+		 * register another server. Pass ''choose'' after disconnect
+		 * so one live server stays a choice. Pass a saved name to
+		 * open that server and replace the window on screen.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var bootstrap = new Argus.Controller.Bootstrap(app);
+	 * var bootstrap = new Argus.Controller.Dialog.Bootstrap(app);
 	 * bootstrap.present(null);
 	 * }}}
 	 */
@@ -68,16 +72,45 @@ namespace Argus.Controller
 		private int generation = 0;
 		private uint probe_offer = 0;
 		private bool running = true;
+		/**
+		 * Saved server to open. Empty checks every saved server.
+		 *
+		 * ''add'' is not stored here. That request sets {@link adding}.
+		 */
+		public string prefer = "";
+		/**
+		 * True when Settings asked to register another server.
+		 *
+		 * The saved rows stay loaded so registration can append one.
+		 * The probe does not run until that registration finishes.
+		 */
+		public bool adding = false;
+		/**
+		 * True after disconnect, before a server is chosen.
+		 *
+		 * One answering server stays on the choice page. The
+		 * window does not open until that choice is clicked.
+		 */
+		public bool choose = false;
 
 		/**
 		 * Create the check window and start {@link check}.
 		 *
 		 * @param app the controller process
+		 * @param prefer saved server name, ''add'', ''choose'', or empty
 		 */
-		public Bootstrap(Application app)
+		public Bootstrap(Application app, string prefer = "")
 		{
 			this.app = app;
-			Argus.Shared.Notice.edge(this);
+			this.prefer = prefer;
+			if (prefer == "add") {
+				this.adding = true;
+				this.prefer = "";
+			}
+			if (prefer == "choose") {
+				this.choose = true;
+				this.prefer = "";
+			}
 			this.title = "Argus Remote Manager";
 			this.set_content_height(280);
 			this.set_content_width(480);
@@ -130,7 +163,7 @@ namespace Argus.Controller
 			this.set_child(content);
 			this.closed.connect(() => {
 				this.running = false;
-				if (this.opened) {
+				if (this.opened || this.app.running_window) {
 					return;
 				}
 				this.app.quit();
@@ -154,7 +187,9 @@ namespace Argus.Controller
 			this.answered.clear();
 			this.next = 0;
 			this.address_index = 0;
-			this.page("Checking connections", "", {}, {});
+			if (!this.adding) {
+				this.page("Checking connections", "", {}, {});
+			}
 			var path = GLib.Path.build_filename(
 				GLib.Environment.get_user_config_dir(), "argusrm", "connections.json");
 			if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
@@ -198,7 +233,7 @@ namespace Argus.Controller
 				}
 				this.connections.add((Connection) obj);
 			}
-			if (this.connections.size < 1) {
+			if (this.connections.size < 1 || this.adding) {
 				this.page("Argus Remote Manager", "",
 					{ "Log in to local machine", "Connect a remote machine" },
 					{ "register", "remote" });
@@ -261,6 +296,11 @@ namespace Argus.Controller
 			}
 			while (this.next < this.connections.size) {
 				var connection = this.connections.get(this.next);
+				if (this.prefer != "" && connection.name != this.prefer) {
+					this.next++;
+					this.address_index = 0;
+					continue;
+				}
 				if (!this.credentials.has_key(connection.name) ||
 					connection.port < 1 || connection.port > 65535 ||
 					this.address_index >= connection.addresses.length) {
@@ -290,22 +330,32 @@ namespace Argus.Controller
 					}
 					this.reached.add(connection);
 					this.answered.set(connection.name, host);
+					if (this.prefer != "" && connection.name == this.prefer) {
+						this.use(connection);
+						return;
+					}
 					this.next++;
 					this.address_index = 0;
 					this.probe(ticket);
 				});
 				return;
 			}
-			if (this.reached.size == 1) {
+			if (this.reached.size == 1 && !this.choose) {
 				this.use(this.reached.get(0));
 				return;
 			}
-			if (this.reached.size > 1) {
+			if (this.reached.size > 0) {
 				string[] labels = {};
+				string[] responses = {};
 				foreach (var connection in this.reached) {
 					labels += connection.name;
+					responses += connection.name;
 				}
-				this.page("Choose a server", "", labels, labels);
+				if (this.choose) {
+					labels += "Add a connection";
+					responses += "remote";
+				}
+				this.page("Choose a server", "", labels, responses);
 				return;
 			}
 			this.page("Could not connect", "The saved server did not answer.",
@@ -767,7 +817,6 @@ namespace Argus.Controller
 				tls.certificate = certificate;
 				tls.database = trust;
 			});
-			this.app.rpc = rpc;
 			rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
 				args = OLLMrpc.args("is", 1, "argus-controller")
@@ -782,10 +831,22 @@ namespace Argus.Controller
 						{ "Retry", "Log in to register" }, { "retry", "register" });
 					return;
 				}
-				var window = new Window(this.app, connection, issued);
-				this.app.window = window;
+				var app = this.app;
+				var previous = app.window;
+				var replace = app.running_window;
+				if (replace) {
+					app.rpc.disconnect();
+					previous.leaving = true;
+				}
+				var window = new Window(app, connection, issued);
+				app.rpc = rpc;
+				app.running_window = true;
+				app.window = window;
 				window.present();
 				this.close();
+				if (replace) {
+					previous.close();
+				}
 			});
 		}
 	}

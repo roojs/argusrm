@@ -21,7 +21,7 @@ namespace Argus.Controller
 	/**
 	 * Controller for Argus.
 	 *
-	 * With no command on a desktop, {@link Bootstrap} checks saved
+	 * With no command on a desktop, {@link Dialog.Bootstrap} checks saved
 	 * connections and may open {@link Window}. {@link command_line}
 	 * hellos on the Unix socket, then runs one of {@link Pin},
 	 * {@link Agents}, or {@link Command}. No flag on a headless
@@ -56,6 +56,13 @@ namespace Argus.Controller
 		 * Main window opened after a connection answers.
 		 */
 		public Window window { get; set; }
+		/**
+		 * True while {@link Window} is on screen.
+		 *
+		 * {@link Dialog.Bootstrap} does not quit when this is true.
+		 * Disconnect clears it, then the startup check opens again.
+		 */
+		public bool running_window = false;
 		public GLib.MainLoop loop { get; set; }
 		public int code { get; set; default = 1; }
 
@@ -77,7 +84,7 @@ namespace Argus.Controller
 		/**
 		 * Parse the flags, then run one command or the startup window.
 		 *
-		 * No flag on a desktop opens {@link Bootstrap}. No flag on a
+		 * No flag on a desktop opens {@link Dialog.Bootstrap}. No flag on a
 		 * headless root machine opens registration. The Unix socket
 		 * is ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
 		 *
@@ -92,6 +99,8 @@ namespace Argus.Controller
 			Argus.Shared.Registration.Data.rpc_register();
 			Argus.Shared.SQT.Task.rpc_register();
 			Argus.Shared.SQT.TaskTarget.rpc_register();
+			Argus.Shared.SQT.Script.rpc_register();
+			Argus.Shared.SQT.ScriptRepository.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			pin = false;
 			agents = false;
@@ -139,8 +148,8 @@ namespace Argus.Controller
 					}
 				}
 				if (!headless) {
-					Gtk.init();
-					var bootstrap = new Bootstrap(this);
+					Adw.init();
+					var bootstrap = new Dialog.Bootstrap(this);
 					bootstrap.present(null);
 					this.hold();
 					return 0;
@@ -188,7 +197,7 @@ namespace Argus.Controller
 			this.loop = new GLib.MainLoop();
 			this.code = 1;
 			if (give_certificate == "") {
-				this.cli.print("Connecting to the local Argus server...\n");
+				this.cli.print("Connecting to the local Argus Remote Manager server...\n");
 			}
 			this.rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
@@ -199,7 +208,7 @@ namespace Argus.Controller
 		}
 
 		/**
-		 * Handle the completed connection to the local Argus server.
+		 * Handle the completed connection to the local Argus Remote Manager server.
 		 *
 		 * @param rpc the Unix client
 		 * @param res the finished connection

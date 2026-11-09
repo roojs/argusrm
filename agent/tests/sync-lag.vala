@@ -114,18 +114,18 @@ int main(string[] args)
 		}
 		return 0;
 	});
-	var link = new Argus.Agent.TlsClient("127.0.0.1", (uint16) inet.port) {
+	var connection = new Argus.Agent.TlsClient("127.0.0.1", (uint16) inet.port) {
 		accept_any = true
 	};
 	try {
-		link.open();
+		connection.open();
 	} catch (GLib.Error e) {
 		GLib.printerr("%s\n", e.message);
 		return 1;
 	}
 	var loop = new GLib.MainLoop();
 	var code = 0;
-	link.watch();
+	connection.watch();
 	new GLib.Thread<int>("call", () => {
 		var n = 0;
 		while (n < 4) {
@@ -133,7 +133,7 @@ int main(string[] args)
 			GLib.Thread.usleep(200 * 1000);
 			var started = GLib.get_monotonic_time();
 			try {
-				link.call(new OLLMrpc.Request() {
+				connection.call(new OLLMrpc.Request() {
 					method = "OSQuery.sync",
 					id = n
 				});

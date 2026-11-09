@@ -16,26 +16,26 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Controller
+namespace Argus.Controller.Dialog
 {
 	/**
 	 * One-minute window that shows a PIN while a machine pairs.
 	 *
-	 * {@link open} asks the controller's open server connection for
+	 * {@link open} asks the controller's server connection for
 	 * a six-digit number and counts down from sixty seconds.
+	 * The window opens that connection again after a drop.
 	 * ''event.pair'' says ''number rejected'' or closes after one
 	 * machine pairs. The title bar closes the dialog and clears
-	 * the number. {@link pairing} is true only while the dialog
-	 * is open.
+	 * the number. {@link pairing} is true while the dialog is open.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var pair = new Argus.Controller.PairingDialog(window);
+	 * var pair = new Argus.Controller.Dialog.Pairing(window);
 	 * pair.open("Agent");
 	 * }}}
 	 */
-	public class PairingDialog : Adw.Dialog
+	public class Pairing : Adw.Dialog
 	{
 		private unowned Window window;
 		private Gtk.Label title_label;
@@ -56,10 +56,9 @@ namespace Argus.Controller
 		/**
 		 * @param window main window that presents this dialog
 		 */
-		public PairingDialog(Window window)
+		public Pairing(Window window)
 		{
 			this.window = window;
-			Argus.Shared.Notice.edge(this);
 			this.title = "Register";
 			this.set_content_width(560);
 			var css = new Gtk.CssProvider();
@@ -114,7 +113,7 @@ namespace Argus.Controller
 		}
 
 		/**
-		 * Ask the open server connection for a number.
+		 * Ask the server connection for a number.
 		 *
 		 * @param kind ''Agent'' or ''Controller''
 		 */
@@ -125,10 +124,21 @@ namespace Argus.Controller
 			}
 			var rpc = this.window.app.rpc;
 			if (rpc == null || !rpc.connected) {
-				var down = new Argus.Shared.Notice(
-					"Could not start pairing", "The server connection is not open.");
-				down.add_response("ok", "OK");
-				down.present(this.window);
+				this.refuse("The server connection is not open.");
+				return;
+			}
+			this.begin(kind);
+		}
+
+		/**
+		 * Show the dialog and ask ''Agent.offer'' for the six digits.
+		 *
+		 * @param kind ''Agent'' or ''Controller''
+		 */
+		private void begin(string kind)
+		{
+			var rpc = this.window.app.rpc;
+			if (rpc == null || !rpc.connected || this.pairing) {
 				return;
 			}
 			if (!this.wired) {
@@ -160,6 +170,18 @@ namespace Argus.Controller
 			this.generation++;
 			this.present(this.window);
 			this.arm();
+		}
+
+		/**
+		 * Tell the user that pairing did not start.
+		 *
+		 * @param message reason under the heading
+		 */
+		private void refuse(string message)
+		{
+			var down = new Argus.Shared.Notice("Could not start pairing", message);
+			down.add_response("ok", "OK");
+			down.present(this.window);
 		}
 
 		/**

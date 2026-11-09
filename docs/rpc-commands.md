@@ -58,7 +58,19 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: controller calls the server.
 - Arguments: none.
 - Reply `retval` `o`: an array of `Argus.Shared.Agent` rows, at most twenty.
-- 💩 The controller prints `id` and `requester`.
+- `status` is `1` when the machine is registered, and `0` while a controller registration is still pending.
+- `created` is the unix time the row was registered.
+- `last_connected` is the unix time of the latest app-socket session. `0` means it has never connected.
+- `connected` is true while that machine's app socket is open. It is not a database column.
+- 💩 The command line prints `id` and `requester`.
+
+### `Agent.remove`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent.id`.
+- Deletes that row, closes its app socket, and refreshes the address allowlist.
+- An unknown id is `unknown machine`. A caller that is not a controller is `controller only`.
 
 ### `OSQuery.sync`
 
@@ -95,7 +107,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 🔷 The connected agent has a class that listens for notifications.
 - 🔷 The command class deals with the command notifications.
 - 🔷 Every notification has a method. The listener switches on it.
-- 💩 `Application.notification` in `agent/Application.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Any other method returns. After `open_link` the process connects `TlsClient.notification` and calls `TlsClient.watch`. [2.4-DONE-listen.md](plans/done/2.4-DONE-listen.md).
+- 💩 `Application.notification` in `agent/Application.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Any other method returns. After `open_connection` the process connects `TlsClient.notification` and calls `TlsClient.watch`. [2.4-DONE-listen.md](plans/done/2.4-DONE-listen.md).
 
 - 🔷 A notification is for one connection. There are two deliveries.
   - A broadcast notification goes to every connection.

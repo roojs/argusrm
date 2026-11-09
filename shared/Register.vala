@@ -95,7 +95,7 @@ namespace Argus.Shared
 		public string hostname = "";
 
 		/**
-		 * Register this machine while the Argus window is open.
+		 * Register this machine while the Argus RM window is open.
 		 *
 		 * Sends ''pin'', the certificate request, ''requester'',
 		 * the OS family, and the controller identity fields.
@@ -110,8 +110,8 @@ namespace Argus.Shared
 		 * socket, the download URL path, and the app socket. A
 		 * stored certificate is replaced.
 		 *
-		 * @param host Argus address
-		 * @param port Argus port
+		 * @param host Argus Remote Manager address
+		 * @param port Argus Remote Manager port
 		 * @param pin number from the registration window
 		 * @param requester device string stored with the machine
 		 * @return zero when registration succeeds, otherwise an
@@ -180,10 +180,10 @@ namespace Argus.Shared
 			}
 			OLLMrpc.Response response;
 			try {
-				var link = new OLLMrpc.Transport.TlsClient(host, port) {
+				var connection = new OLLMrpc.Transport.TlsClient(host, port) {
 					accept_any = true
 				};
-				response = link.call(new OLLMrpc.Request() {
+				response = connection.call(new OLLMrpc.Request() {
 					method = "Agent.request_registration",
 					args = OLLMrpc.args("ssssbss", pin, csr, requester,
 						family, this.is_controller, this.username, this.hostname)

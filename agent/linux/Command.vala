@@ -35,7 +35,7 @@ namespace Argus.Agent
 	 * var order = new Argus.Agent.Command();
 	 * order.identifier = 1;
 	 * order.command = "true";
-	 * order.run(link);
+	 * order.run(connection);
 	 * }}}
 	 */
 	public class Command : GLib.Object, OLLMrpc.Bin.Serializable
@@ -88,9 +88,9 @@ namespace Argus.Agent
 		private GLib.Subprocess child;
 
 		/**
-		 * App socket for {@link Command.stdout} and {@link Command.stderr}.
+		 * Server connection for {@link Command.stdout} and {@link Command.stderr}.
 		 */
-		private OLLMrpc.Transport.TlsClient link;
+		private OLLMrpc.Transport.TlsClient connection;
 
 		/**
 		 * Stdin of {@link child}. Left open so a later write can reach the
@@ -115,11 +115,11 @@ namespace Argus.Agent
 		 * ''Command.stdout''. Stderr lines are ''Command.stderr''. Each call
 		 * is that chunk.
 		 *
-		 * @param link app socket already open
+		 * @param connection server connection already open
 		 */
-		public void run(OLLMrpc.Transport.TlsClient link)
+		public void run(OLLMrpc.Transport.TlsClient connection)
 		{
-			this.link = link;
+			this.connection = connection;
 			string[] argv = { "sh", "-c", this.command };
 			var launcher = new GLib.SubprocessLauncher(
 				GLib.SubprocessFlags.STDIN_PIPE |
@@ -211,7 +211,7 @@ namespace Argus.Agent
 					GLib.warning("%s", e.message);
 				}
 				try {
-					this.link.call(new OLLMrpc.Request() {
+					this.connection.call(new OLLMrpc.Request() {
 						method = "Command.ended",
 						args = OLLMrpc.args("ii", this.identifier, code)
 					});
@@ -283,7 +283,7 @@ namespace Argus.Agent
 		{
 			Command.send_lock.lock();
 			try {
-				var response = this.link.call(new OLLMrpc.Request() {
+				var response = this.connection.call(new OLLMrpc.Request() {
 					method = method,
 					args = OLLMrpc.args("is", this.identifier, text)
 				});

@@ -39,7 +39,7 @@ namespace Argus.Agent
 		internal static string after = "";
 		internal static GLib.MainLoop loop;
 
-		public void run(Argus.Agent.TlsClient link)
+		public void run(Argus.Agent.TlsClient connection)
 		{
 			GLib.debug("command %d", this.identifier);
 			if (Command.during == "") {
@@ -187,30 +187,30 @@ int main(string[] args)
 		GLib.Thread.usleep(2 * 1000000);
 		return 0;
 	});
-	var link = new Argus.Agent.TlsClient("127.0.0.1", (uint16) inet.port) {
+	var connection = new Argus.Agent.TlsClient("127.0.0.1", (uint16) inet.port) {
 		accept_any = true
 	};
 	try {
-		link.open();
+		connection.open();
 	} catch (GLib.Error e) {
 		GLib.printerr("%s\n", e.message);
 		return 1;
 	}
 	Argus.Agent.Command.loop = new GLib.MainLoop();
-	link.notification.connect((notif) => {
+	connection.notification.connect((notif) => {
 		if (notif.method != "agent.run" || notif.args.size == 0) {
 			return;
 		}
 		var command = notif.args.get(0).get_object() as Argus.Agent.Command;
-		command.run(link);
+		command.run(connection);
 	});
-	link.watch();
+	connection.watch();
 	new GLib.Thread<int>("call", () => {
 		var n = 0;
 		while (n < 4) {
 			n++;
 			try {
-				link.call(new OLLMrpc.Request() {
+				connection.call(new OLLMrpc.Request() {
 					method = "OSQuery.sync",
 					id = n
 				});

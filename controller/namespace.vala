@@ -19,9 +19,11 @@
 /**
  * Controller for Argus.
  *
- * With no command on a desktop, {@link Bootstrap} checks saved
- * connections and may open {@link Window}. {@link Application}
- * hellos on the Unix socket, then runs {@link Pin}, {@link Agents},
+ * With no command on a desktop, {@link Dialog.Bootstrap} checks saved
+ * connections and may open {@link Window}. {@link TabList} is the
+ * sidebar. {@link Tab.Settings} is the page at the bottom of that
+ * list. {@link Application} hellos on the Unix socket, then runs
+ * {@link Pin}, {@link Agents},
  * or {@link Command}. ''--agents'' prints ''id'' and
  * ''requester''. ''--agent'' and ''--command'' run a line on
  * that machine.

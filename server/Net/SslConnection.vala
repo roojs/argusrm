@@ -88,6 +88,7 @@ namespace Argus.Server.Net
 				if (row.status == 0 && row.is_controller &&
 					request.method == "RPC-Daemon.hello") {
 					row.status = 1;
+					row.last_connected = new GLib.DateTime.now_utc().to_unix();
 					cert_q.updateById(row);
 					this.app.db.backupDB();
 					this.agent_id = row.id;
@@ -98,6 +99,26 @@ namespace Argus.Server.Net
 				error = new OLLMrpc.Error.CERT_NOT_REGISTERED("certificate not registered")
 			});
 			return false;
+		}
+
+		/**
+		 * Record the close time, then stop the socket.
+		 */
+		public override void stop()
+		{
+			if (this.running && this.agent_id > 0) {
+				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
+				var int_binds = new Gee.HashMap<string, int>();
+				var text_binds = new Gee.HashMap<string, string>();
+				int_binds.set("id", (int) this.agent_id);
+				Argus.Shared.Agent.query(this.app.db).selectWhere(
+					"WHERE id = $id", int_binds, text_binds, rows);
+				if (rows.size > 0) {
+					rows.get(0).last_connected = new GLib.DateTime.now_utc().to_unix();
+					Argus.Shared.Agent.query(this.app.db).updateById(rows.get(0));
+				}
+			}
+			base.stop();
 		}
 	}
 }

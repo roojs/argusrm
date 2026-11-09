@@ -863,7 +863,7 @@
 			}
 ```
 
-### 14. `controller/Pin.vala` — class doc
+### 14. `controller/cli/Pin.vala` — class doc
 
 **Why:** The PIN lines stay. After them, the remote-terminal command uses the address from `Interfaces.public_ip()`.
 
@@ -888,7 +888,7 @@
 	 * address from that reply. {@link Application} already hellos.
 ```
 
-### 15. `controller/Pin.vala` — `run()`: remote-terminal line
+### 15. `controller/cli/Pin.vala` — `run()`: remote-terminal line
 
 **Why:** Keep the PIN line and the sixty-second line. After them, print the remote command. `Agent.offer` returns a string array: the six digits, then the address from `Interfaces.public_ip()`.
 
@@ -979,11 +979,11 @@ sudo argus-agent --server %s --pin %s
 			});
 ```
 
-### 17. `controller/PairingDialog.vala` — `arm()` reads the PIN from the array
+### 17. `controller/dialog/Pairing.vala` — `arm()` reads the PIN from the array
 
 **Why:** `Agent.offer` no longer returns a single string. The dialog still shows the six digits, which are the first element.
 
-**Where:** `PairingDialog.arm`, the success path that reads `response.retval`.
+**Where:** `Dialog.Pairing.arm`, the success path that reads `response.retval`.
 
 **Depends on:** §16
 

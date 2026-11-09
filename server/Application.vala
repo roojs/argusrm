@@ -280,7 +280,7 @@ namespace Argus.Server
 				cert_pem = "server-ca.pem",
 				key_pem = "server-ca-key.pem",
 				trust_pem = "server-ca.pem",
-				cn = "Argus Server CA",
+				cn = "Argus RM Server CA",
 				certificate_authority = true
 			};
 			ca.ensure();

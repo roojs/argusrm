@@ -46,7 +46,8 @@ namespace Argus.Server
 				"Agent", typeof(Agent),
 				"request_registration", "ssssbss",
 				"offer", "",
-				"list", ""
+				"list", "",
+				"remove", "i"
 			);
 		}
 
@@ -377,14 +378,68 @@ namespace Argus.Server
 		/**
 		 * List registered machines.
 		 *
+		 * {@link Argus.Shared.Agent.connected} is true while that
+		 * machine's app socket is open.
+		 *
 		 * @param request inbound RPC on the Unix socket
 		 */
 		public void list(OLLMrpc.Request request)
 		{
 			var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 			Argus.Shared.Agent.query(this.app.db).select("LIMIT 20", rows);
+			var live = new Gee.HashMap<int, bool>();
+			foreach (var connection in this.app.ssl_listen.connections) {
+				if (!connection.running || connection.agent_id < 1) {
+					continue;
+				}
+				live.set((int) connection.agent_id, true);
+			}
+			foreach (var row in rows) {
+				row.connected = live.has_key((int) row.id);
+			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Remove one machine.
+		 *
+		 * A controller calls this. The row is deleted, its app
+		 * socket is closed, and the allowlist is refreshed.
+		 * An unknown id is an error.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param id ''agent.id''
+		 */
+		public void remove(OLLMrpc.Request request, int id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.Agent>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			int_binds.set("id", id);
+			Argus.Shared.Agent.query(this.app.db).selectWhere(
+				"WHERE id = $id", int_binds, text_binds, rows);
+			if (rows.size < 1) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown machine")
+				});
+				return;
+			}
+			Argus.Shared.Agent.query(this.app.db).deleteId(id);
+			foreach (var connection in this.app.ssl_listen.connections) {
+				if (connection.agent_id != id) {
+					continue;
+				}
+				connection.stop();
+			}
+			this.app.db.backupDB();
+			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
 			});
 		}

@@ -366,7 +366,7 @@ namespace Argus.Agent.Win32
 				return;
 			}
 			if (!this.gtk_up) {
-				Gtk.init();
+				Adw.init();
 				this.gtk_up = true;
 			}
 			if (this.window_up) {

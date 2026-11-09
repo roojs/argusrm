@@ -5,8 +5,8 @@
 <policyconfig>
   <vendor>RooJS</vendor>
   <action id="org.roojs.ArgusController.register">
-    <description>Register this Argus controller</description>
-    <message>Authentication is required to register this Argus controller</message>
+    <description>Register this Argus Remote Manager controller</description>
+    <message>Authentication is required to register this Argus Remote Manager controller</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>

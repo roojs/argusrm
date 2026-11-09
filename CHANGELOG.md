@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Argus Remote Management are documented here.
+All notable changes to Argus Remote Manager are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and release tags use [Semantic Versioning](https://semver.org/).
@@ -17,6 +17,7 @@ package changelogs.
 
 ### Added
 
+- The agent is packaged as argusrm-agent-cli and argusrm-agent-gtk. Servers install the command-line agent, `argus-agent-cli`, which does not link GTK. `argus-agent` is the registration window.
 - The server package includes a SysV init script. Setup covers systemd and SysV init, including an LXC container that is not running systemd.
 - Packages install from the RooJS repository by name.
 
@@ -24,11 +25,11 @@ package changelogs.
 
 ### Added
 
-- Argus server, Linux agent, and controller, packaged as argusrm-server, argusrm-agent, and argusrm-controller.
+- Argus Remote Manager server, Linux agent, and controller, packaged as argusrm-server, argusrm-agent, and argusrm-controller.
 - A managed machine enrolls with a short-lived PIN and stores a client certificate. The agent service stays stopped until that registration finishes.
 - Linux agent service files for systemd and SysV init, plus Polkit policies for agent registration and a local controller certificate.
 - The server downloads osquery for the agent. The agent reports system, CPU, logged-in user, and network interface identity.
-- The controller can open enrollment, list agents, and run one command on one agent. Output is streamed back and stored under the Argus log directory.
+- The controller can open enrollment, list agents, and run one command on one agent. Output is streamed back and stored under the Argus Remote Manager log directory.
 - The server keeps a script library, cloned script repositories, and a task scheduler. A one-line controller command is a task.
 - The server applies an nftables allowlist on its external port and accepts enrolled agents and controllers.
 - On a desktop, the controller can sign in to the local server or enroll with a remote one, then open its window.

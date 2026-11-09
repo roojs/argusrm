@@ -1,6 +1,6 @@
 !include "MUI2.nsh"
 
-!define PRODUCT_NAME "Argus Agent"
+!define PRODUCT_NAME "Argus RM Agent"
 !define PRODUCT_PUBLISHER "roojs"
 !define SERVICE_NAME "ArgusAgent"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\ArgusAgent"
@@ -29,7 +29,7 @@ Unicode true
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
-Section "Argus Agent" SecMain
+Section "Argus RM Agent" SecMain
   SectionIn RO
 
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
@@ -39,12 +39,12 @@ Section "Argus Agent" SecMain
   SetOutPath "$INSTDIR"
   File /r "${INST_SRC}\*.*"
 
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" create ${SERVICE_NAME} binPath= "$\"$INSTDIR\argus-agent.exe$\"" start= auto DisplayName= "$\"Argus Remote Management Agent$\""'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" description ${SERVICE_NAME} "$\"Argus managed-machine agent$\""'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" create ${SERVICE_NAME} binPath= "$\"$INSTDIR\argus-agent.exe$\"" start= auto DisplayName= "$\"Argus RM Agent$\""'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" description ${SERVICE_NAME} "$\"Argus Remote Manager agent for a managed machine$\""'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" start ${SERVICE_NAME}'
 
-  CreateDirectory "$SMPROGRAMS\Argus"
-  CreateShortCut "$SMPROGRAMS\Argus\Register this machine.lnk" \
+  CreateDirectory "$SMPROGRAMS\Argus RM"
+  CreateShortCut "$SMPROGRAMS\Argus RM\Register this machine.lnk" \
     "$INSTDIR\argus-tray.exe"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -62,8 +62,8 @@ Section "Uninstall"
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ${SERVICE_NAME}'
   ExecWait 'taskkill /F /IM argus-tray.exe'
 
-  Delete "$SMPROGRAMS\Argus\Register this machine.lnk"
-  RMDir "$SMPROGRAMS\Argus"
+  Delete "$SMPROGRAMS\Argus RM\Register this machine.lnk"
+  RMDir "$SMPROGRAMS\Argus RM"
   DeleteRegKey HKLM "${UNINST_KEY}"
   RMDir /r "$INSTDIR"
 SectionEnd

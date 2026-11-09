@@ -42,12 +42,12 @@ namespace Argus.Agent
 	public class Application : GLib.Application
 	{
 		/**
-		 * Argus address for registration. Empty when not registering.
+		 * Argus Remote Manager address for registration. Empty when not registering.
 		 */
 		public string host { get; set; default = ""; }
 
 		/**
-		 * Argus port for registration. Zero when not registering.
+		 * Argus Remote Manager port for registration. Zero when not registering.
 		 */
 		public int port { get; set; default = 0; }
 
@@ -66,9 +66,19 @@ namespace Argus.Agent
 		}
 
 		/**
-		 * App socket. Null until {@link open_link}.
+		 * Server connection. Null until {@link open_connection}.
 		 */
-		internal OLLMrpc.Transport.TlsClient? link { get; private set; }
+		internal OLLMrpc.Transport.TlsClient? connection { get; private set; }
+
+		/**
+		 * True when the last open of {@link connection} failed.
+		 *
+		 * {@link attach_connection} tries again on the next retry.
+		 */
+		internal static bool connection_down = false;
+
+		private uint connection_check_id = 0;
+		private bool connecting = false;
 
 		protected static bool opt_debug;
 		protected static bool opt_debug_critical;
@@ -85,9 +95,9 @@ namespace Argus.Agent
 		protected const GLib.OptionEntry[] app_options = {
 			{ "debug", 'd', 0, GLib.OptionArg.NONE, ref opt_debug, "Enable debug output", null },
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
-			{ "host", 0, 0, GLib.OptionArg.STRING, ref opt_host, "Argus address", "HOST" },
-			{ "port", 0, 0, GLib.OptionArg.INT, ref opt_port, "Argus port", "PORT" },
-			{ "server", 0, 0, GLib.OptionArg.STRING, ref opt_server, "Argus server IP address", "IP" },
+			{ "host", 0, 0, GLib.OptionArg.STRING, ref opt_host, "Argus Remote Manager address", "HOST" },
+			{ "port", 0, 0, GLib.OptionArg.INT, ref opt_port, "Argus Remote Manager port", "PORT" },
+			{ "server", 0, 0, GLib.OptionArg.STRING, ref opt_server, "Argus Remote Manager server IP address", "IP" },
 			{ "pin", 0, 0, GLib.OptionArg.STRING, ref opt_pin, "Number from the registration window", "PIN" },
 			{ "service", 0, 0, GLib.OptionArg.NONE, ref opt_service, "Run as managed service", null },
 			{ null }
@@ -102,17 +112,17 @@ namespace Argus.Agent
 		 * Service mode is not used: it rejects arguments.
 		 */
 		/**
-		 * Open the app socket from the stored server and certificate.
+		 * Open the server connection from the stored server and certificate.
 		 *
-		 * A second call returns the socket already open.
+		 * A second call returns the connection already open.
 		 * Registration wrote those certificate files.
 		 *
-		 * @return the socket, or null when it cannot be opened
+		 * @return the connection, or null when it cannot be opened
 		 */
-		internal OLLMrpc.Transport.TlsClient? open_link()
+		internal OLLMrpc.Transport.TlsClient? open_connection()
 		{
-			if (this.link != null) {
-				return this.link;
+			if (this.connection != null) {
+				return this.connection;
 			}
 #if LINUX
 			var dir = Argus.AGENT_DATA_DIR;
@@ -153,8 +163,48 @@ namespace Argus.Agent
 				GLib.warning("%s", e.message);
 				return null;
 			}
-			this.link = opened;
-			return this.link;
+			this.connection = opened;
+			return this.connection;
+		}
+
+		/**
+		 * Keep {@link connection} open.
+		 *
+		 * The first call starts a thirty-second retry. The connection
+		 * that is still up is left as it is. A failed open is tried
+		 * once and then left until the next retry.
+		 */
+		internal void attach_connection()
+		{
+			if (this.connection_check_id == 0) {
+				/* Retry 30 seconds after the previous try. */
+				this.connection_check_id = GLib.Timeout.add_seconds(30, () => {
+					if (this.connection != null && !Application.connection_down) {
+						return true;
+					}
+					this.attach_connection();
+					return true;
+				});
+			}
+			if (this.connecting) {
+				return;
+			}
+			if (this.connection != null && !Application.connection_down) {
+				return;
+			}
+			this.connecting = true;
+			this.connection = null;
+			Application.connection_down = false;
+			var opened = this.open_connection();
+			if (opened == null) {
+				Application.connection_down = true;
+				this.connecting = false;
+				return;
+			}
+			opened.notification.connect(this.notification);
+			opened.watch();
+			GLib.debug("watching the server connection");
+			this.connecting = false;
 		}
 
 		public Application()
@@ -179,7 +229,8 @@ namespace Argus.Agent
 		 * registers. The Android app icon opens the registration
 		 * window, and the box says this phone is already registered.
 		 * A registered process starts
-		 * {@link OSQuery.Initialize} and watches the app socket.
+		 * {@link OSQuery.Initialize} and watches the server connection.
+		 * A failed open waits and is tried again every thirty seconds.
 		 * The Android {@link OSQuery.Initialize} does not query.
 		 * With none of those, the process browses and stays up.
 		 *
@@ -245,24 +296,15 @@ namespace Argus.Agent
 					return 1;
 				}
 			}
-			var open_window = false;
 #if ANDROID
 			if (this.host == "" && this.port <= 0) {
-				open_window = true;
-			}
-#endif
-			if (open_window) {
 				Gtk.init();
 				var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 				var show_box = GLib.FileUtils.test(cert, GLib.FileTest.EXISTS);
 				if (show_box) {
-					var already = "This machine is already registered.";
-#if ANDROID
-					already = "This phone is already registered.";
-#endif
 					var alert = new Adw.AlertDialog(
 						"Connect to management server",
-						already);
+						"This phone is already registered.");
 					alert.add_response("ok", "OK");
 					alert.response.connect((response) => {
 						this.quit();
@@ -280,6 +322,7 @@ namespace Argus.Agent
 				this.hold();
 				return 0;
 			}
+#endif
 			if (this.host != "" || this.port > 0) {
 				if (this.host == "" || this.port <= 0 || this.pin == "") {
 					command_line.printerr("registration needs a host, a port, and a pin\n");
@@ -293,13 +336,7 @@ namespace Argus.Agent
 					command_line.printerr("registration failed: %d\n", code);
 					return code;
 				}
-				var link = this.open_link();
-				if (link != null) {
-					new OSQuery.Initialize(link).start();
-					link.notification.connect(this.notification);
-					link.watch();
-					GLib.debug("watching app socket");
-				}
+				this.attach_connection();
 				GLib.debug("staying up");
 #if LINUX
 				this.browse.start();
@@ -340,13 +377,7 @@ namespace Argus.Agent
 						GLib.printerr("registration failed: %d\n", code);
 					}
 					if (code == 0) {
-						var link = this.open_link();
-						if (link != null) {
-							new OSQuery.Initialize(link).start();
-							link.notification.connect(this.notification);
-							link.watch();
-							GLib.debug("watching app socket");
-						}
+						this.attach_connection();
 					}
 					return false;
 				});
@@ -359,12 +390,9 @@ namespace Argus.Agent
 				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 #endif
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				var link = this.open_link();
-				if (link != null) {
-					new OSQuery.Initialize(link).start();
-					link.notification.connect(this.notification);
-					link.watch();
-					GLib.debug("watching app socket");
+				this.attach_connection();
+				if (this.connection != null) {
+					new OSQuery.Initialize(this).start();
 				}
 			}
 			this.hold();
@@ -379,7 +407,7 @@ namespace Argus.Agent
 		 * the stdin of the command with that id. Any other
 		 * method returns.
 		 *
-		 * @param notification notification from the app socket
+		 * @param notification notification from the server connection
 		 */
 		public void notification(OLLMrpc.Notification notification)
 		{
@@ -424,7 +452,7 @@ namespace Argus.Agent
 						return;
 					}
 					var command = (Command) obj;
-					command.run(this.link);
+					command.run(this.connection);
 					return;
 				default:
 					return;

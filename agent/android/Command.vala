@@ -31,7 +31,7 @@ namespace Argus.Agent
 	 * var order = new Argus.Agent.Command();
 	 * order.identifier = 1;
 	 * order.command = "true";
-	 * order.run(link);
+	 * order.run(connection);
 	 * }}}
 	 */
 	public class Command : GLib.Object, OLLMrpc.Bin.Serializable
@@ -84,9 +84,9 @@ namespace Argus.Agent
 		 * Sends ''Command.stdout'' with an empty chunk.
 		 * No process is spawned.
 		 *
-		 * @param link app socket already open
+		 * @param connection server connection already open
 		 */
-		public void run(OLLMrpc.Transport.TlsClient link)
+		public void run(OLLMrpc.Transport.TlsClient connection)
 		{
 			GLib.warning("command %d was not run", this.identifier);
 			Command.send_lock.lock();
@@ -96,7 +96,7 @@ namespace Argus.Agent
 			Command.running.set(this.identifier, this);
 			Command.send_lock.unlock();
 			try {
-				var response = link.call(new OLLMrpc.Request() {
+				var response = connection.call(new OLLMrpc.Request() {
 					method = "Command.stdout",
 					args = OLLMrpc.args("is", this.identifier, "")
 				});
@@ -107,7 +107,7 @@ namespace Argus.Agent
 				GLib.warning("%s", e.message);
 			}
 			try {
-				link.call(new OLLMrpc.Request() {
+				connection.call(new OLLMrpc.Request() {
 					method = "Command.ended",
 					args = OLLMrpc.args("ii", this.identifier, 1)
 				});

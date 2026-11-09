@@ -102,6 +102,36 @@ else
 		c_args: c_args,
 		install: true,
 	)
+	if host_machine.system() == 'linux'
+		# Same classes as the desktop agent, without the registration window.
+		# Left out of valadoc because the type names are already documented.
+		executable(
+			'argus-agent-cli',
+			files(
+				'namespace.vala',
+				'Application.vala',
+				'Download.vala',
+				'OSQuery/Initialize.vala',
+				'OSQuery/Query.vala',
+				'linux/Application.cli.vala',
+				'linux/ServiceManager.vala',
+				'linux/Command.vala',
+				'linux/main.vala',
+			),
+			dependencies: [
+				shared_cli_dep,
+				dependency('gio-unix-2.0'),
+			],
+			vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+				'--pkg', 'gee-0.8', '--pkg', 'libsoup-3.0',
+				'--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+				'--pkg', 'gio-unix-2.0', '--pkg', 'posix',
+				'-D', 'LINUX',
+			],
+			c_args: c_args,
+			install: true,
+		)
+	endif
 	watch_test = executable(
 		'argus-agent-watch',
 		files('tests/watch.vala', 'tests/TlsClient.vala'),

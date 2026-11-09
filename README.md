@@ -1,18 +1,18 @@
-# Argus Remote Management
+# Argus Remote Manager
 
-> **Under development:** Argus is incomplete and is not ready to install or use.
+> **Under development:** Argus Remote Manager is incomplete and is not ready to install or use.
 
-The goal is plug-and-play remote machine management. An agent runs on each managed machine, an Argus server coordinates management, and a controller operates the server. Installation and enrollment are intended to be simple, rather than requiring a long manual setup process.
+The goal is plug-and-play remote machine management. An agent runs on each managed machine, an Argus Remote Manager server coordinates management, and a controller operates the server. Installation and enrollment are intended to be simple, rather than requiring a long manual setup process.
 
-There is no web application. The controller will be a desktop application and, later, a mobile application. These controller applications manage the Argus server.
+There is no web application. The controller will be a desktop application and, later, a mobile application. These controller applications manage the Argus Remote Manager server.
 
 ## How it works
 
-When the Argus server first starts, it downloads the osquery installers it will distribute to Debian, RPM-based, and Windows machines. It then listens for registered agents and controllers.
+When the Argus Remote Manager server first starts, it downloads the osquery installers it will distribute to Debian, RPM-based, and Windows machines. It then listens for registered agents and controllers.
 
 To add a managed machine:
 
-1. Install and start the Argus agent. Windows presents registration from the tray application. The Linux steps are in [Setup](docs/setup.md).
+1. Install and start the Argus Remote Manager agent. Windows presents registration from the tray application. The Linux steps are in [Setup](docs/setup.md).
 2. On the server, run `sudo argus-controller`. It prints a six-digit PIN and opens registration for 60 seconds.
 3. Enter that PIN on the managed machine. The server verifies it, creates a certificate for that machine, and sends the certificate securely to the agent.
 
@@ -26,9 +26,8 @@ The Linux agent service runs as root, and the Windows service runs as `LocalSyst
 - [Aims](docs/plans/1.0-aims.md)
 - [Implementation](docs/plans/1.1-implementation.md)
 - [Installing packages](docs/install-packages.md)
-- [Installing from source](docs/install-source.md)
-- [Setup](docs/setup.md)
 - [Building](docs/build.md)
+- [Setup](docs/setup.md)
 - [Packaging and releases](docs/packaging.md)
 
 ## Artificial intelligence usage

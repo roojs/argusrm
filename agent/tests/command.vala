@@ -24,7 +24,7 @@ namespace Argus.Agent
 	 */
 	class App : GLib.Object
 	{
-		public OLLMrpc.Transport.TlsClient link;
+		public OLLMrpc.Transport.TlsClient connection;
 		public static string got_out;
 		public static int got_end;
 		public static int ran_in_handler;
@@ -73,7 +73,7 @@ namespace Argus.Agent
 						return;
 					}
 					var command = (Command) obj;
-					command.run(this.link);
+					command.run(this.connection);
 					App.ran_in_handler++;
 					GLib.printerr("ran %d\n", App.ran_in_handler);
 					return;
@@ -269,25 +269,25 @@ int main(string[] args)
 		}
 		return 0;
 	});
-	var link = new OLLMrpc.Transport.TlsClient("127.0.0.1", (uint16) inet.port) {
+	var connection = new OLLMrpc.Transport.TlsClient("127.0.0.1", (uint16) inet.port) {
 		accept_any = true
 	};
 	try {
-		link.open();
+		connection.open();
 	} catch (GLib.Error e) {
 		GLib.printerr("%s\n", e.message);
 		return 1;
 	}
 	var app = new Argus.Agent.App();
-	app.link = link;
+	app.connection = connection;
 	Argus.Agent.App.loop = new GLib.MainLoop();
-	link.notification.connect(app.notification);
+	connection.notification.connect(app.notification);
 	new GLib.Thread<int>("call", () => {
 		var n = 0;
 		while (n < 4) {
 			n++;
 			try {
-				link.call(new OLLMrpc.Request() {
+				connection.call(new OLLMrpc.Request() {
 					method = "OSQuery.sync",
 					id = n
 				});
@@ -302,7 +302,7 @@ int main(string[] args)
 			}
 		}
 		GLib.Idle.add(() => {
-			link.watch();
+			connection.watch();
 			return false;
 		});
 		return 0;

@@ -1,5 +1,6 @@
 argusrm (0.1.1-1) unstable; urgency=medium
 
+  * The agent is packaged as argusrm-agent-cli and argusrm-agent-gtk. The command-line agent does not link GTK. argus-agent is the registration window.
   * The server no longer links GTK or libadwaita. Those libraries stay with the agent and the controller.
   * The server registration reply is its own record. The controller keeps the shared registration record, and the reply on the socket is unchanged.
   * The server package includes a SysV init script. Setup covers systemd and SysV init, including an LXC container that is not running systemd.

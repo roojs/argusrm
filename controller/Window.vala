@@ -21,13 +21,17 @@ namespace Argus.Controller
 	/**
 	 * Main controller window for one server.
 	 *
-	 * The title is ''Argus remote manager''. A cog on the left opens
-	 * the menu. The centre says the server is connected.
+	 * The title is ''Argus RM''. While the server connection is down
+	 * that title is ''Offline'' in red, and the connection is opened
+	 * again every thirty seconds. {@link TabList} lists places.
+	 * {@link Tab.Agent} lists registered machines.
+	 * {@link Tab.Repository} lists script clones. The other places
+	 * are blank. Settings stays at the bottom of the list.
+	 * A cog on the sidebar opens the menu.
 	 * ''Deregister this controller'' calls
 	 * {@link Argus.Shared.Registration.Data.deregister}. OK after
-	 * deletion quits.
-	 * ''Register agent'' and ''Register controller'' open
-	 * {@link PairingDialog}.
+	 * deletion quits. ''Register agent'' and ''Register controller''
+	 * are on the Agents page. They open {@link Dialog.Pairing}.
 	 *
 	 * == Example ==
 	 *
@@ -43,8 +47,31 @@ namespace Argus.Controller
 		public Argus.Shared.Registration.Data issued {
 			get; set; default = new Argus.Shared.Registration.Data();
 		}
+		/**
+		 * Header of the page on the right.
+		 */
+		public Adw.HeaderBar content_header;
+		/**
+		 * Toolbar around the page on the right.
+		 */
+		public Adw.ToolbarView content_bar;
+		/**
+		 * True when this window is closing without quitting.
+		 *
+		 * Disconnect and a switch to another server set this
+		 * before close. The close request then leaves the process
+		 * running.
+		 */
+		public bool leaving = false;
 		private GLib.SimpleAction deregister_action;
-		private PairingDialog pairing_dialog;
+		private Dialog.Pairing pairing_dialog;
+		private Gtk.Label title_label;
+		private uint connection_check_id = 0;
+		private bool reconnecting = false;
+		private bool was_connected = true;
+		private bool closed = false;
+		private int64 next_reconnect = 0;
+		private static bool rows_styled = false;
 
 		/**
 		 * Create the window for one server.
@@ -71,20 +98,23 @@ namespace Argus.Controller
 				}
 				this.deregister_action.set_enabled(true);
 			});
-			this.title = "Argus remote manager";
+			this.title = "Argus RM";
+			Window.style_rows();
 			this.set_default_size(960, 640);
 			var header = new Adw.HeaderBar();
 			var menu = new GLib.Menu();
 			menu.append("Deregister this controller", "win.deregister");
-			menu.append("Register agent", "win.register('Agent')");
-			menu.append("Register controller", "win.register('Controller')");
 			var cog = new Gtk.MenuButton() {
 				icon_name = "emblem-system-symbolic",
 				menu_model = menu,
 				tooltip_text = "Menu"
 			};
 			header.pack_start(cog);
-			this.pairing_dialog = new PairingDialog(this);
+			this.title_label = new Gtk.Label("Argus RM") {
+				css_classes = { "title" }
+			};
+			header.title_widget = this.title_label;
+			this.pairing_dialog = new Dialog.Pairing(this);
 			var actions = new GLib.SimpleActionGroup();
 			this.deregister_action = new GLib.SimpleAction("deregister", null);
 			this.deregister_action.activate.connect(() => {
@@ -101,20 +131,156 @@ namespace Argus.Controller
 			actions.add_action(this.deregister_action);
 			actions.add_action(register_action);
 			this.insert_action_group("win", actions);
-			var toolbar = new Adw.ToolbarView();
-			toolbar.add_top_bar(header);
-			toolbar.content = new Gtk.Label("connected to Argus server") {
-				halign = Gtk.Align.CENTER,
-				valign = Gtk.Align.CENTER,
+			var sidebar_bar = new Adw.ToolbarView();
+			sidebar_bar.add_top_bar(header);
+			var tabs = new TabList();
+			sidebar_bar.content = tabs;
+			this.content_header = new Adw.HeaderBar();
+			var content_title = new Gtk.Label(tabs.titles[0]) {
+				css_classes = { "title" }
+			};
+			this.content_header.title_widget = content_title;
+			this.content_bar = new Adw.ToolbarView() {
+				vexpand = true,
+				hexpand = true
+			};
+			this.content_bar.add_top_bar(this.content_header);
+			var pages = new Gtk.Stack() {
 				hexpand = true,
 				vexpand = true,
-				css_classes = { "title-1" }
+				transition_type = Gtk.StackTransitionType.CROSSFADE
 			};
-			this.content = toolbar;
+			this.content_bar.content = pages;
+			var agent = new Tab.Agent(this);
+			var repository = new Tab.Repository(this);
+			for (var i = 0; i < tabs.keys.length; i++) {
+				var key = tabs.keys[i];
+				if (key == "agents") {
+					pages.add_named(agent, key);
+					continue;
+				}
+				if (key == "repositories") {
+					pages.add_named(repository, key);
+					continue;
+				}
+				pages.add_named(new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+					hexpand = true,
+					vexpand = true
+				}, key);
+			}
+			pages.add_named(new Tab.Settings(this), "settings");
+			var sidebar_page = new Adw.NavigationPage(sidebar_bar, "Argus RM");
+			var content_page = new Adw.NavigationPage(this.content_bar, tabs.titles[0]);
+			tabs.chosen.connect((key, title) => {
+				pages.visible_child_name = key;
+				content_page.title = title;
+				content_title.label = title;
+			});
+			pages.visible_child_name = tabs.keys[0];
+			var split = new Adw.NavigationSplitView() {
+				sidebar = sidebar_page,
+				content = content_page,
+				min_sidebar_width = 200,
+				max_sidebar_width = 280,
+				hexpand = true,
+				vexpand = true
+			};
+			this.content = split;
 			this.close_request.connect(() => {
+				this.closed = true;
+				if (this.connection_check_id != 0) {
+					GLib.Source.remove(this.connection_check_id);
+					this.connection_check_id = 0;
+				}
+				if (this.leaving) {
+					return false;
+				}
 				this.app.quit();
 				return false;
 			});
+			this.connection_check_id = GLib.Timeout.add_seconds(1, this.check_connection);
+		}
+
+		/**
+		 * Show whether the server connection is open, and open it
+		 * again after it drops.
+		 *
+		 * This runs once a second and sets the sidebar title.
+		 * A failed open waits thirty seconds before the next try.
+		 *
+		 * @return true while this window is open
+		 */
+		private bool check_connection()
+		{
+			if (this.closed) {
+				this.connection_check_id = 0;
+				return false;
+			}
+			var rpc = this.app.rpc;
+			var connected = rpc != null && rpc.connected;
+			if (connected) {
+				this.title_label.label = "Argus RM";
+				this.title_label.css_classes = { "title" };
+			} else {
+				this.title_label.label = "Offline";
+				this.title_label.css_classes = { "title", "offline-title" };
+			}
+			if (connected || rpc == null || this.reconnecting) {
+				if (connected) {
+					this.was_connected = true;
+				}
+				return true;
+			}
+			var now = GLib.get_monotonic_time();
+			if (!this.was_connected && now < this.next_reconnect) {
+				return true;
+			}
+			this.was_connected = false;
+			/* Monotonic time is microseconds. Try the connection again in 30 seconds. */
+			this.next_reconnect = now + (int64) 30 * 1000000;
+			this.reconnecting = true;
+			rpc.connect.begin(new OLLMrpc.Request() {
+				method = "RPC-Daemon.hello",
+				args = OLLMrpc.args("is", 1, "argus-controller")
+			}, null, (obj, res) => {
+				this.reconnecting = false;
+				if (this.closed) {
+					return;
+				}
+				try {
+					rpc.connect.end(res);
+				} catch (GLib.Error e) {
+					GLib.debug("%s", e.message);
+				}
+			});
+			return true;
+		}
+
+		/**
+		 * Alternate row tint for the column views.
+		 *
+		 * Libadwaita does not stripe a column view. Even rows take a
+		 * light mix of the current text colour, the same mix the
+		 * stylesheet uses for a quiet hover.
+		 */
+		private static void style_rows()
+		{
+			if (Window.rows_styled) {
+				return;
+			}
+			var display = Gdk.Display.get_default();
+			if (display == null) {
+				return;
+			}
+			Window.rows_styled = true;
+			var css = new Gtk.CssProvider();
+			css.load_from_string(
+				"columnview > listview > row:nth-child(even):not(:selected) {" +
+				" background-color: color-mix(in srgb, currentColor 6%, transparent);" +
+				" }" +
+				".offline-title { color: #c01c28; }");
+			Gtk.StyleContext.add_provider_for_display(
+				display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 		}
 	}
 }

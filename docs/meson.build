@@ -76,6 +76,7 @@ valadoc_sources += files(
   '../agent/OSQuery/Initialize.vala',
   '../agent/OSQuery/Query.vala',
   '../agent/linux/Application.vala',
+  # linux/Application.cli.vala repeats this class for the command-line build.
   '../agent/linux/ServiceManager.vala',
   '../agent/linux/Command.vala',
   # server sources
@@ -105,10 +106,17 @@ valadoc_sources += files(
   '../controller/namespace.vala',
   '../controller/Application.vala',
   '../controller/Connection.vala',
-  '../controller/Bootstrap.vala',
-  '../controller/PairingDialog.vala',
+  '../controller/dialog/Bootstrap.vala',
+  '../controller/dialog/Pairing.vala',
+  '../controller/dialog/Repository.vala',
+  '../controller/store/Agent.vala',
+  '../controller/store/Repository.vala',
+  '../controller/tab/Agent.vala',
+  '../controller/tab/Repository.vala',
+  '../controller/tab/Settings.vala',
+  '../controller/TabList.vala',
   '../controller/Window.vala',
-  '../controller/Pin.vala',
+  '../controller/cli/Pin.vala',
   '../controller/Agents.vala',
   '../controller/Command.vala',
 )

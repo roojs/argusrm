@@ -1,11 +1,11 @@
 [Unit]
-Description=Argus remote management agent
+Description=Argus Remote Manager agent
 After=network-online.target dbus.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/argus-agent --service
+ExecStart=/usr/bin/argus-agent-cli --service
 Restart=on-failure
 RestartSec=5s
 StateDirectory=argusrm-agent

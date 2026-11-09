@@ -1,7 +1,7 @@
 Name: argusrm-server
 Version: %{argusrm_version}
 Release: 1%{?dist}
-Summary: Argus remote management server
+Summary: Argus Remote Manager server
 License: LGPL-3.0-or-later
 URL: https://github.com/roojs/argusrm
 Source0: argusrm-%{version}.tar.gz
@@ -35,22 +35,36 @@ BuildRequires: libocsqlite-devel
 Recommends: avahi
 
 %description
-Argus enrolls managed machines, provides authenticated downloads, and
+Argus Remote Manager enrolls managed machines, provides authenticated downloads, and
 coordinates remote management operations.
 
-%package -n argusrm-agent
-Summary: Argus remote management agent
+%package -n argusrm-agent-cli
+Summary: Argus Remote Manager command-line agent
+Obsoletes: argusrm-agent < 0.1.1-1
+Provides: argusrm-agent = %{version}-%{release}
 Recommends: avahi
 
-%description -n argusrm-agent
-The Argus agent runs on a managed Linux machine as a systemd service.
+%description -n argusrm-agent-cli
+The command-line Argus Remote Manager agent for a managed Linux machine.
+The command is argus-agent-cli. It does not use GTK. This is the package
+to install on a server.
+
+%package -n argusrm-agent-gtk
+Summary: Argus Remote Manager agent with a registration window
+Requires: argusrm-agent-cli = %{version}-%{release}
+Recommends: avahi
+
+%description -n argusrm-agent-gtk
+The argus-agent command, which opens a desktop registration window.
+The service is the command-line agent. Install argusrm-agent-cli alone
+on a machine without a desktop.
 
 %package -n argusrm-controller
-Summary: Argus command-line controller
+Summary: Argus Remote Manager command-line controller
 
 %description -n argusrm-controller
-The Argus command-line controller talks to the local Argus server and opens
-agent enrollment windows.
+The Argus Remote Manager command-line controller talks to the local
+Argus Remote Manager server and opens agent enrollment windows.
 
 %prep
 %autosetup -n argusrm-%{version}
@@ -74,13 +88,13 @@ fi
 %postun
 %systemd_postun_with_restart argusrm-server.service
 
-%post -n argusrm-agent
+%post -n argusrm-agent-cli
 systemctl daemon-reload
 
-%preun -n argusrm-agent
+%preun -n argusrm-agent-cli
 %systemd_preun argusrm-agent.service
 
-%postun -n argusrm-agent
+%postun -n argusrm-agent-cli
 %systemd_postun_with_restart argusrm-agent.service
 
 %files
@@ -91,13 +105,17 @@ systemctl daemon-reload
 %{_sysconfdir}/init.d/argusrm-server
 %config(noreplace) %{_sysconfdir}/logrotate.d/argusrm-server
 
-%files -n argusrm-agent
+%files -n argusrm-agent-cli
 %license LICENSE
-%{_bindir}/argus-agent
-%{_datadir}/polkit-1/actions/org.roojs.ArgusAgent.register.policy
+%{_bindir}/argus-agent-cli
 %{_prefix}/lib/systemd/system/argusrm-agent.service
 %{_sysconfdir}/init.d/argusrm-agent
 %config(noreplace) %{_sysconfdir}/logrotate.d/argusrm-agent
+
+%files -n argusrm-agent-gtk
+%license LICENSE
+%{_bindir}/argus-agent
+%{_datadir}/polkit-1/actions/org.roojs.ArgusAgent.register.policy
 
 %files -n argusrm-controller
 %license LICENSE

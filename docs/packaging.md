@@ -1,9 +1,10 @@
 # Packages and GitHub releases
 
-Argus produces three binary packages from one source tree:
+Argus Remote Manager produces four binary packages from one source tree:
 
 - `argusrm-server` — `/usr/bin/argus`, its systemd unit, and its SysV init script
-- `argusrm-agent` — `/usr/bin/argus-agent`, its systemd unit, and its SysV init script
+- `argusrm-agent-cli` — `/usr/bin/argus-agent-cli`, its systemd unit, and its SysV init script
+- `argusrm-agent-gtk` — `/usr/bin/argus-agent`, the desktop registration window
 - `argusrm-controller` — `/usr/bin/argus-controller`
 
 `CHANGELOG.md` is the source of truth for release versions, release notes,
@@ -12,26 +13,26 @@ and package changelogs. The version being released must also match
 
 ## Debian packages
 
-Install the build dependencies listed in `debian/control`, including
-`libocrpc-dev` and `libocsqlite-dev`, then run:
+Install the Debian build dependencies in [Building](build.md), then run:
 
 ```sh
 chmod +x debian/rules
 dpkg-buildpackage -us -uc -b
 ```
 
-The three `.deb` files are written to the parent directory.
+The `.deb` files are written to the parent directory.
 
 ## RPM packages
 
-The RPM build is intended for Fedora and uses the RooJS repository for
-`libocrpc-devel` and `libocsqlite-devel`:
+The RPM build is intended for Fedora. `scripts/ci/build-rpm.sh` installs
+the Fedora dependencies in [Building](build.md), plus `rpm-build` and
+`systemd-rpm-macros`:
 
 ```sh
 sudo scripts/ci/build-rpm.sh
 ```
 
-The three non-debug `.rpm` files are written to `artifacts/`.
+The non-debug `.rpm` files are written to `artifacts/`.
 
 ## GitHub Actions release
 

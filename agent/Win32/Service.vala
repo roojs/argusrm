@@ -32,7 +32,6 @@ namespace Argus.Agent.Win32
 	 * is running it starts ''argus-tray'' in the signed-in session
 		 * when that process is not already running, reads the number
 		 * from the local pipe, and calls {@link Argus.Shared.Register}.
-		 * A successful registration starts {@link OSQuery.Initialize}.
 	 * The tray tip is ''Connected to management server'' or
 	 * ''Disconnected''. A failed reach is tried again two minutes
 	 * later.
@@ -252,13 +251,7 @@ namespace Argus.Agent.Win32
 				this.tip = "Connected to management server";
 				GLib.debug("tip %s", this.tip);
 				this.tip_due = true;
-				var link = this.application.open_link();
-				if (link != null) {
-					new Argus.Agent.OSQuery.Initialize(link).start();
-					link.notification.connect(this.application.notification);
-					link.watch();
-					GLib.debug("watching app socket");
-				}
+				this.application.attach_connection();
 			}
 			if (line != "" && line != "none") {
 				this.reply_line = "%d".printf(code);

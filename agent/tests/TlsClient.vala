@@ -39,7 +39,7 @@ namespace Argus.Agent
 		private bool watching = false;
 		private GLib.Mutex mutex;
 		private GLib.SocketConnection? socket = null;
-		private GLib.TlsClientConnection? link = null;
+		private GLib.TlsClientConnection? connection = null;
 		private OLLMrpc.Bin.Stream bin {
 			get; set; default = new OLLMrpc.Bin.Stream(null, null, false);
 		}
@@ -82,7 +82,7 @@ namespace Argus.Agent
 			this.bin.out_stream = new GLib.DataOutputStream(tls.get_output_stream());
 			this.bin.out_stream.set_byte_order(GLib.DataStreamByteOrder.BIG_ENDIAN);
 			this.socket = conn;
-			this.link = tls;
+			this.connection = tls;
 			this.fd = conn.socket.fd;
 			this.connected = true;
 		}
@@ -156,7 +156,7 @@ namespace Argus.Agent
 				}
 				this.socket.socket.blocking = false;
 				if (this.bin.in_stream.get_available() < 1) {
-					var pollable = this.link.get_input_stream()
+					var pollable = this.connection.get_input_stream()
 						as GLib.PollableInputStream;
 					if (pollable == null || !pollable.is_readable()) {
 						this.mutex.unlock();

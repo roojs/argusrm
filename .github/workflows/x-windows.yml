@@ -61,7 +61,7 @@ jobs:
           done
           pacman -U --noconfirm ollm-libs/*.pkg.tar.zst
 
-      - name: Build Argus
+      - name: Build Argus RM
         working-directory: argusrm
         run: |
           meson setup build-windows \

@@ -38,7 +38,7 @@ namespace Argus.Agent.Linux
 			if (this.systemctl == "") {
 				if (!GLib.FileUtils.test(Argus.AGENT_SYSVINIT, GLib.FileTest.EXISTS)) {
 					throw new GLib.IOError.NOT_FOUND(
-						"Argus agent init script was not found");
+						"Argus Remote Manager agent init script was not found");
 				}
 				command = {Argus.AGENT_SYSVINIT, "status"};
 			}
@@ -68,7 +68,7 @@ namespace Argus.Agent.Linux
 				enable.wait();
 				if (!enable.get_successful()) {
 					throw new GLib.IOError.FAILED(
-						"Could not enable the Argus agent service");
+						"Could not enable the Argus Remote Manager agent service");
 				}
 				if (this.running()) {
 					return;
@@ -79,13 +79,13 @@ namespace Argus.Agent.Linux
 				start.wait();
 				if (!start.get_successful()) {
 					throw new GLib.IOError.FAILED(
-						"Could not start the Argus agent service");
+						"Could not start the Argus Remote Manager agent service");
 				}
 				return;
 			}
 			if (!GLib.FileUtils.test(Argus.AGENT_SYSVINIT, GLib.FileTest.EXISTS)) {
 				throw new GLib.IOError.NOT_FOUND(
-					"Argus agent init script was not found");
+					"Argus Remote Manager agent init script was not found");
 			}
 			var update_rc = GLib.Environment.find_program_in_path("update-rc.d");
 			string[] enable_command = {};
@@ -104,7 +104,7 @@ namespace Argus.Agent.Linux
 			enable.wait();
 			if (!enable.get_successful()) {
 				throw new GLib.IOError.FAILED(
-					"Could not enable the Argus agent service");
+					"Could not enable the Argus Remote Manager agent service");
 			}
 			if (this.running()) {
 				return;
@@ -115,7 +115,7 @@ namespace Argus.Agent.Linux
 			start.wait();
 			if (!start.get_successful()) {
 				throw new GLib.IOError.FAILED(
-					"Could not start the Argus agent service");
+					"Could not start the Argus Remote Manager agent service");
 			}
 		}
 
@@ -128,7 +128,7 @@ namespace Argus.Agent.Linux
 			if (this.systemctl == "") {
 				if (!GLib.FileUtils.test(Argus.AGENT_SYSVINIT, GLib.FileTest.EXISTS)) {
 					throw new GLib.IOError.NOT_FOUND(
-						"Argus agent init script was not found");
+						"Argus Remote Manager agent init script was not found");
 				}
 				command = {Argus.AGENT_SYSVINIT, "restart"};
 			}
@@ -136,7 +136,7 @@ namespace Argus.Agent.Linux
 			process.wait();
 			if (!process.get_successful()) {
 				throw new GLib.IOError.FAILED(
-					"Could not restart the Argus agent service");
+					"Could not restart the Argus Remote Manager agent service");
 			}
 			var status = ServiceStatus.STOPPED;
 			for (var attempt = 0; attempt < 40; attempt++) {
@@ -161,10 +161,10 @@ namespace Argus.Agent.Linux
 			}
 			if (status == ServiceStatus.STOPPED) {
 				throw new GLib.IOError.TIMED_OUT(
-					"Argus agent service did not start");
+					"Argus Remote Manager agent service did not start");
 			}
 			throw new GLib.IOError.TIMED_OUT(
-				"Argus agent service did not connect to the management server");
+				"Argus Remote Manager agent service did not connect to the management server");
 		}
 	}
 }

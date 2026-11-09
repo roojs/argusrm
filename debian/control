@@ -35,21 +35,37 @@ Package: argusrm-server
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
-Description: Argus remote management server
- Argus enrolls managed machines, provides authenticated downloads, and
- coordinates remote management operations.
+Description: Argus Remote Manager server
+ Argus Remote Manager enrolls managed machines, provides authenticated
+ downloads, and coordinates remote management operations.
 
-Package: argusrm-agent
+Package: argusrm-agent-cli
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
-Description: Argus remote management agent
- This package installs the agent on a managed Linux machine. Registration
- enables and starts its systemd or SysV service.
+Replaces: argusrm-agent (<< 0.1.1-1)
+Breaks: argusrm-agent (<< 0.1.1-1)
+Description: Argus Remote Manager command-line agent
+ This package installs the agent on a managed Linux machine. The command
+ is argus-agent-cli. It does not use GTK. Registration from the command
+ line enables and starts its systemd or SysV service. This is the package
+ to install on a server.
+
+Package: argusrm-agent-gtk
+Architecture: any
+Depends: argusrm-agent-cli (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Recommends: avahi-daemon
+Replaces: argusrm-agent (<< 0.1.1-1)
+Breaks: argusrm-agent (<< 0.1.1-1)
+Description: Argus Remote Manager agent with a registration window
+ This package adds the argus-agent command, which opens a desktop window
+ for registration. The service itself is the command-line agent. Install
+ argusrm-agent-cli alone on a machine without a desktop.
 
 Package: argusrm-controller
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Argus controller
+Description: Argus Remote Manager controller
  This package contains the desktop and command-line controller. It enrolls
- with an Argus server, lists agents, and runs a command on one agent.
+ with an Argus Remote Manager server, lists agents, and runs a command on
+ one agent.

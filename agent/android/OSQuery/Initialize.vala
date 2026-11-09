@@ -29,22 +29,22 @@ namespace Argus.Agent.OSQuery
 	 * == Example ==
 	 *
 	 * {{{
-	 * new Argus.Agent.OSQuery.Initialize(link).start();
+	 * new Argus.Agent.OSQuery.Initialize(application).start();
 	 * }}}
 	 */
 	public class Initialize : GLib.Object
 	{
 		/**
-		 * App socket opened by {@link Application.open_link}.
+		 * Agent that owns the server connection.
 		 */
-		private OLLMrpc.Transport.TlsClient link;
+		private Application application;
 
 		/**
-		 * @param link app socket already open
+		 * @param application agent whose server connection is open
 		 */
-		public Initialize(OLLMrpc.Transport.TlsClient link)
+		public Initialize(Application application)
 		{
-			this.link = link;
+			this.application = application;
 		}
 
 		/**
@@ -55,7 +55,7 @@ namespace Argus.Agent.OSQuery
 		 */
 		public void start()
 		{
-			if (this.link == null) {
+			if (this.application.connection == null) {
 				return;
 			}
 			GLib.warning("osquery was not started");

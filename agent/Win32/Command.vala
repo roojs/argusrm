@@ -33,7 +33,7 @@ namespace Argus.Agent
 	 * var order = new Argus.Agent.Command();
 	 * order.identifier = 1;
 	 * order.command = "hostname";
-	 * order.run(link);
+	 * order.run(connection);
 	 * }}}
 	 */
 	public class Command : GLib.Object, OLLMrpc.Bin.Serializable
@@ -92,12 +92,12 @@ namespace Argus.Agent
 		 * Stdout bytes are ''Command.stdout''. Stderr bytes are
 		 * ''Command.stderr''. Each call is that chunk.
 		 *
-		 * @param link app socket already open
+		 * @param connection server connection already open
 		 */
-		public void run(OLLMrpc.Transport.TlsClient link)
+		public void run(OLLMrpc.Transport.TlsClient connection)
 		{
 			new GLib.Thread<int>("command", () => {
-				this.spawn(link);
+				this.spawn(connection);
 				return 0;
 			});
 		}
@@ -108,9 +108,9 @@ namespace Argus.Agent
 		 * Stdin stays open. Stdout bytes are ''Command.stdout''. Stderr bytes
 		 * are ''Command.stderr''.
 		 *
-		 * @param link app socket already open
+		 * @param connection server connection already open
 		 */
-		private void spawn(OLLMrpc.Transport.TlsClient link)
+		private void spawn(OLLMrpc.Transport.TlsClient connection)
 		{
 			string[] argv = { "cmd.exe", "/c", this.command };
 			GLib.Pid child;
@@ -244,7 +244,7 @@ namespace Argus.Agent
 				for (var i = 0; i < methods.length; i++) {
 					Command.send_lock.lock();
 					try {
-						var response = link.call(new OLLMrpc.Request() {
+						var response = connection.call(new OLLMrpc.Request() {
 							method = methods[i],
 							args = OLLMrpc.args("is", this.identifier, texts[i])
 						});
@@ -259,7 +259,7 @@ namespace Argus.Agent
 			}
 			Command.send_lock.lock();
 			try {
-				link.call(new OLLMrpc.Request() {
+				connection.call(new OLLMrpc.Request() {
 					method = "Command.ended",
 					args = OLLMrpc.args("ii", this.identifier, 0)
 				});

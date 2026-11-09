@@ -132,7 +132,6 @@ namespace Argus.Shared
 
 		public RegisterWindow()
 		{
-			Notice.edge(this);
 			this.title = "Connect to management server";
 			this.set_content_height(280);
 			this.set_content_width(480);

@@ -162,7 +162,10 @@ namespace Argus.Server.Net
 						"WHERE fingerprint = $fingerprint AND status = 1",
 						int_binds, text_binds, rows);
 					if (rows.size > 0) {
-						rpc.agent_id = rows.get(0).id;
+						var row = rows.get(0);
+						row.last_connected = new GLib.DateTime.now_utc().to_unix();
+						Argus.Shared.Agent.query(this.app.db).updateById(row);
+						rpc.agent_id = row.id;
 					}
 					rpc.start();
 					this.connections.add(rpc);

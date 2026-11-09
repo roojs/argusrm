@@ -2,7 +2,9 @@
 # update docs/meson.build to include the same files in the valadoc input list.
 
 # The server links shared_server_dep. That library has the database rows.
-# GTK, Adwaita, Avahi, libsecret, and the controller registration result
+# The command-line agent links shared_cli_dep. That library adds Linux
+# broadcast browse and does not link GTK.
+# GTK, Adwaita, libsecret, and the controller registration result
 # belong to the agent and controller library in shared_dep.
 shared_deps = [
 	dependency('glib-2.0'),
@@ -101,6 +103,28 @@ shared_server_dep = declare_dependency(
 	dependencies: shared_deps,
 	include_directories: include_directories('.'),
 )
+
+# Linux command-line agent. Browse uses Avahi. The registration window stays
+# in shared_lib, so this library does not link GTK, Adwaita, or libsecret.
+if host_machine.system() == 'linux'
+	shared_cli_deps = shared_deps + [
+		dependency('avahi-gobject'),
+		dependency('avahi-client'),
+	]
+	shared_cli_lib = static_library(
+		'argus-shared-cli',
+		shared_sources,
+		files('Browse.vala'),
+		dependencies: shared_cli_deps,
+		vala_args: shared_vala_args,
+		c_args: shared_c_args,
+	)
+	shared_cli_dep = declare_dependency(
+		link_with: shared_cli_lib,
+		dependencies: shared_cli_deps,
+		include_directories: include_directories('.'),
+	)
+endif
 
 shared_lib = static_library(
 	'argus-shared',
