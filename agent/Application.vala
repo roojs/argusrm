@@ -71,8 +71,10 @@ namespace Argus.Agent
 		internal OLLMrpc.Transport.TlsClient? connection { get; private set; }
 
 		/**
-		 * True when the last open of {@link connection} failed.
+		 * True when {@link connection} is down.
 		 *
+		 * Set when {@link open_connection} fails, or when
+		 * {@link OLLMrpc.Transport.TlsClient.closed} fires.
 		 * {@link attach_connection} tries again on the next retry.
 		 */
 		internal static bool connection_down = false;
@@ -171,8 +173,9 @@ namespace Argus.Agent
 		 * Keep {@link connection} open.
 		 *
 		 * The first call starts a thirty-second retry. The connection
-		 * that is still up is left as it is. A failed open is tried
-		 * once and then left until the next retry.
+		 * that is still up is left as it is. A failed open, or
+		 * {@link OLLMrpc.Transport.TlsClient.closed}, is tried again
+		 * on the next retry.
 		 */
 		internal void attach_connection()
 		{
@@ -193,16 +196,32 @@ namespace Argus.Agent
 				return;
 			}
 			this.connecting = true;
-			this.connection = null;
-			Application.connection_down = false;
-			var opened = this.open_connection();
+			var opened = this.connection;
+			if (opened == null) {
+				opened = this.open_connection();
+				if (opened != null) {
+					opened.closed.connect(() => {
+						Application.connection_down = true;
+					});
+					opened.notification.connect(this.notification);
+				}
+			} else {
+				try {
+					opened.open();
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					Application.connection_down = true;
+					this.connecting = false;
+					return;
+				}
+			}
 			if (opened == null) {
 				Application.connection_down = true;
 				this.connecting = false;
 				return;
 			}
-			opened.notification.connect(this.notification);
 			opened.watch();
+			Application.connection_down = false;
 			GLib.debug("watching the server connection");
 			this.connecting = false;
 		}
@@ -222,7 +241,7 @@ namespace Argus.Agent
 		 * Parse arguments, register when asked, and stay up.
 		 *
 		 * ''--debug'' shows log lines on stderr. ''--server'' is the
-		 * management IP. ''--port'' overrides {@link Argus.SOCKET_PORT}.
+		 * management IP. ''--port'' overrides {@link Argus.REGISTER_PORT}.
 		 * ''--server'' or ''--host'' with ''--port'' and ''--pin'' call
 		 * {@link Argus.Shared.Register}
 		 * immediately. ''--pin'' alone waits for the broadcast, then
@@ -289,7 +308,7 @@ namespace Argus.Agent
 				}
 				this.host = inet.to_string();
 				if (this.port <= 0) {
-					this.port = Argus.SOCKET_PORT;
+					this.port = Argus.REGISTER_PORT;
 				}
 				if (this.port > 65535) {
 					command_line.printerr("registration needs an IP address\n");

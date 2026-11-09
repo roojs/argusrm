@@ -1,9 +1,10 @@
 # Server connection drop is not reported
 
-**Status:** ⏳ log sniff removed. A drop after a successful open is not detected. The library change is proposed and not applied.
+**Status:** ✔️ `attach_connection` sets `connection_down` from `closed`. Not device-verified.
 
 **Pointer:** `docs/bug-fix-process.md`
 
+ℹ️ Library report: `/home/alan/gitlive/OLLMchat/docs/bugs/2026-11-09-tlsclient-watch-drop-not-signalled.md`.
 ℹ️ `OLLMrpc.Transport.TlsClient` is `/home/alan/gitlive/OLLMchat/libocrpc/Transport/TlsClient.vala`. This tree does not edit that project.
 
 ---
@@ -39,85 +40,11 @@
 
 ## Proposed fix
 
-### 1. OLLMchat `libocrpc/Transport/TlsClient.vala` — emit `closed`
+### 1. OLLMchat `TlsClient` — emit `closed`
 
-**Why:** The idle read has to tell the caller the connection failed, close it, and allow `open` to handshake again.
-
-**Where:** `notification`, the `connected` field, and the fatal branch of `watch`.
-
-**Depends on:** none. Apply this in OLLMchat, then install `libocrpc`, before section 2.
-
-#### Add
-
-```vala
-		/**
-		 * The idle read stopped because the connection failed.
-		 *
-		 * {@link watch} emits this after it closes the socket.
-		 * {@link connected} is then false, so {@link open} can
-		 * handshake again.
-		 */
-		public signal void closed();
-
-		/**
-		 * True after {@link open} until the idle read fails.
-		 */
-		public bool connected { get; private set; default = false; }
-```
-
-#### Remove
-
-```vala
-		private bool connected = false;
-```
-
-#### Remove
-
-```vala
-		 * timed-out read keeps the source.
-```
-
-#### Replace with
-
-```vala
-		 * timed-out read keeps the source. Any other read error
-		 * stops the source, closes the socket, and emits
-		 * {@link closed}.
-```
-
-#### Remove
-
-```vala
-					GLib.warning("%s", e.message);
-					this.watch_id = 0;
-					this.mutex.unlock();
-					return false;
-```
-
-#### Replace with
-
-```vala
-					GLib.warning("%s", e.message);
-					this.watch_id = 0;
-					this.watching = false;
-					this.connected = false;
-					this.fd = -1;
-					var tls = this.link;
-					this.link = null;
-					this.socket = null;
-					this.mutex.unlock();
-					if (tls != null) {
-						try {
-							tls.close();
-						} catch (GLib.Error close_error) {
-							GLib.warning("%s", close_error.message);
-						}
-					}
-					this.closed();
-					return false;
-```
-
-- ℹ️ The private `GLib.TlsClientConnection` field in that file is still named `link`. This proposal does not rename it.
+- ℹ️ The library proposal is `/home/alan/gitlive/OLLMchat/docs/bugs/2026-11-09-tlsclient-watch-drop-not-signalled.md`.
+- 🔷 Apply that report and install `libocrpc` before the agent change below.
+- 🚫 Do not edit `TlsClient.vala` from this tree.
 
 ### 2. `agent/Application.vala` — set `connection_down` from `closed`
 
@@ -125,7 +52,7 @@
 
 **Where:** `attach_connection`, after section 1 is installed.
 
-**Depends on:** section 1
+**Depends on:** the OLLMchat report in section 1
 
 #### Remove
 
@@ -183,15 +110,18 @@
 
 **Why:** OSQuery sends on `Application.connection` when it syncs. It does not keep a client, and it does not call `watch`.
 
-**Where:** already applied. Nothing in section 1 changes this file.
+**Where:** already applied. Nothing in the library report changes this file.
 
 ## Attempts
 
 - ✔️ Removed the `TlsClient.vala:` test from `debug_log`.
 - ✔️ Renamed the agent server connection off the name `link`.
   - `connection`, `open_connection`, `attach_connection`, `connection_down`, `connection_check_id`.
+- ✔️ Installed vapi now has `TlsClient.closed` and `TlsClient.connected`.
+- ✔️ Applied the `agent/Application.vala` `attach_connection` replacement.
+  - `connection_down` doc now includes the `closed` path.
+- ✔️ `ninja -C build agent/argus-agent agent/argus-agent-cli` exited 0.
 
 ## Next
 
-- ⏳ Apply section 1 in OLLMchat and install `libocrpc`.
-- ⏳ Then apply sections 2 and 3 here.
+- ⏳ Drop a live server connection and confirm the agent opens it again about 30 seconds later.

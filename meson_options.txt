@@ -1,3 +1,4 @@
 option('docs', type: 'boolean', value: true, description: 'Build valadoc documentation')
 option('socket_port', type: 'integer', min: 1, max: 1023, value: 817, description: 'App socket port')
 option('download_port', type: 'integer', min: 1, max: 1023, value: 818, description: 'Download socket port')
+option('register_port', type: 'integer', min: 1, max: 1023, value: 819, description: 'Registration socket port')

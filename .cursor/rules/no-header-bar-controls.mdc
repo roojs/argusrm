@@ -1,0 +1,21 @@
+---
+description: Never put buttons or other controls in a header bar
+alwaysApply: true
+---
+
+# Header bar
+
+The window header bar is the title only. Never put buttons, spinners, labels, menus, or any other control in it.
+
+Page actions sit on the page, in the page's own bar. That was rejected once, and the buttons had to be moved back. Do not do it again.
+
+```vala
+// Wrong. This is the window header.
+this.window.content_header.pack_end(button);
+header.pack_start(spinner);
+
+// Right. A bar that belongs to the page.
+var toolbar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+toolbar.append(button);
+this.append(toolbar);
+```

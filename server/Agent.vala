@@ -59,7 +59,7 @@ namespace Argus.Server
 
 		/**
 		 * Pair a machine. Sign ''csr'' when ''pin'' matches
-		 * {@link Net.SslListen.pin}.
+		 * {@link Application.register_listen}'s {@link Net.SslListen.pin}.
 		 *
 		 * This is the other half of {@link offer}. A wrong number
 		 * is ''number rejected''. The matching number closes the
@@ -93,7 +93,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var listen = this.app.ssl_listen;
+			var listen = this.app.register_listen;
 			if (pin != listen.pin || listen.pin == "") {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("number rejected")
@@ -235,8 +235,8 @@ namespace Argus.Server
 			this.app.db.backupDB();
 			listen.pin = "";
 			this.app.publish.stop();
+			this.app.register_firewall.enable();
 			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
-			this.app.firewall.enable();
 			this.app.download_listen.listen();
 			var path = "";
 			if (!is_controller && family == "debian") {
@@ -293,14 +293,16 @@ namespace Argus.Server
 		 *
 		 * The controller calls this with no arguments. The reply
 		 * is the six digits, then the public address. This opens
-		 * the app socket and
-		 * publishes its addresses. The download socket opens
-		 * from {@link request_registration}, after the machine
-		 * is registered. That call is the machine that types
-		 * the number. The number lasts sixty seconds, or until
-		 * that call, or until this connection closes. The firewall
-		 * is disabled while the broadcast runs and enabled when
-		 * that window ends.
+		 * the registration socket and publishes that port. The
+		 * app socket and its firewall stay as they are. The
+		 * download socket opens from {@link request_registration},
+		 * after the machine is registered. That call is the machine
+		 * that types the number. The number lasts sixty seconds,
+		 * or until that call, or until this connection closes.
+		 * The registration firewall is disabled while the window
+		 * runs and enabled when it ends. The public address is
+		 * read after the window is open, without blocking this
+		 * connection.
 		 *
 		 * @param request inbound RPC from a controller
 		 */
@@ -311,21 +313,27 @@ namespace Argus.Server
 			}
 			var n = GLib.Random.int_range(0, 1000000);
 			var issued = "%06d".printf(n);
-			var listen = this.app.ssl_listen;
+			var listen = this.app.register_listen;
 			listen.pin = issued;
-			listen.listen();
-			var host = this.app.socket;
-			var parsed = Argus.SOCKET_PORT;
-			var colon = this.app.socket.last_index_of(":");
+			if (!listen.listen()) {
+				listen.pin = "";
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INTERNAL_ERROR("registration socket did not bind")
+				});
+				return;
+			}
+			var host = this.app.registration;
+			var parsed = Argus.REGISTER_PORT;
+			var colon = this.app.registration.last_index_of(":");
 			if (colon > 0) {
-				host = this.app.socket.substring(0, colon);
-				int.try_parse(this.app.socket.substring(colon + 1), out parsed);
+				host = this.app.registration.substring(0, colon);
+				int.try_parse(this.app.registration.substring(colon + 1), out parsed);
 			}
 			if (host == "") {
 				host = "0.0.0.0";
 			}
 			if (parsed < 1 || parsed > 65535) {
-				parsed = Argus.SOCKET_PORT;
+				parsed = Argus.REGISTER_PORT;
 			}
 			string[] addrs = {};
 			if (host == "0.0.0.0") {
@@ -335,7 +343,7 @@ namespace Argus.Server
 				addrs = { host };
 			}
 			this.app.publish.start(addrs, (uint16) parsed);
-			this.app.firewall.disable();
+			this.app.register_firewall.disable();
 			var owner = request.connection;
 			GLib.Timeout.add_seconds(60, () => {
 				if (listen.pin != issued) {
@@ -343,7 +351,8 @@ namespace Argus.Server
 				}
 				listen.pin = "";
 				this.app.publish.stop();
-				this.app.firewall.enable();
+				this.app.register_firewall.enable();
+				listen.stop();
 				return false;
 			});
 			GLib.Timeout.add(250, () => {
@@ -355,24 +364,58 @@ namespace Argus.Server
 				}
 				listen.pin = "";
 				this.app.publish.stop();
-				this.app.firewall.enable();
+				this.app.register_firewall.enable();
+				listen.stop();
 				GLib.debug("registration closed after controller disconnected");
 				return false;
 			});
-			var address = "";
-			try {
-				address = this.app.interfaces.public_ip();
-			} catch (GLib.Error e) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INTERNAL_ERROR(e.message)
+			GLib.Resolver.get_default().lookup_by_name_with_flags_async.begin(
+				"ifconfig.me",
+				GLib.ResolverNameLookupFlags.IPV4_ONLY,
+				null,
+				(obj, res) => {
+					GLib.List<GLib.InetAddress> found = new GLib.List<GLib.InetAddress>();
+					try {
+						found = GLib.Resolver.get_default().lookup_by_name_with_flags_async.end(res);
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+					if (found.length() < 1) {
+						var missed = new string[] { issued, "" };
+						request.reply(new OLLMrpc.Response() {
+							retval = OLLMrpc.val("as", missed),
+							msg = "ok"
+						});
+						return;
+					}
+					var session = new Soup.Session.with_options(
+						"remote-connectable",
+						new GLib.InetSocketAddress(found.nth_data(0), 443),
+						null);
+					var message = new Soup.Message("GET", "https://ifconfig.me");
+					message.request_headers.append("User-Agent", "argusrm");
+					message.request_headers.append("Accept", "text/plain");
+					session.send_and_read_async.begin(message, GLib.Priority.DEFAULT, null, (sobj, sres) => {
+						var address = "";
+						try {
+							var body = session.send_and_read_async.end(sres);
+							if (message.status_code == 200) {
+								var text = ((string) body.get_data()).strip();
+								var inet = new GLib.InetAddress.from_string(text);
+								if (inet != null && inet.get_family() == GLib.SocketFamily.IPV4) {
+									address = inet.to_string();
+								}
+							}
+						} catch (GLib.Error e) {
+							GLib.warning("%s", e.message);
+						}
+						var reply = new string[] { issued, address };
+						request.reply(new OLLMrpc.Response() {
+							retval = OLLMrpc.val("as", reply),
+							msg = "ok"
+						});
+					});
 				});
-				return;
-			}
-			var reply = new string[] { issued, address };
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("as", reply),
-				msg = "ok"
-			});
 		}
 
 		/**
@@ -445,13 +488,13 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Registered addresses this machine can reach.
+		 * Registered source addresses, plus every address on this machine.
 		 *
-		 * Distinct active ''agent.ip'' values are parsed, then kept
-		 * when {@link Net.Interfaces.route} returns a source. A private
-		 * route counts. No route leaves the address out. Invalid stored
-		 * text is logged and left out.
-		 * {@link Net.NFTables.apply} receives only these addresses.
+		 * Active ''agent.ip'' values are kept when
+		 * {@link Net.Interfaces.route} returns a source. A private
+		 * route counts. This machine's own addresses are added after
+		 * that. {@link Net.NFTables.apply} receives only these
+		 * addresses.
 		 *
 		 * @param db agent table
 		 * @param interfaces local addresses and routes
@@ -475,6 +518,12 @@ namespace Argus.Server
 					continue;
 				}
 				kept.add(address);
+			}
+			foreach (var item in interfaces.addresses) {
+				if (kept.contains(item.address)) {
+					continue;
+				}
+				kept.add(item.address);
 			}
 			return kept;
 		}

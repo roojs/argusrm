@@ -19,12 +19,12 @@
 namespace Argus.Server.Net
 {
 	/**
-	 * TLS bin listener for the app socket.
+	 * TLS bin listener for one socket.
 	 *
-	 * {@link SslListen} constructs one after the TLS handshake.
-	 * Registration, commands, identity, and warnings stay on this
-	 * socket. The handshake requires a client certificate, unless
-	 * {@link pin} is set. Same product CA as {@link Download}.
+	 * The app listener requires a client certificate. A
+	 * {@link registration} listener accepts a handshake without one
+	 * while {@link pin} is set. Commands stay on the app listener.
+	 * Same product CA as {@link Download}.
 	 *
 	 * == Example ==
 	 *
@@ -53,6 +53,23 @@ namespace Argus.Server.Net
 		}
 
 		/**
+		 * Bind this address instead of {@link Application.socket}.
+		 *
+		 * Empty uses the app socket. The registration listener
+		 * sets {@link Application.registration}.
+		 */
+		public string endpoint { get; set; default = ""; }
+
+		/**
+		 * True when this listener is only for registration.
+		 *
+		 * The handshake then asks for a certificate and continues
+		 * without one while {@link pin} is set. The app listener
+		 * leaves this false and always requires a certificate.
+		 */
+		public bool registration { get; set; default = false; }
+
+		/**
 		 * Six digits from {@link Agent.offer}. Empty unless
 		 * the registration window is open.
 		 */
@@ -64,13 +81,17 @@ namespace Argus.Server.Net
 		}
 
 		/**
-		 * Bind the TLS bin socket from {@link Application.socket}.
+		 * Bind the TLS bin socket.
 		 *
-		 * A missing port uses {@link Argus.SOCKET_PORT}. Returns
-		 * false when that port is outside 1–65535. Bind failure
-		 * logs a warning and returns false. A client certificate is
-		 * required unless {@link pin} is set. A bad identity flag
-		 * alone is ignored, the same as ''ollmfilesd''.
+		 * {@link endpoint} overrides {@link Application.socket}.
+		 * A missing port uses {@link Argus.SOCKET_PORT}, or
+		 * {@link Argus.REGISTER_PORT} when {@link registration}
+		 * is set. Returns false when that port is outside 1–65535.
+		 * Bind failure logs a warning and returns false. The app
+		 * listener requires a client certificate. A registration
+		 * listener continues without one while {@link pin} is set.
+		 * A bad identity flag alone is ignored, the same as
+		 * ''ollmfilesd''.
 		 *
 		 * @return true when the app socket is up
 		 */
@@ -79,10 +100,16 @@ namespace Argus.Server.Net
 			if (this.listening) {
 				return true;
 			}
-			var socket = this.app.socket;
+			var socket = this.endpoint;
+			if (socket == "") {
+				socket = this.app.socket;
+			}
 			var colon = socket.last_index_of(":");
 			var host = socket;
 			var port = Argus.SOCKET_PORT;
+			if (this.registration) {
+				port = Argus.REGISTER_PORT;
+			}
 			if (colon > 0) {
 				host = socket.substring(0, colon);
 				int.try_parse(socket.substring(colon + 1), out port);
@@ -125,12 +152,12 @@ namespace Argus.Server.Net
 					tls.database = this.app.tls.trust;
 				}
 				tls.authentication_mode = GLib.TlsAuthenticationMode.REQUIRED;
-				if (this.pin != "") {
+				if (this.registration) {
 					tls.authentication_mode = GLib.TlsAuthenticationMode.REQUESTED;
 				}
 				tls.accept_certificate.connect((peer_cert, errors) => {
-					if (this.pin != "") {
-						return true;
+					if (this.registration) {
+						return this.pin != "";
 					}
 					if (peer_cert == null) {
 						return false;

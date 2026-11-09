@@ -30,8 +30,8 @@ namespace Argus.Controller
 	 * A cog on the sidebar opens the menu.
 	 * ''Deregister this controller'' calls
 	 * {@link Argus.Shared.Registration.Data.deregister}. OK after
-	 * deletion quits. ''Register agent'' and ''Register controller''
-	 * are on the Agents page. They open {@link Dialog.Pairing}.
+	 * deletion quits. ''Agent Controller'' is on the Agents page.
+	 * It opens {@link Dialog.Pairing}.
 	 *
 	 * == Example ==
 	 *
@@ -121,12 +121,12 @@ namespace Argus.Controller
 				this.deregister_action.set_enabled(false);
 				this.issued.deregister(this, this.app.rpc);
 			});
-			var register_action = new GLib.SimpleAction("register", GLib.VariantType.STRING);
-			register_action.activate.connect((parameter) => {
-				if (parameter == null || this.pairing_dialog.pairing) {
+			var register_action = new GLib.SimpleAction("register", null);
+			register_action.activate.connect(() => {
+				if (this.pairing_dialog.pairing) {
 					return;
 				}
-				this.pairing_dialog.open(parameter.get_string());
+				this.pairing_dialog.open();
 			});
 			actions.add_action(this.deregister_action);
 			actions.add_action(register_action);

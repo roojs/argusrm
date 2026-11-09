@@ -27,7 +27,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 ### `Agent.request_registration`
 
-- Socket: the app socket. The client certificate does not exist yet.
+- Socket: the registration socket. The client certificate does not exist yet. The app socket stays on its certificate check.
 - Direction: agent calls the server.
 - Arguments `ssssbss`: the pin, certificate request PEM, requester, OS family, controller flag, username, and hostname.
   - Windows sends `windows`. Android sends `android`.
@@ -38,7 +38,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - Index 1 is the CA PEM.
   - Index 2 is the download socket `host:port`. The agent writes that as `download`.
   - Index 3 is the download URL path, including the extension. The agent writes that as `download-path`. The server chooses it from the OS family.
-  - Later entries are listen addresses.
+  - Later entries are app-socket listen addresses. The client stores that port as `server`, not the registration port it dialed.
 - ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
 
 ### `Registration.certificate`

@@ -16,4 +16,5 @@ namespace Argus
 	public const string LOG_DIR = "@LOG_DIR@";
 	public const int SOCKET_PORT = @SOCKET_PORT@;
 	public const int DOWNLOAD_PORT = @DOWNLOAD_PORT@;
+	public const int REGISTER_PORT = @REGISTER_PORT@;
 }

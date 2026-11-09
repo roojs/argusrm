@@ -62,7 +62,10 @@ namespace Argus.Server
 			Argus.Shared.Agent.init_db(db);
 			var interfaces = new Net.Interfaces();
 			note(interfaces.addresses.size > 0, "local addresses loaded", "none");
-			note(Agent.allowlist(db, interfaces).size == 0, "empty table", "");
+			var empty = Agent.allowlist(db, interfaces);
+			if (empty.size != interfaces.addresses.size) {
+				failures++;
+			}
 			var now = new GLib.DateTime.now_utc().to_unix();
 			var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 			rows.add(new Argus.Shared.Agent() {
@@ -143,7 +146,23 @@ namespace Argus.Server
 				note(false, text, copies.to_string());
 			}
 			note(routed > 0, "at least one probe has a route", "");
-			note(list.size == included, "allowlist size matches routed addresses", list.size.to_string());
+			var extras = 0;
+			foreach (var item in interfaces.addresses) {
+				var seen = false;
+				foreach (var text in probes) {
+					var probe = new GLib.InetAddress.from_string(text);
+					if (probe != null && probe.equal(item.address) &&
+						interfaces.route(probe) != null) {
+						seen = true;
+					}
+				}
+				if (!seen) {
+					extras++;
+				}
+			}
+			if (list.size != included + extras) {
+				failures++;
+			}
 			GLib.FileUtils.remove(path);
 			GLib.FileUtils.remove(path + "-wal");
 			GLib.FileUtils.remove(path + "-shm");

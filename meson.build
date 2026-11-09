@@ -93,6 +93,7 @@ paths_vala = configure_file(
 		'LOG_DIR': localstatedir / 'log' / 'argusrm',
 		'SOCKET_PORT': get_option('socket_port').to_string(),
 		'DOWNLOAD_PORT': get_option('download_port').to_string(),
+		'REGISTER_PORT': get_option('register_port').to_string(),
 	},
 )
 agent_sysvinit = configure_file(

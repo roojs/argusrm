@@ -385,9 +385,18 @@ namespace Argus.Shared
 					this.error_occurred(label);
 					return;
 				}
-				this.registered_url = "tcp://" + host + ":" + port.to_string();
+				var app_port = (int) port;
+				var lines = registration.addresses.split("\n");
+				if (lines.length > 0) {
+					var listed = lines[0].strip();
+					var mark = listed.last_index_of(":");
+					if (mark > 0) {
+						int.try_parse(listed.substring(mark + 1), out app_port);
+					}
+				}
+				this.registered_url = "tcp://" + host + ":" + app_port.to_string();
 				this.registered_addresses = registration.addresses;
-				if (!this.remember(host, (int) port, registration.addresses)) {
+				if (!this.remember(host, app_port, registration.addresses)) {
 					return;
 				}
 				this.registration_succeeded();

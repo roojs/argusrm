@@ -352,7 +352,7 @@ namespace Argus.Agent.Linux
 				return 1;
 			}
 			var host = "";
-			var port = Argus.SOCKET_PORT;
+			var port = Argus.REGISTER_PORT;
 			if (opt_port > 0) {
 				port = opt_port;
 			}

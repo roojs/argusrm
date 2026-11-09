@@ -90,19 +90,21 @@ namespace Argus.Shared
 		}
 
 		/**
-		 * ''Yes'' when {@link status} is 1. ''Pending'' otherwise.
+		 * ''✔️'' when {@link status} is 1. Empty while the row
+		 * is still pending.
 		 */
 		public string display_registered {
 			owned get {
 				if (this.status == 1) {
-					return "Yes";
+					return "✔️";
 				}
-				return "Pending";
+				return "";
 			}
 		}
 
 		/**
-		 * Local date and time of {@link created}. Empty when unset.
+		 * Local time of {@link created} when that day is today.
+		 * The date otherwise. Empty when unset.
 		 */
 		public string display_created {
 			owned get {
@@ -113,7 +115,12 @@ namespace Argus.Shared
 				if (when == null) {
 					return "";
 				}
-				var text = when.format("%Y-%m-%d %H:%M");
+				var now = new GLib.DateTime.now_local();
+				var text = when.format("%Y-%m-%d");
+				if (when.get_year() == now.get_year() &&
+					when.get_day_of_year() == now.get_day_of_year()) {
+					text = when.format("%H:%M");
+				}
 				if (text == null) {
 					return "";
 				}
@@ -122,20 +129,20 @@ namespace Argus.Shared
 		}
 
 		/**
-		 * ''Yes'' while {@link connected} is true. ''No'' otherwise.
+		 * ''✔️'' while {@link connected} is true. ''❌'' otherwise.
 		 */
 		public string display_connected {
 			owned get {
 				if (this.connected) {
-					return "Yes";
+					return "✔️";
 				}
-				return "No";
+				return "❌";
 			}
 		}
 
 		/**
-		 * Local date and time of {@link last_connected}.
-		 * Empty when unset.
+		 * Local time of {@link last_connected} when that day is today.
+		 * The date otherwise. Empty when unset.
 		 */
 		public string display_last {
 			owned get {
@@ -146,7 +153,12 @@ namespace Argus.Shared
 				if (when == null) {
 					return "";
 				}
-				var text = when.format("%Y-%m-%d %H:%M");
+				var now = new GLib.DateTime.now_local();
+				var text = when.format("%Y-%m-%d");
+				if (when.get_year() == now.get_year() &&
+					when.get_day_of_year() == now.get_day_of_year()) {
+					text = when.format("%H:%M");
+				}
 				if (text == null) {
 					return "";
 				}

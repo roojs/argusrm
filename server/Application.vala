@@ -51,6 +51,13 @@ namespace Argus.Server
 		public string download { get; set; default = ""; }
 
 		/**
+		 * Registration socket, ''host:port''. Empty until
+		 * {@link command_line} reads the config or ''--register''.
+		 * {@link Agent.offer} binds it. The app socket stays up.
+		 */
+		public string registration { get; set; default = ""; }
+
+		/**
 		 * Server certificate and product CA. {@link command_line}
 		 * fills this before either socket binds.
 		 */
@@ -63,6 +70,12 @@ namespace Argus.Server
 		 * {@link Net.SslListen.listen}.
 		 */
 		public Net.SslListen ssl_listen { get; private set; }
+
+		/**
+		 * Registration socket. {@link Agent.offer} calls
+		 * {@link Net.SslListen.listen}. It is down until then.
+		 */
+		public Net.SslListen register_listen { get; private set; }
 
 		/**
 		 * Download socket. {@link command_line} calls
@@ -81,6 +94,13 @@ namespace Argus.Server
 		 * before that socket accepts connections.
 		 */
 		public Net.NFTables firewall { get; private set; }
+
+		/**
+		 * Firewall for the registration socket. It stays enabled,
+		 * with an empty allowlist, until {@link Agent.offer}
+		 * disables it for the registration window.
+		 */
+		public Net.NFTables register_firewall { get; private set; }
 
 		/**
 		 * Certificate rows. The file is ''argus.sqlite'' under
@@ -112,6 +132,7 @@ namespace Argus.Server
 		private static bool opt_debug_critical;
 		private static string opt_socket;
 		private static string opt_download;
+		private static string opt_register;
 		private static bool debug_on;
 		private static bool debug_critical_enabled;
 		private static GLib.FileStream? debug_log_file;
@@ -122,6 +143,7 @@ namespace Argus.Server
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
 			{ "socket", 0, 0, GLib.OptionArg.STRING, ref opt_socket, "App socket host:port", "HOST:PORT" },
 			{ "download", 0, 0, GLib.OptionArg.STRING, ref opt_download, "Download socket host:port", "HOST:PORT" },
+			{ "register", 0, 0, GLib.OptionArg.STRING, ref opt_register, "Registration socket host:port", "HOST:PORT" },
 			{ null }
 		};
 
@@ -140,6 +162,9 @@ namespace Argus.Server
 				flags: GLib.ApplicationFlags.HANDLES_COMMAND_LINE | GLib.ApplicationFlags.NON_UNIQUE
 			);
 			this.ssl_listen = new Net.SslListen(this);
+			this.register_listen = new Net.SslListen(this) {
+				registration = true
+			};
 			this.download_listen = new Net.Download(this);
 			this.interfaces = new Net.Interfaces();
 			if (!GLib.FileUtils.test(Argus.SERVER_DATA_DIR, GLib.FileTest.IS_DIR)) {
@@ -181,6 +206,7 @@ namespace Argus.Server
 				this.listen.stop();
 				this.db.backup_real();
 				this.ssl_listen.stop();
+				this.register_listen.stop();
 				this.download_listen.stop();
 			});
 		}
@@ -189,14 +215,17 @@ namespace Argus.Server
 		 * Parse arguments, open both sockets, and stay up.
 		 *
 		 * ''--debug'' shows log lines on stderr. ''--socket'' is the
-		 * app RPC. ''--download'' is the download socket. When a flag
+		 * app RPC. ''--download'' is the download socket.
+		 * ''--register'' is the registration socket. When a flag
 		 * is absent, the value is one line in the config under
 		 * {@link Argus.SERVER_SYSCONFDIR}. The default build is
-		 * ''/etc/argusrm/socket'' and ''/etc/argusrm/download''.
-		 * Each line is ''host:port'', the same text the agent
-		 * stores. With no line, the process listens on
-		 * ''0.0.0.0'' and the build ports {@link Argus.SOCKET_PORT}
-		 * and {@link Argus.DOWNLOAD_PORT}. {@link Initialize.fetch_osquery}
+		 * ''/etc/argusrm/socket'', ''/etc/argusrm/download'', and
+		 * ''/etc/argusrm/register''. Each line is ''host:port''.
+		 * With no line, the process uses ''0.0.0.0'' and the build
+		 * ports {@link Argus.SOCKET_PORT}, {@link Argus.DOWNLOAD_PORT},
+		 * and {@link Argus.REGISTER_PORT}. The registration socket
+		 * stays closed until {@link Agent.offer}.
+		 * {@link Initialize.fetch_osquery}
 		 * fetches the osquery installers into {@link Argus.SERVER_DATA_DIR}
 		 * before the sockets bind. {@link Agent.offer} on the
 		 * Unix socket opens the registration window.
@@ -212,6 +241,7 @@ namespace Argus.Server
 			opt_debug_critical = false;
 			opt_socket = "";
 			opt_download = "";
+			opt_register = "";
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -235,6 +265,7 @@ namespace Argus.Server
 			debug_critical_enabled = opt_debug_critical;
 			this.socket = opt_socket;
 			this.download = opt_download;
+			this.registration = opt_register;
 			if (this.socket == "") {
 				var path = GLib.Path.build_filename(Argus.SERVER_SYSCONFDIR, "socket");
 				var text = "";
@@ -261,6 +292,20 @@ namespace Argus.Server
 			if (this.download == "") {
 				this.download = "0.0.0.0:" + Argus.DOWNLOAD_PORT.to_string();
 			}
+			if (this.registration == "") {
+				var path = GLib.Path.build_filename(Argus.SERVER_SYSCONFDIR, "register");
+				var text = "";
+				try {
+					GLib.FileUtils.get_contents(path, out text);
+				} catch (GLib.Error e) {
+					text = "";
+				}
+				this.registration = text.strip();
+			}
+			if (this.registration == "") {
+				this.registration = "0.0.0.0:" + Argus.REGISTER_PORT.to_string();
+			}
+			this.register_listen.endpoint = this.registration;
 			var tls_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "tls");
 			if (!GLib.FileUtils.test(tls_dir, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(tls_dir, 0700);
@@ -336,6 +381,26 @@ namespace Argus.Server
 			this.firewall.enable();
 			if (!this.firewall.enabled) {
 				command_line.printerr("error: firewall was not enabled\n");
+				return 1;
+			}
+			var register_colon = this.registration.last_index_of(":");
+			var register_port = Argus.REGISTER_PORT;
+			if (register_colon > 0 && !int.try_parse(this.registration.substring(register_colon + 1), out register_port)) {
+				command_line.printerr("error: registration socket port is invalid\n");
+				return 1;
+			}
+			if (register_port < 1 || register_port > 65535) {
+				command_line.printerr("error: registration socket port is invalid\n");
+				return 1;
+			}
+			this.register_firewall = new Net.NFTables((uint16) register_port);
+			if (!this.register_firewall.apply(new Gee.ArrayList<GLib.InetAddress>())) {
+				command_line.printerr("error: registration firewall was not applied\n");
+				return 1;
+			}
+			this.register_firewall.enable();
+			if (!this.register_firewall.enabled) {
+				command_line.printerr("error: registration firewall was not enabled\n");
 				return 1;
 			}
 			if (!this.listen.start()) {

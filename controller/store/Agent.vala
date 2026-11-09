@@ -169,7 +169,10 @@ namespace Argus.Controller.Store
 		}
 
 		/**
-		 * Delete one machine and replace {@link items}.
+		 * Delete one machine.
+		 *
+		 * The caller reloads {@link items} when it has finished
+		 * the machines it is removing.
 		 *
 		 * @param id ''agent.id''
 		 */
@@ -198,7 +201,6 @@ namespace Argus.Controller.Store
 				}
 				this.busy = false;
 				this.removed();
-				this.load();
 			});
 		}
 	}

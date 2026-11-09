@@ -27,9 +27,9 @@ namespace Argus.Shared
 	 * directory ''argus''. The call includes the OS family and explicit
 	 * controller identity fields. The server uses the family to choose
 	 * the agent download. The reply string array is the client certificate,
-	 * the CA, the download socket, the download URL path, then listen
-	 * addresses. The app socket is the host and port this call used,
-	 * written as ''server'' next to those files.
+	 * the CA, the download socket, the download URL path, then the app
+	 * socket listen addresses. ''server'' is the host this call used
+	 * and the port from the first of those addresses.
 	 *
 	 * == Example ==
 	 *
@@ -223,9 +223,17 @@ namespace Argus.Shared
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
+			var stored_port = port.to_string();
+			if (packed.length > 4) {
+				var listed = packed[4];
+				var listed_mark = listed.last_index_of(":");
+				if (listed_mark > 0 && listed.substring(listed_mark + 1) != "") {
+					stored_port = listed.substring(listed_mark + 1);
+				}
+			}
 			try {
 				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "server"),
-					host + ":" + port.to_string());
+					host + ":" + stored_port);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;

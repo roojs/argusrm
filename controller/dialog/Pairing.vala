@@ -32,7 +32,7 @@ namespace Argus.Controller.Dialog
 	 *
 	 * {{{
 	 * var pair = new Argus.Controller.Dialog.Pairing(window);
-	 * pair.open("Agent");
+	 * pair.open();
 	 * }}}
 	 */
 	public class Pairing : Adw.Dialog
@@ -114,10 +114,8 @@ namespace Argus.Controller.Dialog
 
 		/**
 		 * Ask the server connection for a number.
-		 *
-		 * @param kind ''Agent'' or ''Controller''
 		 */
-		public void open(string kind)
+		public void open()
 		{
 			if (this.pairing) {
 				return;
@@ -127,15 +125,13 @@ namespace Argus.Controller.Dialog
 				this.refuse("The server connection is not open.");
 				return;
 			}
-			this.begin(kind);
+			this.begin();
 		}
 
 		/**
 		 * Show the dialog and ask ''Agent.offer'' for the six digits.
-		 *
-		 * @param kind ''Agent'' or ''Controller''
 		 */
-		private void begin(string kind)
+		private void begin()
 		{
 			var rpc = this.window.app.rpc;
 			if (rpc == null || !rpc.connected || this.pairing) {
@@ -164,9 +160,8 @@ namespace Argus.Controller.Dialog
 			this.line.fraction = 1;
 			this.finished = false;
 			this.pairing = true;
-			var heading = "Register " + kind.down();
-			this.title = heading;
-			this.title_label.label = heading;
+			this.title = "Register";
+			this.title_label.label = "Register";
 			this.generation++;
 			this.present(this.window);
 			this.arm();
