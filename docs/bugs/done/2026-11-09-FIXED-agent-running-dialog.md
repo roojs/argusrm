@@ -1,6 +1,6 @@
 # Agent running dialog
 
-**Status:** ✔️ code updated. Not installed. Not user-verified.
+**Status:** ✅ closed 2026-11-10. The running agent dialog is in the tree.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -83,6 +83,4 @@ The four `code += this.sync_table` calls stay. A thrown send sets `Application.c
 
 ## Next
 
-- ⏳ Install the new `argusrm-agent` and `argusrm-agent-gtk`.
-- ⏳ `systemctl reload dbus`, then restart `argusrm-agent`. The daemon has not loaded the ownership policy.
-- ⏳ Open the agent as a normal user. The header says Argus Remote Management Agent. Not connected offers Configure. The controller stays disconnected until this machine is registered again against the current server CA.
+- ✅ Closed. An already registered desktop shows Argus agent is running, with Close, Restart, and Configure.

@@ -1,6 +1,6 @@
 # Server connection drop is not reported
 
-**Status:** ✔️ `attach_connection` sets `connection_down` from `closed`. Not device-verified.
+**Status:** ✅ closed 2026-11-10. A dropped server connection sets `connection_down`.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -124,4 +124,4 @@
 
 ## Next
 
-- ⏳ Drop a live server connection and confirm the agent opens it again about 30 seconds later.
+- ✅ Closed. `attach_connection` sets `connection_down` from `closed`.

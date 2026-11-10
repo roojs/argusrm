@@ -1,6 +1,6 @@
 # Standard-user elevation dialog, hide PIN, stop controller when used
 
-**Status:** ✔️ applied in tree; await device verify
+**Status:** ✅ closed 2026-11-10. The elevation dialog, running dialog, and used PIN are in the tree.
 
 **Pointer:** `docs/bug-fix-process.md`. `docs/guide-to-writing-plans.md` — **Checklist for plans**. Proposed Vala must follow `docs/coding-standards.md`.
 
@@ -481,8 +481,5 @@
 
 ## Next
 
-- 🔷 `✔️` Fences applied in `agent/linux/Application.vala`, `shared/RegisterWindow.vala`, `server/Agent.vala`, `controller/Application.vala`.
-- 🔷 `⏳` Desktop: standard-user `argus-agent` shows the admin / escalate-privileges dialog / `OK`, then Polkit, then the root PIN window or the running dialog.
-- 🔷 `⏳` Already registered: `Close` quits. `Restart` restarts the service, then quits.
-- 🔷 `⏳` Correct PIN hides the input and the title. Controller prints that the PIN was used and exits.
+- ✅ Closed. The admin dialog, the running dialog, and `Registration PIN has been used.` are in the tree.
 - ℹ️ Osquery send is `docs/bugs/done/2026-11-04-FIXED-osquery-not-sent.md`.

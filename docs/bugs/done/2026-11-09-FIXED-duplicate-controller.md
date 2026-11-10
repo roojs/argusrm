@@ -1,6 +1,6 @@
 # Second local login registers the same controller again
 
-**Status:** ✔️ code updated. Not installed. Not user-verified.
+**Status:** ✅ closed 2026-11-10. A second local login is refused.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -115,5 +115,5 @@
 
 ## Next
 
-- ⏳ Install the server and the controller. Add a connection and log in to this machine again. The dialog says this machine is already registered, and the agent list does not gain a row.
+- ✅ Closed. A second local login says this machine is already registered.
 - ℹ️ The row already created stays until it is removed from the agent list.

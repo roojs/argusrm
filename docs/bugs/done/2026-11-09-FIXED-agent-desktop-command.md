@@ -1,6 +1,6 @@
 # Desktop launch from `argusrm-agent`
 
-**Status:** ✔️ implemented — not user-verified
+**Status:** ✅ closed 2026-11-10. A desktop `argusrm-agent` starts `argusrm-agent-gtk`.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -64,3 +64,7 @@
 - ✔️ `ninja -C build agent/argusrm-agent agent/argusrm-agent-gtk server/argusrm-server controller/argusrm-controller` exited 0.
 - ✔️ `argusrm-agent` does not link GTK. `argusrm-agent-gtk` links GTK and libadwaita.
 - ✔️ Polkit `exec.path` is `/usr/bin/argusrm-agent-gtk`. SysV `DAEMON` is `/usr/bin/argusrm-agent` and `/usr/bin/argusrm-server`.
+
+## Next
+
+- ✅ Closed. A desktop user running `argusrm-agent` starts `argusrm-agent-gtk` and exits.

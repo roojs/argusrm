@@ -1,6 +1,6 @@
 # Agent list stays stale after connect
 
-**Status:** ✔️ code updated. Not installed. Not user-verified.
+**Status:** ✅ closed 2026-11-10. Connect and disconnect broadcast `event.agent`.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -31,4 +31,4 @@
 
 ## Next
 
-- ⏳ Install the server and the controller, register a machine, and confirm Connected changes when the agent socket opens without the grid clearing.
+- ✅ Closed. The agent page loads on `event.agent` and updates the rows already on screen.

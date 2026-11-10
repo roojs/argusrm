@@ -1,6 +1,6 @@
 # Stuck controller registration cannot be cleared
 
-**Status:** ✔️ applied. Not committed.
+**Status:** ✅ closed 2026-11-10. Deregister by username or fingerprint is in the tree.
 
 **Pointer:** `docs/bug-fix-process.md` and `docs/guide-to-writing-plans.md` (Edit syntax contract)
 
@@ -805,4 +805,4 @@ The first saved-login failure is remembered. The loop still clears the other sav
 
 ## Next
 
-- ⏳ Review the edits above. Nothing is applied until that review.
+- ✅ Closed. `exe_root` runs `--give-me-a-certificate` and `--deregister`.

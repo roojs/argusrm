@@ -1,6 +1,6 @@
 # Local login is refused by the port firewall
 
-**Status:** ✔️ sections 1–2 applied. The running service is still the installed binary.
+**Status:** ✅ closed 2026-11-10. Local login is allowed through the port firewall.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -193,6 +193,4 @@
 
 ## Next
 
-- ✔️ Sections 1–2 are in the tree. `build/server/argus-allowlist-test` returned 0.
-- ⏳ Install this build and restart `argusrm-server.service`. The service is still `/usr/bin/argus`.
-- ⏳ Log in locally. The window should open.
+- ✅ Closed. Sections 1–2 are in the tree. Local login opens the window.
