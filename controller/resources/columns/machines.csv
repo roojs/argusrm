@@ -1,0 +1,32 @@
+title,name,shown,width
+User,user,on,120
+Hostname,hostname,on,180
+Local hostname,local-hostname,off,180
+Computer name,computer-name,on,180
+UUID,uuid,off,300
+Hardware vendor,hardware-vendor,on,160
+Hardware model,hardware-model,off,180
+Hardware version,hardware-version,off,170
+Hardware serial,hardware-serial,off,160
+Board vendor,board-vendor,off,160
+Board model,board-model,off,160
+Board version,board-version,off,160
+Board serial,board-serial,off,160
+Physical memory,physical-memory,off,160
+CPU brand,cpu-brand,on,240
+CPU type,cpu-type,off,120
+CPU subtype,cpu-subtype,off,140
+CPU physical cores,cpu-physical-cores,off,180
+CPU logical cores,cpu-logical-cores,off,170
+CPU microcode,cpu-microcode,off,150
+Operating system,operating-system,on,200
+Major,major,off,80
+Minor,minor,off,80
+Patch,patch,off,80
+Build,build,off,100
+Platform,platform,off,120
+Platform like,platform-like,off,150
+Codename,codename,off,140
+Arch,arch,off,80
+OS updated,os-updated,off,140
+OS status,os-status,on,120

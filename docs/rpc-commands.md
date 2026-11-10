@@ -80,10 +80,11 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: agent calls the server.
 - 🔷 One call per table. The arguments are the table name and the array of row objects.
 - Arguments `so`: the table name, then the array.
-- Tables the agent sends: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`.
+- Tables the agent sends: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`.
+- Linux also sends `deb_packages` and `rpm_packages`. Windows also sends `programs`.
 - An empty array is sent too.
 - The row objects are `Argus.Shared.OSQuery`. The property name is the column name.
-- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `InterfaceAddresses`.
+- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`.
 - ℹ️ Linux and Windows call it from `agent/OSQuery/Initialize.vala`. Android compiles `agent/android/OSQuery/Initialize.vala` and does not query.
 
 ---

@@ -89,8 +89,8 @@ namespace Argus.Agent
 		protected static string opt_server;
 		protected static string opt_pin;
 		protected static bool opt_service;
-		private static bool debug_on;
-		private static bool debug_critical_enabled;
+		protected static bool debug_on;
+		protected static bool debug_critical_enabled;
 		private static GLib.FileStream? debug_log_file;
 		private static bool debug_log_in_progress;
 
@@ -264,6 +264,10 @@ namespace Argus.Agent
 			Argus.Shared.OSQuery.CpuInfo.rpc_register();
 			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
 			Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
+			Argus.Shared.OSQuery.OsVersion.rpc_register();
+			Argus.Shared.OSQuery.DebPackages.rpc_register();
+			Argus.Shared.OSQuery.RpmPackages.rpc_register();
+			Argus.Shared.OSQuery.Programs.rpc_register();
 			Command.rpc_register();
 			opt_debug = false;
 			opt_debug_critical = false;
@@ -423,8 +427,9 @@ namespace Argus.Agent
 		 *
 		 * ''agent.run'' hands the ''Argus.Command'' to
 		 * {@link Command.run}. ''agent.send'' writes its text to
-		 * the stdin of the command with that id. Any other
-		 * method returns.
+		 * the stdin of the command with that id.
+		 * ''agent.removed'' deletes the stored certificate.
+		 * Any other method returns.
 		 *
 		 * @param notification notification from the server connection
 		 */
@@ -458,6 +463,16 @@ namespace Argus.Agent
 						return;
 					}
 					order.send(text_value.get_string());
+					return;
+				case "agent.removed":
+#if LINUX
+					var removed = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
+#else
+					var removed = GLib.Path.build_filename(
+						GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+#endif
+					GLib.FileUtils.remove(removed);
+					GLib.debug("registration removed");
 					return;
 				case "agent.run":
 					if (notification.args.size == 0) {

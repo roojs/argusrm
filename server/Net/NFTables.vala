@@ -129,6 +129,7 @@ add chain inet %s allowlist
 		public bool apply(Gee.ArrayList<GLib.InetAddress> addresses)
 		{
 			if (!this.ready) {
+				GLib.debug("firewall not ready on port %u", (uint) this.port);
 				return false;
 			}
 			if (!this.load()) {
@@ -160,6 +161,8 @@ add chain inet %s allowlist
 				commands += "add element inet %s allowed_ipv6 { %s }\n".printf(this.table, address.to_string());
 			}
 			if (commands.length == 0) {
+				GLib.debug("firewall allowlist unchanged on port %u (%d)",
+					(uint) this.port, this.addresses.size);
 				return true;
 			}
 			if (this.context.run_cmd_from_buffer(commands) != 0) {
@@ -168,6 +171,7 @@ add chain inet %s allowlist
 				return false;
 			}
 			this.addresses = updated;
+			GLib.debug("firewall %s", commands.strip().replace("\n", " | "));
 			return true;
 		}
 
@@ -240,6 +244,7 @@ add chain inet %s allowlist
 				return;
 			}
 			this.enabled = true;
+			GLib.debug("firewall enforced on port %u", (uint) this.port);
 		}
 
 		/**
@@ -258,6 +263,7 @@ add chain inet %s allowlist
 				return;
 			}
 			this.enabled = false;
+			GLib.debug("firewall open on port %u", (uint) this.port);
 		}
 	}
 }

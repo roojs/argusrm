@@ -30,6 +30,10 @@ namespace Argus.Server
 			Argus.Shared.OSQuery.CpuInfo.rpc_register();
 			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
 			Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
+			Argus.Shared.OSQuery.OsVersion.rpc_register();
+			Argus.Shared.OSQuery.DebPackages.rpc_register();
+			Argus.Shared.OSQuery.RpmPackages.rpc_register();
+			Argus.Shared.OSQuery.Programs.rpc_register();
 			OLLMrpc.Request.add_class(
 				"OSQuery", typeof(OSQuery),
 				"sync", "so"

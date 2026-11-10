@@ -32,6 +32,8 @@ BuildRequires: pkgconfig(libnftables)
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: libocrpc-devel
 BuildRequires: libocsqlite-devel
+Requires: libocrpc
+Requires: libocsqlite
 Recommends: avahi
 
 %description
@@ -43,6 +45,8 @@ on the server. That command does not use GTK.
 %package -n argusrm-agent
 Summary: Argus Remote Manager command-line agent
 Obsoletes: argusrm-agent-cli
+Requires: libocrpc
+Requires: libocsqlite
 Recommends: avahi
 
 %description -n argusrm-agent
@@ -53,6 +57,8 @@ to install on a server.
 %package -n argusrm-agent-gtk
 Summary: Argus Remote Manager agent with a registration window
 Requires: argusrm-agent = %{version}-%{release}
+Requires: libocrpc
+Requires: libocsqlite
 Recommends: avahi
 
 %description -n argusrm-agent-gtk
@@ -62,6 +68,8 @@ argusrm-agent alone on a machine without a desktop.
 
 %package -n argusrm-controller
 Summary: Argus Remote Manager desktop controller
+Requires: libocrpc
+Requires: libocsqlite
 
 %description -n argusrm-controller
 The Argus Remote Manager desktop controller enrolls with a server and

@@ -66,6 +66,7 @@ namespace Argus.Shared
 			}
 			this.found = "";
 			this.client_up = true;
+			GLib.debug("browsing _rpc._tcp");
 			GLib.SourceFunc open_browser = () => {
 				if (this.browser_up || this.found == "none") {
 					return false;
@@ -80,6 +81,7 @@ namespace Argus.Shared
 				}
 				this.browser_up = true;
 				this.browser.new_service.connect((iface, protocol, name, type, domain) => {
+					GLib.debug("service %s", name);
 					if (this.found != "") {
 						return;
 					}
@@ -98,8 +100,10 @@ namespace Argus.Shared
 							return;
 						}
 						if (address == null || txt == null) {
+							GLib.debug("resolved %s missing address or txt", rname);
 							return;
 						}
+						GLib.debug("resolved %s %s:%u", rname, address.to_string(), (uint) port);
 						unowned Avahi.StringList? list = txt;
 						while (list != null) {
 							var entry = (string) list.text;
@@ -117,10 +121,14 @@ namespace Argus.Shared
 							GLib.debug("broadcast %s", this.found.replace("\n", " "));
 							return;
 						}
+						GLib.debug("resolved %s has no id", rname);
 					});
 					resolver.failure.connect((err) => {
 						GLib.warning("%s", err.message);
 					});
+				});
+				this.browser.all_for_now.connect(() => {
+					GLib.debug("browse cache complete");
 				});
 				this.browser.failure.connect((err) => {
 					GLib.warning("%s", err.message);
@@ -135,7 +143,20 @@ namespace Argus.Shared
 						this.found = "none";
 						return;
 					case Avahi.ClientState.S_RUNNING:
+						GLib.debug("browse client running");
 						open_browser();
+						return;
+					case Avahi.ClientState.NOT_STARTED:
+						GLib.debug("browse client not started");
+						return;
+					case Avahi.ClientState.S_REGISTERING:
+						GLib.debug("browse client registering");
+						return;
+					case Avahi.ClientState.S_COLLISION:
+						GLib.debug("browse client collision");
+						return;
+					case Avahi.ClientState.CONNECTING:
+						GLib.debug("browse client connecting");
 						return;
 					default:
 						return;
@@ -149,6 +170,7 @@ namespace Argus.Shared
 				return;
 			}
 			if (this.client.state == Avahi.ClientState.S_RUNNING) {
+				GLib.debug("browse client running");
 				open_browser();
 			}
 		}

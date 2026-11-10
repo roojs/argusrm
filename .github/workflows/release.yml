@@ -46,12 +46,6 @@ jobs:
     permissions:
       contents: read
 
-  appimage:
-    needs: verify
-    uses: ./.github/workflows/x-appimage.yml
-    permissions:
-      contents: read
-
   windows:
     needs: verify
     uses: ./.github/workflows/x-windows.yml
@@ -68,7 +62,7 @@ jobs:
 
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [debian, build-rpm-fedora, appimage, windows, android]
+    needs: [debian, build-rpm-fedora, windows, android]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -88,20 +82,15 @@ jobs:
           for file in artifacts/*; do
             [[ -f "${file}" ]] || continue
             case "${file}" in
-              *.deb|*.rpm|*.AppImage|*.exe|*.apk) release_files+=("${file}") ;;
+              *.deb|*.rpm|*.exe|*.apk) release_files+=("${file}") ;;
               *) echo "Unknown release artifact: ${file}" >&2; exit 1 ;;
             esac
           done
           package_files=(artifacts/*.deb artifacts/*.rpm)
           apk_files=(artifacts/*.apk)
-          appimage_files=(artifacts/*.AppImage)
           windows_files=(artifacts/*.exe)
           ((${#package_files[@]})) || {
             echo "No Debian or RPM artifacts were downloaded" >&2
-            exit 1
-          }
-          ((${#appimage_files[@]})) || {
-            echo "No AppImage was downloaded" >&2
             exit 1
           }
           ((${#windows_files[@]})) || {

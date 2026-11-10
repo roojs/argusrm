@@ -36,10 +36,11 @@ The non-debug `.rpm` files are written to `artifacts/`.
 
 ## GitHub Actions release
 
-The `Release` workflow builds Debian packages, Fedora RPMs, an x86-64
-controller AppImage, the Windows agent installer, and an Android arm64 debug
-APK. Each family also has a `Release - ...` workflow that can be run manually
-without publishing a GitHub Release. A failed Android build stops the
+The `Release` workflow builds Debian packages, Fedora RPMs, the Windows
+agent installer, and an Android arm64 debug APK. Each family also has a
+`Release - ...` workflow that can be run manually without publishing a
+GitHub Release. The controller AppImage is that manual workflow only. A
+tag release does not build or publish it. A failed Android build stops the
 release. The manual Android workflow fails the same way when the APK cannot
 be built.
 
@@ -62,8 +63,8 @@ chmod +x scripts/release.sh scripts/release/*.sh
 
 When `origin` is the private Git server, push the tag there first and let
 the mirror send it to GitHub. GitHub Actions starts when GitHub receives the
-tag. Debian packages, Fedora RPMs, the AppImage, Windows installer, and
-Android APK are published together on `vX.Y.Z`.
+tag. Debian packages, Fedora RPMs, the Windows installer, and the Android
+APK are published together on `vX.Y.Z`.
 
 After a successful release, finalize the changelog on the private source
 repository and commit it:

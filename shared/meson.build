@@ -26,6 +26,10 @@ shared_osquery_sources = files(
 	'OSQuery/CpuInfo.vala',
 	'OSQuery/LoggedInUsers.vala',
 	'OSQuery/InterfaceAddresses.vala',
+	'OSQuery/OsVersion.vala',
+	'OSQuery/DebPackages.vala',
+	'OSQuery/RpmPackages.vala',
+	'OSQuery/Programs.vala',
 )
 shared_sqt_sources = files(
 	'SQT/namespace.vala',
