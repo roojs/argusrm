@@ -64,10 +64,11 @@ namespace Argus.Controller.Tab
 					string.joinv(", ", this.window.connection.addresses);
 			}
 			here.add(here_row);
-			var disconnect = new Adw.ButtonRow() {
+			var disconnect = new Adw.ActionRow() {
 				title = "Disconnect",
-				start_icon_name = "system-log-out-symbolic"
+				activatable = true
 			};
+			disconnect.add_prefix(new Gtk.Image.from_icon_name("system-log-out-symbolic"));
 			disconnect.activated.connect(() => {
 				var app = this.window.app;
 				app.running_window = false;
@@ -118,10 +119,11 @@ namespace Argus.Controller.Tab
 				});
 				others.add(server);
 			}
-			var add = new Adw.ButtonRow() {
+			var add = new Adw.ActionRow() {
 				title = "Add a connection",
-				start_icon_name = "list-add-symbolic"
+				activatable = true
 			};
+			add.add_prefix(new Gtk.Image.from_icon_name("list-add-symbolic"));
 			add.activated.connect(() => {
 				new Dialog.Bootstrap(this.window.app, "add").present(this.window);
 			});
