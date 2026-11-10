@@ -38,7 +38,7 @@ if host_machine.system() == 'linux'
 		input: 'linux/org.roojs.ArgusController.register.policy.in',
 		output: 'org.roojs.ArgusController.register.policy',
 		configuration: {
-			'CONTROLLER_EXECUTABLE': bindir / 'argus-controller',
+			'CONTROLLER_EXECUTABLE': bindir / 'argusrm-controller',
 		},
 	)
 	install_data(

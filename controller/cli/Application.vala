@@ -41,6 +41,7 @@ namespace Argus.Controller
 		public static bool agents;
 		public static string agent;
 		public static string command;
+		public static string deregister_name;
 		private static bool opt_debug;
 		private static bool opt_debug_critical;
 		private static bool debug_on;
@@ -54,6 +55,7 @@ namespace Argus.Controller
 			{ "agents", 0, 0, GLib.OptionArg.NONE, ref agents, "List registered agents", null },
 			{ "agent", 0, 0, GLib.OptionArg.STRING, ref agent, "Agent id", "ID" },
 			{ "command", 0, 0, GLib.OptionArg.STRING, ref command, "Command to run", "COMMAND" },
+			{ "deregister", 0, 0, GLib.OptionArg.STRING, ref deregister_name, "Username or fingerprint to deregister", "NAME" },
 			{ null }
 		};
 		public GLib.ApplicationCommandLine cli { get; set; }
@@ -103,6 +105,7 @@ namespace Argus.Controller
 			agents = false;
 			agent = "";
 			command = "";
+			deregister_name = "";
 			opt_debug = false;
 			opt_debug_critical = false;
 			var args = command_line.get_arguments();
@@ -124,17 +127,24 @@ namespace Argus.Controller
 			}
 			debug_on = opt_debug;
 			debug_critical_enabled = opt_debug_critical;
+			var removing = deregister_name != "";
 			var chosen = (pin ? 1 : 0)
 				+ (agents ? 1 : 0)
+				+ (removing ? 1 : 0)
 				+ (agent != "" || command != "" ? 1 : 0);
 			var usage = """Usage:
   argusrm-controller-cli
   argusrm-controller-cli --pin
   argusrm-controller-cli --agents
+  argusrm-controller-cli --deregister NAME
   argusrm-controller-cli --agent ID --command COMMAND...
 """;
 			if (chosen > 1) {
 				command_line.printerr("%s", usage);
+				return 1;
+			}
+			if (removing && Posix.geteuid() != 0) {
+				command_line.printerr("root is required\n");
 				return 1;
 			}
 			if (chosen == 0) {
@@ -148,7 +158,7 @@ namespace Argus.Controller
 					return 1;
 				}
 			}
-			if (agent == "" && !pin && !agents) {
+			if (agent == "" && !pin && !agents && !removing) {
 				command_line.printerr("command needs --agent ID\n");
 				return 1;
 			}
@@ -157,7 +167,7 @@ namespace Argus.Controller
 				parts.add(command);
 			}
 			parts.add_all_array(leftover[1:leftover.length]);
-			if (!pin && !agents && parts.size < 1) {
+			if (!pin && !agents && !removing && parts.size < 1) {
 				command_line.printerr("command needs --command\n");
 				return 1;
 			}
@@ -199,6 +209,29 @@ namespace Argus.Controller
 			}
 			if (agents) {
 				new Agents(this).run();
+				return;
+			}
+			if (deregister_name != "") {
+				this.rpc.call.begin(new OLLMrpc.Request() {
+					method = "Registration.deregister",
+					args = OLLMrpc.args("s", deregister_name)
+				}, (call_obj, call_res) => {
+					try {
+						var response = this.rpc.call.end(call_res);
+						if (response.error != null) {
+							this.cli.printerr("%s\n", response.error.message);
+							this.loop.quit();
+							return;
+						}
+					} catch (GLib.Error e) {
+						this.cli.printerr("%s\n", e.message);
+						this.loop.quit();
+						return;
+					}
+					this.cli.print("Deregistered %s.\n", deregister_name);
+					this.code = 0;
+					this.loop.quit();
+				});
 				return;
 			}
 			var command = new Command(this);

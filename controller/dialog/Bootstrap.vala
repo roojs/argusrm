@@ -433,7 +433,8 @@ namespace Argus.Controller.Dialog
 					return;
 				}
 				if (response == "register") {
-					this.register();
+					this.exe_root("--give-me-a-certificate",
+						GLib.Environment.get_user_name(), "Registering server", "");
 					return;
 				}
 				if (response == "remote") {
@@ -456,56 +457,49 @@ namespace Argus.Controller.Dialog
 		}
 
 		/**
-		 * Issue a certificate through Polkit.
+		 * Run one privileged command and read its JSON.
 		 *
-		 * The login button is the prompt. There is no extra page
-		 * explaining that administrator access is required.
+		 * ''option'' is ''--give-me-a-certificate'' or
+		 * ''--deregister''. Standard output is
+		 * {@link Argus.Shared.Registration.Data}. A certificate
+		 * is stored by {@link finish_registration}. A deregister
+		 * with an empty error returns to the local-or-remote page.
+		 * ''prior_error'' is shown when the command itself succeeds.
+		 * A missing pkexec, or an unreadable ''/proc/self/exe'',
+		 * stops with no further action.
+		 *
+		 * @param option root command option
+		 * @param value username passed to that option
+		 * @param waiting heading shown while the command runs
+		 * @param prior_error earlier failure, or empty
 		 */
-		private void register()
+		private void exe_root(string option, string value, string waiting, string prior_error)
 		{
+			this.generation++;
 #if LINUX
+			var failed = "Could not register";
+			if (option == "--deregister") {
+				failed = "Could not deregister";
+			}
 			var pkexec = GLib.Environment.find_program_in_path("pkexec");
 			if (pkexec == null) {
-				this.page("Could not request administrator access", "pkexec was not found.",
-					{ "Retry", "Log in to register" }, { "retry", "register" });
+				this.page("Could not request administrator access",
+					"pkexec was not found.", {}, {});
 				return;
 			}
 			var executable = "";
 			try {
 				executable = GLib.FileUtils.read_link("/proc/self/exe");
 			} catch (GLib.FileError e) {
-				this.page("Could not resolve argusrm-controller", e.message,
-					{ "Retry", "Log in to register" }, { "retry", "register" });
+				this.page("Could not resolve argusrm-controller", e.message, {}, {});
 				return;
 			}
-			var username = GLib.Environment.get_user_name();
-			this.page("Registering server", "", {}, {});
-			this.issue(pkexec, executable, username);
-#else
-			this.page("Could not register", "Local registration is Linux only.",
-				{ "Retry", "Log in to register" }, { "retry", "register" });
-#endif
-		}
-
-		/**
-		 * Run the privileged certificate command and store the connection.
-		 *
-		 * Standard output is {@link Argus.Shared.Registration.Data}.
-		 * The private key stays on {@link Window}. The name, addresses,
-		 * and port are written to ''connections.json''.
-		 *
-		 * @param pkexec path to pkexec
-		 * @param executable this controller
-		 * @param username controller login name
-		 */
-		private void issue(string pkexec, string executable, string username)
-		{
-			this.generation++;
+			this.page(waiting, "", {}, {});
 			string[] argv = {};
 			argv += pkexec;
 			argv += executable;
-			argv += "--give-me-a-certificate";
-			argv += username;
+			argv += option;
+			argv += value;
 			GLib.Subprocess proc;
 			try {
 				proc = new GLib.Subprocess.newv(argv,
@@ -535,12 +529,12 @@ namespace Argus.Controller.Dialog
 					if (message == "") {
 						message = "Administrator access was not granted.";
 					}
-					this.page("Could not register", message,
+					this.page(failed, message,
 						{ "Retry", "Log in to register" }, { "retry", "register" });
 					return;
 				}
 				var data = new Argus.Shared.Registration.Data() {
-					error = "The certificate command failed."
+					error = "The command failed."
 				};
 				try {
 					var parsed = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), output)
@@ -551,17 +545,42 @@ namespace Argus.Controller.Dialog
 				} catch (GLib.Error e) {
 					data.error = error_output != "" ? error_output : e.message;
 				}
+				if (option == "--deregister") {
+					if (data.error != "") {
+						this.page(failed, data.error,
+							{ "Retry", "Log in to register" }, { "retry", "register" });
+						return;
+					}
+					if (prior_error != "") {
+						this.page(failed, prior_error,
+							{ "Retry", "Log in to register" }, { "retry", "register" });
+						return;
+					}
+					this.page("Argus Remote Manager", "",
+						{ "Log in to local machine", "Connect a remote machine" },
+						{ "register", "remote" });
+					return;
+				}
 				if (data.error != "" || data.name == "" || data.port < 1) {
 					var message = data.error;
 					if (message == "") {
 						message = "The server did not return a connection.";
 					}
-					this.page("Could not register", message,
+					if (message == "This machine is already registered.") {
+						this.page(failed, message,
+							{ "Deregister locally", "Retry" }, { "local", "retry" });
+						return;
+					}
+					this.page(failed, message,
 						{ "Retry", "Log in to register" }, { "retry", "register" });
 					return;
 				}
 				this.finish_registration(data);
 			});
+#else
+			this.page("Could not request administrator access",
+				"Local registration is Linux only.", {}, {});
+#endif
 		}
 
 		/**
@@ -696,14 +715,17 @@ namespace Argus.Controller.Dialog
 		}
 
 		/**
-		 * Remove every saved login without calling the server.
+		 * Deregister this controller.
 		 *
 		 * Each saved name drops its keyring secret and row.
-		 * The empty-list page follows.
+		 * {@link exe_root} then runs ''--deregister'' for this username.
+		 * A saved-login failure does not skip that command.
+		 * The empty-list page follows when the command returns no error.
 		 */
 		private void deregister_local()
 		{
 			this.generation++;
+			var local_error = "";
 			foreach (var connection in this.connections) {
 				var data = new Argus.Shared.Registration.Data() {
 					name = connection.name
@@ -711,17 +733,16 @@ namespace Argus.Controller.Dialog
 				try {
 					data.clear_saved_login();
 				} catch (GLib.Error e) {
-					this.page("Could not deregister", e.message,
-						{ "Retry", "Log in to register" }, { "retry", "register" });
-					return;
+					if (local_error == "") {
+						local_error = e.message;
+					}
 				}
 			}
 			this.connections.clear();
 			this.reached.clear();
 			this.credentials.clear();
-			this.page("Argus Remote Manager", "",
-				{ "Log in to local machine", "Connect a remote machine" },
-				{ "register", "remote" });
+			this.exe_root("--deregister", GLib.Environment.get_user_name(),
+				"Deregistering", local_error);
 		}
 
 		/**
@@ -828,7 +849,8 @@ namespace Argus.Controller.Dialog
 				if (!opened) {
 					this.opened = false;
 					this.page("Could not connect", rpc.connect_error,
-						{ "Retry", "Log in to register" }, { "retry", "register" });
+						{ "Deregister locally", "Retry", "Log in to register" },
+						{ "local", "retry", "register" });
 					return;
 				}
 				var app = this.app;

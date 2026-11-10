@@ -36,6 +36,7 @@ namespace Argus.Controller
 	public class Application : GLib.Application
 	{
 		public static string give_certificate;
+		public static string deregister_name;
 		/**
 		 * Agent id for {@link Command.run}.
 		 *
@@ -60,6 +61,7 @@ namespace Argus.Controller
 			{ "debug", 'd', 0, GLib.OptionArg.NONE, ref opt_debug, "Enable debug output", null },
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
 			{ "give-me-a-certificate", 0, 0, GLib.OptionArg.STRING, ref give_certificate, "Issue a local controller certificate", "USERNAME" },
+			{ "deregister", 0, 0, GLib.OptionArg.STRING, ref deregister_name, "Username or fingerprint to deregister", "NAME" },
 			{ null }
 		};
 		public GLib.ApplicationCommandLine cli { get; set; }
@@ -121,6 +123,7 @@ namespace Argus.Controller
 			Argus.Shared.SQT.ScriptRepository.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			give_certificate = "";
+			deregister_name = "";
 			opt_debug = false;
 			opt_debug_critical = false;
 			var args = command_line.get_arguments();
@@ -142,7 +145,11 @@ namespace Argus.Controller
 			}
 			debug_on = opt_debug;
 			debug_critical_enabled = opt_debug_critical;
-			if (give_certificate == "") {
+			if (give_certificate != "" && deregister_name != "") {
+				command_line.printerr("Use one of --give-me-a-certificate or --deregister.\n");
+				return 1;
+			}
+			if (give_certificate == "" && deregister_name == "") {
 				var display = GLib.Environment.get_variable("DISPLAY");
 				var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
 				if ((display == null || display == "") && (wayland == null || wayland == "")) {
@@ -210,9 +217,15 @@ namespace Argus.Controller
 				this.loop.quit();
 				return;
 			}
+			var method = "Registration.certificate";
+			var call_args = OLLMrpc.args("s", give_certificate);
+			if (deregister_name != "") {
+				method = "Registration.deregister";
+				call_args = OLLMrpc.args("s", deregister_name);
+			}
 			this.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Registration.certificate",
-				args = OLLMrpc.args("s", give_certificate)
+				method = method,
+				args = call_args
 			}, (call_obj, call_res) => {
 				try {
 					var response = this.rpc.call.end(call_res);
@@ -221,6 +234,12 @@ namespace Argus.Controller
 							error = response.error.message
 						};
 						this.cli.print("%s\n", Json.gobject_to_data(data, null));
+						this.loop.quit();
+						return;
+					}
+					if (deregister_name != "") {
+						this.cli.print("%s\n", Json.gobject_to_data(new Argus.Shared.Registration.Data(), null));
+						this.code = 0;
 						this.loop.quit();
 						return;
 					}
