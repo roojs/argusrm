@@ -19,7 +19,7 @@
         <meta:color type="primary" scheme_preference="dark">#1c71d8</meta:color>
       </meta:branding>
       <meta:releases>
-        <meta:release version="0.1.1" date="2026-11-08"/>
+        <meta:release version="0.1.2" date="2026-11-10"/>
       </meta:releases>
     </meta:component>
   </metainfo>

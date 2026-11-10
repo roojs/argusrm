@@ -24,7 +24,10 @@ namespace Argus.Shared
 	 * Listens for the pairing service, then asks for the six digits.
 	 * The sixth digit starts registration. Android sends
 	 * {@link Browse.label} as the requester. Linux and Windows send
-	 * the host name.
+	 * the host name. While it listens, it names the server command
+	 * that turns on broadcast and prints the number. Enter IP/domain
+	 * reveals an address. Connect checks that address every twenty
+	 * seconds. Okay shows the same six digits.
 	 */
 	public class RegisterWindow : Adw.Dialog
 	{
@@ -60,9 +63,16 @@ namespace Argus.Shared
 		public Gtk.Label listen_label;
 		private Gtk.Entry pin_entry;
 		private Gtk.Box pin_box;
+		private Gtk.Entry address_entry;
+		private Gtk.Box address_box;
+		private Gtk.Box offer_box;
+		private Gtk.Button address_button;
 		private string found = "";
 		private uint browse_id = 0;
 		private uint close_id = 0;
+		private uint poll_id = 0;
+		private int poll_token = 0;
+		private bool by_address = false;
 		private Browse browse = new Browse();
 		private bool registering = false;
 
@@ -133,8 +143,8 @@ namespace Argus.Shared
 		public RegisterWindow()
 		{
 			this.title = "Connect to management server";
-			this.set_content_height(280);
-			this.set_content_width(480);
+			this.set_content_height(480);
+			this.set_content_width(520);
 
 			var content = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
 			var header = new Adw.HeaderBar() {
@@ -192,8 +202,94 @@ namespace Argus.Shared
 				margin_bottom = 12
 			};
 			body.append(this.listen_label);
+			var server_hint = new Gtk.Label(
+				"Run this on the server to turn on broadcast and display the number.") {
+				wrap = true,
+				xalign = 0.5f,
+				justify = Gtk.Justification.CENTER,
+				css_classes = {"dim-label"}
+			};
+			var server_command = new Gtk.Label("sudo argusrm-controller-cli") {
+				selectable = true,
+				xalign = 0.5f,
+				css_classes = {"monospace"}
+			};
+			this.address_button = new Gtk.Button.with_label("Enter IP/domain to connect to") {
+				halign = Gtk.Align.CENTER,
+				margin_top = 12,
+			};
+			this.offer_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12);
+			this.offer_box.append(server_hint);
+			this.offer_box.append(server_command);
+			this.offer_box.append(this.address_button);
+			body.append(this.offer_box);
+			this.address_entry = new Gtk.Entry() {
+				xalign = 0.5f,
+				hexpand = true,
+				height_request = 64,
+				css_classes = {"title-1"}
+			};
+			var connect_button = new Gtk.Button.with_label("Connect") {
+				halign = Gtk.Align.CENTER,
+				css_classes = {"suggested-action"}
+			};
+			this.address_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 12) {
+				visible = false
+			};
+			this.address_box.append(this.address_entry);
+			this.address_box.append(connect_button);
+			body.append(this.address_box);
 			content.append(body);
 			this.set_child(content);
+			this.address_button.clicked.connect(() => {
+				this.address_button.visible = false;
+				this.address_box.visible = true;
+				this.address_entry.grab_focus();
+			});
+			connect_button.clicked.connect(() => {
+				var text = this.address_entry.text.strip();
+				if (text == "") {
+					this.listen_label.label = "Enter an IP address or domain";
+					return;
+				}
+				var host = text;
+				var port = Argus.REGISTER_PORT;
+				var colon = text.last_index_of(":");
+				if (colon > 0) {
+					var parsed = 0;
+					if (!int.try_parse(text.substring(colon + 1), out parsed) ||
+						parsed < 1 || parsed > 65535) {
+						this.listen_label.label = "Bad address";
+						return;
+					}
+					host = text.substring(0, colon);
+					port = parsed;
+				}
+				if (host == "") {
+					this.listen_label.label = "Enter an IP address or domain";
+					return;
+				}
+				this.poll_token++;
+				this.by_address = true;
+				this.found = host + ":" + port.to_string();
+				this.server_id = "";
+				this.pin_box.visible = false;
+				this.listen_label.label = "Looking for a management server…";
+				if (this.browse_id != 0) {
+					GLib.Source.remove(this.browse_id);
+					this.browse_id = 0;
+				}
+				this.browse.stop();
+				if (this.poll_id != 0) {
+					GLib.Source.remove(this.poll_id);
+					this.poll_id = 0;
+				}
+				this.poll_id = GLib.Timeout.add_seconds(20, this.on_wait);
+				this.on_wait();
+			});
+			this.address_entry.activate.connect(() => {
+				connect_button.clicked();
+			});
 
 			this.error_occurred.connect((error_message) => {
 				this.listen_label.label = error_message;
@@ -212,6 +308,8 @@ namespace Argus.Shared
 			});
 			this.closed.connect(() => {
 				this.can_close = true;
+				this.by_address = false;
+				this.poll_token++;
 				if (this.browse_id != 0) {
 					GLib.Source.remove(this.browse_id);
 					this.browse_id = 0;
@@ -220,6 +318,10 @@ namespace Argus.Shared
 					GLib.Source.remove(this.close_id);
 					this.close_id = 0;
 				}
+				if (this.poll_id != 0) {
+					GLib.Source.remove(this.poll_id);
+					this.poll_id = 0;
+				}
 				var root = this.get_root() as Gtk.Window;
 				if (root != null) {
 					this.browse.stop();
@@ -227,6 +329,72 @@ namespace Argus.Shared
 				this.pin_entry.text = "";
 				this.dialog_closed();
 			});
+		}
+
+		/**
+		 * Check the typed address.
+		 *
+		 * A connection that opens is Okay and shows the six digits.
+		 * A refusal is Not active. The same check runs again in
+		 * twenty seconds until Okay, or until the dialog moves on.
+		 *
+		 * @return true to check again
+		 */
+		private bool on_wait()
+		{
+			if (!this.by_address || this.registering) {
+				return false;
+			}
+			var mark = this.found.last_index_of(":");
+			if (mark <= 0) {
+				this.listen_label.label = "Not active";
+				return true;
+			}
+			var parsed = 0;
+			if (!int.try_parse(this.found.substring(mark + 1), out parsed) || parsed < 1) {
+				this.listen_label.label = "Not active";
+				return true;
+			}
+			var token = this.poll_token;
+			var client = new GLib.SocketClient();
+			client.timeout = 5;
+			client.connect_to_host_async.begin(this.found.substring(0, mark),
+				(uint16) parsed, null, (obj, res) => {
+					if (token != this.poll_token) {
+						return;
+					}
+					var opened = false;
+					try {
+						var conn = client.connect_to_host_async.end(res);
+						opened = true;
+						try {
+							conn.close();
+						} catch (GLib.Error close_error) {
+							GLib.warning("%s", close_error.message);
+						}
+					} catch (GLib.Error e) {
+						opened = false;
+					}
+					if (token != this.poll_token) {
+						return;
+					}
+					if (!opened) {
+						this.listen_label.label = "Not active";
+						this.pin_box.visible = false;
+						return;
+					}
+					if (this.poll_id != 0) {
+						GLib.Source.remove(this.poll_id);
+						this.poll_id = 0;
+					}
+					this.poll_token++;
+					this.listen_label.label = "Okay";
+					this.offer_box.visible = false;
+					this.address_box.visible = false;
+					this.pin_box.visible = true;
+					this.pin_entry.grab_focus();
+				});
+			return true;
 		}
 
 		/**
@@ -240,9 +408,19 @@ namespace Argus.Shared
 			this.server_id = "";
 			this.found = "";
 			this.registering = false;
+			this.by_address = false;
+			this.poll_token++;
 			this.pin_entry.text = "";
 			this.pin_box.visible = false;
+			this.address_entry.text = "";
+			this.address_box.visible = false;
+			this.address_button.visible = true;
+			this.offer_box.visible = true;
 			this.listen_label.label = "Looking for a management server…";
+			if (this.poll_id != 0) {
+				GLib.Source.remove(this.poll_id);
+				this.poll_id = 0;
+			}
 			if (this.close_id != 0) {
 				GLib.Source.remove(this.close_id);
 				this.close_id = 0;
@@ -280,6 +458,14 @@ namespace Argus.Shared
 					}
 					this.server_id = hit.substring(0, nl);
 					this.found = hit.substring(nl + 1);
+					this.by_address = false;
+					this.poll_token++;
+					if (this.poll_id != 0) {
+						GLib.Source.remove(this.poll_id);
+						this.poll_id = 0;
+					}
+					this.offer_box.visible = false;
+					this.address_box.visible = false;
 					this.listen_label.label =
 						"Management server found. Enter the six-digit PIN.";
 					this.pin_box.visible = true;
@@ -310,7 +496,7 @@ namespace Argus.Shared
 				return;
 			}
 			var host = this.found.substring(0, colon);
-			if (!GLib.Uuid.string_is_valid(this.server_id)) {
+			if (!this.by_address && !GLib.Uuid.string_is_valid(this.server_id)) {
 				this.error_occurred("No server id");
 				return;
 			}
@@ -320,6 +506,11 @@ namespace Argus.Shared
 				return;
 			}
 			this.registering = true;
+			this.poll_token++;
+			if (this.poll_id != 0) {
+				GLib.Source.remove(this.poll_id);
+				this.poll_id = 0;
+			}
 			this.listen_label.label = "Registering…";
 			var who = GLib.Environment.get_host_name();
 #if ANDROID
@@ -483,6 +674,8 @@ namespace Argus.Shared
 		private void registration_succeeded()
 		{
 			this.pin_box.visible = false;
+			this.offer_box.visible = false;
+			this.address_box.visible = false;
 			this.certificate_received();
 			if (!this.registering) {
 				return;
