@@ -46,7 +46,7 @@ namespace Argus.Controller.Dialog
 		private Adw.EntryRow user_row;
 		private Adw.PasswordEntryRow pass_row;
 		private Adw.EntryRow key_row;
-		private Adw.ButtonRow go;
+		private Adw.ActionRow go;
 
 		/**
 		 * @param store repository list that clones the row
@@ -71,9 +71,10 @@ namespace Argus.Controller.Dialog
 			this.key_row = new Adw.EntryRow() {
 				title = "Key"
 			};
-			this.go = new Adw.ButtonRow() {
+			this.go = new Adw.ActionRow() {
 				title = "Clone",
 				sensitive = false,
+				activatable = true,
 				css_classes = { "suggested-action" }
 			};
 			var fields = new Adw.PreferencesGroup() {
