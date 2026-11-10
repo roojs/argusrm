@@ -21,10 +21,16 @@ namespace Argus.Controller
 	/**
 	 * Main controller window for one server.
 	 *
-	 * The title is ''Argus RM''. While the server connection is down
-	 * that title is ''Offline'' in red, and the connection is opened
-	 * again every thirty seconds. {@link TabList} lists places.
+	 * The sidebar title is ''Argus RM''. While the server connection
+	 * is down that title is ''Offline'' in red, and the connection is
+	 * opened again every thirty seconds. The page on the right is
+	 * titled with {@link Connection.name}, the saved name of the
+	 * server this window opened. An empty name uses the first saved
+	 * address. {@link TabList} lists places.
 	 * {@link Tab.Agent} lists registered machines.
+	 * {@link Tab.Assets} is Machines and Software. Machines is
+	 * a grid of the one-row columns and has no rows. Software
+	 * is the word Software.
 	 * {@link Tab.Repository} lists script clones. The other places
 	 * are blank. Settings stays at the bottom of the list.
 	 * A cog on the sidebar opens the menu.
@@ -134,7 +140,14 @@ namespace Argus.Controller
 			var tabs = new TabList();
 			sidebar_bar.content = tabs;
 			this.content_header = new Adw.HeaderBar();
-			var content_title = new Gtk.Label(tabs.titles[0]) {
+			var host_name = connection.name;
+			if (host_name == "" && connection.addresses.length > 0) {
+				host_name = connection.addresses[0];
+			}
+			if (host_name == "") {
+				host_name = "Argus RM";
+			}
+			var content_title = new Gtk.Label(host_name) {
 				css_classes = { "title" }
 			};
 			this.content_header.title_widget = content_title;
@@ -161,6 +174,10 @@ namespace Argus.Controller
 					pages.add_named(repository, key);
 					continue;
 				}
+				if (key == "assets") {
+					pages.add_named(new Tab.Assets(this), key);
+					continue;
+				}
 				pages.add_named(new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
 					hexpand = true,
 					vexpand = true
@@ -168,11 +185,9 @@ namespace Argus.Controller
 			}
 			pages.add_named(new Tab.Settings(this), "settings");
 			var sidebar_page = new Adw.NavigationPage(sidebar_bar, "Argus RM");
-			var content_page = new Adw.NavigationPage(this.content_bar, tabs.titles[0]);
+			var content_page = new Adw.NavigationPage(this.content_bar, host_name);
 			tabs.chosen.connect((key, title) => {
 				pages.visible_child_name = key;
-				content_page.title = title;
-				content_title.label = title;
 			});
 			pages.visible_child_name = tabs.keys[0];
 			var split = new Adw.NavigationSplitView() {

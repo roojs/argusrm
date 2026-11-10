@@ -8,7 +8,24 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
-## [0.1.2] - Unreleased
+## [0.1.3] - Unreleased
+
+### Added
+
+- Agents report the operating system, Debian packages, RPM packages, and Windows programs from osquery.
+- The Assets page has Machines and Software. Machines is a grid of the one-row columns and has no rows. Hidden columns start off. Software is the word Software.
+
+### Fixed
+
+- Debian packages depend on libocrpc1 and libocsqlite1, and RPM packages depend on libocrpc and libocsqlite. Shared-library detection skips both libraries because their SONAMEs have no version.
+- Removing a machine from the controller no longer leaves argusrm-agent saying it is already registered. A connected agent drops its certificate when it is removed. A later run asks the server, and a rejected certificate is deleted so registration can continue.
+- argusrm-agent --debug shows browse progress. argusrm-server --debug shows when a firewall port is opened or enforced, and when the allowlist changes.
+
+### Changed
+
+- A tag release no longer builds or publishes the controller AppImage. That build stays on its manual workflow.
+
+## [0.1.2] - 2026-11-10
 
 ### Changed
 

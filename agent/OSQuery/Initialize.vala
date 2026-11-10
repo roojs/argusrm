@@ -182,6 +182,13 @@ namespace Argus.Agent.OSQuery
 			code += this.sync_table(osqueryi, "cpu_info", "CpuInfo");
 			code += this.sync_table(osqueryi, "logged_in_users", "LoggedInUsers");
 			code += this.sync_table(osqueryi, "interface_addresses", "InterfaceAddresses");
+			code += this.sync_table(osqueryi, "os_version", "OsVersion");
+#if LINUX
+			code += this.sync_table(osqueryi, "deb_packages", "DebPackages");
+			code += this.sync_table(osqueryi, "rpm_packages", "RpmPackages");
+#elif WINDOWS
+			code += this.sync_table(osqueryi, "programs", "Programs");
+#endif
 			return code;
 		}
 

@@ -1,9 +1,8 @@
-argusrm (0.1.2-1) unstable; urgency=medium
+argusrm (0.1.3-1) unstable; urgency=medium
 
-  * Linux commands are argusrm-server, argusrm-agent, argusrm-agent-gtk, argusrm-controller, and argusrm-controller-cli. The command-line agent package is argusrm-agent. On a desktop, argusrm-agent starts argusrm-agent-gtk and exits. Login starts that window from /etc/xdg/autostart/argusrm-agent-gtk.desktop.
-  * The server package includes argusrm-controller-cli. That command opens registration and does not use GTK. On a machine without a desktop, argusrm-controller no longer opens registration.
-  * Registration listens on its own port. The connect window shows the command to run on the server. It can take an IP address or a domain when this machine cannot hear the broadcast. Connect checks that address every twenty seconds and asks for the PIN when registration is open.
-  * The agent is packaged as argusrm-agent and argusrm-agent-gtk. Servers install the command-line agent, argusrm-agent, which does not link GTK. argusrm-agent-gtk is the registration window.
-  * The controller lists agents and saved servers.
+  * Debian packages depend on libocrpc1 and libocsqlite1, and RPM packages depend on libocrpc and libocsqlite. Shared-library detection skips both libraries because their SONAMEs have no version.
+  * Removing a machine from the controller no longer leaves argusrm-agent saying it is already registered. A connected agent drops its certificate when it is removed. A later run asks the server, and a rejected certificate is deleted so registration can continue.
+  * argusrm-agent --debug shows browse progress. argusrm-server --debug shows when a firewall port is opened or enforced, and when the allowlist changes.
+  * A tag release no longer builds or publishes the controller AppImage. That build stays on its manual workflow.
 
- -- Alan Knowles <alan@roojs.com>  Tue, 10 Nov 2026 06:11:49 +0000
+ -- Alan Knowles <alan@roojs.com>  Tue, 10 Nov 2026 08:21:50 +0000

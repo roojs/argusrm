@@ -119,6 +119,7 @@ namespace Argus.Shared
 		 */
 		public int try_connection(string host, uint16 port, string pin, string requester)
 		{
+			GLib.debug("registering %s:%u", host, (uint) port);
 			OLLMrpc.rpc_register();
 			var dir = this.data_dir;
 			if (dir == "") {

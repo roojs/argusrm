@@ -33,7 +33,7 @@ Rules-Requires-Root: no
 
 Package: argusrm-server
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libocrpc1, libocsqlite1, ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
 Description: Argus Remote Manager server
  Argus Remote Manager enrolls managed machines, provides authenticated
@@ -43,7 +43,7 @@ Description: Argus Remote Manager server
 
 Package: argusrm-agent
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libocrpc1, libocsqlite1, ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
 Replaces: argusrm-agent-cli
 Breaks: argusrm-agent-cli
@@ -55,7 +55,7 @@ Description: Argus Remote Manager command-line agent
 
 Package: argusrm-agent-gtk
 Architecture: any
-Depends: argusrm-agent (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: argusrm-agent (= ${binary:Version}), libocrpc1, libocsqlite1, ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
 Description: Argus Remote Manager agent with a registration window
  This package adds the argusrm-agent-gtk command, which opens a desktop
@@ -65,7 +65,7 @@ Description: Argus Remote Manager agent with a registration window
 
 Package: argusrm-controller
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libocrpc1, libocsqlite1, ${shlibs:Depends}, ${misc:Depends}
 Description: Argus Remote Manager controller
  This package contains the desktop controller. It enrolls with an Argus
  Remote Manager server and opens the management window. Registration on

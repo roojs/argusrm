@@ -57,6 +57,8 @@ sources = files(
 	'store/Agent.vala',
 	'store/Repository.vala',
 	'tab/Agent.vala',
+	'tab/Assets.vala',
+	'tab/Base.vala',
 	'tab/Repository.vala',
 	'tab/Settings.vala',
 	'TabList.vala',

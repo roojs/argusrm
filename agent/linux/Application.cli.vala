@@ -68,6 +68,8 @@ namespace Argus.Agent.Linux
 					args[0]);
 				return 1;
 			}
+			debug_on = opt_debug;
+			debug_critical_enabled = opt_debug_critical;
 			if (leftover.length > 1) {
 				command_line.printerr("argusrm-agent does not accept registration arguments.\n");
 				return 1;
@@ -136,6 +138,10 @@ namespace Argus.Agent.Linux
 		 * ''--server'' is the management IP. ''--pin'' uses that
 		 * number instead of asking. Both together register in one
 		 * step. No address browses, then asks for the PIN.
+		 * An existing certificate is checked with
+		 * ''RPC-Daemon.hello''. A certificate the server rejects
+		 * is removed and registration continues. A server that
+		 * cannot be reached leaves the certificate.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when registration finished, otherwise the
@@ -192,11 +198,33 @@ namespace Argus.Agent.Linux
 			}
 			var certificate = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(certificate, GLib.FileTest.EXISTS)) {
-				command_line.print("Argus agent is already registered.\n");
-				return 0;
+				var rejected = false;
+				OLLMrpc.rpc_register();
+				var opened = this.open_connection();
+				if (opened != null) {
+					try {
+						var response = opened.call(new OLLMrpc.Request() {
+							method = "RPC-Daemon.hello",
+							args = OLLMrpc.args("is", 1, "argus-agent")
+						});
+						if (response.error != null &&
+							response.error.code == (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
+							rejected = true;
+						}
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
+				if (!rejected) {
+					command_line.print("Argus agent is already registered.\n");
+					return 0;
+				}
+				GLib.FileUtils.remove(certificate);
+				GLib.debug("certificate rejected");
 			}
 			if (host == "") {
 				var browse = new Argus.Shared.Browse();
+				GLib.debug("browsing");
 				browse.start();
 				command_line.print("Looking for a management server…\n");
 				var found = browse.poll();

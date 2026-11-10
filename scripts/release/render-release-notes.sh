@@ -11,7 +11,7 @@ tmp="$(mktemp)"
 {
 	echo "Argus is under development and is not ready for production use."
 	echo
-	echo "This release contains the Debian packages, Fedora RPMs, AppImage, Windows installer, and Android APK for \`${TAG}\`."
+	echo "This release contains the Debian packages, Fedora RPMs, Windows installer, and Android APK for \`${TAG}\`."
 	echo
 	echo "---"
 	echo

@@ -369,6 +369,7 @@ namespace Argus.Server
 			if (host != "0.0.0.0") {
 				addrs = { host };
 			}
+			GLib.debug("publishing %s port %d", string.joinv(" ", addrs), parsed);
 			this.app.publish.start(addrs, (uint16) parsed);
 			this.app.register_firewall.disable();
 			var owner = request.connection;
@@ -476,7 +477,8 @@ namespace Argus.Server
 		/**
 		 * Remove one machine.
 		 *
-		 * A controller calls this. The row is deleted, its app
+		 * A controller calls this. The row is deleted. A connected
+		 * agent is told to drop its certificate, then its app
 		 * socket is closed, and the allowlist is refreshed.
 		 * An unknown id is an error.
 		 *
@@ -505,6 +507,9 @@ namespace Argus.Server
 				if (connection.agent_id != id) {
 					continue;
 				}
+				connection.write(new OLLMrpc.Notification() {
+					method = "agent.removed"
+				});
 				connection.stop();
 			}
 			this.app.db.backupDB();

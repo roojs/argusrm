@@ -2,5 +2,6 @@
 <gresources>
   <gresource prefix="/argusrm">
     <file>style.css</file>
+    <file>columns/machines.csv</file>
   </gresource>
 </gresources>

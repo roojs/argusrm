@@ -20,6 +20,10 @@ namespace Argus.Shared.OSQuery
 		CpuInfo.init_db(db);
 		LoggedInUsers.init_db(db);
 		InterfaceAddresses.init_db(db);
+		OsVersion.init_db(db);
+		DebPackages.init_db(db);
+		RpmPackages.init_db(db);
+		Programs.init_db(db);
 	}
 
 }
