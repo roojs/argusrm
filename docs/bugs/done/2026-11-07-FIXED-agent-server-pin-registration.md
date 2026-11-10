@@ -1,6 +1,6 @@
 # Agent `--server` and controller paste command
 
-**Status:** ⏳ applied in the tree. Not user-verified. Section 7 clears `--server` with the other options. Its earlier replace fence was a copy of the base command line, so that fence was not applied.
+**Status:** ✅ closed 2026-11-10. `--server` is cleared with the other options in `agent/linux/Application.vala`.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -1008,4 +1008,8 @@ sudo argus-agent --server %s --pin %s
 					}
 					this.pin_label.label = reply[0];
 ```
+
+## Next
+
+- ✅ Closed. `--server` is reset with the other options, and the controller prints the remote agent command with the PIN.
 
