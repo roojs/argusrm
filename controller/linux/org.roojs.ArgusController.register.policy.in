@@ -16,4 +16,16 @@
     <annotate key="org.freedesktop.policykit.exec.argv1">--give-me-a-certificate</annotate>
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
+  <action id="org.roojs.ArgusController.deregister">
+    <description>Deregister this Argus Remote Manager controller</description>
+    <message>Authentication is required to deregister this Argus Remote Manager controller</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@CONTROLLER_EXECUTABLE@</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">--deregister</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
 </policyconfig>

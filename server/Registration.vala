@@ -224,6 +224,7 @@ namespace Argus.Server
 					new Argus.Shared.Agent() {
 						fingerprint = fingerprint,
 						status = 0,
+						ip = "127.0.0.1",
 						created = new GLib.DateTime.now_utc().to_unix(),
 						username = username,
 						hostname = hostname,
@@ -243,23 +244,66 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Remove this certificate's controller row.
+		 * Remove a controller registration.
 		 *
-		 * The desktop calls this on the TLS connection already open
-		 * for that certificate, then closes the connection. The
-		 * fingerprint must be the peer certificate. A missing row
-		 * is still success. The allowlist is refreshed from the
-		 * rows that remain.
+		 * ''fingerprint'' is one string. On the TLS connection it
+		 * must be the peer certificate. On ''argus.sock'', root
+		 * passes either that same SHA256 hex or a username. Sixty
+		 * four lowercase hex digits are a fingerprint. Anything
+		 * else is a username, and only rows with a blank ''ip'' or
+		 * ''127.0.0.1'' are deleted. A missing row is still
+		 * success.
 		 *
 		 * @param request inbound RPC on the app socket
-		 * @param fingerprint SHA256 of the client certificate
+		 * @param fingerprint SHA256 hex, or a username on the Unix socket
 		 */
 		public void deregister(OLLMrpc.Request request, string fingerprint)
 		{
 			var ssl = request.connection as Net.SslConnection;
 			if (ssl == null) {
+				try {
+					if (request.connection.stream == null ||
+						request.connection.stream.get_socket().get_credentials().get_unix_user() != 0) {
+						request.reply(new OLLMrpc.Response() {
+							error = new OLLMrpc.Error.INVALID_REQUEST("root is required")
+						});
+						return;
+					}
+				} catch (GLib.Error e) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INVALID_REQUEST("root is required")
+					});
+					return;
+				}
+				if (fingerprint == "") {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INVALID_REQUEST("fingerprint is required")
+					});
+					return;
+				}
+				var int_binds = new Gee.HashMap<string, int>();
+				var text_binds = new Gee.HashMap<string, string>();
+				int_binds.set("is_controller", 1);
+				var where = "WHERE is_controller = $is_controller AND username = $username " +
+					"AND (ip = '' OR ip = '127.0.0.1')";
+				text_binds.set("username", fingerprint);
+				// SHA256 hex is 64 digits. A username is a short login name.
+				var fingerprint_row = false;
+				try {
+					fingerprint_row = new GLib.Regex("^[0-9a-f]{64}$").match(fingerprint);
+				} catch (GLib.Error e) {
+					fingerprint_row = false;
+				}
+				if (fingerprint_row) {
+					where = "WHERE fingerprint = $fingerprint AND is_controller = $is_controller";
+					text_binds.unset("username");
+					text_binds.set("fingerprint", fingerprint);
+				}
+				Argus.Shared.Agent.query(this.app.db).deleteWhere(where, int_binds, text_binds);
+				this.app.db.backupDB();
+				this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("TCP only")
+					msg = "ok"
 				});
 				return;
 			}
