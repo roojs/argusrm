@@ -31,7 +31,8 @@ namespace Argus.Agent.Win32
 	 * {@link Argus.Agent.Application} directly. While the service
 	 * is running it starts ''argus-tray'' in the signed-in session
 		 * when that process is not already running, reads the number
-		 * from the local pipe, and calls {@link Argus.Shared.Register}.
+		 * and ''host:port'' from the local pipe, and calls
+		 * {@link Argus.Shared.Register}.
 	 * The tray tip is ''Connected to management server'' or
 	 * ''Disconnected''. A failed reach is tried again two minutes
 	 * later.
@@ -72,6 +73,7 @@ namespace Argus.Agent.Win32
 		private bool pipe_up = false;
 		private bool pipe_warned = false;
 		private string number = "";
+		private string directed = "";
 		private string tip = "";
 		private string reply_line = "";
 		private bool tip_due = false;
@@ -174,8 +176,15 @@ namespace Argus.Agent.Win32
 			if ((intptr) this.pipe != -1) {
 				this.pipe_warned = false;
 			}
-			var cert = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+			// FIXME? == stored publically?
+			var dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argus");
+			var cert = GLib.Path.build_filename(dir, "ollmrpc-ca.pem");
+			if (this.number == "" && !GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
+				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
+			}
 			var became = false;
 			if ((intptr) this.pipe != -1 && !this.pipe_up &&
 				(ConnectNamedPipe(this.pipe, null) ||
@@ -209,8 +218,17 @@ namespace Argus.Agent.Win32
 				this.pipe = (void*) (intptr) (-1);
 				this.pipe_up = false;
 			}
-			if (this.pipe_up && this.number == "" && got == 6) {
-				this.number = (string) buf[0:6];
+			if (this.pipe_up && this.number == "" && got >= 6) {
+				var msg = ((string) buf[0:got]).strip();
+				var nl = msg.index_of("\n");
+				if (nl == 6) {
+					this.number = msg.substring(0, 6);
+					this.directed = msg.substring(7);
+				}
+				if (nl < 0 && msg.length == 6) {
+					this.number = msg;
+					this.directed = "";
+				}
 			}
 			var line = "";
 			if (this.number != "" &&
@@ -218,13 +236,18 @@ namespace Argus.Agent.Win32
 				this.reply_line = "%d".printf(
 					(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
 				this.number = "";
+				this.directed = "";
 			}
-			if (this.number != "") {
+			if (this.number != "" && this.directed != "") {
+				line = "address\n" + this.directed;
+			}
+			if (this.number != "" && this.directed == "") {
 				line = this.application.browse.poll();
 			}
 			if (line == "none") {
 				this.reply_line = "%d".printf((int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
 				this.number = "";
+				this.directed = "";
 			}
 			var host = "";
 			var port = 0;
@@ -256,6 +279,7 @@ namespace Argus.Agent.Win32
 			if (line != "" && line != "none") {
 				this.reply_line = "%d".printf(code);
 				this.number = "";
+				this.directed = "";
 			}
 			var probing = this.ticks % 120 == 1 && !this.probe_open &&
 				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS);

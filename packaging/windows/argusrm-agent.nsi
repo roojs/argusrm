@@ -73,3 +73,7 @@ Section "Uninstall"
   DeleteRegKey HKLM "${UNINST_KEY}"
   RMDir /r "$INSTDIR"
 SectionEnd
+
+Function .onInstSuccess
+  Exec '"$INSTDIR\argus-tray.exe"'
+FunctionEnd

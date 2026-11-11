@@ -23,9 +23,11 @@ namespace Argus.Controller.Tab.Asset
 	 *
 	 * Three sub-tabs. Each one has its own grid and loads its
 	 * own table. Debian packages, RPM packages, and Windows.
-	 * Each tab has an icon and a spinner. This row is an inline
-	 * switcher: a grey bar, the active tab white, a light border.
-	 * It spans the window. The window header stays the title.
+	 * Each tab has an icon and a spinner. The icon and the label
+	 * sit in the middle of the tab. The spinner stays at the end.
+	 * This row is an inline switcher: a grey bar, the active tab
+	 * white, a light border. It spans the window. The window
+	 * header stays the title.
 	 * An empty grid shows its spinner over the grid. A later
 	 * load keeps the rows and spins in that tab.
 	 *
@@ -61,15 +63,22 @@ namespace Argus.Controller.Tab.Asset
 			pages.add_titled_with_icon(debian, "debian", "Debian packages", "emblem-debian-symbolic");
 			var debian_spin = new Gtk.Spinner() {
 				visible = false,
+				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
 			};
-			var debian_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+			var debian_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
 			debian_row.append(new Gtk.Image.from_icon_name("emblem-debian-symbolic"));
 			debian_row.append(new Gtk.Label("Debian packages"));
-			debian_row.append(debian_spin);
 			group.add(new Adw.Toggle() {
 				name = "debian",
-				child = debian_row
+				child = new Gtk.CenterBox() {
+					center_widget = debian_row,
+					end_widget = debian_spin,
+					hexpand = true
+				}
 			});
 			debian.bind_property("refreshing", debian_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
 			debian.bind_property("refreshing", debian_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
@@ -77,15 +86,22 @@ namespace Argus.Controller.Tab.Asset
 			pages.add_titled_with_icon(rpm, "rpm", "RPM packages", "application-x-rpm");
 			var rpm_spin = new Gtk.Spinner() {
 				visible = false,
+				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
 			};
-			var rpm_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+			var rpm_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
 			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm"));
 			rpm_row.append(new Gtk.Label("RPM packages"));
-			rpm_row.append(rpm_spin);
 			group.add(new Adw.Toggle() {
 				name = "rpm",
-				child = rpm_row
+				child = new Gtk.CenterBox() {
+					center_widget = rpm_row,
+					end_widget = rpm_spin,
+					hexpand = true
+				}
 			});
 			rpm.bind_property("refreshing", rpm_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
 			rpm.bind_property("refreshing", rpm_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
@@ -93,15 +109,22 @@ namespace Argus.Controller.Tab.Asset
 			pages.add_titled_with_icon(windows, "windows", "Windows", "windows-symbolic");
 			var windows_spin = new Gtk.Spinner() {
 				visible = false,
+				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
 			};
-			var windows_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+			var windows_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
 			windows_row.append(new Gtk.Image.from_icon_name("windows-symbolic"));
 			windows_row.append(new Gtk.Label("Windows"));
-			windows_row.append(windows_spin);
 			group.add(new Adw.Toggle() {
 				name = "windows",
-				child = windows_row
+				child = new Gtk.CenterBox() {
+					center_widget = windows_row,
+					end_widget = windows_spin,
+					hexpand = true
+				}
 			});
 			windows.bind_property("refreshing", windows_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
 			windows.bind_property("refreshing", windows_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);

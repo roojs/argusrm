@@ -41,9 +41,14 @@
 
 ## Attempts
 
-- ✔️ `packaging/windows/argusrm-agent.nsi` creates the service as `argus-agent`, removes a leftover `ArgusAgent` service, and names the shortcut Argus Agent. `sc start` is what opens the window: the service starts `argus-tray.exe` in the signed-in session.
+- ✔️ `packaging/windows/argusrm-agent.nsi` creates the service as `argus-agent`, removes a leftover `ArgusAgent` service, and names the shortcut Argus Agent.
+- 🔷 Starting the service did not open the registration window. `.onInstSuccess` starts `argus-tray.exe` when the installer finishes.
 - ✔️ `scripts/ci/windows-package-nsis.sh` sets the tray copy to the windows subsystem. `argus-agent.exe` stays a console program.
-- ✔️ `controller/dialog/Pairing.vala` sets `selectable` on the PIN label.
+- ✔️ `controller/dialog/Pairing.vala` sets `selectable` on the PIN label and leaves it unfocused, so the digits are not shown selected.
+- ✔️ The tray writes the window's `host:port` with the PIN. The service registers to that address.
+- ✔️ From `snappr-win`, `argus-agent.exe --host 192.168.88.132 --port 819 --pin 000000` reached `Register.vala` and stopped with `os-release did not name debian or rpm` (`-32603`). TCP to port 819 succeeded. No certificate was sent. MSYS2 valac does not define `G_OS_WIN32`, so `shared/Register.vala` kept the Linux family.
+- ✔️ After `-D G_OS_WIN32`, the same command gets past that check. With registration closed it stops on `Could not connect to 192.168.88.132: Socket I/O timed out`. Port 819 is firewalled until the controller opens a PIN.
+- ✔️ A failed attempt writes `client.pem` before the server answers. The tray treated that file as registered and did not open the window. Startup now removes `client.pem`, `client-key.pem`, and `client.csr` when `ollmrpc-ca.pem` is absent.
 
 ## Next
 

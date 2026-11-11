@@ -67,6 +67,8 @@ shared_ui_vala_args = [
 shared_ui_c_args = []
 
 if host_machine.system() == 'windows'
+	# MSYS2 valac does not predefine this, so Register stays on the Linux path.
+	shared_vala_args += ['-D', 'G_OS_WIN32']
 	shared_ui_sources += files('windows/Browse.vala')
 	shared_ui_deps += meson.get_compiler('c').find_library('dnsapi')
 	shared_ui_vala_args += ['--vapidir', meson.current_source_dir() / 'windows', '--pkg', 'windns']
