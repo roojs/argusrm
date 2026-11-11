@@ -22,6 +22,7 @@ namespace Argus.Shared.OSQuery
 	 * One ''system_info'' row.
 	 *
 	 * ''SystemInfo.list'' returns every stored row to a controller.
+	 * A flag on that call joins the host's ''os_version''.
 	 */
 	public class SystemInfo : Row
 	{
@@ -79,7 +80,7 @@ namespace Argus.Shared.OSQuery
 			OLLMrpc.Bin.register("SystemInfo", typeof(SystemInfo));
 			OLLMrpc.Request.add_class(
 				"SystemInfo", typeof(SystemInfo),
-				"list", ""
+				"list", "b"
 			);
 		}
 
@@ -88,16 +89,45 @@ namespace Argus.Shared.OSQuery
 		 *
 		 * A controller calls this. An agent with no row is absent.
 		 * A caller that is not a controller is refused.
+		 * ''join'' adds that host's ''os_version'' onto the row.
+		 * The joined values are not stored on ''system_info''.
 		 *
 		 * @param request inbound RPC from a controller
+		 * @param join true to include the ''os_version'' columns
 		 */
-		public void list(OLLMrpc.Request request)
+		public void list(OLLMrpc.Request request, bool join)
 		{
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
 			}
 			var rows = new Gee.ArrayList<SystemInfo>();
-			SystemInfo.query(SystemInfo.db).select("", rows);
+			var query = SystemInfo.query(SystemInfo.db);
+			if (!join) {
+				query.select("", rows);
+			}
+			if (join) {
+				var columns = string.joinv(", ", query.getColsExcept(null, "system_info."));
+				query.selectQuery(@"
+					SELECT 
+						$(columns),
+						trim(COALESCE(os_version.name, '') || ' ' ||
+							COALESCE(os_version.version, '')) as operating_system,
+						CAST(os_version.major AS TEXT) as major,
+						CAST(os_version.minor AS TEXT) as minor,
+						CAST(os_version.patch AS TEXT) as patch,
+						os_version.build as build,
+						os_version.platform as platform,
+						os_version.platform_like as platform_like,
+						os_version.codename as codename,
+						os_version.arch as arch
+					FROM 
+						system_info
+					LEFT JOIN 
+						os_version
+					ON 
+						os_version.agent_id = system_info.agent_id
+					",rows);
+			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),
 				msg = "ok"
@@ -115,27 +145,95 @@ namespace Argus.Shared.OSQuery
 			return new SQ.Query<SystemInfo>(db, "system_info");
 		}
 
+		/**
+		 * Network hostname, including the domain.
+		 */
 		public string hostname { get; set; default = ""; }
+		/**
+		 * Unique id provided by the system.
+		 */
 		public string uuid { get; set; default = ""; }
+		/**
+		 * CPU type.
+		 */
 		public string cpu_type { get; set; default = ""; }
+		/**
+		 * CPU subtype.
+		 */
 		public string cpu_subtype { get; set; default = ""; }
+		/**
+		 * Human readable CPU name.
+		 */
 		public string cpu_brand { get; set; default = ""; }
+		/**
+		 * Physical CPU cores.
+		 */
 		public int cpu_physical_cores { get; set; default = 0; }
+		/**
+		 * Logical CPU cores.
+		 */
 		public int cpu_logical_cores { get; set; default = 0; }
+		/**
+		 * CPU microcode version.
+		 */
 		public string cpu_microcode { get; set; default = ""; }
 		/**
-		 * Byte count. ''int64'' because it does not fit in ''int''.
+		 * Total physical memory, in bytes. ''int64'' because
+		 * it does not fit in ''int''.
 		 */
 		public int64 physical_memory { get; set; default = 0; }
+		/**
+		 * Machine vendor.
+		 */
 		public string hardware_vendor { get; set; default = ""; }
+		/**
+		 * Machine model.
+		 */
 		public string hardware_model { get; set; default = ""; }
+		/**
+		 * Machine version.
+		 */
 		public string hardware_version { get; set; default = ""; }
+		/**
+		 * Device serial number.
+		 */
 		public string hardware_serial { get; set; default = ""; }
+		/**
+		 * Motherboard vendor.
+		 */
 		public string board_vendor { get; set; default = ""; }
+		/**
+		 * Motherboard model.
+		 */
 		public string board_model { get; set; default = ""; }
+		/**
+		 * Motherboard version.
+		 */
 		public string board_version { get; set; default = ""; }
+		/**
+		 * Motherboard serial number.
+		 */
 		public string board_serial { get; set; default = ""; }
+		/**
+		 * Friendly computer name.
+		 */
 		public string computer_name { get; set; default = ""; }
+		/**
+		 * Local hostname.
+		 */
 		public string local_hostname { get; set; default = ""; }
+		/*
+		 * The following are overlaid from os_version.
+		 * Empty when that host has no os_version row.
+		 */
+		public string operating_system { get; set; default = ""; }
+		public string major { get; set; default = ""; }
+		public string minor { get; set; default = ""; }
+		public string patch { get; set; default = ""; }
+		public string build { get; set; default = ""; }
+		public string platform { get; set; default = ""; }
+		public string platform_like { get; set; default = ""; }
+		public string codename { get; set; default = ""; }
+		public string arch { get; set; default = ""; }
 	}
 }
