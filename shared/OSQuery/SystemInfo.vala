@@ -20,9 +20,13 @@ namespace Argus.Shared.OSQuery
 {
 	/**
 	 * One ''system_info'' row.
+	 *
+	 * ''SystemInfo.list'' returns every stored row to a controller.
 	 */
 	public class SystemInfo : Row
 	{
+		private static SQ.Database db;
+
 		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
 		{
 			return this.sync_rows<SystemInfo>(db, agent_id, rows, "system_info", {});
@@ -35,6 +39,7 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			SystemInfo.db = db;
 			string errmsg;
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS system_info (
@@ -67,11 +72,47 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * Register this row with the bin codec.
+		 * Register this row and ''SystemInfo.list''.
 		 */
 		public static void rpc_register()
 		{
 			OLLMrpc.Bin.register("SystemInfo", typeof(SystemInfo));
+			OLLMrpc.Request.add_class(
+				"SystemInfo", typeof(SystemInfo),
+				"list", ""
+			);
+		}
+
+		/**
+		 * List every stored row.
+		 *
+		 * A controller calls this. An agent with no row is absent.
+		 * A caller that is not a controller is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 */
+		public void list(OLLMrpc.Request request)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<SystemInfo>();
+			SystemInfo.query(SystemInfo.db).select("", rows);
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Rows in ''system_info''.
+		 *
+		 * @param db Argus database
+		 * @return the query
+		 */
+		public static SQ.Query<SystemInfo> query(SQ.Database db)
+		{
+			return new SQ.Query<SystemInfo>(db, "system_info");
 		}
 
 		public string hostname { get; set; default = ""; }

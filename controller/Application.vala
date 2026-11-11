@@ -116,6 +116,7 @@ namespace Argus.Controller
 		{
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
+			Argus.Shared.OSQuery.SystemInfo.rpc_register();
 			Argus.Shared.Registration.Data.rpc_register();
 			Argus.Shared.SQT.Task.rpc_register();
 			Argus.Shared.SQT.TaskTarget.rpc_register();

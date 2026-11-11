@@ -21,14 +21,9 @@ namespace Argus.Controller.Tab
 	/**
 	 * Assets page.
 	 *
-	 * Machines and Software are the two halves. The switcher is
-	 * an {@link Adw.ViewSwitcher} on this page. Machines is a
-	 * grid of the columns in ''columns/machines.csv'' and has
-	 * no rows. {@link Base.column_menu} builds that grid. A
-	 * right-click on a column header shows or hides each column,
-	 * and the last visible column stays. Software is the word
-	 * Software. There is no filter row and no call to the
-	 * server. The window header stays the server name.
+	 * {@link Asset.SystemInfo} and {@link Asset.Software} are the
+	 * two halves. The switcher is an {@link Adw.ViewSwitcher}
+	 * on this page. The window header stays the server name.
 	 *
 	 * == Example ==
 	 *
@@ -37,7 +32,7 @@ namespace Argus.Controller.Tab
 	 * stack.add_named(page, "assets");
 	 * }}}
 	 */
-	public class Assets : Base
+	public class Assets : Gtk.Box
 	{
 		/**
 		 * Controller window this page belongs to.
@@ -45,10 +40,8 @@ namespace Argus.Controller.Tab
 		public Argus.Controller.Window window;
 
 		/**
-		 * Build the machine grid and the Software word.
-		 *
-		 * The grid has every machines column and no rows.
-		 * Those columns are ''columns/machines.csv''.
+		 * Build the switcher for {@link Asset.SystemInfo} and
+		 * {@link Asset.Software}.
 		 *
 		 * @param window the controller window this page belongs to
 		 */
@@ -62,26 +55,18 @@ namespace Argus.Controller.Tab
 				hexpand = true,
 				vexpand = true
 			};
-			var grid = new Gtk.ColumnView(new Gtk.NoSelection(
-				new GLib.ListStore(typeof(GLib.Object)))) {
-				hexpand = true,
-				vexpand = true,
-				show_row_separators = true
-			};
-			this.column_menu(grid, "machines");
-			pages.add_titled_with_icon(new Gtk.ScrolledWindow() {
-				child = grid,
-				hexpand = true,
-				vexpand = true
-			}, "machines", "Machines", "computer-symbolic");
-			pages.add_titled_with_icon(new Gtk.Label("Software") {
-				xalign = 0,
-				yalign = 0,
-				hexpand = true,
-				vexpand = true,
-				margin_start = 12,
-				margin_top = 12
-			}, "software", "Software", "package-x-generic-symbolic");
+			pages.add_titled_with_icon(
+				new Asset.SystemInfo(window),
+				"system-info",
+				"Machines",
+				"computer-symbolic"
+			);
+			pages.add_titled_with_icon(
+				new Asset.Software(),
+				"software",
+				"Software",
+				"package-x-generic-symbolic"
+			);
 			this.append(new Adw.ViewSwitcher() {
 				stack = pages,
 				policy = Adw.ViewSwitcherPolicy.WIDE,

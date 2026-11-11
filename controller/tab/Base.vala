@@ -38,7 +38,7 @@ namespace Argus.Controller.Tab
 	 * == Example ==
 	 *
 	 * {{{
-	 * this.column_menu(grid, "machines");
+	 * this.column_menu(grid, "system_info");
 	 * }}}
 	 */
 	public abstract class Base : Gtk.Box
@@ -103,7 +103,7 @@ namespace Argus.Controller.Tab
 				var header_column = first;
 				first = false;
 				var width = 0;
-				var factory = this.column_factory(format, header_column);
+				var factory = this.column_factory(name, format, header_column);
 				var column = new Gtk.ColumnViewColumn(title, factory) {
 					resizable = true,
 					visible = starts
@@ -148,12 +148,19 @@ namespace Argus.Controller.Tab
 		 * aligned. ''status'' and ''tick'' are an image. The row
 		 * header is bold. Further formats are further cases.
 		 *
+		 * A column whose database name is on the row fills its
+		 * cell. Other columns stay empty.
+		 *
+		 * @param name database name in JSON, hyphen for underscore
 		 * @param format text, number, date, status, or tick
 		 * @param header_column true for the row header
 		 * @return the factory that sets up each cell
 		 */
-		private Gtk.SignalListItemFactory column_factory(string format, bool header_column)
-		{
+		private Gtk.SignalListItemFactory column_factory(
+			string name,
+			string format,
+			bool header_column
+		) {
 			var attrs = new Pango.AttrList();
 			attrs.insert(Pango.attr_weight_new(Pango.Weight.SEMIBOLD));
 			var factory = new Gtk.SignalListItemFactory();
@@ -204,6 +211,41 @@ namespace Argus.Controller.Tab
 							hexpand = true,
 							attributes = header_column ? attrs : null
 						};
+						break;
+				}
+			});
+			factory.bind.connect((obj) => {
+				var item = (Gtk.ListItem) obj;
+				var row = (Argus.Shared.OSQuery.SystemInfo) item.item;
+				var prop = row.get_class().find_property(name);
+				if (prop == null) {
+					return;
+				}
+				var value = GLib.Value(prop.value_type);
+				((GLib.Object) row).get_property(name, ref value);
+				var shown = "";
+				switch (prop.value_type) {
+					case GLib.Type.INT:
+						shown = value.get_int().to_string();
+						break;
+
+					case GLib.Type.INT64:
+						shown = value.get_int64().to_string();
+						break;
+
+					default:
+						shown = value.get_string();
+						break;
+				}
+				switch (format) {
+					case "status":
+						break;
+
+					case "tick":
+						break;
+
+					default:
+						((Gtk.Label) item.child).label = shown;
 						break;
 				}
 			});
