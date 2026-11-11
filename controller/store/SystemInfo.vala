@@ -111,6 +111,7 @@ namespace Argus.Controller.Store
 		/**
 		 * Fetch ''SystemInfo.list'' and apply it to {@link items}.
 		 *
+		 * The call asks for the joined ''os_version'' columns.
 		 * The reply replaces the list. A newer call drops a reply
 		 * that is still waiting. An empty list is omitted on the
 		 * wire, so an unset return is no rows.
@@ -120,7 +121,8 @@ namespace Argus.Controller.Store
 			this.epoch++;
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "SystemInfo.list"
+				method = "SystemInfo.list",
+				args = OLLMrpc.args("b", true)
 			}, (obj, res) => {
 				if (epoch != this.epoch) {
 					return;

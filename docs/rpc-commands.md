@@ -91,8 +91,10 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments: none.
+- Arguments `b`: true includes that host's `os_version` on the row. false is `system_info` only.
 - Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info`.
+- With the flag, the row also carries `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, and `arch`. A host with no `os_version` row stays in the list and those fields are empty.
+- `major`, `minor`, and `patch` are text here, so a missing row stays blank. They are not columns of `system_info`.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls it. [5.8](plans/5.8-assets-page.md).
 
