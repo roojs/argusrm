@@ -71,6 +71,17 @@ allowlist_test = executable(
 	install: false,
 )
 test('allowlist', allowlist_test, timeout: 30)
+packages_test = executable(
+	'argus-packages-test',
+	sources,
+	files('tests/packages.vala'),
+	dependencies: deps,
+	c_args: ocsqlite_c_args,
+	export_dynamic: true,
+	vala_args: server_vala_args,
+	install: false,
+)
+test('packages', packages_test, timeout: 30)
 executable(
 	'argus-nftables-test',
 	files('tests/nftables.vala', 'Net/NFTables.vala'),

@@ -23,6 +23,8 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class RpmPackages : Row
 	{
+		private static SQ.Database db;
+
 		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
 		{
 			return this.sync_rows<RpmPackages>(db, agent_id, rows, "rpm_packages", { "name", "arch" });
@@ -35,6 +37,7 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			RpmPackages.db = db;
 			string errmsg;
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS rpm_packages (
@@ -64,6 +67,75 @@ namespace Argus.Shared.OSQuery
 		public static void rpc_register()
 		{
 			OLLMrpc.Bin.register("RpmPackages", typeof(RpmPackages));
+			OLLMrpc.Request.add_class(
+				"RpmPackages", typeof(RpmPackages),
+				"list", "i"
+			);
+		}
+
+		/**
+		 * One row per package name, or one agent's stored rows.
+		 *
+		 * A controller calls this. Zero lists every agent, added
+		 * up by name. An ''agent_id'' greater than zero is a
+		 * different query: that agent's stored rows, with no
+		 * added-up columns. A row whose ''agent_id'' is not in
+		 * ''agent'' is absent. A caller that is not a controller
+		 * is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param agent_id agent id, or zero for every agent
+		 */
+		public void list(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<RpmPackages>();
+			var query = new SQ.Query<RpmPackages>(RpmPackages.db, "rpm_packages");
+			if (agent_id > 0) {
+				query.select("WHERE agent_id = %d AND agent_id IN (SELECT id FROM agent)".printf(agent_id), rows);
+			}
+			if (agent_id <= 0) {
+				query.selectQuery("""
+					SELECT
+						name,
+						GROUP_CONCAT(DISTINCT NULLIF(arch, '')) AS arch,
+						GROUP_CONCAT(DISTINCT NULLIF(package_group, '')) AS package_group,
+						GROUP_CONCAT(DISTINCT NULLIF(source, '')) AS source,
+						GROUP_CONCAT(DISTINCT NULLIF(vendor, '')) AS vendor,
+						(
+							SELECT printf('%d:%s-%s', epoch, version, release)
+							FROM rpm_packages AS low
+							WHERE low.name = rpm_packages.name
+							AND low.agent_id IN (SELECT id FROM agent)
+							ORDER BY low.epoch ASC, low.version ASC, low.release ASC
+							LIMIT 1
+						) AS min_version,
+						(
+							SELECT printf('%d:%s-%s', epoch, version, release)
+							FROM rpm_packages AS high
+							WHERE high.name = rpm_packages.name
+							AND high.agent_id IN (SELECT id FROM agent)
+							ORDER BY high.epoch DESC, high.version DESC, high.release DESC
+							LIMIT 1
+						) AS max_version,
+						MAX(size) AS max_size,
+						COUNT(DISTINCT agent_id) AS installed
+					FROM
+						rpm_packages
+					WHERE
+						agent_id IN (SELECT id FROM agent)
+					GROUP BY
+						name
+					ORDER BY
+						name
+					""", rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
 		}
 
 		public string name { get; set; default = ""; }
@@ -83,5 +155,26 @@ namespace Argus.Shared.OSQuery
 		public int64 install_time { get; set; default = 0; }
 		public string vendor { get; set; default = ""; }
 		public string package_group { get; set; default = ""; }
+		/**
+		 * Lowest epoch, version, and release for this name.
+		 * The cell is epoch, version, and release. Filled by
+		 * ''list''. Not stored.
+		 */
+		public string min_version { get; set; default = ""; }
+		/**
+		 * Highest epoch, version, and release for this name.
+		 * Filled by ''list''. Not stored.
+		 */
+		public string max_version { get; set; default = ""; }
+		/**
+		 * Largest installed size for this name, in bytes.
+		 * Filled by ''list''. Not stored.
+		 */
+		public int64 max_size { get; set; default = 0; }
+		/**
+		 * How many machines have this name. Filled by ''list''.
+		 * Not stored.
+		 */
+		public int installed { get; set; default = 0; }
 	}
 }

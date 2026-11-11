@@ -1,0 +1,11 @@
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format
+
+Name,name,ON,180,text
+Arch,arch,ON,90,text
+Package group,package-group,ON,220,text
+Min version,min-version,ON,160,text
+Max version,max-version,ON,160,maxver
+Max size,max-size,ON,90,bytes
+Source,source,off,180,text
+Vendor,vendor,off,160,text
+Installed,installed,ON,80,number

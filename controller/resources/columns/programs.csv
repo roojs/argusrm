@@ -1,0 +1,14 @@
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format
+
+Name,name,ON,200,text
+Publisher,publisher,ON,160,text
+Min version,min-version,ON,120,text
+Max version,max-version,ON,120,maxver
+Language,language,off,80,text
+Identifying number,identifying-number,off,220,text
+Install date,install-date,off,110,text
+Install location,install-location,off,200,text
+Install source,install-source,off,200,text
+Uninstall string,uninstall-string,off,220,text
+Installed,installed,ON,80,number
+Uninstall,uninstall-count,ON,80,bin

@@ -37,6 +37,8 @@ namespace Argus.Shared.OSQuery
 		/**
 		 * Create ''system_info''.
 		 *
+		 * A row whose ''agent_id'' is not in ''agent'' is deleted.
+		 *
 		 * @param db Argus database
 		 */
 		public static void init_db(SQ.Database db)
@@ -71,6 +73,12 @@ namespace Argus.Shared.OSQuery
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("system_info create failed: %s", db.db.errmsg());
 			}
+			if (Sqlite.OK != db.db.exec("""
+				DELETE FROM system_info
+				WHERE agent_id NOT IN (SELECT id FROM agent);
+				""", null, out errmsg)) {
+				GLib.warning("system_info prune failed: %s", db.db.errmsg());
+			}
 		}
 
 		/**
@@ -89,6 +97,8 @@ namespace Argus.Shared.OSQuery
 		 * List every stored row.
 		 *
 		 * A controller calls this. An agent with no row is absent.
+		 * A row whose ''agent_id'' is not in ''agent'' is absent.
+		 * Joined ''os_version'' and logins follow that same rule.
 		 * A caller that is not a controller is refused.
 		 * ''join'' adds that host's ''os_version'' onto the row.
 		 * The same flag adds the distinct logged-in users.
@@ -105,7 +115,7 @@ namespace Argus.Shared.OSQuery
 			var rows = new Gee.ArrayList<SystemInfo>();
 			var query = SystemInfo.query(SystemInfo.db);
 			if (!join) {
-				query.select("", rows);
+				query.select("WHERE agent_id IN (SELECT id FROM agent)", rows);
 			}
 			if (join) {
 				var columns = string.joinv(", ", query.getColsExcept(null, "system_info."));
@@ -126,6 +136,7 @@ namespace Argus.Shared.OSQuery
 							SELECT GROUP_CONCAT(DISTINCT logged_in_users.user)
 							FROM logged_in_users
 							WHERE logged_in_users.agent_id = system_info.agent_id
+							AND logged_in_users.agent_id IN (SELECT id FROM agent)
 							AND logged_in_users.user != ''
 						), '') as logged_in_users
 					FROM 
@@ -134,6 +145,9 @@ namespace Argus.Shared.OSQuery
 						os_version
 					ON 
 						os_version.agent_id = system_info.agent_id
+						AND os_version.agent_id IN (SELECT id FROM agent)
+					WHERE
+						system_info.agent_id IN (SELECT id FROM agent)
 					",rows);
 			}
 			request.reply(new OLLMrpc.Response() {

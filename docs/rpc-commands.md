@@ -2,6 +2,8 @@
 
 Reference for the calls the agent sends, and the library calls those depend on.
 
+A registered call, or a notification the server sends, belongs in this file. Add it in the same change that adds the call.
+
 A call name is `Class.method`. The letters in `OLLMrpc.args` are the argument types.
 
 - `s` string
@@ -41,6 +43,19 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - Later entries are app-socket listen addresses. The client stores that port as `server`, not the registration port it dialed.
 - A controller that already has an active row for that username and hostname is refused with `This machine is already registered.`
 - ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
+- A matching pin broadcasts `event.pair` with action `done`. A rejected pin broadcasts `event.pair` with action `rejected`.
+
+### `Agent.offer`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments: none.
+- Opens the registration socket and publishes that port. The app socket stays as it is.
+- Reply `retval` `as`: index 0 is the six digits. Index 1 is the public IPv4 address, or empty when that lookup fails.
+- The number lasts sixty seconds, until `Agent.request_registration` accepts it, or until this connection closes.
+- A caller that is not a controller is `controller only`.
+- The registration socket failing to bind is `registration socket did not bind`.
+- ℹ️ The method is `server/Agent.vala`. The controller calls it from `controller/dialog/Pairing.vala` and `controller/cli/Pin.vala`.
 
 ### `Registration.certificate`
 
@@ -53,6 +68,24 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - It contains the private key, client certificate, CA certificate, server name, addresses, and TLS port.
   - The server stores a pending controller row with `status = 0`.
 - ℹ️ The method is `server/Registration.vala`.
+
+### `Registration.deregister`
+
+- Socket: the Unix socket, or the app socket.
+- Direction: controller calls the server.
+- Arguments `s`: a SHA256 fingerprint, or a username on the Unix socket.
+- On the app socket the string must be that connection's certificate fingerprint. The matching controller row is deleted. A missing row is still success.
+- On the Unix socket the peer uid must be `0`. Sixty four lowercase hex digits delete that fingerprint. Anything else is a username, and only rows with a blank `ip` or `127.0.0.1` are deleted.
+- An empty string is `fingerprint is required`. A Unix caller that is not root is `root is required`. A TLS fingerprint that is not the peer certificate is `fingerprint is required`.
+- ℹ️ The method is `server/Registration.vala`.
+
+### `RPC-Daemon.hello`
+
+- Socket: the Unix socket.
+- Direction: controller calls the server. This is the first call on that socket.
+- Arguments `is`: the protocol number, then the client name. The controller sends `1` and `argus-controller`.
+- Reply `msg`: `ok`. There is no return value.
+- ℹ️ The method is `server/Daemon.vala`.
 
 ### `Agent.list`
 
@@ -71,7 +104,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
 - Arguments `i`: `agent.id`.
-- Deletes that row, closes its app socket, and refreshes the address allowlist.
+- Deletes that row, writes `agent.removed` on its app socket, closes that socket, and refreshes the address allowlist.
 - An unknown id is `unknown machine`. A caller that is not a controller is `controller only`.
 
 ### `OSQuery.sync`
@@ -92,12 +125,44 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
 - Arguments `b`: true includes that host's `os_version` and the distinct logged-in users on the row. false is `system_info` only.
-- Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info`.
+- Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info` and whose `agent_id` is still in `agent`.
+- `os_version` and `logged_in_users` in that reply are included only when their `agent_id` is in `agent`.
+- Startup deletes `system_info` rows whose `agent_id` is not in `agent`.
 - With the flag, the row also carries `logged-in-users`, `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, and `arch`. `logged-in-users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)`. A host with no `os_version` row, or no session, stays in the list and those fields are empty.
 - `logged-in-users` is not a column of `system_info`. The list reads rows already stored. It does not ask the agent.
 - `major`, `minor`, and `patch` are text here, so a missing row stays blank. They are not columns of `system_info`.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls it. [5.8](plans/5.8-assets-page.md).
+
+### `DebPackages.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`. Zero is every agent, one row per package name. Greater than zero is a different query: that agent's stored rows, and the added-up columns are not filled.
+- Reply `retval` `o`: an array of `DebPackages` rows. A host whose `agent_id` is not in `agent` is left out.
+- When `agent_id` is zero, the reply fills `arch`, `section`, `priority`, `source`, `maintainer`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` is the lowest version with the lowest revision of that version. `max_version` is the highest version with the highest revision of that version.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/DebPackages.vala`. `Store.DebPackages` calls it. The columns are `columns/deb_packages.csv`. [5.9](plans/5.9-assets-software.md).
+
+### `RpmPackages.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`. Zero is every agent, one row per package name. Greater than zero is a different query: that agent's stored rows, and the added-up columns are not filled.
+- Reply `retval` `o`: an array of `RpmPackages` rows. A host whose `agent_id` is not in `agent` is left out.
+- When `agent_id` is zero, the reply fills `arch`, `package_group`, `source`, `vendor`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are epoch, version, and release.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/RpmPackages.vala`. `Store.RpmPackages` calls it. The columns are `columns/rpm_packages.csv`. [5.9](plans/5.9-assets-software.md).
+
+### `Programs.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`. Zero is every agent, one row per program name. Greater than zero is a different query: that agent's stored rows, and the added-up columns are not filled.
+- Reply `retval` `o`: an array of `Programs` rows. A host whose `agent_id` is not in `agent` is left out.
+- When `agent_id` is zero, the reply fills `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `min_version`, `max_version`, `installed`, and `uninstall_count`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/5.9-assets-software.md).
 
 ---
 
@@ -122,7 +187,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 🔷 The connected agent has a class that listens for notifications.
 - 🔷 The command class deals with the command notifications.
 - 🔷 Every notification has a method. The listener switches on it.
-- 💩 `Application.notification` in `agent/Application.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Any other method returns. After `open_connection` the process connects `TlsClient.notification` and calls `TlsClient.watch`. [2.4-DONE-listen.md](plans/done/2.4-DONE-listen.md).
+- 💩 `Application.notification` in `agent/Application.vala`. Method `agent.run` runs an `Argus.Command`. Method `agent.send` follows up on one. Method `agent.removed` deletes the stored certificate. Any other method returns. After `open_connection` the process connects `TlsClient.notification` and calls `TlsClient.watch`. [2.4-DONE-listen.md](plans/done/2.4-DONE-listen.md).
 
 - 🔷 A notification is for one connection. There are two deliveries.
   - A broadcast notification goes to every connection.
@@ -152,6 +217,23 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 💩 Properties on both: `identifier` `i`, `command` `s`, `environment` `as`, `cwd` `s`.
 - 💩 Each environment entry is `NAME=value`. `cwd` is the current working directory.
 - 💩 The `agent.run` notification `args` hold that one object. The bin alias is `Argus.Command`.
+
+### `event.pair`
+
+- 🔷 Broadcast. `Agent.request_registration` sends it.
+- 💩 Action `done` means the pin was accepted. Action `rejected` means the pin was refused.
+- ℹ️ The pairing dialog and `argusrm-controller --pin` listen for it. The agent page reloads on `done`.
+
+### `event.agent`
+
+- 🔷 Broadcast. The app socket sends it.
+- 💩 Action `connected` is a known certificate joining. Action `disconnected` is that socket stopping.
+- ℹ️ The agent page reloads on either action.
+
+### `agent.removed`
+
+- 🔷 Client notification on the machine `Agent.remove` is deleting.
+- 💩 No arguments. The agent deletes its stored `client.pem`. The server then closes that socket.
 
 ### `agent.run`
 

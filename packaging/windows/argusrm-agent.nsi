@@ -2,7 +2,7 @@
 
 !define PRODUCT_NAME "Argus RM Agent"
 !define PRODUCT_PUBLISHER "roojs"
-!define SERVICE_NAME "ArgusAgent"
+!define SERVICE_NAME "argus-agent"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\ArgusAgent"
 
 !ifndef OUTFILE
@@ -32,6 +32,8 @@ Unicode true
 Section "Argus RM Agent" SecMain
   SectionIn RO
 
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ArgusAgent'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ${SERVICE_NAME}'
   ExecWait 'taskkill /F /IM argus-tray.exe'
@@ -44,7 +46,8 @@ Section "Argus RM Agent" SecMain
   nsExec::ExecToLog '"$SYSDIR\sc.exe" start ${SERVICE_NAME}'
 
   CreateDirectory "$SMPROGRAMS\Argus RM"
-  CreateShortCut "$SMPROGRAMS\Argus RM\Register this machine.lnk" \
+  Delete "$SMPROGRAMS\Argus RM\Register this machine.lnk"
+  CreateShortCut "$SMPROGRAMS\Argus RM\Argus Agent.lnk" \
     "$INSTDIR\argus-tray.exe"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -58,11 +61,14 @@ Section "Argus RM Agent" SecMain
 SectionEnd
 
 Section "Uninstall"
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ArgusAgent'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ${SERVICE_NAME}'
   ExecWait 'taskkill /F /IM argus-tray.exe'
 
   Delete "$SMPROGRAMS\Argus RM\Register this machine.lnk"
+  Delete "$SMPROGRAMS\Argus RM\Argus Agent.lnk"
   RMDir "$SMPROGRAMS\Argus RM"
   DeleteRegKey HKLM "${UNINST_KEY}"
   RMDir /r "$INSTDIR"

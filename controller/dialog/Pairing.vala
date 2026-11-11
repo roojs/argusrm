@@ -76,6 +76,7 @@ namespace Argus.Controller.Dialog
 			};
 			this.pin_label = new Gtk.Label("") {
 				halign = Gtk.Align.CENTER,
+				selectable = true,
 				css_classes = { "pairing-pin" }
 			};
 			body.append(this.pin_label);

@@ -23,7 +23,9 @@ namespace Argus.Controller.Tab
 	 *
 	 * {@link Asset.SystemInfo} and {@link Asset.Software} are the
 	 * two halves. The switcher is an {@link Adw.ViewSwitcher}
-	 * on this page. The window header stays the server name.
+	 * on this page. It spans the window, and the two tabs are
+	 * the same width. The window header is the server and this
+	 * place.
 	 *
 	 * == Example ==
 	 *
@@ -62,7 +64,7 @@ namespace Argus.Controller.Tab
 				"computer-symbolic"
 			);
 			pages.add_titled_with_icon(
-				new Asset.Software(),
+				new Asset.Software(window),
 				"software",
 				"Software",
 				"package-x-generic-symbolic"
@@ -70,10 +72,11 @@ namespace Argus.Controller.Tab
 			this.append(new Adw.ViewSwitcher() {
 				stack = pages,
 				policy = Adw.ViewSwitcherPolicy.WIDE,
+				hexpand = true,
 				margin_start = 12,
 				margin_end = 12,
 				margin_top = 12,
-				margin_bottom = 12
+				margin_bottom = 6
 			});
 			this.append(pages);
 		}

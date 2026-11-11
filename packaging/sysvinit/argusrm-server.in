@@ -21,6 +21,7 @@ case "$1" in
 	start)
 		log_daemon_msg "Starting $DESC" "$NAME"
 		mkdir -p @SERVER_DATA_DIR@ @SERVER_SYSCONFDIR@ "$ARGUS_LOG_DIR"
+		chmod 0700 @SERVER_DATA_DIR@
 		start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$PIDFILE" --exec "$DAEMON"
 		log_end_msg $?
 		;;

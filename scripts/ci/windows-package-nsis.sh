@@ -24,6 +24,7 @@ rm -rf "${stage}"
 mkdir -p "${stage}" "${out_dir}"
 cp -f "${exe}" "${stage}/argus-agent.exe"
 cp -f "${exe}" "${stage}/argus-tray.exe"
+objcopy --subsystem windows "${stage}/argus-tray.exe"
 
 scripts/ci/copy-windows-runtime.sh "${stage}/argus-agent.exe" "${stage}"
 

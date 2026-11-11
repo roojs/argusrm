@@ -23,6 +23,8 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class DebPackages : Row
 	{
+		private static SQ.Database db;
+
 		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
 		{
 			return this.sync_rows<DebPackages>(db, agent_id, rows, "deb_packages", { "name", "arch" });
@@ -35,6 +37,7 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			DebPackages.db = db;
 			string errmsg;
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS deb_packages (
@@ -63,6 +66,82 @@ namespace Argus.Shared.OSQuery
 		public static void rpc_register()
 		{
 			OLLMrpc.Bin.register("DebPackages", typeof(DebPackages));
+			OLLMrpc.Request.add_class(
+				"DebPackages", typeof(DebPackages),
+				"list", "i"
+			);
+		}
+
+		/**
+		 * One row per package name, or one agent's stored rows.
+		 *
+		 * A controller calls this. Zero lists every agent, added
+		 * up by name. An ''agent_id'' greater than zero is a
+		 * different query: that agent's stored rows, with no
+		 * added-up columns. A row whose ''agent_id'' is not in
+		 * ''agent'' is absent. A caller that is not a controller
+		 * is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param agent_id agent id, or zero for every agent
+		 */
+		public void list(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<DebPackages>();
+			var query = new SQ.Query<DebPackages>(DebPackages.db, "deb_packages");
+			if (agent_id > 0) {
+				query.select("WHERE agent_id = %d AND agent_id IN (SELECT id FROM agent)".printf(agent_id), rows);
+			}
+			if (agent_id <= 0) {
+				query.selectQuery("""
+					SELECT
+						name,
+						GROUP_CONCAT(DISTINCT NULLIF(arch, '')) AS arch,
+						GROUP_CONCAT(DISTINCT NULLIF(section, '')) AS section,
+						GROUP_CONCAT(DISTINCT NULLIF(priority, '')) AS priority,
+						GROUP_CONCAT(DISTINCT NULLIF(source, '')) AS source,
+						GROUP_CONCAT(DISTINCT NULLIF(maintainer, '')) AS maintainer,
+						(
+							SELECT CASE
+								WHEN revision = '' THEN version
+								ELSE version || '-' || revision
+							END
+							FROM deb_packages AS low
+							WHERE low.name = deb_packages.name
+							AND low.agent_id IN (SELECT id FROM agent)
+							ORDER BY low.version ASC, low.revision ASC
+							LIMIT 1
+						) AS min_version,
+						(
+							SELECT CASE
+								WHEN revision = '' THEN version
+								ELSE version || '-' || revision
+							END
+							FROM deb_packages AS high
+							WHERE high.name = deb_packages.name
+							AND high.agent_id IN (SELECT id FROM agent)
+							ORDER BY high.version DESC, high.revision DESC
+							LIMIT 1
+						) AS max_version,
+						MAX(size) AS max_size,
+						COUNT(DISTINCT agent_id) AS installed
+					FROM
+						deb_packages
+					WHERE
+						agent_id IN (SELECT id FROM agent)
+					GROUP BY
+						name
+					ORDER BY
+						name
+					""", rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
 		}
 
 		public string name { get; set; default = ""; }
@@ -78,5 +157,25 @@ namespace Argus.Shared.OSQuery
 		public string maintainer { get; set; default = ""; }
 		public string section { get; set; default = ""; }
 		public string priority { get; set; default = ""; }
+		/**
+		 * Lowest version for this name, with the lowest revision
+		 * of that version. Filled by ''list''. Not stored.
+		 */
+		public string min_version { get; set; default = ""; }
+		/**
+		 * Highest version for this name, with the highest revision
+		 * of that version. Filled by ''list''. Not stored.
+		 */
+		public string max_version { get; set; default = ""; }
+		/**
+		 * Largest installed size for this name, in bytes.
+		 * Filled by ''list''. Not stored.
+		 */
+		public int64 max_size { get; set; default = 0; }
+		/**
+		 * How many machines have this name. Filled by ''list''.
+		 * Not stored.
+		 */
+		public int installed { get; set; default = 0; }
 	}
 }

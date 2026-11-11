@@ -102,7 +102,8 @@ namespace Argus.Controller
 		 * Parse the flags, then run one command or the startup window.
 		 *
 		 * ''--debug'' shows log lines on stderr. No flag on a desktop
-		 * loads ''/argusrm/style.css'', then opens
+		 * loads ''/argusrm/style.css'' and the Windows tab icon,
+		 * then opens
 		 * {@link Dialog.Bootstrap}. ''--give-me-a-certificate''
 		 * issues the local login certificate. No desktop tells you to
 		 * run ''argusrm-controller-cli''. The Unix socket is
@@ -117,6 +118,9 @@ namespace Argus.Controller
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
 			Argus.Shared.OSQuery.SystemInfo.rpc_register();
+			Argus.Shared.OSQuery.DebPackages.rpc_register();
+			Argus.Shared.OSQuery.RpmPackages.rpc_register();
+			Argus.Shared.OSQuery.Programs.rpc_register();
 			Argus.Shared.Registration.Data.rpc_register();
 			Argus.Shared.SQT.Task.rpc_register();
 			Argus.Shared.SQT.TaskTarget.rpc_register();
@@ -164,6 +168,7 @@ namespace Argus.Controller
 					css.load_from_resource("/argusrm/style.css");
 					Gtk.StyleContext.add_provider_for_display(
 						screen, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+					Gtk.IconTheme.get_for_display(screen).add_resource_path("/argusrm/icons");
 				}
 				var bootstrap = new Dialog.Bootstrap(this);
 				bootstrap.present(null);

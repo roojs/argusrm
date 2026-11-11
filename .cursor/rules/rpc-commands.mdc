@@ -1,0 +1,12 @@
+---
+description: Keep docs/rpc-commands.md in step with registered calls and notifications.
+alwaysApply: true
+---
+
+# RPC commands
+
+`docs/rpc-commands.md` is the list of calls. A new or changed `Request.add_class` method, or a notification `method`, is written into that file in the same change.
+
+The entry names the argument letters, the socket, and the reply.
+
+Do not put that rule into `docs/coding-standards-router.md`. That file is a symlink into OLLMchat.

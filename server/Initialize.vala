@@ -53,7 +53,7 @@ namespace Argus.Server
 			var osquery_dir = GLib.Path.build_filename(packages_dir, "osquery");
 			var legacy_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "osquery");
 			if (!GLib.FileUtils.test(packages_dir, GLib.FileTest.IS_DIR)) {
-				if (GLib.DirUtils.create_with_parents(packages_dir, 0755) != 0) {
+				if (GLib.DirUtils.create_with_parents(packages_dir, 0700) != 0) {
 					GLib.warning("download store %s", packages_dir);
 					return false;
 				}
@@ -72,7 +72,7 @@ namespace Argus.Server
 				}
 			}
 			if (!GLib.FileUtils.test(osquery_dir, GLib.FileTest.IS_DIR)) {
-				if (GLib.DirUtils.create_with_parents(osquery_dir, 0755) != 0) {
+				if (GLib.DirUtils.create_with_parents(osquery_dir, 0700) != 0) {
 					GLib.warning("download store %s", osquery_dir);
 					return false;
 				}
