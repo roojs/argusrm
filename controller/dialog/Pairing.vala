@@ -77,6 +77,7 @@ namespace Argus.Controller.Dialog
 			this.pin_label = new Gtk.Label("") {
 				halign = Gtk.Align.CENTER,
 				selectable = true,
+				focusable = false,
 				css_classes = { "pairing-pin" }
 			};
 			body.append(this.pin_label);
@@ -200,6 +201,7 @@ namespace Argus.Controller.Dialog
 						return;
 					}
 					this.pin_label.label = reply[0];
+					this.pin_label.select_region(0, 0);
 					this.tick_id = GLib.Timeout.add_seconds(1, () => {
 						if (ticket != this.generation) {
 							return false;

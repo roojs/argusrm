@@ -133,12 +133,14 @@ namespace Argus.Shared
 		/**
 		 * Six digits for the service to register.
 		 *
-		 * The Windows tray connects this and writes the number on
-		 * the local pipe. The reply is stored in {@link pipe_code}.
+		 * The Windows tray connects this and writes the number and
+		 * ''hostport'' on the local pipe. The reply is stored in
+		 * {@link pipe_code}.
 		 *
 		 * @param pin the six digits
+		 * @param hostport host and port this window is using
 		 */
-		public signal void send_pin(string pin);
+		public signal void send_pin(string pin, string hostport);
 
 		public RegisterWindow()
 		{
@@ -518,7 +520,7 @@ namespace Argus.Shared
 #endif
 			if (this.use_pipe) {
 				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-				this.send_pin(pin);
+				this.send_pin(pin, this.found);
 			}
 			if (this.use_pipe) {
 				if (this.pipe_code != 0) {

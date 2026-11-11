@@ -351,20 +351,25 @@ namespace Argus.Agent.Win32
 		/**
 		 * Present the registration window.
 		 *
-		 * Startup and a tray click both call this. A certificate
-		 * already stored for this machine, or a tip from the
-		 * service, means there is no action. The six digits are
-		 * written to the service pipe.
+		 * Startup and a tray click both call this. The CA file
+		 * means this machine is registered, and a tip from the
+		 * service means there is no action. A local key alone
+		 * does not. The six digits are written to the service pipe.
 		 */
 		private void present()
 		{
 			if (this.known) {
 				return;
 			}
-			var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
-			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+			var dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argus");
+			var registered = GLib.Path.build_filename(dir, "ollmrpc-ca.pem");
+			if (GLib.FileUtils.test(registered, GLib.FileTest.EXISTS)) {
 				return;
 			}
+			GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+			GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
+			GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
 			if (!this.gtk_up) {
 				Adw.init();
 				this.gtk_up = true;
@@ -375,7 +380,7 @@ namespace Argus.Agent.Win32
 			}
 			this.registration = new Argus.Shared.RegisterWindow();
 			this.registration.use_pipe = true;
-			this.registration.send_pin.connect((pin) => {
+			this.registration.send_pin.connect((pin, hostport) => {
 				this.submitted = true;
 				if ((intptr) this.pipe == -1) {
 					try {
@@ -401,7 +406,7 @@ namespace Argus.Agent.Win32
 					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 					return;
 				}
-				var bytes = pin.data;
+				var bytes = (pin + "\n" + hostport).data;
 				uint32 wrote = 0;
 				if (!WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
 					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
