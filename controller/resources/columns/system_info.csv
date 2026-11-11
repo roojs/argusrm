@@ -1,6 +1,6 @@
 Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format
 
-User,user,ON,120,text
+Logged in users,logged-in-users,ON,180,text
 Hostname,hostname,ON,180,text
 Local hostname,local-hostname,off,180,text
 Computer name,computer-name,ON,180,text

@@ -22,7 +22,8 @@ namespace Argus.Shared.OSQuery
 	 * One ''system_info'' row.
 	 *
 	 * ''SystemInfo.list'' returns every stored row to a controller.
-	 * A flag on that call joins the host's ''os_version''.
+	 * A flag on that call joins the host's ''os_version''
+	 * and the distinct logged-in users.
 	 */
 	public class SystemInfo : Row
 	{
@@ -90,10 +91,11 @@ namespace Argus.Shared.OSQuery
 		 * A controller calls this. An agent with no row is absent.
 		 * A caller that is not a controller is refused.
 		 * ''join'' adds that host's ''os_version'' onto the row.
-		 * The joined values are not stored on ''system_info''.
+		 * The same flag adds the distinct logged-in users.
+		 * Those values are not stored on ''system_info''.
 		 *
 		 * @param request inbound RPC from a controller
-		 * @param join true to include the ''os_version'' columns
+		 * @param join true adds ''os_version'' and the logins
 		 */
 		public void list(OLLMrpc.Request request, bool join)
 		{
@@ -119,7 +121,13 @@ namespace Argus.Shared.OSQuery
 						os_version.platform as platform,
 						os_version.platform_like as platform_like,
 						os_version.codename as codename,
-						os_version.arch as arch
+						os_version.arch as arch,
+						COALESCE((
+							SELECT GROUP_CONCAT(DISTINCT logged_in_users.user)
+							FROM logged_in_users
+							WHERE logged_in_users.agent_id = system_info.agent_id
+							AND logged_in_users.user != ''
+						), '') as logged_in_users
 					FROM 
 						system_info
 					LEFT JOIN 
@@ -235,5 +243,12 @@ namespace Argus.Shared.OSQuery
 		public string platform_like { get; set; default = ""; }
 		public string codename { get; set; default = ""; }
 		public string arch { get; set; default = ""; }
+		/**
+		 * Distinct logins already stored for this host.
+		 *
+		 * Empty when that host has no session.
+		 * Not a column of ''system_info''.
+		 */
+		public string logged_in_users { get; set; default = ""; }
 	}
 }
