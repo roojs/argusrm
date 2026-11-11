@@ -28,9 +28,9 @@ namespace Argus.Controller
 	 * server this window opened. An empty name uses the first saved
 	 * address. {@link TabList} lists places.
 	 * {@link Tab.Agent} lists registered machines.
-	 * {@link Tab.Assets} is Machines and Software. Machines is
-	 * a grid of the one-row columns and has no rows. Software
-	 * is the word Software.
+	 * {@link Tab.Assets} switches {@link Tab.Asset.SystemInfo} and
+	 * {@link Tab.Asset.Software}. {@link Store.SystemInfo} loads
+	 * ''SystemInfo.list''. Software is the word Software.
 	 * {@link Tab.Repository} lists script clones. The other places
 	 * are blank. Settings stays at the bottom of the list.
 	 * A cog on the sidebar opens the menu.

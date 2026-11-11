@@ -87,6 +87,15 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`.
 - ℹ️ Linux and Windows call it from `agent/OSQuery/Initialize.vala`. Android compiles `agent/android/OSQuery/Initialize.vala` and does not query.
 
+### `SystemInfo.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments: none.
+- Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info`.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls it. [5.8](plans/5.8-assets-page.md).
+
 ---
 
 ## Downloads

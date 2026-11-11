@@ -355,6 +355,7 @@ namespace Argus.Server
 			OLLMrpc.Request.register("Registration", new Registration(this));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
+			OLLMrpc.Request.register("SystemInfo", new Argus.Shared.OSQuery.SystemInfo());
 			OLLMrpc.Request.register("Command", new Command.for_rpc(this));
 			OLLMrpc.Request.register("ScriptRepository", new SQT.ScriptRepository.for_rpc(this));
 			OLLMrpc.Request.register("Script", new SQT.Script.for_rpc(this));
