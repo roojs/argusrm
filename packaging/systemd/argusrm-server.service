@@ -9,6 +9,7 @@ ExecStart=/usr/bin/argusrm-server
 Restart=on-failure
 RestartSec=5s
 StateDirectory=argusrm
+StateDirectoryMode=0700
 ConfigurationDirectory=argusrm
 LogsDirectory=argusrm
 Environment=ARGUS_LOG_DIR=/var/log/argusrm

@@ -25,8 +25,8 @@ namespace Argus.Controller
 	 * pinned to the bottom, drawn over the list, so a long list
 	 * slides underneath it. A bottom margin on the list keeps the
 	 * last place from staying hidden under that row. {@link chosen}
-	 * is the place to show on the right. The first place starts
-	 * selected.
+	 * is the place to show on the right. The first place is selected
+	 * when the list is shown, including when that page is empty.
 	 *
 	 * == Example ==
 	 *
@@ -159,10 +159,21 @@ namespace Argus.Controller
 					return false;
 				});
 			});
-			var opener = list.get_row_at_index(0);
-			if (opener != null) {
-				list.select_row(opener);
-			}
+			var opened = false;
+			list.map.connect(() => {
+				if (opened) {
+					return;
+				}
+				opened = true;
+				GLib.Idle.add(() => {
+					var opener = list.get_row_at_index(0);
+					if (opener == null) {
+						return false;
+					}
+					list.select_row(opener);
+					return false;
+				});
+			});
 		}
 	}
 }

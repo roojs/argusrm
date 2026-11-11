@@ -1,42 +1,42 @@
 Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format
 
-Logged in users,logged-in-users,ON,180,text
-Hostname,hostname,ON,180,text
-Local hostname,local-hostname,off,180,text
-Computer name,computer-name,ON,180,text
-UUID,uuid,off,300,text
+Logged in users,logged-in-users,ON,160,text
+Hostname,hostname,ON,160,text
+Local hostname,local-hostname,off,150,text
+Computer name,computer-name,ON,150,text
+UUID,uuid,off,270,text
 
-Hardware vendor,hardware-vendor,ON,160,text
-Hardware model,hardware-model,off,180,text
-Hardware version,hardware-version,off,170,text
-Hardware serial,hardware-serial,off,160,text
+Hardware vendor,hardware-vendor,ON,130,text
+Hardware model,hardware-model,off,160,text
+Hardware version,hardware-version,off,120,text
+Hardware serial,hardware-serial,off,140,text
 
-Board vendor,board-vendor,off,160,text
-Board model,board-model,off,160,text
-Board version,board-version,off,160,text
-Board serial,board-serial,off,160,text
+Board vendor,board-vendor,off,130,text
+Board model,board-model,off,140,text
+Board version,board-version,off,120,text
+Board serial,board-serial,off,140,text
 
-Physical memory,physical-memory,off,160,number
+Physical memory,physical-memory,off,90,bytes
 
 CPU brand,cpu-brand,ON,240,text
-CPU type,cpu-type,off,120,text
-CPU subtype,cpu-subtype,off,140,text
-CPU physical cores,cpu-physical-cores,off,180,number
-CPU logical cores,cpu-logical-cores,off,170,number
-CPU microcode,cpu-microcode,off,150,text
+CPU type,cpu-type,off,80,text
+CPU subtype,cpu-subtype,off,80,text
+CPU physical cores,cpu-physical-cores,off,72,number
+CPU logical cores,cpu-logical-cores,off,72,number
+CPU microcode,cpu-microcode,off,110,text
 
-Operating system,operating-system,ON,200,text
-Major,major,off,80,number
-Minor,minor,off,80,number
-Patch,patch,off,80,number
+Operating system,operating-system,ON,180,text
+Major,major,off,64,number
+Minor,minor,off,64,number
+Patch,patch,off,64,number
 Build,build,off,100,text
-Platform,platform,off,120,text
-Platform like,platform-like,off,150,text
-Codename,codename,off,140,text
-Arch,arch,off,80,text
+Platform,platform,off,90,text
+Platform like,platform-like,off,100,text
+Codename,codename,off,110,text
+Arch,arch,off,72,text
 
-OS updated,os-updated,off,140,date
-OS status,os-status,ON,120,status
+OS updated,os-updated,off,110,date
+OS status,os-status,ON,90,status
 
-Package updated,package-updated,off,170,date
-S/W status,package-status,ON,140,status
+Package updated,package-updated,off,120,date
+S/W status,package-status,ON,90,status

@@ -24,19 +24,18 @@ namespace Argus.Controller
 	 * The sidebar title is ''Argus RM''. While the server connection
 	 * is down that title is ''Offline'' in red, and the connection is
 	 * opened again every thirty seconds. The page on the right is
-	 * titled with {@link Connection.name}, the saved name of the
-	 * server this window opened. An empty name uses the first saved
-	 * address. {@link TabList} lists places.
-	 * {@link Tab.Agent} lists registered machines.
+	 * the saved server name, a dash, and the place in front. An
+	 * empty name uses the first saved address. {@link TabList}
+	 * lists places. {@link Tab.Agent} lists registered machines.
 	 * {@link Tab.Assets} switches {@link Tab.Asset.SystemInfo} and
 	 * {@link Tab.Asset.Software}. {@link Store.SystemInfo} loads
-	 * ''SystemInfo.list''. Software is the word Software.
+	 * ''SystemInfo.list''. Software is three package grids.
 	 * {@link Tab.Repository} lists script clones. The other places
 	 * are blank. Settings stays at the bottom of the list.
-	 * A cog on the sidebar opens the menu.
-	 * ''Deregister this controller'' calls
-	 * {@link Argus.Shared.Registration.Data.deregister}. OK after
-	 * deletion quits. ''Agent or Controller'' is on the Agents page.
+	 * The open server's row is ''Deregister and disconnect''.
+	 * Holding it for two seconds closes this window and returns
+	 * to the startup check.
+	 * ''Agent or Controller'' is on the Agents page.
 	 * It opens {@link Dialog.Pairing}.
 	 *
 	 * == Example ==
@@ -106,14 +105,6 @@ namespace Argus.Controller
 			this.title = "Argus RM";
 			this.set_default_size(960, 640);
 			var header = new Adw.HeaderBar();
-			var menu = new GLib.Menu();
-			menu.append("Deregister this controller", "win.deregister");
-			var cog = new Gtk.MenuButton() {
-				icon_name = "emblem-system-symbolic",
-				menu_model = menu,
-				tooltip_text = "Menu"
-			};
-			header.pack_start(cog);
 			this.title_label = new Gtk.Label("Argus RM") {
 				css_classes = { "title" }
 			};
@@ -147,7 +138,7 @@ namespace Argus.Controller
 			if (host_name == "") {
 				host_name = "Argus RM";
 			}
-			var content_title = new Gtk.Label(host_name) {
+			var content_title = new Gtk.Label(host_name + " - " + tabs.titles[0]) {
 				css_classes = { "title" }
 			};
 			this.content_header.title_widget = content_title;
@@ -185,9 +176,11 @@ namespace Argus.Controller
 			}
 			pages.add_named(new Tab.Settings(this), "settings");
 			var sidebar_page = new Adw.NavigationPage(sidebar_bar, "Argus RM");
-			var content_page = new Adw.NavigationPage(this.content_bar, host_name);
+			var content_page = new Adw.NavigationPage(this.content_bar, content_title.label);
 			tabs.chosen.connect((key, title) => {
 				pages.visible_child_name = key;
+				content_title.label = host_name + " - " + title;
+				content_page.title = content_title.label;
 			});
 			pages.visible_child_name = tabs.keys[0];
 			var split = new Adw.NavigationSplitView() {

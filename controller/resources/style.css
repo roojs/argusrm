@@ -7,8 +7,42 @@ columnview > listview > row:nth-child(even):not(:selected) {
 	color: #ffffff;
 }
 
+.server-current {
+	color: #2ec27e;
+}
+
 .offline-title {
 	color: #c01c28;
+}
+
+.hold-disconnect.holding,
+row.hold-disconnect.holding {
+	background-color: #c01c28;
+	color: #ffffff;
+}
+
+.hold-disconnect.holding label,
+row.hold-disconnect.holding label,
+.hold-disconnect.holding image,
+row.hold-disconnect.holding image {
+	color: #ffffff;
+}
+
+.hold-bar,
+.hold-bar trough,
+.hold-bar progress {
+	min-height: 4px;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.hold-bar trough {
+	background-color: transparent;
+}
+
+.hold-bar progress {
+	background-color: #ffffff;
 }
 
 .tab-list-settings {
@@ -16,9 +50,96 @@ columnview > listview > row:nth-child(even):not(:selected) {
 	border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
 }
 
+.machines-filter {
+	--banner-color: #7d7d83;
+	background-color: color-mix(in srgb, var(--banner-color) 30%, var(--window-bg-color));
+	padding: 6px 12px;
+}
+
+.machines-filter entry,
+.machines-filter dropdown > button,
+.machines-filter menubutton > button {
+	background-color: color-mix(in srgb, currentColor 10%, var(--window-bg-color));
+}
+
+.machines-filter dropdown > button:hover,
+.machines-filter menubutton > button:hover {
+	background-color: color-mix(in srgb, currentColor 15%, var(--window-bg-color));
+}
+
+.machines-filter dropdown > button:active,
+.machines-filter menubutton > button:active {
+	background-color: color-mix(in srgb, currentColor 30%, var(--window-bg-color));
+}
+
+spinner.package-wait {
+	min-width: 48px;
+	min-height: 48px;
+}
+
+label.version-spread {
+	background-color: #c01c28;
+	color: #ffffff;
+	padding: 2px 6px;
+	border-radius: 4px;
+}
+
 .pairing-pin {
 	font-size: 64px;
 	font-weight: 800;
 	letter-spacing: 0.35em;
 	font-family: monospace;
+}
+
+/* Column menu rows are check buttons standing in for model buttons. */
+popover.menu.column-menu checkbutton {
+	min-height: 32px;
+	min-width: 40px;
+	padding: 0 12px;
+	border-radius: 9px;
+	border-spacing: 0;
+	background-color: transparent;
+	outline: none;
+}
+
+popover.menu.column-menu checkbutton:hover,
+popover.menu.column-menu checkbutton:selected {
+	background-color: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+popover.menu.column-menu checkbutton:active {
+	background-color: color-mix(in srgb, currentColor 19%, transparent);
+}
+
+popover.menu.column-menu checkbutton:focus,
+popover.menu.column-menu checkbutton:focus:focus-visible {
+	outline-width: 0;
+	outline-offset: 0;
+}
+
+popover.menu.column-menu checkbutton check,
+popover.menu.column-menu checkbutton check:checked,
+popover.menu.column-menu checkbutton check:hover,
+popover.menu.column-menu checkbutton check:hover:checked,
+popover.menu.column-menu checkbutton check:active,
+popover.menu.column-menu checkbutton check:active:checked {
+	background: none;
+	box-shadow: none;
+	border: none;
+	color: inherit;
+	border-radius: 0;
+	min-width: 14px;
+	min-height: 14px;
+	padding: 2px;
+	-gtk-icon-size: 14px;
+}
+
+popover.menu.column-menu checkbutton check:dir(ltr) {
+	margin-left: -2px;
+	margin-right: 6px;
+}
+
+popover.menu.column-menu checkbutton check:dir(rtl) {
+	margin-left: 6px;
+	margin-right: -2px;
 }

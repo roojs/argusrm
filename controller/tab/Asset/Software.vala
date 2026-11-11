@@ -21,32 +21,107 @@ namespace Argus.Controller.Tab.Asset
 	/**
 	 * Software half of the Assets page.
 	 *
-	 * The word Software. The package grid is a later plan.
+	 * Three sub-tabs. Each one has its own grid and loads its
+	 * own table. Debian packages, RPM packages, and Windows.
+	 * Each tab has an icon and a spinner. This row is an inline
+	 * switcher: a grey bar, the active tab white, a light border.
+	 * It spans the window. The window header stays the title.
+	 * An empty grid shows its spinner over the grid. A later
+	 * load keeps the rows and spins in that tab.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var page = new Argus.Controller.Tab.Asset.Software();
+	 * var page = new Argus.Controller.Tab.Asset.Software(window);
 	 * }}}
 	 */
 	public class Software : Gtk.Box
 	{
 		/**
-		 * Show the word Software.
+		 * Build the three package grids.
+		 *
+		 * @param window the controller window this page belongs to
 		 */
-		public Software()
+		public Software(Argus.Controller.Window window)
 		{
 			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
 			this.hexpand = true;
 			this.vexpand = true;
-			this.append(new Gtk.Label("Software") {
-				xalign = 0,
-				yalign = 0,
+			var pages = new Adw.ViewStack() {
 				hexpand = true,
-				vexpand = true,
-				margin_start = 12,
-				margin_top = 12
+				vexpand = true
+			};
+			var group = new Adw.ToggleGroup() {
+				orientation = Gtk.Orientation.HORIZONTAL,
+				homogeneous = true,
+				hexpand = true
+			};
+			group.add_css_class("both");
+			var debian = new DebPackages(window);
+			pages.add_titled_with_icon(debian, "debian", "Debian packages", "emblem-debian-symbolic");
+			var debian_spin = new Gtk.Spinner() {
+				visible = false,
+				valign = Gtk.Align.CENTER
+			};
+			var debian_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+			debian_row.append(new Gtk.Image.from_icon_name("emblem-debian-symbolic"));
+			debian_row.append(new Gtk.Label("Debian packages"));
+			debian_row.append(debian_spin);
+			group.add(new Adw.Toggle() {
+				name = "debian",
+				child = debian_row
 			});
+			debian.bind_property("refreshing", debian_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
+			debian.bind_property("refreshing", debian_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
+			var rpm = new RpmPackages(window);
+			pages.add_titled_with_icon(rpm, "rpm", "RPM packages", "application-x-rpm");
+			var rpm_spin = new Gtk.Spinner() {
+				visible = false,
+				valign = Gtk.Align.CENTER
+			};
+			var rpm_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm"));
+			rpm_row.append(new Gtk.Label("RPM packages"));
+			rpm_row.append(rpm_spin);
+			group.add(new Adw.Toggle() {
+				name = "rpm",
+				child = rpm_row
+			});
+			rpm.bind_property("refreshing", rpm_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
+			rpm.bind_property("refreshing", rpm_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
+			var windows = new Programs(window);
+			pages.add_titled_with_icon(windows, "windows", "Windows", "windows-symbolic");
+			var windows_spin = new Gtk.Spinner() {
+				visible = false,
+				valign = Gtk.Align.CENTER
+			};
+			var windows_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6);
+			windows_row.append(new Gtk.Image.from_icon_name("windows-symbolic"));
+			windows_row.append(new Gtk.Label("Windows"));
+			windows_row.append(windows_spin);
+			group.add(new Adw.Toggle() {
+				name = "windows",
+				child = windows_row
+			});
+			windows.bind_property("refreshing", windows_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
+			windows.bind_property("refreshing", windows_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
+			group.notify["active-name"].connect(() => {
+				var name = group.active_name;
+				if (name == null || name == "") {
+					return;
+				}
+				pages.visible_child_name = name;
+			});
+			group.active_name = "debian";
+			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+			bar.set_css_name("inline-view-switcher");
+			bar.append(group);
+			bar.margin_start = 12;
+			bar.margin_end = 12;
+			bar.margin_top = 6;
+			bar.margin_bottom = 6;
+			this.append(bar);
+			this.append(pages);
 		}
 	}
 }

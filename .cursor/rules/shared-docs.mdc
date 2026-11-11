@@ -1,0 +1,24 @@
+---
+description: Shared docs are symlinks into OLLMchat. Do not edit them from this repo.
+alwaysApply: true
+---
+
+# Shared documents
+
+These files are symlinks into OLLMchat. Read them. Do not edit them. A write here changes the other project.
+
+- `docs/coding-standards.md`
+- `docs/coding-standards-router.md`
+- `docs/code-documentation.md`
+- `docs/guide-to-writing-plans.md`
+- `docs/bug-fix-process.md`
+
+Argus-only rules stay in this repo. A cursor rule, or a file under `docs/` that is not one of those links.
+
+```
+# Wrong. This path is the OLLMchat file.
+docs/coding-standards-router.md
+
+# Right. A rule that belongs to Argus.
+.cursor/rules/rpc-commands.mdc
+```

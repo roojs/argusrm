@@ -23,6 +23,8 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class Programs : Row
 	{
+		private static SQ.Database db;
+
 		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
 		{
 			return this.sync_rows<Programs>(db, agent_id, rows, "programs", { "name", "identifying-number" });
@@ -35,6 +37,7 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			Programs.db = db;
 			string errmsg;
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS programs (
@@ -62,6 +65,66 @@ namespace Argus.Shared.OSQuery
 		public static void rpc_register()
 		{
 			OLLMrpc.Bin.register("Programs", typeof(Programs));
+			OLLMrpc.Request.add_class(
+				"Programs", typeof(Programs),
+				"list", "i"
+			);
+		}
+
+		/**
+		 * One row per program name, or one agent's stored rows.
+		 *
+		 * A controller calls this. Zero lists every agent, added
+		 * up by name. An ''agent_id'' greater than zero is a
+		 * different query: that agent's stored rows, with no
+		 * added-up columns. A row whose ''agent_id'' is not in
+		 * ''agent'' is absent. A caller that is not a controller
+		 * is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param agent_id agent id, or zero for every agent
+		 */
+		public void list(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Programs>();
+			var query = new SQ.Query<Programs>(Programs.db, "programs");
+			if (agent_id > 0) {
+				query.select("WHERE agent_id = %d AND agent_id IN (SELECT id FROM agent)".printf(agent_id), rows);
+			}
+			if (agent_id <= 0) {
+				query.selectQuery("""
+					SELECT
+						name,
+						GROUP_CONCAT(DISTINCT NULLIF(publisher, '')) AS publisher,
+						GROUP_CONCAT(DISTINCT NULLIF(language, '')) AS language,
+						GROUP_CONCAT(DISTINCT NULLIF(identifying_number, '')) AS identifying_number,
+						GROUP_CONCAT(DISTINCT NULLIF(install_date, '')) AS install_date,
+						GROUP_CONCAT(DISTINCT NULLIF(install_location, '')) AS install_location,
+						GROUP_CONCAT(DISTINCT NULLIF(install_source, '')) AS install_source,
+						GROUP_CONCAT(DISTINCT NULLIF(uninstall_string, '')) AS uninstall_string,
+						MIN(version) AS min_version,
+						MAX(version) AS max_version,
+						COUNT(DISTINCT agent_id) AS installed,
+						COUNT(DISTINCT CASE
+							WHEN uninstall_string != '' THEN agent_id
+						END) AS uninstall_count
+					FROM
+						programs
+					WHERE
+						agent_id IN (SELECT id FROM agent)
+					GROUP BY
+						name
+					ORDER BY
+						name
+					""", rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
 		}
 
 		public string name { get; set; default = ""; }
@@ -73,5 +136,25 @@ namespace Argus.Shared.OSQuery
 		public string uninstall_string { get; set; default = ""; }
 		public string install_date { get; set; default = ""; }
 		public string identifying_number { get; set; default = ""; }
+		/**
+		 * Lowest version for this name. Filled by ''list''.
+		 * Not stored.
+		 */
+		public string min_version { get; set; default = ""; }
+		/**
+		 * Highest version for this name. Filled by ''list''.
+		 * Not stored.
+		 */
+		public string max_version { get; set; default = ""; }
+		/**
+		 * How many machines have this name. Filled by ''list''.
+		 * Not stored.
+		 */
+		public int installed { get; set; default = 0; }
+		/**
+		 * How many of those machines have an uninstall string.
+		 * Filled by ''list''. Not stored.
+		 */
+		public int uninstall_count { get; set; default = 0; }
 	}
 }

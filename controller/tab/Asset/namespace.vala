@@ -27,7 +27,7 @@
  *
  * {{{
  * var info = new Argus.Controller.Tab.Asset.SystemInfo(window);
- * var software = new Argus.Controller.Tab.Asset.Software();
+ * var software = new Argus.Controller.Tab.Asset.Software(window);
  * }}}
  */
 namespace Argus.Controller.Tab.Asset

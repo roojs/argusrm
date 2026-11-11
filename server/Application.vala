@@ -154,6 +154,8 @@ namespace Argus.Server
 		 * {@link GLib.ApplicationFlags.HANDLES_COMMAND_LINE} and
 		 * {@link GLib.ApplicationFlags.NON_UNIQUE}, as in ''ollmfilesd''.
 		 * Service mode is not used: it rejects arguments.
+		 * The state directory is mode 0700, so only its owner can
+		 * read the database and the socket.
 		 */
 		public Application()
 		{
@@ -168,15 +170,16 @@ namespace Argus.Server
 			this.download_listen = new Net.Download(this);
 			this.interfaces = new Net.Interfaces();
 			if (!GLib.FileUtils.test(Argus.SERVER_DATA_DIR, GLib.FileTest.IS_DIR)) {
-				GLib.DirUtils.create_with_parents(Argus.SERVER_DATA_DIR, 0755);
+				GLib.DirUtils.create_with_parents(Argus.SERVER_DATA_DIR, 0700);
 			}
+			GLib.FileUtils.chmod(Argus.SERVER_DATA_DIR, 0700);
 			var git_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "git");
 			var scripts_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "scripts");
 			if (!GLib.FileUtils.test(git_dir, GLib.FileTest.IS_DIR)) {
-				GLib.DirUtils.create_with_parents(git_dir, 0755);
+				GLib.DirUtils.create_with_parents(git_dir, 0700);
 			}
 			if (!GLib.FileUtils.test(scripts_dir, GLib.FileTest.IS_DIR)) {
-				GLib.DirUtils.create_with_parents(scripts_dir, 0755);
+				GLib.DirUtils.create_with_parents(scripts_dir, 0700);
 			}
 			Ggit.init();
 			if (!GLib.FileUtils.test(GLib.Path.build_filename(scripts_dir, ".git"),
@@ -356,6 +359,9 @@ namespace Argus.Server
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
 			OLLMrpc.Request.register("SystemInfo", new Argus.Shared.OSQuery.SystemInfo());
+			OLLMrpc.Request.register("DebPackages", new Argus.Shared.OSQuery.DebPackages());
+			OLLMrpc.Request.register("RpmPackages", new Argus.Shared.OSQuery.RpmPackages());
+			OLLMrpc.Request.register("Programs", new Argus.Shared.OSQuery.Programs());
 			OLLMrpc.Request.register("Command", new Command.for_rpc(this));
 			OLLMrpc.Request.register("ScriptRepository", new SQT.ScriptRepository.for_rpc(this));
 			OLLMrpc.Request.register("Script", new SQT.Script.for_rpc(this));
