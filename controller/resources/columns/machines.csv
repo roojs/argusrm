@@ -1,32 +1,42 @@
-title,name,shown,width
-User,user,on,120
-Hostname,hostname,on,180
-Local hostname,local-hostname,off,180
-Computer name,computer-name,on,180
-UUID,uuid,off,300
-Hardware vendor,hardware-vendor,on,160
-Hardware model,hardware-model,off,180
-Hardware version,hardware-version,off,170
-Hardware serial,hardware-serial,off,160
-Board vendor,board-vendor,off,160
-Board model,board-model,off,160
-Board version,board-version,off,160
-Board serial,board-serial,off,160
-Physical memory,physical-memory,off,160
-CPU brand,cpu-brand,on,240
-CPU type,cpu-type,off,120
-CPU subtype,cpu-subtype,off,140
-CPU physical cores,cpu-physical-cores,off,180
-CPU logical cores,cpu-logical-cores,off,170
-CPU microcode,cpu-microcode,off,150
-Operating system,operating-system,on,200
-Major,major,off,80
-Minor,minor,off,80
-Patch,patch,off,80
-Build,build,off,100
-Platform,platform,off,120
-Platform like,platform-like,off,150
-Codename,codename,off,140
-Arch,arch,off,80
-OS updated,os-updated,off,140
-OS status,os-status,on,120
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format
+
+User,user,ON,120,text
+Hostname,hostname,ON,180,text
+Local hostname,local-hostname,off,180,text
+Computer name,computer-name,ON,180,text
+UUID,uuid,off,300,text
+
+Hardware vendor,hardware-vendor,ON,160,text
+Hardware model,hardware-model,off,180,text
+Hardware version,hardware-version,off,170,text
+Hardware serial,hardware-serial,off,160,text
+
+Board vendor,board-vendor,off,160,text
+Board model,board-model,off,160,text
+Board version,board-version,off,160,text
+Board serial,board-serial,off,160,text
+
+Physical memory,physical-memory,off,160,number
+
+CPU brand,cpu-brand,ON,240,text
+CPU type,cpu-type,off,120,text
+CPU subtype,cpu-subtype,off,140,text
+CPU physical cores,cpu-physical-cores,off,180,number
+CPU logical cores,cpu-logical-cores,off,170,number
+CPU microcode,cpu-microcode,off,150,text
+
+Operating system,operating-system,ON,200,text
+Major,major,off,80,number
+Minor,minor,off,80,number
+Patch,patch,off,80,number
+Build,build,off,100,text
+Platform,platform,off,120,text
+Platform like,platform-like,off,150,text
+Codename,codename,off,140,text
+Arch,arch,off,80,text
+
+OS updated,os-updated,off,140,date
+OS status,os-status,ON,120,status
+
+Package updated,package-updated,off,170,date
+S/W status,package-status,ON,140,status
