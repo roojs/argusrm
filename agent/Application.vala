@@ -71,6 +71,25 @@ namespace Argus.Agent
 		internal OLLMrpc.Transport.TlsClient? connection { get; private set; }
 
 		/**
+		 * Operating system row from the ''os_version'' query.
+		 *
+		 * Null until that query has run.
+		 */
+		internal Argus.Shared.OSQuery.OsVersion? os_version { get; set; default = null; }
+
+		/**
+		 * Last full package fetch, keyed by the osquery table.
+		 *
+		 * {@link OSQuery.Initialize} stores ''deb_packages'',
+		 * ''rpm_packages'', and ''programs'' after a successful
+		 * ''OSQuery.sync''. The package monitor diffs against
+		 * this list and sends only the changes.
+		 */
+		internal Gee.HashMap<string, Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>> package_rows {
+			get; set; default = new Gee.HashMap<string, Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>>();
+		}
+
+		/**
 		 * True when {@link connection} is down.
 		 *
 		 * Set when {@link open_connection} fails, or when

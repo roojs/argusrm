@@ -23,9 +23,14 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class LoggedInUsers : Row
 	{
-		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
-		{
-			return this.sync_rows<LoggedInUsers>(db, agent_id, rows, "logged_in_users", { "pid" });
+		public override bool sync(
+			SQ.Database db,
+			int64 agent_id,
+			Gee.ArrayList<AgentInfo> rows,
+			bool complete = true
+		) {
+			return this.sync_rows<LoggedInUsers>(db, agent_id, rows,
+				"logged_in_users", { "pid" }, complete);
 		}
 
 		/**
@@ -45,12 +50,24 @@ namespace Argus.Shared.OSQuery
 					tty      TEXT NOT NULL DEFAULT '',
 					host     TEXT NOT NULL DEFAULT '',
 					time     INTEGER NOT NULL DEFAULT 0,
-					pid      INTEGER NOT NULL DEFAULT 0
+					pid        INTEGER NOT NULL DEFAULT 0,
+					added_dt   INTEGER NOT NULL DEFAULT 0,
+					updated_dt INTEGER NOT NULL DEFAULT 0,
+					deleted_dt INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("logged_in_users create failed: %s", db.db.errmsg());
 			}
+			db.db.exec(
+				"ALTER TABLE logged_in_users ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE logged_in_users ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE logged_in_users ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
 		}
 
 		/**

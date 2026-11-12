@@ -17,17 +17,28 @@ namespace Argus.Shared.OSQuery
 		public abstract int64 agent_id { get; set; }
 
 		/**
-		 * Replace this agent's rows with one snapshot.
+		 * Apply this agent's rows. A full snapshot marks every
+		 * stored row it left out. A partial list applies only
+		 * the rows it carries.
 		 *
 		 * @param db Argus database
 		 * @param agent_id registered agent
-		 * @param rows complete table snapshot
+		 * @param rows complete table snapshot, or the changed rows
+		 *   when ''complete'' is false
+		 * @param complete false applies only ''rows''. A row with
+		 *   ''deleted_dt'' set is a removal. Rows left out stay.
 		 * @return true when every row has the expected type
 		 */
-		public abstract bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows);
+		public abstract bool sync(
+			SQ.Database db,
+			int64 agent_id,
+			Gee.ArrayList<AgentInfo> rows,
+			bool complete = true
+		);
 
 		/**
-		 * Compare persisted data properties, excluding database identity.
+		 * Compare persisted data properties, excluding database
+		 * identity and the sync times.
 		 *
 		 * @param newer row received from the agent
 		 * @param exclude additional property names to ignore
@@ -40,7 +51,17 @@ namespace Argus.Shared.OSQuery
 			}
 			var object_class = (GLib.ObjectClass) this.get_type().class_ref();
 			foreach (var prop in object_class.list_properties()) {
-				if (prop.name == "id" || prop.name == "agent-id" || GLib.strv_contains(exclude, prop.name)) {
+				switch (prop.name) {
+					case "id":
+					case "agent-id":
+					case "added-dt":
+					case "updated-dt":
+					case "deleted-dt":
+						continue;
+					default:
+						break;
+				}
+				if (GLib.strv_contains(exclude, prop.name)) {
 					continue;
 				}
 				var older_value = GLib.Value(prop.value_type);

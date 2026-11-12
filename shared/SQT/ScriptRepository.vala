@@ -75,12 +75,24 @@ namespace Argus.Shared.SQT
 					url       TEXT NOT NULL DEFAULT '',
 					username  TEXT NOT NULL DEFAULT '',
 					password  TEXT NOT NULL DEFAULT '',
-					key       TEXT NOT NULL DEFAULT ''
+					key        TEXT NOT NULL DEFAULT '',
+					added_dt   INTEGER NOT NULL DEFAULT 0,
+					updated_dt INTEGER NOT NULL DEFAULT 0,
+					deleted_dt INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("script_repository create failed: %s", db.db.errmsg());
 			}
+			db.db.exec(
+				"ALTER TABLE script_repository ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script_repository ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script_repository ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
 		}
 	}
 }
