@@ -51,6 +51,7 @@ namespace Argus.Shared.OSQuery
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("interface_addresses create failed: %s", db.db.errmsg());
 			}
+			Argus.Shared.init_db_audit(db, "interface_addresses");
 		}
 
 		/**

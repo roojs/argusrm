@@ -1,6 +1,6 @@
 # Package monitor work rewrote the sync path
 
-**Status:** ⏳ Phase 1 was put back, then taken out again. It was not reviewable.
+**Status:** ⏳ Phase 1 is a hand edit in the working tree, for review. Phase 2 is not started.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -110,5 +110,6 @@
 
 ## Next
 
-- ⏳ 🔷 Write phase 1 again, then phase 2, from **Re-implement**.
-- 🔷 Edit each file by hand. Do not restore a file from another commit and then patch it. A checkout mixed with later edits cannot be reviewed.
+- ✔️ 🔷 Phase 1 is edited in place. `added_dt`, `updated_dt`, and `deleted_dt` are on `agent`, the osquery tables, and the task tables. `sync_rows` writes them. `compare` skips them. The three package lists take `agent_id` and `since`.
+- 🚫 The `complete` flag, `OSQuery.update`, the package monitors, and `PackageManager` are not in this diff.
+- ⏳ 🔷 Phase 2, after this diff is reviewed.

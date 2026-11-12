@@ -138,9 +138,9 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments `i`: `agent_id`. Zero is every agent, one row per package name. Greater than zero is a different query: that agent's stored rows, and the added-up columns are not filled.
+- Arguments `ii`: `agent_id`, `since`. `agent_id` zero is every agent, one row per package name. Greater than zero is that agent's stored rows, and the added-up columns are not filled. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
 - Reply `retval` `o`: an array of `DebPackages` rows. A host whose `agent_id` is not in `agent` is left out.
-- When `agent_id` is zero, the reply fills `arch`, `section`, `priority`, `source`, `maintainer`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` is the lowest version with the lowest revision of that version. `max_version` is the highest version with the highest revision of that version.
+- When `agent_id` and `since` are zero, the reply fills `arch`, `section`, `priority`, `source`, `maintainer`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` is the lowest version with the lowest revision of that version. `max_version` is the highest version with the highest revision of that version.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/DebPackages.vala`. `Store.DebPackages` calls it. The columns are `columns/deb_packages.csv`. [5.9](plans/5.9-assets-software.md).
 
@@ -148,9 +148,9 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments `i`: `agent_id`. Zero is every agent, one row per package name. Greater than zero is a different query: that agent's stored rows, and the added-up columns are not filled.
+- Arguments `ii`: `agent_id`, `since`. `agent_id` zero is every agent, one row per package name. Greater than zero is that agent's stored rows, and the added-up columns are not filled. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
 - Reply `retval` `o`: an array of `RpmPackages` rows. A host whose `agent_id` is not in `agent` is left out.
-- When `agent_id` is zero, the reply fills `arch`, `package_group`, `source`, `vendor`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are epoch, version, and release.
+- When `agent_id` and `since` are zero, the reply fills `arch`, `package_group`, `source`, `vendor`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are epoch, version, and release.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/RpmPackages.vala`. `Store.RpmPackages` calls it. The columns are `columns/rpm_packages.csv`. [5.9](plans/5.9-assets-software.md).
 
@@ -158,9 +158,9 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments `i`: `agent_id`. Zero is every agent, one row per program name. Greater than zero is a different query: that agent's stored rows, and the added-up columns are not filled.
+- Arguments `ii`: `agent_id`, `since`. `agent_id` zero is every agent, one row per program name. Greater than zero is that agent's stored rows, and the added-up columns are not filled. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
 - Reply `retval` `o`: an array of `Programs` rows. A host whose `agent_id` is not in `agent` is left out.
-- When `agent_id` is zero, the reply fills `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `min_version`, `max_version`, `installed`, and `uninstall_count`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
+- When `agent_id` and `since` are zero, the reply fills `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `min_version`, `max_version`, `installed`, and `uninstall_count`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/5.9-assets-software.md).
 

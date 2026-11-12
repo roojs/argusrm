@@ -186,11 +186,22 @@ namespace Argus.Agent.Win32
 				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
 			}
 			var became = false;
-			if ((intptr) this.pipe != -1 && !this.pipe_up &&
-				(ConnectNamedPipe(this.pipe, null) ||
-					GetLastError() == ERROR_PIPE_CONNECTED)) {
-				became = true;
-				this.pipe_up = true;
+			if ((intptr) this.pipe != -1 && !this.pipe_up) {
+				var joined = ConnectNamedPipe(this.pipe, null);
+				var pipe_err = GetLastError();
+				if (joined || pipe_err == ERROR_PIPE_CONNECTED) {
+					became = true;
+					this.pipe_up = true;
+					GLib.debug("registration pipe open");
+				}
+				if (!joined && pipe_err != ERROR_PIPE_CONNECTED &&
+					pipe_err != ERROR_PIPE_LISTENING) {
+					GLib.warning("registration pipe %u", pipe_err);
+					DisconnectNamedPipe(this.pipe);
+					CloseHandle(this.pipe);
+					this.pipe = (void*) (intptr) (-1);
+					this.pipe_up = false;
+				}
 			}
 			if (became && this.tip != "") {
 				this.tip_due = true;
@@ -224,6 +235,7 @@ namespace Argus.Agent.Win32
 				if (nl == 6) {
 					this.number = msg.substring(0, 6);
 					this.directed = msg.substring(7);
+					GLib.debug("registration pin for %s", this.directed);
 				}
 				if (nl < 0 && msg.length == 6) {
 					this.number = msg;
@@ -399,7 +411,7 @@ namespace Argus.Agent.Win32
 			if (found) {
 				return true;
 			}
-			var session = WTSGetActiveConsoleSessionId();
+			var session = argus_active_session();
 			if (session == (uint32) 0xFFFFFFFF) {
 				return true;
 			}

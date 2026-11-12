@@ -91,6 +91,7 @@ namespace Argus.Shared.SQT
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("task_target create failed: %s", db.db.errmsg());
 			}
+			Argus.Shared.init_db_audit(db, "task_target");
 			db.db.exec(
 				"ALTER TABLE task_target ADD COLUMN scheduled INT64 NOT NULL DEFAULT 0;",
 				null, out errmsg);

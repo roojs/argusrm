@@ -271,38 +271,11 @@ namespace Argus.Shared
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("Failed to create agent table: %s", db.db.errmsg());
 			}
-			db.db.exec(
-				"""
-				ALTER TABLE agent ADD COLUMN
-					is_controller INTEGER NOT NULL DEFAULT 0;
-				""",
-				null,
-				out errmsg
-			);
-			db.db.exec(
-				"""
-				ALTER TABLE agent ADD COLUMN
-					username TEXT NOT NULL DEFAULT '';
-				""",
-				null,
-				out errmsg
-			);
-			db.db.exec(
-				"""
-				ALTER TABLE agent ADD COLUMN
-					hostname TEXT NOT NULL DEFAULT '';
-				""",
-				null,
-				out errmsg
-			);
-			db.db.exec(
-				"""
-				ALTER TABLE agent ADD COLUMN
-					last_connected INT64 NOT NULL DEFAULT 0;
-				""",
-				null,
-				out errmsg
-			);
+			init_db_audit(db, "agent");
+			db.db.exec("ALTER TABLE agent ADD COLUMN is_controller INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+			db.db.exec("ALTER TABLE agent ADD COLUMN username TEXT NOT NULL DEFAULT '';", null, out errmsg);
+			db.db.exec("ALTER TABLE agent ADD COLUMN hostname TEXT NOT NULL DEFAULT '';", null, out errmsg);
+			db.db.exec("ALTER TABLE agent ADD COLUMN last_connected INT64 NOT NULL DEFAULT 0;", null, out errmsg);
 			var q = Agent.query(db);
 			var now = new GLib.DateTime.now_utc().to_unix();
 			var int_binds = new Gee.HashMap<string, int>();

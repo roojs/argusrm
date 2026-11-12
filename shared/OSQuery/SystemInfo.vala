@@ -73,6 +73,7 @@ namespace Argus.Shared.OSQuery
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("system_info create failed: %s", db.db.errmsg());
 			}
+			Argus.Shared.init_db_audit(db, "system_info");
 			if (Sqlite.OK != db.db.exec("""
 				DELETE FROM system_info
 				WHERE agent_id NOT IN (SELECT id FROM agent);

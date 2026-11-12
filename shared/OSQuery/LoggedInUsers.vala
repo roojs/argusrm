@@ -51,6 +51,7 @@ namespace Argus.Shared.OSQuery
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("logged_in_users create failed: %s", db.db.errmsg());
 			}
+			Argus.Shared.init_db_audit(db, "logged_in_users");
 		}
 
 		/**

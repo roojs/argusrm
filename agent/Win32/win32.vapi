@@ -273,6 +273,8 @@ namespace Argus.Agent.Win32 {
 	public void* CreateNamedPipeW (string16 name, uint32 open_mode, uint32 mode, uint32 instances, uint32 out_size, uint32 in_size, uint32 timeout, void* security);
 	[CCode (cname = "argus_create_registration_pipe", cheader_filename = "win32.h")]
 	public void* create_registration_pipe ();
+	[CCode (cheader_filename = "win32.h")]
+	public uint32 argus_active_session ();
 	[CCode (cname = "ConnectNamedPipe", cheader_filename = "win32.h")]
 	public bool ConnectNamedPipe (void* pipe, Overlapped* ov);
 	[CCode (cname = "DisconnectNamedPipe", cheader_filename = "win32.h")]

@@ -120,8 +120,9 @@ namespace Argus.Controller.Store
 		 *
 		 * Zero asks for every agent, added up by name. An
 		 * ''agent_id'' greater than zero asks for that agent's
-		 * stored rows. The first reply fills the list. A later
-		 * reply is applied by name.
+		 * stored rows. The call passes ''since'' zero, so a
+		 * deleted row stays out. The first reply fills the list.
+		 * A later reply is applied by name.
 		 *
 		 * @param agent_id agent id, or zero for every agent
 		 */
@@ -132,7 +133,7 @@ namespace Argus.Controller.Store
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
 				method = "DebPackages.list",
-				args = OLLMrpc.args("i", agent_id)
+				args = OLLMrpc.args("ii", agent_id, 0)
 			}, (obj, res) => {
 				if (epoch != this.epoch) {
 					return;

@@ -31,7 +31,7 @@ namespace Argus.Agent.Linux
 
 		public override int command_line(GLib.ApplicationCommandLine command_line)
 		{
-			GLib.Environment.set_application_name("Argus Remote Management Agent");
+			GLib.Environment.set_application_name("Argus Remote Management Agent " + Argus.VERSION);
 			var display = GLib.Environment.get_variable("DISPLAY");
 			var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
 			this.is_desktop = (display != null && display != "") || (wayland != null && wayland != "");
@@ -110,7 +110,7 @@ namespace Argus.Agent.Linux
 			if (opt_server != "") {
 				Gtk.init();
 				var rejected = new Argus.Shared.Notice("argusrm-agent-gtk does not accept --server", "");
-				rejected.title = "Argus Remote Management Agent";
+				rejected.title = "Argus Remote Management Agent " + Argus.VERSION;
 				rejected.add_response("ok", "OK");
 				rejected.closed.connect(() => {
 					this.quit();
@@ -123,7 +123,7 @@ namespace Argus.Agent.Linux
 			var pkexec = GLib.Environment.find_program_in_path("pkexec");
 			if (pkexec == null) {
 				var missing = new Argus.Shared.Notice("Could not request administrator access", "pkexec was not found.");
-				missing.title = "Argus Remote Management Agent";
+				missing.title = "Argus Remote Management Agent " + Argus.VERSION;
 				missing.add_response("ok", "OK");
 				missing.closed.connect(() => {
 					this.quit();
@@ -137,7 +137,7 @@ namespace Argus.Agent.Linux
 				executable = GLib.FileUtils.read_link("/proc/self/exe");
 			} catch (GLib.FileError e) {
 				var missing = new Argus.Shared.Notice("Could not resolve argusrm-agent-gtk", e.message);
-				missing.title = "Argus Remote Management Agent";
+				missing.title = "Argus Remote Management Agent " + Argus.VERSION;
 				missing.add_response("ok", "OK");
 				missing.closed.connect(() => {
 					this.quit();
@@ -148,7 +148,7 @@ namespace Argus.Agent.Linux
 			}
 			var launched = false;
 			var notice = new Argus.Shared.Notice("This application needs to run as admin", "You will be prompted to escalate privileges.");
-			notice.title = "Argus Remote Management Agent";
+			notice.title = "Argus Remote Management Agent " + Argus.VERSION;
 			notice.add_response("ok", "OK");
 			notice.responded.connect((response) => {
 				launched = this.on_start_admin(response, pkexec, executable);
@@ -206,7 +206,7 @@ namespace Argus.Agent.Linux
 				proc = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.NONE);
 			} catch (GLib.Error e) {
 				var failed = new Argus.Shared.Notice("Could not request administrator access", e.message);
-				failed.title = "Argus Remote Management Agent";
+				failed.title = "Argus Remote Management Agent " + Argus.VERSION;
 				failed.add_response("ok", "OK");
 				failed.closed.connect(() => {
 					this.quit();
@@ -219,7 +219,7 @@ namespace Argus.Agent.Linux
 					proc.wait_async.end(res);
 				} catch (GLib.Error e) {
 					var failed = new Argus.Shared.Notice("Could not request administrator access", e.message);
-					failed.title = "Argus Remote Management Agent";
+					failed.title = "Argus Remote Management Agent " + Argus.VERSION;
 					failed.add_response("ok", "OK");
 					failed.closed.connect(() => {
 						this.quit();
@@ -232,7 +232,7 @@ namespace Argus.Agent.Linux
 					return;
 				}
 				var denied = new Argus.Shared.Notice("Could not request administrator access", "Administrator access was not granted.");
-				denied.title = "Argus Remote Management Agent";
+				denied.title = "Argus Remote Management Agent " + Argus.VERSION;
 				denied.add_response("ok", "OK");
 				denied.closed.connect(() => {
 					this.quit();
@@ -269,7 +269,7 @@ namespace Argus.Agent.Linux
 			} catch (GLib.Error e) {
 				Gtk.init();
 				var failed = new Argus.Shared.Notice("Could not set up the Argus agent service", e.message);
-				failed.title = "Argus Remote Management Agent";
+				failed.title = "Argus Remote Management Agent " + Argus.VERSION;
 				failed.add_response("ok", "OK");
 				failed.closed.connect(() => {
 					this.quit();
@@ -305,7 +305,7 @@ namespace Argus.Agent.Linux
 					detail = e.message;
 				}
 				var notice = new Argus.Shared.Notice(heading, detail);
-				notice.title = "Argus Remote Management Agent";
+				notice.title = "Argus Remote Management Agent " + Argus.VERSION;
 				notice.add_response("close", "Close");
 				notice.add_response("restart", "Restart");
 				if (offer_configure) {
@@ -324,7 +324,7 @@ namespace Argus.Agent.Linux
 					} catch (GLib.Error e) {
 						failed = true;
 						var error_notice = new Argus.Shared.Notice("Could not restart the Argus agent service", e.message);
-						error_notice.title = "Argus Remote Management Agent";
+						error_notice.title = "Argus Remote Management Agent " + Argus.VERSION;
 						error_notice.add_response("ok", "OK");
 						error_notice.closed.connect(() => {
 							this.quit();
@@ -363,7 +363,7 @@ namespace Argus.Agent.Linux
 			var window = new Argus.Shared.RegisterWindow() {
 				data_dir = Argus.AGENT_DATA_DIR
 			};
-			window.title = "Argus Remote Management Agent";
+			window.title = "Argus Remote Management Agent " + Argus.VERSION;
 			window.show_add();
 			window.certificate_received.connect(() => {
 				try {

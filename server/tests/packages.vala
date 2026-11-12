@@ -110,12 +110,130 @@ namespace Argus.Server
 				GLib.printerr("fail insert program\n");
 				return 1;
 			}
+			var snap = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			snap.add(new Argus.Shared.OSQuery.DebPackages() {
+				name = "coreutils",
+				arch = "amd64",
+				version = "9.1"
+			});
+			if (!new Argus.Shared.OSQuery.DebPackages().sync(db, first, snap)) {
+				GLib.printerr("fail sync insert\n");
+				return 1;
+			}
+			var stored = new Gee.ArrayList<Argus.Shared.OSQuery.DebPackages>();
+			debs.select("WHERE agent_id = %d".printf((int) first), stored);
+			var core_added = 0;
+			var found_core = false;
+			var found_bash = false;
+			foreach (var row in stored) {
+				if (row.name == "coreutils") {
+					found_core = true;
+					core_added = row.added_dt;
+					if (row.added_dt == 0 || row.updated_dt != 0 || row.deleted_dt != 0) {
+						GLib.printerr("fail coreutils insert times\n");
+						return 1;
+					}
+				}
+				if (row.name == "bash" && row.arch == "amd64") {
+					found_bash = true;
+					if (row.deleted_dt == 0) {
+						GLib.printerr("fail bash still live\n");
+						return 1;
+					}
+				}
+			}
+			if (!found_core || !found_bash || core_added == 0) {
+				GLib.printerr("fail sync rows\n");
+				return 1;
+			}
+			snap.clear();
+			snap.add(new Argus.Shared.OSQuery.DebPackages() {
+				name = "coreutils",
+				arch = "amd64",
+				version = "9.1"
+			});
+			snap.add(new Argus.Shared.OSQuery.DebPackages() {
+				name = "bash",
+				arch = "amd64",
+				version = "5.2",
+				revision = "1"
+			});
+			if (!new Argus.Shared.OSQuery.DebPackages().sync(db, first, snap)) {
+				GLib.printerr("fail sync return\n");
+				return 1;
+			}
+			stored.clear();
+			debs.select("WHERE agent_id = %d".printf((int) first), stored);
+			found_core = false;
+			found_bash = false;
+			foreach (var row in stored) {
+				if (row.name == "coreutils") {
+					found_core = true;
+					if (row.added_dt != core_added || row.updated_dt != 0 || row.deleted_dt != 0) {
+						GLib.printerr("fail coreutils unchanged\n");
+						return 1;
+					}
+				}
+				if (row.name == "bash" && row.arch == "amd64") {
+					found_bash = true;
+					if (row.deleted_dt != 0 || row.updated_dt == 0 || row.added_dt != 0) {
+						GLib.printerr("fail bash returned\n");
+						return 1;
+					}
+				}
+			}
+			if (!found_core || !found_bash) {
+				GLib.printerr("fail return rows\n");
+				return 1;
+			}
+			snap.clear();
+			snap.add(new Argus.Shared.OSQuery.DebPackages() {
+				name = "coreutils",
+				arch = "amd64",
+				version = "9.4"
+			});
+			snap.add(new Argus.Shared.OSQuery.DebPackages() {
+				name = "bash",
+				arch = "amd64",
+				version = "5.2",
+				revision = "1"
+			});
+			if (!new Argus.Shared.OSQuery.DebPackages().sync(db, first, snap)) {
+				GLib.printerr("fail sync change\n");
+				return 1;
+			}
+			stored.clear();
+			debs.select("WHERE agent_id = %d".printf((int) first), stored);
+			found_core = false;
+			found_bash = false;
+			foreach (var row in stored) {
+				if (row.name == "coreutils") {
+					found_core = true;
+					if (row.added_dt != core_added || row.updated_dt == 0 ||
+						row.deleted_dt != 0 || row.version != "9.4") {
+						GLib.printerr("fail coreutils changed\n");
+						return 1;
+					}
+				}
+				if (row.name == "bash" && row.arch == "amd64") {
+					found_bash = true;
+					if (row.deleted_dt != 0 || row.version != "5.2") {
+						GLib.printerr("fail bash kept\n");
+						return 1;
+					}
+				}
+			}
+			if (!found_core || !found_bash) {
+				GLib.printerr("fail change rows\n");
+				return 1;
+			}
 			var request = new OLLMrpc.Request();
 			request.connection = new OLLMrpc.Transport.Connection();
-			new Argus.Shared.OSQuery.DebPackages().list(request, 0);
-			new Argus.Shared.OSQuery.DebPackages().list(request, (int) first);
-			new Argus.Shared.OSQuery.RpmPackages().list(request, 0);
-			new Argus.Shared.OSQuery.Programs().list(request, 0);
+			new Argus.Shared.OSQuery.DebPackages().list(request, 0, 0);
+			new Argus.Shared.OSQuery.DebPackages().list(request, (int) first, 0);
+			new Argus.Shared.OSQuery.DebPackages().list(request, (int) first, core_added - 1);
+			new Argus.Shared.OSQuery.RpmPackages().list(request, 0, 0);
+			new Argus.Shared.OSQuery.Programs().list(request, 0, 0);
 			GLib.print("ok package lists\n");
 			return 0;
 		}

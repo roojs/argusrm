@@ -1,0 +1,10 @@
+---
+description: Bump the release version before each Windows installer build.
+alwaysApply: true
+---
+
+# Windows release version
+
+A Windows installer uses the first version in `CHANGELOG.md`. Bump that version, and the same version in `meson.build`, before building the installer. Leave the previous number as its own section.
+
+The window title already appends `Argus.VERSION`. Do not ship a Windows build on a version that was already installed.

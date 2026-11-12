@@ -49,7 +49,8 @@
 - ✔️ From `snappr-win`, `argus-agent.exe --host 192.168.88.132 --port 819 --pin 000000` reached `Register.vala` and stopped with `os-release did not name debian or rpm` (`-32603`). TCP to port 819 succeeded. No certificate was sent. MSYS2 valac does not define `G_OS_WIN32`, so `shared/Register.vala` kept the Linux family.
 - ✔️ After `-D G_OS_WIN32`, the same command gets past that check. With registration closed it stops on `Could not connect to 192.168.88.132: Socket I/O timed out`. Port 819 is firewalled until the controller opens a PIN.
 - ✔️ A failed attempt writes `client.pem` before the server answers. The tray treated that file as registered and did not open the window. Startup now removes `client.pem`, `client-key.pem`, and `client.csr` when `ollmrpc-ca.pem` is absent.
+- 🔷 The window came up and the PIN still failed. The server log had the offer and no registration connection. The tray closed the pipe when a peek failed, so the service never called `Register`. A broken pipe is the only peek that closes it now, and the service drops an instance that is not listening.
 
 ## Next
 
-- 🔷 ⏳ Install `ArgusAgent-0.1.3-Setup.exe` again. The registration window is open when the installer closes. Start → Argus Agent opens that window with no console.
+- 🔷 ⏳ Install `ArgusAgent-0.1.4-Setup.exe`. The registration window title ends in 0.1.4.

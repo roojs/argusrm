@@ -17,7 +17,12 @@ namespace Argus.Shared.OSQuery
 		public abstract int64 agent_id { get; set; }
 
 		/**
-		 * Replace this agent's rows with one snapshot.
+		 * Apply one snapshot for this agent.
+		 *
+		 * A new row is inserted. A stored row that differs is
+		 * updated. A stored row the snapshot left out stays, and
+		 * ''deleted_dt'' is set. A row that comes back clears
+		 * ''deleted_dt'' and sets ''updated_dt''.
 		 *
 		 * @param db Argus database
 		 * @param agent_id registered agent
@@ -27,7 +32,12 @@ namespace Argus.Shared.OSQuery
 		public abstract bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows);
 
 		/**
-		 * Compare persisted data properties, excluding database identity.
+		 * Compare persisted data properties, excluding database
+		 * identity and the sync times.
+		 *
+		 * The snapshot does not send ''added_dt'', ''updated_dt'',
+		 * or ''deleted_dt''. A stored time against ''0'' would mark
+		 * the row changed.
 		 *
 		 * @param newer row received from the agent
 		 * @param exclude additional property names to ignore
@@ -40,7 +50,17 @@ namespace Argus.Shared.OSQuery
 			}
 			var object_class = (GLib.ObjectClass) this.get_type().class_ref();
 			foreach (var prop in object_class.list_properties()) {
-				if (prop.name == "id" || prop.name == "agent-id" || GLib.strv_contains(exclude, prop.name)) {
+				switch (prop.name) {
+					case "id":
+					case "agent-id":
+					case "added-dt":
+					case "updated-dt":
+					case "deleted-dt":
+						continue;
+					default:
+						break;
+				}
+				if (GLib.strv_contains(exclude, prop.name)) {
 					continue;
 				}
 				var older_value = GLib.Value(prop.value_type);
