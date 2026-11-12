@@ -41,6 +41,7 @@ if host_machine.system() == 'linux'
 		'linux/Application.vala',
 		'linux/ServiceManager.vala',
 		'linux/Command.vala',
+		'linux/PackageMonitor.vala',
 		'linux/main.vala',
 	)
 	vala_args += [
@@ -58,6 +59,7 @@ if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('shell32')
 	deps += meson.get_compiler('c').find_library('psapi')
 	deps += meson.get_compiler('c').find_library('wtsapi32')
+	deps += meson.get_compiler('c').find_library('wevtapi')
 	sources += files(
 		'OSQuery/Initialize.vala',
 		'OSQuery/Execute.vala',
@@ -69,6 +71,7 @@ if host_machine.system() == 'windows'
 		'Win32/register-pipe.c',
 		'Win32/tray/Tray.vala',
 		'Win32/Command.vala',
+		'Win32/PackageMonitor.vala',
 		'Win32/main.vala',
 	)
 	vala_args += [
@@ -83,25 +86,9 @@ if host_machine.system() == 'windows'
 endif
 
 if host_machine.system() == 'android'
-	if not meson.version().version_compare('>=1.8.0')
-		error('Android agent requires Meson >= 1.8.0 for android_exe_type')
-	endif
-	sources += files(
-		'android/OSQuery/Initialize.vala',
-		'android/OSQuery/Execute.vala',
-		'android/Command.vala',
-		'android/main.vala',
-	)
-	vala_args += ['-D', 'ANDROID']
-	executable(
-		'argus-agent',
-		sources,
-		dependencies: deps,
-		vala_args: vala_args,
-		c_args: c_args,
-		android_exe_type: 'application',
-		install: true,
-	)
+	# A phone can register and then sends no inventory. osquery publishes
+	# no Android package. The agent is not built until a phone can report.
+	message('Android agent is not built')
 else
 	installed_name = 'argus-agent'
 	if host_machine.system() == 'linux'
@@ -133,6 +120,7 @@ else
 				'linux/Application.cli.vala',
 				'linux/ServiceManager.vala',
 				'linux/Command.vala',
+				'linux/PackageMonitor.vala',
 				'linux/main.vala',
 			),
 			dependencies: [

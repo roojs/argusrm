@@ -1,8 +1,8 @@
 # Package file was in the wrong place
 
-**Status:** ✔️ Applied. Not ✅. `argusrm-agent` and `argusrm-agent-gtk` link. `argus-packages-test` aborts: `SQ.Query<Package>` constructs the abstract `Package`. That 💩 stays open.
+**Status:** ✅ closed 2026-11-12. The approved split is in the tree. Shared `Package` holds `pkg_name` and `sync`. Agent `Package` is `send`. Each package class is its own file.
 
-**Pointer:** `docs/bug-fix-process.md`. The runner is [2026-11-12-package-edits-before-proposal](2026-11-12-package-edits-before-proposal.md). The hash proposal is [2026-11-12-package-monitor-send-rejected](2026-11-12-package-monitor-send-rejected.md).
+**Pointer:** `docs/bug-fix-process.md`. The runner is [2026-11-12-package-edits-before-proposal](2026-11-12-FIXED-package-edits-before-proposal.md). The hash proposal is [2026-11-12-package-monitor-send-rejected](2026-11-12-FIXED-package-monitor-send-rejected.md).
 
 ---
 
@@ -39,13 +39,13 @@
 
 ## Proposed fix
 
-Do not treat the 💩 below as closed.
+Applied. This is the approved split.
 
 - 🔷 `shared/OSQuery/Package.vala` is one class. `pkg_name` and `sync`. No `send`.
 - 🔷 `agent/OSQuery/Package.vala` is one interface. `send` is `public virtual` on that interface, the same way `SQ.Interface.copy_from` carries a body. The file does not declare the three package classes.
 - 🔷 `agent/OSQuery/DebPackages.vala`, `agent/OSQuery/RpmPackages.vala`, and `agent/OSQuery/Programs.vala` are the agent classes. Each extends the shared class of the same name and implements `Package`. They are not compiled into the Android agent.
 - ✔️ `shared/OSQuery/DebPackages.vala`, `RpmPackages.vala`, and `Programs.vala` extend `Package`. Their `sync` overrides are removed. `pkg_name` is `name` plus a newline plus `arch`, or `identifying_number` for `Programs`.
-- 💩 `SQ.Query<Package>` constructs `Package`. `Package` is abstract. `build/server/argus-packages-test` aborts with `cannot create instance of abstract (non-instantiatable) type 'ArgusSharedOSQueryPackage'`.
+- ℹ️ On 2026-11-12, `build/server/argus-packages-test` stops while applying a Debian snapshot. `Package.sync` loads stored rows as `Package`, and that class is only a base. That run is not a new design.
 
 ### `shared/OSQuery/Package.vala` — the row
 
@@ -311,5 +311,4 @@ These three files go in the Linux GTK, Windows, and CLI source lists in `agent/m
 
 ## Next
 
-- ⏳ 💩 `SQ.Query<Package>` has to apply a snapshot without constructing the abstract `Package`. Do not paper over that abort.
-- 🚫 Do not treat [5.9.1](../plans/5.9.1-assets-software-data.md) phase 2 as ✅.
+- ✅ Closed 2026-11-12. The approved split is in the tree.

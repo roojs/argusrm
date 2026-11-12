@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   android:
+    # The phone agent sends no inventory. osquery has no Android package.
+    if: false
     uses: ./.github/workflows/x-android.yml
     with:
       non_blocking: false

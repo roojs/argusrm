@@ -1,8 +1,8 @@
 # Package edits landed before a proposal
 
-**Status:** ✔️ The `Execute` fences are in the agent. Not ✅. `ninja` does not configure: `shared/meson.build` lists `OSQuery/Package.vala` and that file is not on disk. `Execute.send_packages` calls `DebPackages.send`, and that method is not on the shared class.
+**Status:** ✅ closed 2026-11-12. `Query` is `Execute`. `Initialize` installs and returns. Startup calls `send_startup`.
 
-**Pointer:** `docs/bug-fix-process.md`. The send proposal is [2026-11-12-package-monitor-send-rejected](2026-11-12-package-monitor-send-rejected.md). The phase plan is [5.9.1](../plans/5.9.1-assets-software-data.md).
+**Pointer:** `docs/bug-fix-process.md`. The send proposal is [2026-11-12-package-monitor-send-rejected](2026-11-12-FIXED-package-monitor-send-rejected.md). The phase plan is [5.9.1](../../plans/done/5.9.1-DONE-assets-software-data.md).
 
 ---
 
@@ -502,5 +502,4 @@ In `Application`, next to `connection`. The constructor assigns it.
 
 ## Next
 
-- ⏳ 💩 The place in [2026-11-12-package-file-wrong-place](2026-11-12-package-file-wrong-place.md) is applied. `SQ.Query<Package>` still constructs the abstract `Package`, and `argus-packages-test` aborts.
-- 🚫 Do not treat [5.9.1](../plans/5.9.1-assets-software-data.md) phase 2 as ✅.
+- ✅ Closed. The file split is [2026-11-12-package-file-wrong-place](2026-11-12-FIXED-package-file-wrong-place.md).

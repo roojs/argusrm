@@ -8,6 +8,26 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.14] - Unreleased
+
+### Fixed
+
+- The Windows installer creates the service. The previous command line was rejected, so the install removed the service and left it missing.
+
+## [0.1.13] - Unreleased
+
+### Fixed
+
+- The Windows registration window waits for the Windows service before it looks for the management server.
+
+## [0.1.12] - Unreleased
+
+### Fixed
+
+- The Windows installer waits until the service is gone before it creates the service again.
+- Registration stores the host it connected to and the download port. The reply does not send the bind address.
+- The registration window stays open until the agent is connected to the management server.
+
 ## [0.1.8] - Unreleased
 
 ### Fixed

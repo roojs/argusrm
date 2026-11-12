@@ -21,7 +21,7 @@
 - ℹ️ `Gtk.ColumnView.sorter` is the view's own `Gtk.ColumnViewSorter`. A header click changes it only when that column's `sorter` is set. The rows move only when a `Gtk.SortListModel` uses that sorter.
 - ℹ️ The column menu gesture in `Base.column_menu` listens for the secondary button. A left click on a header is not that gesture.
 - ✔️ Agents. Remove walks `this.store` by index and asks `this.selection.is_selected` with that same index. Those indexes match only while the selection model's order is the store's order.
-- ℹ️ `os-updated`, `os-status`, `package-updated`, and `package-status` are columns on Machines. The row class has none of those properties. [5.10](../plans/5.10-data-enrichment.md) fills them.
+- ℹ️ `os-updated`, `os-status`, `pkgs-updated`, and `pkgs-status` are columns on Machines. The row class has none of those properties. [5.10](../plans/5.10-data-enrichment.md) fills them.
 - 💩 The running controller was not clicked for this.
 
 ## Root cause
@@ -36,7 +36,7 @@
 - 💩 OS status and S/W status start `off`. Every other column in the four files starts `ON`.
 - 💩 Text, dates, and versions sort as text, A–Z, ignoring case. `1.10` stays before `1.9`. An address sorts as text.
 - 💩 An `int` or `int64` property sorts by that number. `bytes` uses the byte count, not the label `12 MB`. `remove` sorts by `installed`, the count the cell shows.
-- ℹ️ `os-updated` and `package-updated` are `ON`. The property is missing, so a click there does not reorder until [5.10](../plans/5.10-data-enrichment.md).
+- ℹ️ `os-updated` and `pkgs-updated` are `ON`. The property is missing, so a click there does not reorder until [5.10](../plans/5.10-data-enrichment.md).
 - ℹ️ Agents and Repositories have no column CSV. Their columns are set in code.
 - 🔷 The row filter stays under the sort. A filtered grid sorts the rows that are showing.
 - 🔷 Agents. Remove reads the selection model, so a sorted row is the row that was ticked.
@@ -94,8 +94,8 @@ Arch,arch,off,72,text,ON
 OS updated,os-updated,off,110,date,ON
 OS status,os-status,ON,90,status,off
 
-Package updated,package-updated,off,120,date,ON
-S/W status,package-status,ON,90,status,off
+Package updated,pkgs-updated,off,120,date,ON
+S/W status,pkgs-status,ON,90,status,off
 ```
 
 `controller/resources/columns/deb_packages.csv`

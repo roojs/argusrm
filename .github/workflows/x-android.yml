@@ -1,3 +1,4 @@
+# Not called from release.yml. The Android agent sends no inventory.
 name: X - Android APK build
 
 on:

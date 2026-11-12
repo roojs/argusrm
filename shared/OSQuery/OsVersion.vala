@@ -70,7 +70,9 @@ namespace Argus.Shared.OSQuery
 					platform      TEXT NOT NULL DEFAULT '',
 					platform_like TEXT NOT NULL DEFAULT '',
 					codename      TEXT NOT NULL DEFAULT '',
-					arch          TEXT NOT NULL DEFAULT ''
+					arch              TEXT NOT NULL DEFAULT '',
+					pkgs_updated   INTEGER NOT NULL DEFAULT 0,
+					pkgs_status    INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {

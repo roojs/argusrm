@@ -24,14 +24,14 @@ namespace Argus.Agent
 	 * {@link apt} watches ''/var/lib/dpkg'' and waits for the
 	 * dpkg locks. {@link rpm} watches the directory that holds
 	 * ''.rpm.lock'' and waits for that lock. The rescan then
-	 * queries osquery. {@link send}
-	 * posts ''OSQuery.update''. Startup does not construct this.
+	 * queries osquery. {@link start} reads the startup
+	 * ''os_version'' row and calls {@link apt} or {@link rpm}.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
 	 * var monitor = new Argus.Agent.PackageMonitor(application);
-	 * monitor.apt();
+	 * monitor.start();
 	 * }}}
 	 */
 	public class PackageMonitor : GLib.Object
@@ -60,6 +60,28 @@ namespace Argus.Agent
 		}
 
 		/**
+		 * Start the watch this host uses.
+		 *
+		 * {@link Application.os_version} is the startup osquery
+		 * row. {@link Argus.Shared.OSQuery.OsVersion.package_manager}
+		 * chooses the watch. APT calls {@link apt}. DNF calls
+		 * {@link rpm}. Any other value returns.
+		 */
+		public void start()
+		{
+			switch (this.application.os_version.package_manager()) {
+				case Argus.Shared.OSQuery.PackageManager.APT:
+					this.apt();
+					return;
+				case Argus.Shared.OSQuery.PackageManager.DNF:
+					this.rpm();
+					return;
+				default:
+					return;
+			}
+		}
+
+		/**
 		 * Watch ''/var/lib/dpkg'' and rescan ''deb_packages''.
 		 *
 		 * A change waits until a non-blocking fcntl write lock
@@ -82,9 +104,9 @@ namespace Argus.Agent
 			}
 			monitor.changed.connect((file, other, event_type) => {
 				if (this.later != 0) {
-					return;
+					GLib.Source.remove(this.later);
 				}
-				this.later = GLib.Timeout.add_seconds(1, () => {
+				this.later = GLib.Timeout.add_seconds(60, () => {
 					var fds = new Gee.ArrayList<int>();
 					var blocked = false;
 					string[] locks = {
@@ -175,9 +197,9 @@ namespace Argus.Agent
 			}
 			monitor.changed.connect((file, other, event_type) => {
 				if (this.later != 0) {
-					return;
+					GLib.Source.remove(this.later);
 				}
-				this.later = GLib.Timeout.add_seconds(1, () => {
+				this.later = GLib.Timeout.add_seconds(60, () => {
 					var fds = new Gee.ArrayList<int>();
 					var blocked = false;
 					string[] locks = { lock_path };

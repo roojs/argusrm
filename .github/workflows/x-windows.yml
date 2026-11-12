@@ -10,7 +10,7 @@ jobs:
   windows:
     runs-on: windows-latest
     env:
-      OLLMCHAT_RELEASE: v1.4.9
+      OLLMCHAT_RELEASE: v1.4.11
     defaults:
       run:
         shell: msys2 {0}
@@ -49,6 +49,9 @@ jobs:
             mingw-w64-ucrt-x86_64-curl
             mingw-w64-ucrt-x86_64-nsis
 
+      # The OLLMchat release publishes the MSYS packages. Install those
+      # with pacman. Compile Argus only. Never configure or compile
+      # OLLMchat, libocrpc, or libocsqlite from source.
       - name: Install OLLMchat Windows libraries
         run: |
           set -euo pipefail

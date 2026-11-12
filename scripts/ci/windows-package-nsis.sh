@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Package the Argus executable. Dependent DLLs are copied from the
+# MSYS prefix (the installed OLLMchat release packages). This script
+# does not build those packages, and the Windows build must not either.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
