@@ -28,6 +28,10 @@ namespace Argus.Shared.OSQuery
 			return this.sync_rows<InterfaceAddresses>(db, agent_id, rows, "interface_addresses", { "interface", "address" });
 		}
 
+		public override string table_name() { return "interface_addresses"; }
+
+		public override string rpc_name() { return "InterfaceAddresses"; }
+
 		/**
 		 * Create ''interface_addresses''.
 		 *

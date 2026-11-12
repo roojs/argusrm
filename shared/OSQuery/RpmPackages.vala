@@ -21,14 +21,15 @@ namespace Argus.Shared.OSQuery
 	/**
 	 * One ''rpm_packages'' row.
 	 */
-	public class RpmPackages : Row
+	public class RpmPackages : Package
 	{
 		private static SQ.Database db;
 
-		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
-		{
-			return this.sync_rows<RpmPackages>(db, agent_id, rows, "rpm_packages", { "name", "arch" });
-		}
+		public override string pkg_name() { return this.name + "\n" + this.arch; }
+
+		public override string table_name() { return "rpm_packages"; }
+
+		public override string rpc_name() { return "RpmPackages"; }
 
 		/**
 		 * Create ''rpm_packages''.

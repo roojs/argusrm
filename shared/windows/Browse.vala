@@ -89,7 +89,7 @@ namespace Argus.Shared
 				});
 				return;
 			}
-			if (this.busy || this.found != "" || record == null) {
+			if (this.found != "" || record == null) {
 				if (record != null) {
 					Windows.DnsFree(record, Windows.DNS_FREE_TYPE.DnsFreeRecordList);
 				}
@@ -195,7 +195,9 @@ namespace Argus.Shared
 		 *
 		 * A later {@link poll} returns the first service whose TXT
 		 * record has an ''id''. A failure sets that result to
-		 * ''none''. Calling this again does nothing.
+		 * ''none''. Calling this again does nothing. A browse that
+		 * is already waiting does see a later advertisement. An
+		 * earlier resolve that never returns must not discard it.
 		 */
 		public void start()
 		{

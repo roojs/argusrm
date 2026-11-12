@@ -124,10 +124,11 @@ namespace Argus.Agent.Win32
 					}
 				}
 				if (msg.has_prefix("tip ")) {
-					this.set_tip(msg.substring(4));
-					this.known = true;
+					var text = msg.substring(4).strip();
+					this.set_tip(text);
+					this.known = text == "Connected to management server";
 				}
-				if (msg.has_prefix("tip ") && this.window_up && !this.submitted) {
+				if (this.known && this.window_up && !this.submitted) {
 					this.registration.close();
 				}
 				if (!this.started && (intptr) this.pipe != -1 && !this.known && this.waits < 6) {
@@ -357,9 +358,11 @@ namespace Argus.Agent.Win32
 		 * Present the registration window.
 		 *
 		 * Startup and a tray click both call this. The CA file
-		 * means this machine is registered, and a tip from the
-		 * service means there is no action. A local key alone
-		 * does not. The six digits are written to the service pipe.
+		 * means this machine is registered. A tip of
+		 * ''Connected to management server'' means there is no
+		 * action. Any other tip leaves the window up. A local
+		 * key alone does not. The six digits are written to the
+		 * service pipe.
 		 */
 		private void present()
 		{

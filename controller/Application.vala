@@ -102,8 +102,8 @@ namespace Argus.Controller
 		 * Parse the flags, then run one command or the startup window.
 		 *
 		 * ''--debug'' shows log lines on stderr. No flag on a desktop
-		 * loads ''/argusrm/style.css'' and the Windows tab icon,
-		 * then opens
+		 * loads ''/argusrm/style.css'', the Windows tab icon, and
+		 * the application icon, then opens
 		 * {@link Dialog.Bootstrap}. ''--give-me-a-certificate''
 		 * issues the local login certificate. No desktop tells you to
 		 * run ''argusrm-controller-cli''. The Unix socket is
@@ -170,6 +170,7 @@ namespace Argus.Controller
 						screen, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 					Gtk.IconTheme.get_for_display(screen).add_resource_path("/argusrm/icons");
 				}
+				Gtk.Window.set_default_icon_name("org.roojs.ArgusController");
 				var bootstrap = new Dialog.Bootstrap(this);
 				bootstrap.present(null);
 				this.hold();

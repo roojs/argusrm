@@ -28,6 +28,10 @@ namespace Argus.Shared.OSQuery
 			return this.sync_rows<LoggedInUsers>(db, agent_id, rows, "logged_in_users", { "pid" });
 		}
 
+		public override string table_name() { return "logged_in_users"; }
+
+		public override string rpc_name() { return "LoggedInUsers"; }
+
 		/**
 		 * Create ''logged_in_users''.
 		 *

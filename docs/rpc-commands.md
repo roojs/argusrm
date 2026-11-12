@@ -25,7 +25,7 @@ A call name is `Class.method`. The letters in `OLLMrpc.args` are the argument ty
 
 ## Calls the agent sends
 
-The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download socket is not an RPC call. See [Downloads](#downloads).
+The server handler for `OSQuery.sync` and `OSQuery.update` is `server/OSQuery.vala`. The download socket is not an RPC call. See [Downloads](#downloads).
 
 ### `Agent.request_registration`
 
@@ -38,9 +38,9 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval`: a string array.
   - Index 0 is the client certificate PEM.
   - Index 1 is the CA PEM.
-  - Index 2 is the download socket `host:port`. The agent writes that as `download`.
-  - Index 3 is the download URL path, including the extension. The agent writes that as `download-path`. The server chooses it from the OS family.
+  - Index 2 is the download URL path, including the extension. The agent writes that as `download-path`. The server chooses it from the OS family.
   - Later entries are app-socket listen addresses. The client stores that port as `server`, not the registration port it dialed.
+  - The download address is not in the reply. The agent writes `download` as the host it connected to and `Argus.DOWNLOAD_PORT`.
 - A controller that already has an active row for that username and hostname is refused with `This machine is already registered.`
 - ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
 - A matching pin broadcasts `event.pair` with action `done`. A rejected pin broadcasts `event.pair` with action `rejected`.
@@ -120,6 +120,16 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`.
 - ℹ️ Linux and Windows call it from `agent/OSQuery/Initialize.vala`. Android compiles `agent/android/OSQuery/Initialize.vala` and does not query.
 
+### `OSQuery.update`
+
+- Socket: the app socket. The client certificate selects `agent.id`. The rows are stored against it.
+- Direction: agent calls the server.
+- Arguments `so`: the table name, then the array of changed rows.
+- The array is the difference. A row with `deleted_dt` set is a removal. A stored row left out of the array stays.
+- `OSQuery.sync` stays the full startup snapshot. A row left out of that call is marked deleted. This call does not do that.
+- Wire aliases are the same as `OSQuery.sync`.
+- ℹ️ `server/OSQuery.vala` applies it. The package monitor sends it. The monitors are not constructed from startup, and they are not in `agent/meson.build`.
+
 ### `SystemInfo.list`
 
 - Socket: the Unix socket, or a controller TLS connection.
@@ -140,7 +150,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: controller calls the server.
 - Arguments `ii`: `agent_id`, `since`. `agent_id` zero is every agent, one row per package name. Greater than zero is that agent's stored rows, and the added-up columns are not filled. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
 - Reply `retval` `o`: an array of `DebPackages` rows. A host whose `agent_id` is not in `agent` is left out.
-- When `agent_id` and `since` are zero, the reply fills `arch`, `section`, `priority`, `source`, `maintainer`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` is the lowest version with the lowest revision of that version. `max_version` is the highest version with the highest revision of that version.
+- When `agent_id` and `since` are zero, the reply fills `arch`, `section`, `priority`, `source`, `maintainer`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are the minimum and maximum of `version`, a hyphen, and `revision`. An empty revision leaves the trailing hyphen.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/DebPackages.vala`. `Store.DebPackages` calls it. The columns are `columns/deb_packages.csv`. [5.9](plans/5.9-assets-software.md).
 
@@ -150,7 +160,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: controller calls the server.
 - Arguments `ii`: `agent_id`, `since`. `agent_id` zero is every agent, one row per package name. Greater than zero is that agent's stored rows, and the added-up columns are not filled. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
 - Reply `retval` `o`: an array of `RpmPackages` rows. A host whose `agent_id` is not in `agent` is left out.
-- When `agent_id` and `since` are zero, the reply fills `arch`, `package_group`, `source`, `vendor`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are epoch, version, and release.
+- When `agent_id` and `since` are zero, the reply fills `arch`, `package_group`, `source`, `vendor`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are the minimum and maximum of `epoch`, a colon, `version`, a hyphen, and `release`.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/RpmPackages.vala`. `Store.RpmPackages` calls it. The columns are `columns/rpm_packages.csv`. [5.9](plans/5.9-assets-software.md).
 
@@ -173,7 +183,7 @@ Not an RPC call. [1.1](plans/1.1-implementation.md).
 - 🔷 The download socket only listens for download requests.
 - 🔷 The agent fetches with a standard HTTP GET over TLS.
 - 🔷 The GET is authenticated with the client certificate. The server allows or refuses that certificate.
-- 🔷 The URL is `https://` plus the download socket and the URL path from registration.
+- 🔷 The URL is `https://` plus the registration host, `Argus.DOWNLOAD_PORT`, and the URL path from registration.
 - 🔷 The saved basename is that path's last segment.
 - 🚫 `Download.get` is not this fetch.
 - ℹ️ `OLLMrpc.Transport.HttpClient` posts an RPC body. It is not this GET.

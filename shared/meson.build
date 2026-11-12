@@ -22,6 +22,7 @@ shared_osquery_sources = files(
 	'OSQuery/namespace.vala',
 	'OSQuery/AgentInfo.vala',
 	'OSQuery/Row.vala',
+	'OSQuery/Package.vala',
 	'OSQuery/SystemInfo.vala',
 	'OSQuery/CpuInfo.vala',
 	'OSQuery/LoggedInUsers.vala',

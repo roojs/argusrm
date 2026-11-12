@@ -1,2 +1,4 @@
 usr/bin/argusrm-controller
+usr/share/applications/org.roojs.ArgusController.desktop
+usr/share/icons/hicolor/scalable/apps/org.roojs.ArgusController.svg
 usr/share/polkit-1/actions/org.roojs.ArgusController.register.policy

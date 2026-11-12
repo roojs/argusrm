@@ -21,14 +21,15 @@ namespace Argus.Shared.OSQuery
 	/**
 	 * One Windows ''programs'' row.
 	 */
-	public class Programs : Row
+	public class Programs : Package
 	{
 		private static SQ.Database db;
 
-		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
-		{
-			return this.sync_rows<Programs>(db, agent_id, rows, "programs", { "name", "identifying-number" });
-		}
+		public override string pkg_name() { return this.name + "\n" + this.identifying_number; }
+
+		public override string table_name() { return "programs"; }
+
+		public override string rpc_name() { return "Programs"; }
 
 		/**
 		 * Create ''programs''.

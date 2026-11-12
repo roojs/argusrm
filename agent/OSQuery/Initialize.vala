@@ -19,14 +19,12 @@
 namespace Argus.Agent.OSQuery
 {
 	/**
-	 * Install osquery, query it, and sync the rows.
+	 * Download and install osquery.
 	 *
 	 * {@link start} runs {@link run} on the caller. Windows and
 	 * Linux use {@link Download} for the registration URL path
 	 * when ''osqueryi'' is missing, then install that file.
-	 * ''OSQuery.sync'' sends one table on
-	 * {@link Application.connection}: the registered row name and
-	 * the array of row objects.
+	 * {@link Execute} posts the tables.
 	 *
 	 * == Example ==
 	 *
@@ -38,9 +36,6 @@ namespace Argus.Agent.OSQuery
 	{
 		/**
 		 * Agent that owns the server connection.
-		 *
-		 * {@link sync_table} sends on {@link Application.connection}
-		 * at that moment.
 		 */
 		private Application application;
 
@@ -61,7 +56,7 @@ namespace Argus.Agent.OSQuery
 		private static bool running = false;
 
 		/**
-		 * Install osquery when needed, query, and sync.
+		 * Install osquery when needed.
 		 *
 		 * Returns immediately when a run is already in progress.
 		 * The result is logged from this call.
@@ -78,39 +73,22 @@ namespace Argus.Agent.OSQuery
 		}
 
 		/**
-		 * Query osquery and sync each table.
+		 * Download and install ''osqueryi'' when it is missing.
 		 *
-		 * Windows and Linux fetch the registration URL path and
-		 * install that file when ''osqueryi'' is not already on
-		 * the machine. Each sync goes to the server connection,
-		 * including an empty array.
+		 * {@link Execute.init} sets the path. An empty path
+		 * fetches the registration URL and installs that file.
+		 * This method does not query.
 		 *
-		 * @return zero when every sync succeeds, otherwise an
+		 * @return zero when the executable is present, otherwise an
 		 *   {@link OLLMrpc.RpcErrorCode} value
 		 */
 		public int run()
 		{
-			var osqueryi = "";
 			var pass = 0;
-			while (osqueryi == "" && pass < 2) {
+			while (pass < 2) {
 				pass++;
-				var found = GLib.Environment.find_program_in_path("osqueryi");
-				if (found != null && found != "") {
-					osqueryi = found;
-				}
-#if WINDOWS
-				if (osqueryi == "") {
-					var program_files = GLib.Environment.get_variable("ProgramFiles");
-					if (program_files == null || program_files == "") {
-						program_files = "C:\\Program Files";
-					}
-					var installed = GLib.Path.build_filename(program_files, "osquery", "osqueryi.exe");
-					if (GLib.FileUtils.test(installed, GLib.FileTest.EXISTS)) {
-						osqueryi = installed;
-					}
-				}
-#endif
-				if (osqueryi != "") {
+				Execute.init();
+				if (Execute.osqueryi != "") {
 					break;
 				}
 				if (pass > 1) {
@@ -172,53 +150,10 @@ namespace Argus.Agent.OSQuery
 				}
 				continue;
 			}
-			if (osqueryi == "") {
+			if (Execute.osqueryi == "") {
 				GLib.warning("osqueryi is not installed");
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			GLib.debug("syncing osquery rows");
-			var code = 0;
-			code += this.sync_table(osqueryi, "system_info", "SystemInfo");
-			code += this.sync_table(osqueryi, "cpu_info", "CpuInfo");
-			code += this.sync_table(osqueryi, "logged_in_users", "LoggedInUsers");
-			code += this.sync_table(osqueryi, "interface_addresses", "InterfaceAddresses");
-			code += this.sync_table(osqueryi, "os_version", "OsVersion");
-#if LINUX
-			code += this.sync_table(osqueryi, "deb_packages", "DebPackages");
-			code += this.sync_table(osqueryi, "rpm_packages", "RpmPackages");
-#elif WINDOWS
-			code += this.sync_table(osqueryi, "programs", "Programs");
-#endif
-			return code;
-		}
-
-		private int sync_table(string osqueryi, string table, string class_name)
-		{
-			var rows = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
-			var row_type = OLLMrpc.Bin.alias_to_gtype.get(class_name);
-			new Query(osqueryi, row_type).select("SELECT * FROM " + table, rows);
-			GLib.debug("SELECT * FROM %s %d rows", table, rows.size);
-			var connection = this.application.connection;
-			if (connection == null) {
-				GLib.warning("server connection is not open");
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			OLLMrpc.Response response;
-			try {
-				response = connection.call(new OLLMrpc.Request() {
-					method = "OSQuery.sync",
-					args = OLLMrpc.args("so", class_name, rows)
-				});
-			} catch (GLib.Error e) {
-				Argus.Agent.Application.connection_down = true;
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			if (response.error != null) {
-				GLib.debug("%s send failed %s", table, response.error.message);
-				return response.error.code;
-			}
-			GLib.debug("%s sent", table);
 			return 0;
 		}
 	}

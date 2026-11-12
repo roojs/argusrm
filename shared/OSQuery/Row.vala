@@ -54,6 +54,20 @@ namespace Argus.Shared.OSQuery
 		public abstract bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows);
 
 		/**
+		 * Osquery table this row is read from.
+		 *
+		 * @return the table name
+		 */
+		public abstract string table_name();
+
+		/**
+		 * RPC name for this row.
+		 *
+		 * @return the wire alias
+		 */
+		public abstract string rpc_name();
+
+		/**
 		 * Apply one agent's snapshot to ''table''.
 		 *
 		 * An insert sets ''added_dt''. A changed row sets

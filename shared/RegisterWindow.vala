@@ -303,7 +303,14 @@ namespace Argus.Shared
 				if (!this.valid_pin(this.pin_entry.text.strip())) {
 					return;
 				}
-				this.request.begin();
+				GLib.Timeout.add(300, () => {
+					if (this.registering ||
+						!this.valid_pin(this.pin_entry.text.strip())) {
+						return false;
+					}
+					this.request.begin();
+					return false;
+				});
 			});
 			this.pin_entry.activate.connect(() => {
 				this.request.begin();

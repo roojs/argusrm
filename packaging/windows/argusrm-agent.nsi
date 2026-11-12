@@ -1,4 +1,5 @@
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
 
 !define PRODUCT_NAME "Argus RM Agent"
 !define PRODUCT_PUBLISHER "roojs"
@@ -37,6 +38,10 @@ Section "Argus RM Agent" SecMain
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ${SERVICE_NAME}'
   ExecWait 'taskkill /F /IM argus-tray.exe'
+  Push "ArgusAgent"
+  Call WaitServiceGone
+  Push "${SERVICE_NAME}"
+  Call WaitServiceGone
 
   SetOutPath "$INSTDIR"
   File /r "${INST_SRC}\*.*"
@@ -76,4 +81,29 @@ SectionEnd
 
 Function .onInstSuccess
   Exec '"$INSTDIR\argus-tray.exe"'
+FunctionEnd
+
+Function WaitServiceGone
+  Exch $R0
+  Push $R1
+  Push $0
+  Push $1
+  StrCpy $R1 0
+  ${Do}
+    nsExec::ExecToStack '"$SYSDIR\sc.exe" query $R0'
+    Pop $0
+    Pop $1
+    ${If} $0 != "0"
+      ${ExitDo}
+    ${EndIf}
+    IntOp $R1 $R1 + 1
+    ${If} $R1 > 40
+      ${ExitDo}
+    ${EndIf}
+    Sleep 250
+  ${Loop}
+  Pop $1
+  Pop $0
+  Pop $R1
+  Pop $R0
 FunctionEnd

@@ -301,4 +301,14 @@ namespace Argus.Agent.Win32 {
 	public bool WTSQueryUserToken (uint32 session, out void* token);
 	[CCode (cname = "DuplicateTokenEx", cheader_filename = "win32.h")]
 	public bool DuplicateTokenEx (void* existing, uint32 access, void* attr, int level, int type, out void* dup);
+
+	/* Application log. EvtSubscribe is the package monitor. */
+
+	[CCode (cname = "EvtSubscribeToFutureEvents", cheader_filename = "winevt.h")]
+	public const uint32 EvtSubscribeToFutureEvents;
+	[CCode (cheader_filename = "winevt.h", has_target = false)]
+	public delegate uint32 EVT_SUBSCRIBE_CALLBACK (int action, void* context, void* event);
+	[CCode (cname = "EvtSubscribe", cheader_filename = "winevt.h")]
+	public void* EvtSubscribe (void* session, void* signal, string16 channel, string16 query,
+		void* bookmark, void* context, EVT_SUBSCRIBE_CALLBACK callback, uint32 flags);
 }

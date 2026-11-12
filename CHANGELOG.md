@@ -8,6 +8,34 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.8] - Unreleased
+
+### Fixed
+
+- The Windows service loads the GnuTLS module shipped beside the agent. Without it, registration aborts.
+
+## [0.1.7] - Unreleased
+
+### Fixed
+
+- Windows registration sends the certificate request. The variadic argument packer repeated the PIN in every string.
+
+## [0.1.6] - Unreleased
+
+### Fixed
+
+- Windows discovery keeps a browse result that arrives after an earlier name whose address never comes back.
+
+## [0.1.5] - Unreleased
+
+### Added
+
+- The controller has a Linux desktop icon from the logo in argusrm.svg.
+
+### Fixed
+
+- Windows discovery asks again every two seconds until the management server is advertising. The sixth PIN digit is drawn before registration starts.
+
 ## [0.1.4] - Unreleased
 
 ### Changed

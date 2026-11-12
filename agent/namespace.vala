@@ -27,11 +27,11 @@
  * pipe, and the service calls {@link Argus.Shared.Register}.
  * {@link Argus.Shared.Browse} finds the broadcast when this launch
  * is not given a host and a port. {@link Download} fetches the
- * osquery installer. {@link OSQuery.Initialize} installs osquery,
- * and {@link OSQuery.Query} runs ''osqueryi --json'' into
- * {@link Argus.Shared.OSQuery.Row} objects. {@link OSQuery.Initialize}
- * syncs each table to the server. Android compiles its own
- * {@link OSQuery.Initialize}, which does not query.
+ * osquery installer. {@link OSQuery.Initialize} installs osquery.
+ * {@link OSQuery.Execute} runs ''osqueryi --json'' into
+ * {@link Argus.Shared.OSQuery.Row} objects and posts each table.
+ * Android compiles its own {@link OSQuery.Initialize} and
+ * {@link OSQuery.Execute}, which do not query.
  * {@link Application.notification} takes a command
  * notification. {@link Command} runs it. Linux, Windows, and
  * Android each compile their own file for that class. The

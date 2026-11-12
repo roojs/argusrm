@@ -26,10 +26,11 @@ namespace Argus.Shared
 	 * {@link OLLMrpc.Transport.Cert} files under the user data
 	 * directory ''argus''. The call includes the OS family and explicit
 	 * controller identity fields. The server uses the family to choose
-	 * the agent download. The reply string array is the client certificate,
-	 * the CA, the download socket, the download URL path, then the app
-	 * socket listen addresses. ''server'' is the host this call used
-	 * and the port from the first of those addresses.
+	 * the agent download. The reply string array is the client
+	 * certificate, the CA, the download URL path, then the app
+	 * socket listen addresses. The download address is the host
+	 * this call used and {@link Argus.DOWNLOAD_PORT}. ''server''
+	 * is that host and the port from the first of those addresses.
 	 *
 	 * == Example ==
 	 *
@@ -49,10 +50,12 @@ namespace Argus.Shared
 		public string data_dir = "";
 
 		/**
-		 * Download socket from the registration reply, ''host:port''.
+		 * Download socket, ''host:port''.
 		 *
-		 * Empty until a reply stores it. Also written as ''download''
-		 * next to the certificate files.
+		 * The host is the one {@link try_connection} connected to.
+		 * The port is {@link Argus.DOWNLOAD_PORT}. Empty until
+		 * registration stores it. Also written as ''download'' next
+		 * to the certificate files.
 		 */
 		public string download = "";
 
@@ -107,8 +110,9 @@ namespace Argus.Shared
 		 * file does not decide, ''dpkg'' on ''PATH'' sends
 		 * ''debian'' and ''rpm'' on ''PATH'' sends ''rpm''.
 		 * Stores the signed certificate, the CA, the download
-		 * socket, the download URL path, and the app socket. A
-		 * stored certificate is replaced.
+		 * path, and the app socket. The download address is the
+		 * host this call connected to and {@link Argus.DOWNLOAD_PORT}.
+		 * A stored certificate is replaced.
 		 *
 		 * @param host Argus Remote Manager address
 		 * @param port Argus Remote Manager port
@@ -200,7 +204,7 @@ namespace Argus.Shared
 				return response.error.code;
 			}
 			var packed = (string[]) response.retval;
-			if (packed.length < 4) {
+			if (packed.length < 3) {
 				return (int) OLLMrpc.RpcErrorCode.INVALID_REQUEST;
 			}
 			try {
@@ -216,20 +220,21 @@ namespace Argus.Shared
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			try {
-				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "download"), packed[2]);
+				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "download"),
+					host + ":" + Argus.DOWNLOAD_PORT.to_string());
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			try {
-				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "download-path"), packed[3]);
+				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "download-path"), packed[2]);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			var stored_port = port.to_string();
-			if (packed.length > 4) {
-				var listed = packed[4];
+			if (packed.length > 3) {
+				var listed = packed[3];
 				var listed_mark = listed.last_index_of(":");
 				if (listed_mark > 0 && listed.substring(listed_mark + 1) != "") {
 					stored_port = listed.substring(listed_mark + 1);
@@ -243,10 +248,10 @@ namespace Argus.Shared
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			tls_files.ensure();
-			this.download = packed[2];
-			this.download_path = packed[3];
-			if (packed.length > 4) {
-				this.addresses = string.joinv("\n", packed[4:packed.length]);
+			this.download = host + ":" + Argus.DOWNLOAD_PORT.to_string();
+			this.download_path = packed[2];
+			if (packed.length > 3) {
+				this.addresses = string.joinv("\n", packed[3:packed.length]);
 			}
 			return 0;
 		}
