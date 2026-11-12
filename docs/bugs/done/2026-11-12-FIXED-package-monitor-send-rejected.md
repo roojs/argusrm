@@ -1,8 +1,8 @@
 # Package monitor send was rejected
 
-**Status:** 🚫 The product edits are not this proposal. The corrections are [2026-11-12-package-edits-before-proposal](2026-11-12-package-edits-before-proposal.md). Do not apply this file until that one is accepted.
+**Status:** ✅ closed 2026-11-12. The monitor `send` stayed out. The replacement is `Execute.send_packages` and `Package.sync`.
 
-**Pointer:** `docs/bug-fix-process.md`. The earlier report is [2026-11-12-sync-changes-out-of-scope](2026-11-12-sync-changes-out-of-scope.md). The phase plan is [5.9.1](../plans/5.9.1-assets-software-data.md).
+**Pointer:** `docs/bug-fix-process.md`. The earlier report is [2026-11-12-sync-changes-out-of-scope](2026-11-12-FIXED-sync-changes-out-of-scope.md). The phase plan is [5.9.1](../../plans/done/5.9.1-DONE-assets-software-data.md). The runner is [2026-11-12-package-edits-before-proposal](2026-11-12-FIXED-package-edits-before-proposal.md).
 
 ---
 
@@ -48,7 +48,7 @@ Apply the sections in order. The monitor `send` is deleted. `Package` then has o
 - 🔷 Delete `PackageMonitor.send` in `agent/linux/PackageMonitor.vala` and in `agent/Win32/PackageMonitor.vala`.
 - 🔷 `apt()`, `rpm()`, and the Windows log callback only wait, then call `application.osquery.send_packages`.
 - 🔷 `Execute.send_packages` switches, calls `send` on one new package, and returns. `APT` constructs `DebPackages`. `DNF` constructs `RpmPackages`. `WIN` constructs `Programs`. `UNKNOWN` returns zero. `Application` holds that `Execute`.
-- 🔷 `Package.send` takes the application. It reads `connection` and `packages_sent` from that object. {@link Argus.Agent.OSQuery.Execute} holds the `osqueryi` path and launches it. `send` calls `Execute.select` with `table_name`, then posts `OSQuery.sync` with `rpc_name`. The class is named in [2026-11-12-package-edits-before-proposal](2026-11-12-package-edits-before-proposal.md).
+- 🔷 `Package.send` takes the application. It reads `connection` and `packages_sent` from that object. {@link Argus.Agent.OSQuery.Execute} holds the `osqueryi` path and launches it. `send` calls `Execute.select` with `table_name`, then posts `OSQuery.sync` with `rpc_name`. The class is named in [2026-11-12-package-edits-before-proposal](2026-11-12-FIXED-package-edits-before-proposal.md).
 - 🔷 `shared/OSQuery/Package.vala` is the base class. `DebPackages`, `RpmPackages`, and `Programs` extend it. `pkg_name` builds the hash key. `sync` indexes stored rows by `pkg_name`, looks each incoming row up once, and writes the result. A stored key left over gets `deleted_dt`. The running object is the row class: `this.get_type()` and `this.table_name()`. The three classes do not override `sync`.
 - 🚫 Leave both monitors out of `agent/meson.build`. Leave both unconstructed at startup.
 - 🚫 Leave `Query.select` as `void`.
@@ -703,7 +703,7 @@ In `run`, the package syncs. The other tables stay.
 #endif
 ```
 
-`send_packages` is not added here. `Execute.send_startup` calls it. That method is in [2026-11-12-package-edits-before-proposal](2026-11-12-package-edits-before-proposal.md).
+`send_packages` is not added here. `Execute.send_startup` calls it. That method is in [2026-11-12-package-edits-before-proposal](2026-11-12-FIXED-package-edits-before-proposal.md).
 
 #### Add
 
@@ -725,4 +725,4 @@ In `sync_table`, after a successful `OSQuery.sync`, when `table` is `os_version`
 
 ## Next
 
-- 🚫 Do not apply this file again until [2026-11-12-package-edits-before-proposal](2026-11-12-package-edits-before-proposal.md) is accepted. The edits in the tree are that bug.
+- ✅ Closed. The tree follows [2026-11-12-package-edits-before-proposal](2026-11-12-FIXED-package-edits-before-proposal.md). Do not apply this file again.

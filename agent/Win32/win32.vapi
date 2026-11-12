@@ -304,11 +304,11 @@ namespace Argus.Agent.Win32 {
 
 	/* Application log. EvtSubscribe is the package monitor. */
 
-	[CCode (cname = "EvtSubscribeToFutureEvents", cheader_filename = "winevt.h")]
+	[CCode (cname = "EvtSubscribeToFutureEvents", cheader_filename = "win32.h")]
 	public const uint32 EvtSubscribeToFutureEvents;
-	[CCode (cheader_filename = "winevt.h", has_target = false)]
+	[CCode (cheader_filename = "win32.h", has_target = false)]
 	public delegate uint32 EVT_SUBSCRIBE_CALLBACK (int action, void* context, void* event);
-	[CCode (cname = "EvtSubscribe", cheader_filename = "winevt.h")]
+	[CCode (cname = "EvtSubscribe", cheader_filename = "win32.h")]
 	public void* EvtSubscribe (void* session, void* signal, string16 channel, string16 query,
 		void* bookmark, void* context, EVT_SUBSCRIBE_CALLBACK callback, uint32 flags);
 }

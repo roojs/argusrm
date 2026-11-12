@@ -90,6 +90,15 @@ namespace Argus.Agent
 		internal bool packages_sent = false;
 
 		/**
+		 * Package watch for this host.
+		 *
+		 * Created after the startup snapshot.
+		 * {@link PackageMonitor.start} reads
+		 * {@link Argus.Shared.OSQuery.OsVersion.package_manager}.
+		 */
+		internal PackageMonitor monitor;
+
+		/**
 		 * True when {@link connection} is down.
 		 *
 		 * Set when {@link open_connection} fails, or when
@@ -339,33 +348,6 @@ namespace Argus.Agent
 					return 1;
 				}
 			}
-#if ANDROID
-			if (this.host == "" && this.port <= 0) {
-				Gtk.init();
-				var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
-				var show_box = GLib.FileUtils.test(cert, GLib.FileTest.EXISTS);
-				if (show_box) {
-					var alert = new Adw.AlertDialog(
-						"Connect to management server",
-						"This phone is already registered.");
-					alert.add_response("ok", "OK");
-					alert.response.connect((response) => {
-						this.quit();
-					});
-					alert.present(null);
-					this.hold();
-					return 0;
-				}
-				var window = new Argus.Shared.RegisterWindow();
-				window.show_add();
-				window.present(null);
-				window.closed.connect(() => {
-					this.quit();
-				});
-				this.hold();
-				return 0;
-			}
-#endif
 			if (this.host != "" || this.port > 0) {
 				if (this.host == "" || this.port <= 0 || this.pin == "") {
 					command_line.printerr("registration needs a host, a port, and a pin\n");
@@ -437,6 +419,8 @@ namespace Argus.Agent
 				if (this.connection != null) {
 					new OSQuery.Initialize(this).start();
 					this.osquery.send_startup();
+					this.monitor = new PackageMonitor(this);
+					this.monitor.start();
 				}
 			}
 			this.hold();

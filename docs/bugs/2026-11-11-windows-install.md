@@ -1,3 +1,111 @@
+# Windows registration
+
+**Status:** 🔴 Registration did not finish. The window stayed up, the download path is an address, and the agent then timed out.
+
+**Pointer:** `docs/bug-fix-process.md`
+
+**Seen:** 0.1.14 on the Windows machine, 2026-11-12. Second install.
+
+---
+
+## Problem
+
+- 🔴 The first install did not see the broadcast.
+- ℹ️ After a reinstall the window saw the broadcast, the number was sent, and the controller's countdown disappeared.
+- 🔴 The registration window then stayed where it was.
+- 🔴 The download path came back as an IP address.
+
+## 1. Windows service and tray
+
+The installer starts `argus-agent`. The tray opens `\\.\pipe\Argus.Register` and shows a spinner until that pipe exists. Then the window looks for the broadcast.
+
+- ℹ️ Second start, the pipe opened and the service was already browsing. This step is not the failure.
+
+```
+17:45:25.579  Application.vala:372  browsing
+17:45:27.952  Service.vala:195      registration pipe open
+```
+
+## 2. Broadcast
+
+The controller calls `Agent.offer`. The server publishes `_rpc._tcp` and opens port 819 for 60 seconds. The window's browse reads that. The tray does not register yet.
+
+- 🔴 First install: the window did not see a broadcast.
+- ℹ️ Offers at 17:43:25 and 17:44:23 got no `Agent.request_registration`. The 17:44 offer closed itself at 17:45:23. That service's log was replaced by the reinstall.
+- ℹ️ Second start: the browse saw the server eight seconds after the process came up.
+
+```
+17:43:25.354  Agent.offer
+17:43:57.643  registration closed after controller disconnected
+
+17:44:23.424  Agent.offer
+17:45:23.735  firewall enforced on port 819
+
+17:45:28.847  Agent.offer
+17:45:33.585  Browse.vala:188  broadcast 8d368d09-40aa-4d3c-a5a2-1ef5aee015a7 192.168.88.132:819
+```
+
+## 3. The number
+
+The window writes six digits and `host:port` to the pipe. The service calls `Agent.request_registration`.
+
+- ℹ️ The call reached the server. The server allowed `192.168.88.244` onto port 817 and closed port 819. The controller countdown closed.
+- 🔴 The window did not finish.
+
+```
+17:45:39.958  Service.vala:238  registration pin for 192.168.88.132:819
+17:45:39.863  Agent.request_registration
+17:45:39.871  firewall add 192.168.88.244 on 817
+17:45:39.871  firewall enforced on port 819
+17:45:40.041  Service.vala:281  registration 0
+17:45:40.041  Service.vala:287  tip Connected to management server
+```
+
+## 4. What got stored
+
+The download path is a URL path. This reply put an address there.
+
+- 🔴 `download-path` is `0.0.0.0:818`. That is the listen address, not a path.
+- 🔴 `server` is `192.168.88.132:819`. That is the registration port. The app port is 817.
+- ℹ️ `download` is `192.168.88.132:818`, the host the agent connected to.
+- ℹ️ The process that answered started at 14:38. The binary on disk was replaced at 17:44 and is not the process that answered. That old reply puts the listen address in the field this agent stores as the path.
+
+```
+download        192.168.88.132:818
+download-path   0.0.0.0:818
+server          192.168.88.132:819
+```
+
+## 5. The window stays up
+
+The service logs the connected tip and then calls `attach_connection` before it writes the reply on the pipe. The tray is blocked in that read, so the window cannot move on.
+
+`attach_connection` opens `192.168.88.132:819`. Port 819 is already closed. The open times out. The pipe reply is written after that returns.
+
+- 🔴 The window stayed up. The timeout is three minutes after the server had already taken the number.
+
+```
+17:48:49.975  Application.vala:193  Could not connect to 192.168.88.132: Socket I/O timed out
+```
+
+The tray closes the window on `Connected to management server` only when the number has not been sent. This number had been sent, so that tip does not close it. The success line and the ten-second close run only after the pipe reply arrives.
+
+## Root cause
+
+- 🔴 The window waits on the pipe reply. The service writes that reply only after `attach_connection`. That call opens port 819 from the old reply and blocks until the socket times out.
+- 🔴 The download path is an address because the 14:38 server process is still the one answering.
+
+## Next
+
+- 🔴 Restart `argusrm-server`. The 14:38 process has to stop answering before another number is used.
+- 🔴 The pipe reply has to be written before `attach_connection`. That call is what holds the window.
+
+---
+
+## LLM log
+
+The record below is the running log from this investigation. It is not the status.
+
 # Windows install does not open the agent
 
 **Status:** ⏳ ✔️ Proposal applied in the tree. Not verified on the Windows machine.
@@ -64,6 +172,14 @@
 - ✔️ `OLLMrpc.args("ssssbss", ...)` on Windows wrote 120 bytes, every string the PIN. Linux wrote 450 bytes and included the certificate request. A hand-built list registered.
 - ✔️ Without `GIO_MODULE_DIR` the service loads `GDummyTlsBackend` and aborts with `TLS support is not available`.
 - 🚫 Do not `taskkill` the service. The installer stays stop, delete, create.
+- ✔️ 17:10. The service log is still the 14:57 start. It has no `registration pin` line. The number typed in the window did not reach the service.
+- ✔️ 17:16. `sc query argus-agent` is 1060. The service key is gone. `argus-tray.exe` is running. DisplayVersion is 0.1.12. A throwaway `CreateFile` of `\\.\pipe\Argus.Register` fails with error 2.
+- ✔️ The same program then `CreateService` and `StartService`. The service reaches state 4 and stays there. The pipe opens.
+- ✔️ Stop returns state 3 immediately, delete returns 0, and create at that moment returns 1072. The entry is gone 265 ms later, and create then returns 0. The service was started again and stayed in state 4.
+- ✔️ `nsExec::ExecToStack` pops the exit code first. `cmd /c exit 3` pops `3`. `sc query` pops `0` while the service is running and `1060` when it is gone. The installer wait matches that.
+- ✔️ A throwaway pipe with the service's flags (`PIPE_NOWAIT`, message mode, one instance) reads `123456\n192.168.88.132:819` and the client reads the reply `0`. Connect returns 536 while listening and 535 once the client is connected.
+- ✔️ The registration window waits on a spinner until `CreateFile` of `\\.\pipe\Argus.Register` succeeds. `show_add` listens for the management server only after that.
+- ✔️ The installer `sc create` line returns 1639. `binPath= "$\"...$\""` is not a command `sc` accepts. The same sequence with `binPath= "$INSTDIR\argus-agent.exe"` returns 0 and the service reaches state 4.
 
 ## Proposed fix
 

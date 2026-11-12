@@ -21,16 +21,17 @@ namespace Argus.Agent
 	/**
 	 * Watch Windows installs and send the ''programs'' difference.
 	 *
-	 * The constructor subscribes to the Application log, source
+	 * {@link start} reads the startup ''os_version'' row.
+	 * Windows subscribes to the Application log, source
 	 * ''MsiInstaller''. Install events are ''1033'' and ''11707''.
 	 * Removal events are ''1034'' and ''11724''. The event is only
-	 * the signal. {@link send} posts the ''programs'' difference.
-	 * Startup does not construct this.
+	 * the signal.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
 	 * var monitor = new Argus.Agent.PackageMonitor(application);
+	 * monitor.start();
 	 * }}}
 	 */
 	public class PackageMonitor : GLib.Object
@@ -52,9 +53,9 @@ namespace Argus.Agent
 			}
 			GLib.Idle.add(() => {
 				if (PackageMonitor.current.later != 0) {
-					return false;
+					GLib.Source.remove(PackageMonitor.current.later);
 				}
-				PackageMonitor.current.later = GLib.Timeout.add_seconds(1, () => {
+				PackageMonitor.current.later = GLib.Timeout.add_seconds(60, () => {
 					PackageMonitor.current.application.osquery.send_packages();
 					PackageMonitor.current.later = 0;
 					return false;
@@ -88,14 +89,32 @@ namespace Argus.Agent
 		{
 			this.application = application;
 			PackageMonitor.current = this;
-			var query = ("*[System[Provider[@Name='MsiInstaller'] and " +
-				"(EventID=1033 or EventID=11707 or " +
-				"EventID=1034 or EventID=11724)]]").to_utf16();
-			this.subscription = Win32.EvtSubscribe(null, null,
-				"Application".to_utf16(), query, null, null,
-				PackageMonitor.logged, Win32.EvtSubscribeToFutureEvents);
-			if (this.subscription == null) {
-				GLib.warning("application log %u", Win32.GetLastError());
+		}
+
+		/**
+		 * Start the watch this host uses.
+		 *
+		 * {@link Application.os_version} is the startup osquery
+		 * row. {@link Argus.Shared.OSQuery.OsVersion.package_manager}
+		 * chooses the watch. Windows subscribes to
+		 * ''MsiInstaller''. Any other value returns.
+		 */
+		public void start()
+		{
+			switch (this.application.os_version.package_manager()) {
+				case Argus.Shared.OSQuery.PackageManager.WIN:
+					var query = ("*[System[Provider[@Name='MsiInstaller'] and " +
+						"(EventID=1033 or EventID=11707 or " +
+						"EventID=1034 or EventID=11724)]]").to_utf16();
+					this.subscription = Win32.EvtSubscribe(null, null,
+						"Application".to_utf16(), query, null, null,
+						PackageMonitor.logged, Win32.EvtSubscribeToFutureEvents);
+					if (this.subscription == null) {
+						GLib.warning("application log %u", Win32.GetLastError());
+					}
+					return;
+				default:
+					return;
 			}
 		}
 

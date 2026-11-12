@@ -38,5 +38,5 @@ Arch,arch,off,72,text
 OS updated,os-updated,off,110,date
 OS status,os-status,ON,90,status
 
-Package updated,package-updated,off,120,date
-S/W status,package-status,ON,90,status
+Package updated,pkgs-updated,off,120,date
+S/W status,pkgs-status,ON,90,status

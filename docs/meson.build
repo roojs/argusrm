@@ -88,6 +88,7 @@ valadoc_sources += files(
   # linux/Application.cli.vala repeats this class for the command-line build.
   '../agent/linux/ServiceManager.vala',
   '../agent/linux/Command.vala',
+  '../agent/linux/PackageMonitor.vala',
   # server sources
   '../server/namespace.vala',
   '../server/Net/namespace.vala',

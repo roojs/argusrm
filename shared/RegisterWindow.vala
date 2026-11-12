@@ -22,7 +22,9 @@ namespace Argus.Shared
 	 * Registration window for the agent and the controller.
 	 *
 	 * Listens for the pairing service, then asks for the six digits.
-	 * The sixth digit starts registration. Android sends
+	 * On Windows the tray sets {@link use_pipe}. The dialog then
+	 * waits, with a spinner, until the Windows service opens the
+	 * registration pipe. The broadcast starts after that. Android sends
 	 * {@link Browse.label} as the requester. Linux and Windows send
 	 * the host name. While it listens, it names the server command
 	 * that turns on broadcast and prints the number. Enter IP/domain
@@ -61,6 +63,7 @@ namespace Argus.Shared
 		public string data_dir { get; set; default = ""; }
 
 		public Gtk.Label listen_label;
+		private Gtk.Spinner service_spinner;
 		private Gtk.Entry pin_entry;
 		private Gtk.Box pin_box;
 		private Gtk.Entry address_entry;
@@ -196,6 +199,11 @@ namespace Argus.Shared
 			this.pin_box.append(pin_label);
 			this.pin_box.append(this.pin_entry);
 			body.append(this.pin_box);
+			this.service_spinner = new Gtk.Spinner() {
+				halign = Gtk.Align.CENTER,
+				visible = false
+			};
+			body.append(this.service_spinner);
 			this.listen_label = new Gtk.Label("Looking for a management server…") {
 				wrap = true,
 				xalign = 0.5f,
@@ -407,10 +415,39 @@ namespace Argus.Shared
 		}
 
 		/**
-		 * Prepares the dialog before {@link Gtk.Window.present}.
+		 * Prepare the dialog before it is shown.
+		 *
+		 * With {@link use_pipe}, the first call waits. The label says
+		 * the Windows service is not up yet, and the spinner runs.
+		 * The broadcast does not start. The next call, once that
+		 * service has the registration pipe open, stops the spinner
+		 * and listens for the management server.
 		 */
 		public void show_add()
 		{
+			if (this.use_pipe && !this.service_spinner.spinning) {
+				this.issued = null;
+				this.registered_url = null;
+				this.registered_addresses = "";
+				this.server_id = "";
+				this.found = "";
+				this.registering = false;
+				this.by_address = false;
+				this.poll_token++;
+				this.pin_entry.text = "";
+				this.pin_box.visible = false;
+				this.address_entry.text = "";
+				this.address_box.visible = false;
+				this.offer_box.visible = false;
+				this.listen_label.label = "Waiting for the Windows service…";
+				this.service_spinner.visible = true;
+				this.service_spinner.start();
+				return;
+			}
+			if (this.service_spinner.spinning) {
+				this.service_spinner.stop();
+				this.service_spinner.visible = false;
+			}
 			this.issued = null;
 			this.registered_url = null;
 			this.registered_addresses = "";

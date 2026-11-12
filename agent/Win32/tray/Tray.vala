@@ -357,12 +357,13 @@ namespace Argus.Agent.Win32
 		/**
 		 * Present the registration window.
 		 *
-		 * Startup and a tray click both call this. The CA file
-		 * means this machine is registered. A tip of
-		 * ''Connected to management server'' means there is no
-		 * action. Any other tip leaves the window up. A local
-		 * key alone does not. The six digits are written to the
-		 * service pipe.
+		 * Startup and a tray click both call this. The window waits
+		 * with a spinner until the registration pipe is open, then
+		 * starts the registration flow. The CA file means this machine
+		 * is registered. A tip of ''Connected to management server''
+		 * means there is no action. Any other tip leaves the window
+		 * up. A local key alone does not. The six digits are written
+		 * to the service pipe.
 		 */
 		private void present()
 		{
@@ -454,6 +455,34 @@ namespace Argus.Agent.Win32
 				this.window_up = false;
 			});
 			this.registration.show_add();
+			if ((intptr) this.pipe != -1) {
+				this.registration.show_add();
+			} else {
+				var window = this.registration;
+				GLib.Timeout.add(200, () => {
+					if (!this.window_up || this.registration != window) {
+						return false;
+					}
+					if ((intptr) this.pipe == -1) {
+						try {
+							this.pipe = CreateFileW(
+								"\\\\.\\pipe\\Argus.Register".to_utf16(),
+								GENERIC_READ | GENERIC_WRITE,
+								0, null, OPEN_EXISTING, 0, null);
+						} catch (GLib.ConvertError e) {
+							this.pipe = (void*) (intptr) (-1);
+						}
+						if (this.pipe == null || (intptr) this.pipe == -1) {
+							this.pipe = (void*) (intptr) (-1);
+							return true;
+						}
+						var mode = PIPE_READMODE_MESSAGE;
+						SetNamedPipeHandleState(this.pipe, ref mode, null, null);
+					}
+					this.registration.show_add();
+					return false;
+				});
+			}
 			this.registration.present(null);
 		}
 	}

@@ -46,8 +46,8 @@ Section "Argus RM Agent" SecMain
   SetOutPath "$INSTDIR"
   File /r "${INST_SRC}\*.*"
 
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" create ${SERVICE_NAME} binPath= "$\"$INSTDIR\argus-agent.exe$\"" start= auto DisplayName= "$\"Argus RM Agent$\""'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" description ${SERVICE_NAME} "$\"Argus Remote Manager agent for a managed machine$\""'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" create ${SERVICE_NAME} binPath= "$INSTDIR\argus-agent.exe" start= auto DisplayName= "Argus RM Agent"'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" description ${SERVICE_NAME} "Argus Remote Manager agent for a managed machine"'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" start ${SERVICE_NAME}'
 
   CreateDirectory "$SMPROGRAMS\Argus RM"

@@ -52,17 +52,9 @@ jobs:
     permissions:
       contents: read
 
-  android:
-    needs: verify
-    uses: ./.github/workflows/x-android.yml
-    with:
-      non_blocking: false
-    permissions:
-      contents: read
-
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [debian, build-rpm-fedora, windows, android]
+    needs: [debian, build-rpm-fedora, windows]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -82,12 +74,11 @@ jobs:
           for file in artifacts/*; do
             [[ -f "${file}" ]] || continue
             case "${file}" in
-              *.deb|*.rpm|*.exe|*.apk) release_files+=("${file}") ;;
+              *.deb|*.rpm|*.exe) release_files+=("${file}") ;;
               *) echo "Unknown release artifact: ${file}" >&2; exit 1 ;;
             esac
           done
           package_files=(artifacts/*.deb artifacts/*.rpm)
-          apk_files=(artifacts/*.apk)
           windows_files=(artifacts/*.exe)
           ((${#package_files[@]})) || {
             echo "No Debian or RPM artifacts were downloaded" >&2
@@ -95,10 +86,6 @@ jobs:
           }
           ((${#windows_files[@]})) || {
             echo "No Windows installer was downloaded" >&2
-            exit 1
-          }
-          ((${#apk_files[@]})) || {
-            echo "No Android APK was downloaded" >&2
             exit 1
           }
           chmod +x scripts/release/changelog.sh \

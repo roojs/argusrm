@@ -25,7 +25,7 @@ A call name is `Class.method`. The letters in `OLLMrpc.args` are the argument ty
 
 ## Calls the agent sends
 
-The server handler for `OSQuery.sync` and `OSQuery.update` is `server/OSQuery.vala`. The download socket is not an RPC call. See [Downloads](#downloads).
+The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download socket is not an RPC call. See [Downloads](#downloads).
 
 ### `Agent.request_registration`
 
@@ -113,22 +113,14 @@ The server handler for `OSQuery.sync` and `OSQuery.update` is `server/OSQuery.va
 - Direction: agent calls the server.
 - 🔷 One call per table. The arguments are the table name and the array of row objects.
 - Arguments `so`: the table name, then the array.
-- Tables the agent sends: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`.
-- Linux also sends `deb_packages` and `rpm_packages`. Windows also sends `programs`.
-- An empty array is sent too.
+- Tables: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`, then one package class.
+- The package class follows `os_version.package_manager`. APT sends `DebPackages`. DNF sends `RpmPackages`. WIN sends `Programs`. Any other value sends no package class.
+- A row left out of that full snapshot gets `deleted_dt`.
+- The machine tables are posted even when the array is empty. After the first package send, an empty package query is not posted.
 - The row objects are `Argus.Shared.OSQuery`. The property name is the column name.
 - Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`.
-- ℹ️ Linux and Windows call it from `agent/OSQuery/Initialize.vala`. Android compiles `agent/android/OSQuery/Initialize.vala` and does not query.
-
-### `OSQuery.update`
-
-- Socket: the app socket. The client certificate selects `agent.id`. The rows are stored against it.
-- Direction: agent calls the server.
-- Arguments `so`: the table name, then the array of changed rows.
-- The array is the difference. A row with `deleted_dt` set is a removal. A stored row left out of the array stays.
-- `OSQuery.sync` stays the full startup snapshot. A row left out of that call is marked deleted. This call does not do that.
-- Wire aliases are the same as `OSQuery.sync`.
-- ℹ️ `server/OSQuery.vala` applies it. The package monitor sends it. The monitors are not constructed from startup, and they are not in `agent/meson.build`.
+- Reply `msg`: `ok`. An unknown name, a name that is not a row class, or a row the apply rejects is an error.
+- ℹ️ `Execute.send_startup` posts the machine tables, then `Execute.send_packages`. A later package change posts `Execute.send_packages` again. `Initialize` installs `osqueryi` and does not query.
 
 ### `SystemInfo.list`
 
