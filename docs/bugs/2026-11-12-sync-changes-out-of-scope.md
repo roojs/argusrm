@@ -1,6 +1,6 @@
 # Package monitor work rewrote the sync path
 
-**Status:** ⏳ tree restored to `HEAD` except this file. Accepted phase 1 and phase 2 work has to be written again.
+**Status:** ⏳ Phase 1 was put back, then taken out again. It was not reviewable.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -111,3 +111,4 @@
 ## Next
 
 - ⏳ 🔷 Write phase 1 again, then phase 2, from **Re-implement**.
+- 🔷 Edit each file by hand. Do not restore a file from another commit and then patch it. A checkout mixed with later edits cannot be reviewed.
