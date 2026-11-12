@@ -85,10 +85,7 @@ namespace Argus.Shared.SQT
 					is_cancelled INTEGER NOT NULL DEFAULT 0,
 					is_watched   INTEGER NOT NULL DEFAULT 0,
 					timeout      INTEGER NOT NULL DEFAULT 0,
-					identifier   INTEGER NOT NULL DEFAULT 0,
-					added_dt     INTEGER NOT NULL DEFAULT 0,
-					updated_dt   INTEGER NOT NULL DEFAULT 0,
-					deleted_dt   INTEGER NOT NULL DEFAULT 0
+					identifier   INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
@@ -99,15 +96,6 @@ namespace Argus.Shared.SQT
 				null, out errmsg);
 			db.db.exec(
 				"ALTER TABLE task_target ADD COLUMN is_watched INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE task_target ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE task_target ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE task_target ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
 				null, out errmsg);
 		}
 	}

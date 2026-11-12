@@ -62,7 +62,6 @@ namespace Argus.Agent.OSQuery
 		 *
 		 * @param sql osquery statement, column names unchanged
 		 * @param rows list to append to
-		 * @return void (NOTE LLM do not change this)
 		 */
 		public void select(string sql, Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo> rows)
 		{
