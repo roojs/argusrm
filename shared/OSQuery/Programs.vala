@@ -25,9 +25,14 @@ namespace Argus.Shared.OSQuery
 	{
 		private static SQ.Database db;
 
-		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
-		{
-			return this.sync_rows<Programs>(db, agent_id, rows, "programs", { "name", "identifying-number" });
+		public override bool sync(
+			SQ.Database db,
+			int64 agent_id,
+			Gee.ArrayList<AgentInfo> rows,
+			bool complete = true
+		) {
+			return this.sync_rows<Programs>(db, agent_id, rows,
+				"programs", { "name", "identifying-number" }, complete);
 		}
 
 		/**
@@ -51,12 +56,24 @@ namespace Argus.Shared.OSQuery
 					publisher           TEXT NOT NULL DEFAULT '',
 					uninstall_string    TEXT NOT NULL DEFAULT '',
 					install_date        TEXT NOT NULL DEFAULT '',
-					identifying_number  TEXT NOT NULL DEFAULT ''
+					identifying_number  TEXT NOT NULL DEFAULT '',
+					added_dt            INTEGER NOT NULL DEFAULT 0,
+					updated_dt          INTEGER NOT NULL DEFAULT 0,
+					deleted_dt          INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("programs create failed: %s", db.db.errmsg());
 			}
+			db.db.exec(
+				"ALTER TABLE programs ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE programs ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE programs ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
 		}
 
 		/**
@@ -67,7 +84,7 @@ namespace Argus.Shared.OSQuery
 			OLLMrpc.Bin.register("Programs", typeof(Programs));
 			OLLMrpc.Request.add_class(
 				"Programs", typeof(Programs),
-				"list", "i"
+				"list", "ii"
 			);
 		}
 
@@ -79,22 +96,45 @@ namespace Argus.Shared.OSQuery
 		 * different query: that agent's stored rows, with no
 		 * added-up columns. A row whose ''agent_id'' is not in
 		 * ''agent'' is absent. A caller that is not a controller
-		 * is refused.
+		 * is refused. ''since'' zero leaves out a row whose
+		 * ''deleted_dt'' is set. A later ''since'' returns every
+		 * row changed after that time, including a deleted row.
 		 *
 		 * @param request inbound RPC from a controller
 		 * @param agent_id agent id, or zero for every agent
+		 * @param since unix time, or zero for the current list
 		 */
-		public void list(OLLMrpc.Request request, int agent_id)
+		public void list(OLLMrpc.Request request, int agent_id, int since)
 		{
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
 			}
 			var rows = new Gee.ArrayList<Programs>();
 			var query = new SQ.Query<Programs>(Programs.db, "programs");
-			if (agent_id > 0) {
-				query.select("WHERE agent_id = %d AND agent_id IN (SELECT id FROM agent)".printf(agent_id), rows);
+			if (since > 0 && agent_id > 0) {
+				query.select("""
+					WHERE
+						agent_id = %d
+						AND agent_id IN (SELECT id FROM agent)
+						AND (added_dt > %d OR updated_dt > %d OR deleted_dt > %d)
+					""".printf(agent_id, since, since, since), rows);
 			}
-			if (agent_id <= 0) {
+			if (since > 0 && agent_id <= 0) {
+				query.select("""
+					WHERE
+						agent_id IN (SELECT id FROM agent)
+						AND (added_dt > %d OR updated_dt > %d OR deleted_dt > %d)
+					""".printf(since, since, since), rows);
+			}
+			if (since <= 0 && agent_id > 0) {
+				query.select("""
+					WHERE
+						agent_id = %d
+						AND deleted_dt = 0
+						AND agent_id IN (SELECT id FROM agent)
+					""".printf(agent_id), rows);
+			}
+			if (since <= 0 && agent_id <= 0) {
 				query.selectQuery("""
 					SELECT
 						name,
@@ -115,6 +155,7 @@ namespace Argus.Shared.OSQuery
 						programs
 					WHERE
 						agent_id IN (SELECT id FROM agent)
+						AND deleted_dt = 0
 					GROUP BY
 						name
 					ORDER BY

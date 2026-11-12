@@ -198,6 +198,12 @@ namespace Argus.Agent.OSQuery
 			var row_type = OLLMrpc.Bin.alias_to_gtype.get(class_name);
 			new Query(osqueryi, row_type).select("SELECT * FROM " + table, rows);
 			GLib.debug("SELECT * FROM %s %d rows", table, rows.size);
+			if (table == "os_version" && rows.size > 0) {
+				var os = rows.get(0) as Argus.Shared.OSQuery.OsVersion;
+				if (os != null) {
+					this.application.os_version = os;
+				}
+			}
 			var connection = this.application.connection;
 			if (connection == null) {
 				GLib.warning("server connection is not open");
@@ -217,6 +223,16 @@ namespace Argus.Agent.OSQuery
 			if (response.error != null) {
 				GLib.debug("%s send failed %s", table, response.error.message);
 				return response.error.code;
+			}
+			switch (table) {
+				case "deb_packages":
+				case "rpm_packages":
+				case "programs":
+					this.application.package_rows.set(table, rows);
+					break;
+
+				default:
+					break;
 			}
 			GLib.debug("%s sent", table);
 			return 0;

@@ -69,12 +69,24 @@ namespace Argus.Shared.SQT
 				CREATE TABLE IF NOT EXISTS script_agent (
 					id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					script_id  INTEGER NOT NULL DEFAULT 0,
-					agent_id   INTEGER NOT NULL DEFAULT 0
+					agent_id   INTEGER NOT NULL DEFAULT 0,
+					added_dt   INTEGER NOT NULL DEFAULT 0,
+					updated_dt INTEGER NOT NULL DEFAULT 0,
+					deleted_dt INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("script_agent create failed: %s", db.db.errmsg());
 			}
+			db.db.exec(
+				"ALTER TABLE script_agent ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script_agent ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script_agent ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
 		}
 	}
 }

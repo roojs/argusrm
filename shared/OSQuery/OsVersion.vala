@@ -19,6 +19,19 @@
 namespace Argus.Shared.OSQuery
 {
 	/**
+	 * Which package command this operating system uses.
+	 *
+	 * {@link OsVersion.package_manager} returns one of these.
+	 * ''UNKNOWN'' is a family with no command yet, including SUSE.
+	 */
+	public enum PackageManager {
+		APT,
+		DNF,
+		WIN,
+		UNKNOWN,
+	}
+
+	/**
 	 * One ''os_version'' row.
 	 *
 	 * This is the operating system on the agent. Assets treats
@@ -26,9 +39,14 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class OsVersion : Row
 	{
-		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
-		{
-			return this.sync_rows<OsVersion>(db, agent_id, rows, "os_version", { "name", "arch" });
+		public override bool sync(
+			SQ.Database db,
+			int64 agent_id,
+			Gee.ArrayList<AgentInfo> rows,
+			bool complete = true
+		) {
+			return this.sync_rows<OsVersion>(db, agent_id, rows,
+				"os_version", { "name", "arch" }, complete);
 		}
 
 		/**
@@ -52,12 +70,24 @@ namespace Argus.Shared.OSQuery
 					platform      TEXT NOT NULL DEFAULT '',
 					platform_like TEXT NOT NULL DEFAULT '',
 					codename      TEXT NOT NULL DEFAULT '',
-					arch          TEXT NOT NULL DEFAULT ''
+					arch          TEXT NOT NULL DEFAULT '',
+					added_dt      INTEGER NOT NULL DEFAULT 0,
+					updated_dt    INTEGER NOT NULL DEFAULT 0,
+					deleted_dt    INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("os_version create failed: %s", db.db.errmsg());
 			}
+			db.db.exec(
+				"ALTER TABLE os_version ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE os_version ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE os_version ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
 		}
 
 		/**
@@ -78,5 +108,42 @@ namespace Argus.Shared.OSQuery
 		public string platform_like { get; set; default = ""; }
 		public string codename { get; set; default = ""; }
 		public string arch { get; set; default = ""; }
+
+		/**
+		 * Package command for this operating system.
+		 *
+		 * ''platform_like'' decides when it is set. ''platform''
+		 * decides when that is empty. SUSE returns
+		 * {@link PackageManager.UNKNOWN}.
+		 *
+		 * @return apt, dnf, Windows, or unknown
+		 */
+		public PackageManager package_manager()
+		{
+			switch (this.platform_like) {
+				case "debian":
+					return PackageManager.APT;
+				case "rhel":
+					return PackageManager.DNF;
+				case "windows":
+					return PackageManager.WIN;
+				default:
+					break;
+			}
+			switch (this.platform) {
+				case "debian":
+				case "ubuntu":
+				case "elxr":
+					return PackageManager.APT;
+				case "rhel":
+				case "fedora":
+				case "centos":
+					return PackageManager.DNF;
+				case "windows":
+					return PackageManager.WIN;
+				default:
+					return PackageManager.UNKNOWN;
+			}
+		}
 	}
 }
