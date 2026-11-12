@@ -59,6 +59,7 @@ namespace Argus.Shared.OSQuery
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("rpm_packages create failed: %s", db.db.errmsg());
 			}
+			Argus.Shared.init_db_audit(db, "rpm_packages");
 		}
 
 		/**
@@ -69,7 +70,7 @@ namespace Argus.Shared.OSQuery
 			OLLMrpc.Bin.register("RpmPackages", typeof(RpmPackages));
 			OLLMrpc.Request.add_class(
 				"RpmPackages", typeof(RpmPackages),
-				"list", "i"
+				"list", "ii"
 			);
 		}
 
@@ -81,22 +82,62 @@ namespace Argus.Shared.OSQuery
 		 * different query: that agent's stored rows, with no
 		 * added-up columns. A row whose ''agent_id'' is not in
 		 * ''agent'' is absent. A caller that is not a controller
-		 * is refused.
+		 * is refused. ''since'' zero leaves out a row whose
+		 * ''deleted_dt'' is set. A later ''since'' returns every
+		 * row changed after that time, including a deleted row.
 		 *
 		 * @param request inbound RPC from a controller
 		 * @param agent_id agent id, or zero for every agent
+		 * @param since unix time, or zero for the current list
 		 */
-		public void list(OLLMrpc.Request request, int agent_id)
+		public void list(OLLMrpc.Request request, int agent_id, int since)
 		{
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
 			}
 			var rows = new Gee.ArrayList<RpmPackages>();
 			var query = new SQ.Query<RpmPackages>(RpmPackages.db, "rpm_packages");
-			if (agent_id > 0) {
-				query.select("WHERE agent_id = %d AND agent_id IN (SELECT id FROM agent)".printf(agent_id), rows);
+			if (since > 0 && agent_id > 0) {
+				query.select("""
+					WHERE
+						agent_id = %d
+					AND
+						agent_id IN (SELECT id FROM agent)
+					AND
+						(
+							added_dt > %d
+						OR
+							updated_dt > %d
+						OR
+							deleted_dt > %d
+						)
+					""".printf(agent_id, since, since, since), rows);
 			}
-			if (agent_id <= 0) {
+			if (since > 0 && agent_id <= 0) {
+				query.select("""
+					WHERE
+						agent_id IN (SELECT id FROM agent)
+					AND
+						(
+							added_dt > %d
+						OR
+							updated_dt > %d
+						OR
+							deleted_dt > %d
+						)
+					""".printf(since, since, since), rows);
+			}
+			if (since <= 0 && agent_id > 0) {
+				query.select("""
+					WHERE
+						agent_id = %d
+					AND
+						deleted_dt = 0
+					AND
+						agent_id IN (SELECT id FROM agent)
+					""".printf(agent_id), rows);
+			}
+			if (since <= 0 && agent_id <= 0) {
 				query.selectQuery("""
 					SELECT
 						name,
@@ -104,28 +145,16 @@ namespace Argus.Shared.OSQuery
 						GROUP_CONCAT(DISTINCT NULLIF(package_group, '')) AS package_group,
 						GROUP_CONCAT(DISTINCT NULLIF(source, '')) AS source,
 						GROUP_CONCAT(DISTINCT NULLIF(vendor, '')) AS vendor,
-						(
-							SELECT printf('%d:%s-%s', epoch, version, release)
-							FROM rpm_packages AS low
-							WHERE low.name = rpm_packages.name
-							AND low.agent_id IN (SELECT id FROM agent)
-							ORDER BY low.epoch ASC, low.version ASC, low.release ASC
-							LIMIT 1
-						) AS min_version,
-						(
-							SELECT printf('%d:%s-%s', epoch, version, release)
-							FROM rpm_packages AS high
-							WHERE high.name = rpm_packages.name
-							AND high.agent_id IN (SELECT id FROM agent)
-							ORDER BY high.epoch DESC, high.version DESC, high.release DESC
-							LIMIT 1
-						) AS max_version,
+						MIN(epoch || ':' || version || '-' || release) AS min_version,
+						MAX(epoch || ':' || version || '-' || release) AS max_version,
 						MAX(size) AS max_size,
 						COUNT(DISTINCT agent_id) AS installed
 					FROM
 						rpm_packages
 					WHERE
 						agent_id IN (SELECT id FROM agent)
+					AND
+						deleted_dt = 0
 					GROUP BY
 						name
 					ORDER BY

@@ -38,4 +38,21 @@
 namespace Argus.Shared
 {
 	internal class NamespaceDoc {}
+
+	/**
+	 * Add ''added_dt'', ''updated_dt'', and ''deleted_dt''.
+	 *
+	 * Call this after CREATE TABLE. A table that already has
+	 * the columns is left as it is.
+	 *
+	 * @param db Argus database
+	 * @param table stored table name
+	 */
+	public void init_db_audit(SQ.Database db, string table)
+	{
+		var errmsg = "";
+		db.db.exec("ALTER TABLE " + table + " ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+		db.db.exec("ALTER TABLE " + table + " ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+		db.db.exec("ALTER TABLE " + table + " ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+	}
 }

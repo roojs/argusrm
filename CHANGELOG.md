@@ -8,6 +8,12 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.4] - Unreleased
+
+### Changed
+
+- Window titles include the release version.
+
 ## [0.1.3] - Unreleased
 
 ### Added

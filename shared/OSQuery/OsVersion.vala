@@ -58,6 +58,7 @@ namespace Argus.Shared.OSQuery
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("os_version create failed: %s", db.db.errmsg());
 			}
+			Argus.Shared.init_db_audit(db, "os_version");
 		}
 
 		/**

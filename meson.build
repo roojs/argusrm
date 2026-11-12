@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.3',
+	version: '0.1.4',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -94,6 +94,7 @@ paths_vala = configure_file(
 		'SOCKET_PORT': get_option('socket_port').to_string(),
 		'DOWNLOAD_PORT': get_option('download_port').to_string(),
 		'REGISTER_PORT': get_option('register_port').to_string(),
+		'VERSION': meson.project_version(),
 	},
 )
 agent_sysvinit = configure_file(

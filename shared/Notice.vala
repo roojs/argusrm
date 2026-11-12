@@ -59,7 +59,7 @@ namespace Argus.Shared
 		 */
 		public Notice(string heading, string body)
 		{
-			this.title = "Argus Remote Manager";
+			this.title = "Argus Remote Manager " + Argus.VERSION;
 			this.set_content_height(280);
 			this.set_content_width(480);
 

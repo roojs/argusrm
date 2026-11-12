@@ -25,16 +25,49 @@ namespace Argus.Shared.OSQuery
 	 * ''osqueryi --json''. The property name is the column name.
 	 * Numeric columns are ''int''. A value that does not fit in
 	 * ''int'' is ''int64''. The column ''type'' is the property
-	 * ''ctype''.
+	 * ''ctype''. ''added_dt'', ''updated_dt'', and ''deleted_dt''
+	 * are unix times written by {@link sync_rows}. ''0'' means
+	 * that has not happened.
 	 */
 	public abstract class Row : GLib.Object, Json.Serializable, OLLMrpc.Bin.Serializable, AgentInfo
 		, SQ.Interface
 	{
 		public int64 id { get; set; default = 0; }
 		public int64 agent_id { get; set; default = 0; }
+		/**
+		 * Unix time {@link sync_rows} inserted this row.
+		 * ''0'' means that has not happened.
+		 */
+		public int added_dt { get; set; default = 0; }
+		/**
+		 * Unix time a stored column last changed.
+		 * ''0'' means that has not happened.
+		 */
+		public int updated_dt { get; set; default = 0; }
+		/**
+		 * Unix time a snapshot left this row out.
+		 * ''0'' means the row is still present. The row stays
+		 * stored.
+		 */
+		public int deleted_dt { get; set; default = 0; }
 
 		public abstract bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows);
 
+		/**
+		 * Apply one agent's snapshot to ''table''.
+		 *
+		 * An insert sets ''added_dt''. A changed row sets
+		 * ''updated_dt''. A stored row the snapshot left out
+		 * stays, and ''deleted_dt'' is set. A row that comes
+		 * back clears ''deleted_dt'' and sets ''updated_dt''.
+		 *
+		 * @param db Argus database
+		 * @param agent_id registered agent
+		 * @param rows complete table snapshot
+		 * @param table stored table name
+		 * @param key_columns properties that identify a row
+		 * @return true when every row has the expected type
+		 */
 		protected bool sync_rows<T>(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows, string table, string[] key_columns)
 		{
 			foreach (var row in rows) {
@@ -54,6 +87,7 @@ namespace Argus.Shared.OSQuery
 			var int_binds = new Gee.HashMap<string, int>();
 			int_binds.set("agent_id", (int) agent_id);
 			query.selectWhere("WHERE agent_id = $agent_id", int_binds, null, stored);
+			var now = (int) new GLib.DateTime.now_utc().to_unix();
 			foreach (var row in rows) {
 				AgentInfo? old = null;
 				foreach (var candidate in stored) {
@@ -66,17 +100,34 @@ namespace Argus.Shared.OSQuery
 				newer.agent_id = agent_id;
 				if (old == null) {
 					newer.id = 0;
+					newer.added_dt = now;
+					newer.updated_dt = 0;
+					newer.deleted_dt = 0;
 					query.insert((T) row);
 					continue;
 				}
 				newer.id = ((Row) old).id;
+				newer.added_dt = ((Row) old).added_dt;
+				if (((Row) old).deleted_dt != 0) {
+					newer.deleted_dt = 0;
+					newer.updated_dt = now;
+					query.updateOld((T) old, (T) row);
+					stored.remove((T) old);
+					continue;
+				}
+				newer.deleted_dt = 0;
 				if (!old.compare(row)) {
+					newer.updated_dt = now;
 					query.updateOld((T) old, (T) row);
 				}
 				stored.remove((T) old);
 			}
 			foreach (var old in stored) {
-				query.deleteId(((Row) old).id);
+				if (((Row) old).deleted_dt != 0) {
+					continue;
+				}
+				((Row) old).deleted_dt = now;
+				query.updateById((T) old);
 			}
 			return true;
 		}

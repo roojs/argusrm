@@ -59,10 +59,10 @@ namespace Argus.Controller.Dialog
 		public Pairing(Window window)
 		{
 			this.window = window;
-			this.title = "Register";
+			this.title = "Register " + Argus.VERSION;
 			this.set_content_width(560);
 			var box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-			this.title_label = new Gtk.Label("Register") {
+			this.title_label = new Gtk.Label("Register " + Argus.VERSION) {
 				css_classes = { "title" }
 			};
 			box.append(new Adw.HeaderBar() {
@@ -154,8 +154,8 @@ namespace Argus.Controller.Dialog
 			this.line.fraction = 1;
 			this.finished = false;
 			this.pairing = true;
-			this.title = "Register";
-			this.title_label.label = "Register";
+			this.title = "Register " + Argus.VERSION;
+			this.title_label.label = "Register " + Argus.VERSION;
 			this.generation++;
 			this.present(this.window);
 			this.arm();

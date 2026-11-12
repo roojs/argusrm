@@ -75,6 +75,7 @@ namespace Argus.Shared.SQT
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("script_agent create failed: %s", db.db.errmsg());
 			}
+			Argus.Shared.init_db_audit(db, "script_agent");
 		}
 	}
 }

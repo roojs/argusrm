@@ -102,10 +102,10 @@ namespace Argus.Controller
 				}
 				this.deregister_action.set_enabled(true);
 			});
-			this.title = "Argus RM";
+			this.title = "Argus RM " + Argus.VERSION;
 			this.set_default_size(960, 640);
 			var header = new Adw.HeaderBar();
-			this.title_label = new Gtk.Label("Argus RM") {
+			this.title_label = new Gtk.Label("Argus RM " + Argus.VERSION) {
 				css_classes = { "title" }
 			};
 			header.title_widget = this.title_label;
@@ -225,7 +225,7 @@ namespace Argus.Controller
 			var rpc = this.app.rpc;
 			var connected = rpc != null && rpc.connected;
 			if (connected) {
-				this.title_label.label = "Argus RM";
+				this.title_label.label = "Argus RM " + Argus.VERSION;
 				this.title_label.css_classes = { "title" };
 			} else {
 				this.title_label.label = "Offline";

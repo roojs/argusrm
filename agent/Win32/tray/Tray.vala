@@ -97,18 +97,23 @@ namespace Argus.Agent.Win32
 				this.pipe = (void*) (intptr) (-1);
 			}
 			var mode = PIPE_READMODE_MESSAGE;
-			if ((intptr) this.pipe != -1 &&
-				!SetNamedPipeHandleState(this.pipe, ref mode, null, null)) {
-				CloseHandle(this.pipe);
-				this.pipe = (void*) (intptr) (-1);
+			if ((intptr) this.pipe != -1) {
+				SetNamedPipeHandleState(this.pipe, ref mode, null, null);
 			}
 			var hs = new void*[1];
 			while (true) {
 				uint32 avail = 0;
 				if ((intptr) this.pipe != -1 &&
 					!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
-					CloseHandle(this.pipe);
-					this.pipe = (void*) (intptr) (-1);
+					switch (GetLastError()) {
+						case ERROR_BROKEN_PIPE:
+						case 233:
+							CloseHandle(this.pipe);
+							this.pipe = (void*) (intptr) (-1);
+							break;
+						default:
+							break;
+					}
 				}
 				var msg = "";
 				if ((intptr) this.pipe != -1 && avail > 0) {
@@ -382,33 +387,37 @@ namespace Argus.Agent.Win32
 			this.registration.use_pipe = true;
 			this.registration.send_pin.connect((pin, hostport) => {
 				this.submitted = true;
-				if ((intptr) this.pipe == -1) {
-					try {
-						this.pipe = CreateFileW(
-							"\\\\.\\pipe\\Argus.Register".to_utf16(),
-							GENERIC_READ | GENERIC_WRITE,
-							0, null, OPEN_EXISTING, 0, null);
-					} catch (GLib.ConvertError e) {
-						this.pipe = (void*) (intptr) (-1);
-					}
-					if (this.pipe == null || (intptr) this.pipe == -1) {
-						this.pipe = (void*) (intptr) (-1);
-					}
-					if ((intptr) this.pipe != -1) {
-						var mode = PIPE_READMODE_MESSAGE;
-						if (!SetNamedPipeHandleState(this.pipe, ref mode, null, null)) {
-							CloseHandle(this.pipe);
+				var bytes = (pin + "\n" + hostport).data;
+				var wrote = (uint32) 0;
+				for (var attempt = 0; attempt < 15; attempt++) {
+					if ((intptr) this.pipe == -1) {
+						try {
+							this.pipe = CreateFileW(
+								"\\\\.\\pipe\\Argus.Register".to_utf16(),
+								GENERIC_READ | GENERIC_WRITE,
+								0, null, OPEN_EXISTING, 0, null);
+						} catch (GLib.ConvertError e) {
 							this.pipe = (void*) (intptr) (-1);
 						}
+						if (this.pipe == null || (intptr) this.pipe == -1) {
+							this.pipe = (void*) (intptr) (-1);
+						}
+						if ((intptr) this.pipe != -1) {
+							var mode = PIPE_READMODE_MESSAGE;
+							SetNamedPipeHandleState(this.pipe, ref mode, null, null);
+						}
 					}
+					if ((intptr) this.pipe != -1 &&
+						WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
+						break;
+					}
+					if ((intptr) this.pipe != -1) {
+						CloseHandle(this.pipe);
+						this.pipe = (void*) (intptr) (-1);
+					}
+					Sleep(200);
 				}
 				if ((intptr) this.pipe == -1) {
-					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-					return;
-				}
-				var bytes = (pin + "\n" + hostport).data;
-				uint32 wrote = 0;
-				if (!WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
 					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 					return;
 				}
