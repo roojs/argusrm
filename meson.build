@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.4',
+	version: '0.1.8',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -144,6 +144,15 @@ if host_machine.system() == 'linux'
 	install_data(
 		'packaging/xdg/argusrm-agent-gtk.desktop',
 		install_dir: get_option('sysconfdir') / 'xdg' / 'autostart',
+	)
+	install_data(
+		'packaging/xdg/org.roojs.ArgusController.desktop',
+		install_dir: get_option('datadir') / 'applications',
+	)
+	install_data(
+		'argusrm.svg',
+		rename: 'org.roojs.ArgusController.svg',
+		install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps',
 	)
 	install_data(
 		'packaging/dbus/org.roojs.ArgusAgent.conf',

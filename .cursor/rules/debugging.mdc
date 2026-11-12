@@ -1,0 +1,29 @@
+---
+description: Prove a bug and its fix in a temporary program before changing the product.
+alwaysApply: true
+---
+
+# Debugging
+
+Diagnose, then prove the failure and the fix outside the product. Do not change product code to discover the bug.
+
+1. Diagnose.
+2. Reproduce the failure in a temporary program.
+3. Apply the fix in that program and get it working.
+4. A minor change goes into the product. A major change stops for approval.
+5. Stop only to ask approval for a major fix, or to say it cannot be fixed.
+
+A major fix changes design, API, security, persistence, compatibility, or deletes data. Anything else is minor once the temporary program works.
+
+Do not stop to report status, logs, or the next idea.
+
+`docs/bugs/` still records the evidence. That file is not a report back to the user.
+
+```
+# Wrong. A guess landed in the product, then a status note.
+shared/windows/Browse.vala  // clear busy because it might be the cause
+
+# Right. The throwaway proved it, then the same change went in.
+/tmp/argus-mdns-probe.c  // later PTR arrives; resolve returns 192.168.88.132
+shared/windows/Browse.vala  // drop the busy gate
+```

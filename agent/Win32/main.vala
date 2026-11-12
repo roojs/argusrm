@@ -20,6 +20,25 @@ namespace Argus.Agent
 {
 	int main(string[] args)
 	{
+		// GIO loads TLS from a module. This executable is installed
+		// outside the MSYS2 prefix, so the default search misses
+		// libgiognutls.dll and GDummyTlsBackend is used. Certificate
+		// load then aborts: "TLS support is not available". The
+		// package copies that DLL to gio\modules beside the
+		// executable. Point GIO there before any TLS call.
+		var exe = Win32.g_utf8_to_utf16(string.nfill(259, ' '));
+		if (Win32.GetModuleFileNameW(null, exe, 260) != 0) {
+			try {
+				var path = exe.to_utf8();
+				var slash = path.last_index_of("\\");
+				if (slash > 0) {
+					GLib.Environment.set_variable("GIO_MODULE_DIR",
+						path.substring(0, slash) + "\\gio\\modules", true);
+				}
+			} catch (GLib.ConvertError e) {
+				GLib.warning("%s", e.message);
+			}
+		}
 		var exe_name = GLib.Path.get_basename(args[0]).down();
 		if (exe_name == "argus-tray" || exe_name == "argus-tray.exe") {
 			var tray = new Win32.Tray();

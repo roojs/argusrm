@@ -19,6 +19,20 @@
 namespace Argus.Shared.OSQuery
 {
 	/**
+	 * Which package command this operating system uses.
+	 *
+	 * {@link OsVersion.package_manager} returns one of these.
+	 * ''UNKNOWN'' is a family with no command yet, including SUSE.
+	 */
+	public enum PackageManager
+	{
+		APT,
+		DNF,
+		WIN,
+		UNKNOWN
+	}
+
+	/**
 	 * One ''os_version'' row.
 	 *
 	 * This is the operating system on the agent. Assets treats
@@ -30,6 +44,10 @@ namespace Argus.Shared.OSQuery
 		{
 			return this.sync_rows<OsVersion>(db, agent_id, rows, "os_version", { "name", "arch" });
 		}
+
+		public override string table_name() { return "os_version"; }
+
+		public override string rpc_name() { return "OsVersion"; }
 
 		/**
 		 * Create ''os_version''.
@@ -79,5 +97,42 @@ namespace Argus.Shared.OSQuery
 		public string platform_like { get; set; default = ""; }
 		public string codename { get; set; default = ""; }
 		public string arch { get; set; default = ""; }
+
+		/**
+		 * Package command for this operating system.
+		 *
+		 * ''platform_like'' decides when it is set. ''platform''
+		 * decides when that is empty. SUSE returns
+		 * {@link PackageManager.UNKNOWN}.
+		 *
+		 * @return apt, dnf, Windows, or unknown
+		 */
+		public PackageManager package_manager()
+		{
+			switch (this.platform_like) {
+				case "debian":
+					return PackageManager.APT;
+				case "rhel":
+					return PackageManager.DNF;
+				case "windows":
+					return PackageManager.WIN;
+				default:
+					break;
+			}
+			switch (this.platform) {
+				case "debian":
+				case "ubuntu":
+				case "elxr":
+					return PackageManager.APT;
+				case "rhel":
+				case "fedora":
+				case "centos":
+					return PackageManager.DNF;
+				case "windows":
+					return PackageManager.WIN;
+				default:
+					return PackageManager.UNKNOWN;
+			}
+		}
 	}
 }

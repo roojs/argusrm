@@ -71,6 +71,25 @@ namespace Argus.Agent
 		internal OLLMrpc.Transport.TlsClient? connection { get; private set; }
 
 		/**
+		 * Osquery runner for this process.
+		 */
+		internal OSQuery.Execute osquery;
+
+		/**
+		 * Startup ''os_version'' row. {@link OSQuery.Execute.send_packages}
+		 * reads {@link Argus.Shared.OSQuery.OsVersion.package_manager}.
+		 */
+		internal Argus.Shared.OSQuery.OsVersion os_version {
+			get; set; default = new Argus.Shared.OSQuery.OsVersion();
+		}
+
+		/**
+		 * True after the first package snapshot was posted.
+		 * A later empty query is not forwarded.
+		 */
+		internal bool packages_sent = false;
+
+		/**
 		 * True when {@link connection} is down.
 		 *
 		 * Set when {@link open_connection} fails, or when
@@ -235,6 +254,7 @@ namespace Argus.Agent
 			GLib.Log.set_default_handler((dom, lvl, msg) => {
 				Application.debug_log(dom, lvl, msg);
 			});
+			this.osquery = new OSQuery.Execute(this);
 		}
 
 		/**
@@ -416,6 +436,7 @@ namespace Argus.Agent
 				this.attach_connection();
 				if (this.connection != null) {
 					new OSQuery.Initialize(this).start();
+					this.osquery.send_startup();
 				}
 			}
 			this.hold();

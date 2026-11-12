@@ -8,6 +8,12 @@ controller_resources = gnome.compile_resources(
 	source_dir: 'resources',
 	c_name: 'argus_controller_resources',
 )
+controller_icon_resources = gnome.compile_resources(
+	'argus-controller-icons',
+	meson.project_source_root() / 'pixmaps' / 'argus-icons.gresource.xml',
+	source_dir: meson.project_source_root(),
+	c_name: 'argus_controller_icons',
+)
 
 deps = [
 	dependency('glib-2.0'),
@@ -82,6 +88,7 @@ if host_machine.system() == 'android'
 		'argus-controller',
 		sources,
 		controller_resources,
+		controller_icon_resources,
 		files('main.vala'),
 		dependencies: deps,
 		c_args: ocsqlite_c_args,
@@ -94,6 +101,7 @@ else
 		'argusrm-controller',
 		sources,
 		controller_resources,
+		controller_icon_resources,
 		files('main.vala'),
 		dependencies: deps,
 		c_args: ocsqlite_c_args,

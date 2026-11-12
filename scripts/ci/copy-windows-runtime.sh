@@ -52,3 +52,7 @@ for _ in 1 2 3 4 5 6; do
 	after="$(find "${out}" -maxdepth 1 -name '*.dll' | wc -l)"
 	[[ "${before}" -eq "${after}" ]] && break
 done
+
+modules="${out}/gio/modules"
+mkdir -p "${modules}"
+cp -f "${MSYSTEM_PREFIX:-/ucrt64}/lib/gio/modules/libgiognutls.dll" "${modules}/"

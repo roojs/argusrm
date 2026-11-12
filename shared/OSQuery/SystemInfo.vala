@@ -34,6 +34,10 @@ namespace Argus.Shared.OSQuery
 			return this.sync_rows<SystemInfo>(db, agent_id, rows, "system_info", {});
 		}
 
+		public override string table_name() { return "system_info"; }
+
+		public override string rpc_name() { return "SystemInfo"; }
+
 		/**
 		 * Create ''system_info''.
 		 *

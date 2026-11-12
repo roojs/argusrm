@@ -10,7 +10,8 @@
 namespace Argus.Server
 {
 	/**
-	 * Receives osquery snapshots from registered agents.
+	 * Receives osquery snapshots and package differences
+	 * from registered agents.
 	 */
 	public class OSQuery : GLib.Object
 	{
@@ -22,7 +23,8 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Register the shared row types and ''OSQuery.sync''.
+		 * Register the shared row types, ''OSQuery.sync'', and
+		 * ''OSQuery.update''.
 		 */
 		public static void rpc_register()
 		{
@@ -36,7 +38,8 @@ namespace Argus.Server
 			Argus.Shared.OSQuery.Programs.rpc_register();
 			OLLMrpc.Request.add_class(
 				"OSQuery", typeof(OSQuery),
-				"sync", "so"
+				"sync", "so",
+				"update", "so"
 			);
 		}
 

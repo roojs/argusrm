@@ -33,7 +33,11 @@ if host_machine.system() == 'linux'
 	)
 	sources += files(
 		'OSQuery/Initialize.vala',
-		'OSQuery/Query.vala',
+		'OSQuery/Execute.vala',
+		'OSQuery/Package.vala',
+		'OSQuery/DebPackages.vala',
+		'OSQuery/RpmPackages.vala',
+		'OSQuery/Programs.vala',
 		'linux/Application.vala',
 		'linux/ServiceManager.vala',
 		'linux/Command.vala',
@@ -56,7 +60,11 @@ if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('wtsapi32')
 	sources += files(
 		'OSQuery/Initialize.vala',
-		'OSQuery/Query.vala',
+		'OSQuery/Execute.vala',
+		'OSQuery/Package.vala',
+		'OSQuery/DebPackages.vala',
+		'OSQuery/RpmPackages.vala',
+		'OSQuery/Programs.vala',
 		'Win32/Service.vala',
 		'Win32/register-pipe.c',
 		'Win32/tray/Tray.vala',
@@ -80,6 +88,7 @@ if host_machine.system() == 'android'
 	endif
 	sources += files(
 		'android/OSQuery/Initialize.vala',
+		'android/OSQuery/Execute.vala',
 		'android/Command.vala',
 		'android/main.vala',
 	)
@@ -116,7 +125,11 @@ else
 				'Application.vala',
 				'Download.vala',
 				'OSQuery/Initialize.vala',
-				'OSQuery/Query.vala',
+				'OSQuery/Execute.vala',
+				'OSQuery/Package.vala',
+				'OSQuery/DebPackages.vala',
+				'OSQuery/RpmPackages.vala',
+				'OSQuery/Programs.vala',
 				'linux/Application.cli.vala',
 				'linux/ServiceManager.vala',
 				'linux/Command.vala',

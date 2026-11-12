@@ -1,6 +1,6 @@
 # Package monitor work rewrote the sync path
 
-**Status:** ⏳ Phase 1 is a hand edit in the working tree, for review. Phase 2 is not started.
+**Status:** ✅ Phase 1 is `98d9f22`. ✔️ Phase 2 is implemented in [5.9.1](../plans/5.9.1-assets-software-data.md). Not verified on a machine.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -16,7 +16,7 @@
 ## What was asked
 
 - 🔷 Draft `agent/linux/PackageMonitor.vala` and `agent/Win32/PackageMonitor.vala`. Do not add them to meson. Do not construct them from startup.
-- 🔷 `debian()` and `rpm()` are separate methods. Startup `os_version` chooses one later. The monitor does not decide the operating system.
+- 🔷 `apt()` and `rpm()` are separate methods. `apt()` waits for the dpkg locks. `rpm()` waits for `.rpm.lock`. Startup `os_version` chooses one later. The monitor does not decide the operating system.
 - 🔷 `send` posts the difference from the startup fetch. A row that left is included with `deleted_dt` set. That fetch is kept from the original query.
 - 🚫 Do not change `Query.select` to return a bool. It stays `void`. The note is on `agent/OSQuery/Query.vala`.
 
@@ -63,7 +63,8 @@
 ## Re-implement
 
 - 🔷 Phase 1 was accepted. `added_dt`, `updated_dt`, and `deleted_dt` on `agent`, the osquery tables, and the task tables. `OSQuery.Row` holds them. `sync_rows` writes them. An insert sets `added_dt`. A changed row sets `updated_dt`. A row the snapshot left out stays, with `deleted_dt` set. A row that comes back clears `deleted_dt` and sets `updated_dt`. `compare` skips the three columns. `DebPackages.list`, `RpmPackages.list`, and `Programs.list` take `agent_id` and `since`. Zero `since` leaves out a deleted row. A later `since` returns rows changed after that time, including a deleted row.
-- 🔷 Phase 2 was accepted. `agent/linux/PackageMonitor.vala` and `agent/Win32/PackageMonitor.vala`. Do not add them to meson. Do not construct them from startup. `debian()` and `rpm()` are separate. The startup fetch of `deb_packages`, `rpm_packages`, and `programs` stays on the agent. `send` posts the changed rows, and the rows that left with `deleted_dt` set. `OSQuery.update` applies that list. A row left out of it stays.
+- 🔷 Phase 2 monitors were accepted. `agent/linux/PackageMonitor.vala` and `agent/Win32/PackageMonitor.vala`. Do not add them to meson. Do not construct them from startup. `apt()` and `rpm()` are separate. `apt()` waits for the dpkg locks. `rpm()` waits for `.rpm.lock`. `OSQuery.update` applies the sent rows. A row left out of that list stays.
+- 🚫 The monitor `send`, the startup sync of every package class, and the Windows callback that queries `programs` were rejected. [2026-11-12-package-monitor-send-rejected](2026-11-12-package-monitor-send-rejected.md).
 - 🚫 Do not change `Query.select`. It stays `void`.
 - 🚫 Do not find the package difference by walking every stored row for every fresh row.
 
@@ -110,6 +111,6 @@
 
 ## Next
 
-- ✔️ 🔷 Phase 1 is edited in place. `added_dt`, `updated_dt`, and `deleted_dt` are on `agent`, the osquery tables, and the task tables. `sync_rows` writes them. `compare` skips them. The three package lists take `agent_id` and `since`.
-- 🚫 The `complete` flag, `OSQuery.update`, the package monitors, and `PackageManager` are not in this diff.
-- ⏳ 🔷 Phase 2, after this diff is reviewed.
+- ✅ 🔷 Phase 1 is `98d9f22`. `added_dt`, `updated_dt`, and `deleted_dt` are on `agent`, the osquery tables, and the task tables. `sync_rows` writes them. `compare` skips them. The three package lists take `agent_id` and `since`.
+- 🚫 The `complete` flag, `OSQuery.update`, the package monitors, and `PackageManager` are not in that commit.
+- 🚫 🔷 Phase 2's send was rejected after it was written. The monitors stay out of meson. The replacement is [2026-11-12-package-monitor-send-rejected](2026-11-12-package-monitor-send-rejected.md). Do not apply it until that design is accepted.

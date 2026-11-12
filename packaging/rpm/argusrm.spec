@@ -133,6 +133,8 @@ systemctl daemon-reload
 %files -n argusrm-controller
 %license LICENSE
 %{_bindir}/argusrm-controller
+%{_datadir}/applications/org.roojs.ArgusController.desktop
+%{_datadir}/icons/hicolor/scalable/apps/org.roojs.ArgusController.svg
 %{_datadir}/polkit-1/actions/org.roojs.ArgusController.register.policy
 
 %changelog

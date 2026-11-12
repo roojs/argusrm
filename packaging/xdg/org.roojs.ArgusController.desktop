@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Argus RM Controller
+Comment=Argus Remote Manager controller
+Exec=argusrm-controller
+Icon=org.roojs.ArgusController
+Terminal=false
+Categories=System;
+StartupNotify=true
+StartupWMClass=org.roojs.ArgusController

@@ -21,14 +21,15 @@ namespace Argus.Shared.OSQuery
 	/**
 	 * One ''deb_packages'' row.
 	 */
-	public class DebPackages : Row
+	public class DebPackages : Package
 	{
 		private static SQ.Database db;
 
-		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
-		{
-			return this.sync_rows<DebPackages>(db, agent_id, rows, "deb_packages", { "name", "arch" });
-		}
+		public override string pkg_name() { return this.name + "\n" + this.arch; }
+
+		public override string table_name() { return "deb_packages"; }
+
+		public override string rpc_name() { return "DebPackages"; }
 
 		/**
 		 * Create ''deb_packages''.

@@ -137,7 +137,8 @@ namespace Argus.Controller.Tab.Asset
 			});
 			group.active_name = "debian";
 			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-			bar.set_css_name("inline-view-switcher");
+			/* Vala set_css_name renames the Gtk.Box class, so later
+			 * pages lose Adwaita row padding. */
 			bar.append(group);
 			bar.margin_start = 12;
 			bar.margin_end = 12;

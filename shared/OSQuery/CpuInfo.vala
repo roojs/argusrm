@@ -28,6 +28,10 @@ namespace Argus.Shared.OSQuery
 			return this.sync_rows<CpuInfo>(db, agent_id, rows, "cpu_info", { "device-id" });
 		}
 
+		public override string table_name() { return "cpu_info"; }
+
+		public override string rpc_name() { return "CpuInfo"; }
+
 		/**
 		 * Create ''cpu_info''.
 		 *

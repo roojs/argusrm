@@ -291,7 +291,6 @@ namespace Argus.Server
 			var packed = new Gee.ArrayList<string>();
 			packed.add(crt_pem);
 			packed.add(ca_pem);
-			packed.add(this.app.download);
 			packed.add(path);
 			if (host == "0.0.0.0") {
 				foreach (var ip in OLLMrpc.Transport.TcpListen.ifaces()) {
