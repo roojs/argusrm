@@ -1,6 +1,6 @@
 # Package monitor work rewrote the sync path
 
-**Status:** ⏳ recorded — revert not started
+**Status:** ⏳ tree restored to `HEAD` except this file. Accepted phase 1 and phase 2 work has to be written again.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -53,17 +53,24 @@
 
 ### Other untracked files
 
-- ✔️ `agent/linux/UpdatesAvailable.vala`, `agent/Win32/UpdatesAvailable.vala`, and `docs/plans/5.11-os-update.md` are not the package monitor.
-- ✔️ Plan edits that ride along: `docs/plans/4.0-data-types.md`, `5.8-assets-page.md`, `5.9.1-assets-software-data.md`, `5.10-data-enrichment.md`, `7.0-tasks.md`.
+- ✔️ `agent/linux/UpdatesAvailable.vala` and `agent/Win32/UpdatesAvailable.vala` are not the package monitor. They were removed. `docs/plans/5.11-os-update.md` stays.
+- ✔️ The plans stay. `docs/plans/4.0-data-types.md`, `5.8-assets-page.md`, `5.9.1-assets-software-data.md`, `5.10-data-enrichment.md`, `5.11-os-update.md`, and `7.0-tasks.md` were not rolled back.
 
 ## Root cause
 
 - ✔️ The differential send was implemented by changing `sync_rows` for every table, then pointing the monitor at that new flag. The class draft and the startup wiring were not kept apart.
 
+## Re-implement
+
+- 🔷 Phase 1 was accepted. `added_dt`, `updated_dt`, and `deleted_dt` on `agent`, the osquery tables, and the task tables. `OSQuery.Row` holds them. `sync_rows` writes them. An insert sets `added_dt`. A changed row sets `updated_dt`. A row the snapshot left out stays, with `deleted_dt` set. A row that comes back clears `deleted_dt` and sets `updated_dt`. `compare` skips the three columns. `DebPackages.list`, `RpmPackages.list`, and `Programs.list` take `agent_id` and `since`. Zero `since` leaves out a deleted row. A later `since` returns rows changed after that time, including a deleted row.
+- 🔷 Phase 2 was accepted. `agent/linux/PackageMonitor.vala` and `agent/Win32/PackageMonitor.vala`. Do not add them to meson. Do not construct them from startup. `debian()` and `rpm()` are separate. The startup fetch of `deb_packages`, `rpm_packages`, and `programs` stays on the agent. `send` posts the changed rows, and the rows that left with `deleted_dt` set. `OSQuery.update` applies that list. A row left out of it stays.
+- 🚫 Do not change `Query.select`. It stays `void`.
+- 🚫 Do not find the package difference by walking every stored row for every fresh row.
+
 ## Proposed fix
 
-- 🔷 Commit this tree, including this report.
-- 🔷 Then restore every path below to `HEAD`, and delete the untracked files below. This report stays.
+- 🔷 Restore every path below to `HEAD`, and delete the untracked files below. This report stays.
+- 🔷 Then write phase 1 and phase 2 again, as in **Re-implement**.
 - 🚫 Do not use a wildcard checkout or reset. Name each path.
 
 ### Restore to `HEAD`
@@ -74,11 +81,6 @@
 - `controller/store/DebPackages.vala`
 - `controller/store/Programs.vala`
 - `controller/store/RpmPackages.vala`
-- `docs/plans/4.0-data-types.md`
-- `docs/plans/5.10-data-enrichment.md`
-- `docs/plans/5.8-assets-page.md`
-- `docs/plans/5.9.1-assets-software-data.md`
-- `docs/plans/7.0-tasks.md`
 - `docs/rpc-commands.md`
 - `server/OSQuery.vala`
 - `server/tests/packages.vala`
@@ -105,8 +107,7 @@
 - `agent/Win32/PackageMonitor.vala`
 - `agent/linux/UpdatesAvailable.vala`
 - `agent/Win32/UpdatesAvailable.vala`
-- `docs/plans/5.11-os-update.md`
 
 ## Next
 
-- ⏳ 🔷 Wait for the commit, then the request to restore the list above and leave this file.
+- ⏳ 🔷 Write phase 1 again, then phase 2, from **Re-implement**.

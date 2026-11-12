@@ -83,10 +83,7 @@ namespace Argus.Shared.SQT
 					is_template INTEGER NOT NULL DEFAULT 0,
 					is_draft    INTEGER NOT NULL DEFAULT 1,
 					scheduled   INT64 NOT NULL DEFAULT 0,
-					completed   INT64 NOT NULL DEFAULT 0,
-					added_dt    INTEGER NOT NULL DEFAULT 0,
-					updated_dt  INTEGER NOT NULL DEFAULT 0,
-					deleted_dt  INTEGER NOT NULL DEFAULT 0
+					completed   INT64 NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
@@ -97,15 +94,6 @@ namespace Argus.Shared.SQT
 				null, out errmsg);
 			db.db.exec(
 				"ALTER TABLE task ADD COLUMN run_as TEXT NOT NULL DEFAULT '';",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE task ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE task ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE task ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
 				null, out errmsg);
 			db.db.exec(
 				"UPDATE task SET is_draft = 0 WHERE id IN " +

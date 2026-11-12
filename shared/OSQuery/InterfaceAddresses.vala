@@ -23,14 +23,9 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class InterfaceAddresses : Row
 	{
-		public override bool sync(
-			SQ.Database db,
-			int64 agent_id,
-			Gee.ArrayList<AgentInfo> rows,
-			bool complete = true
-		) {
-			return this.sync_rows<InterfaceAddresses>(db, agent_id, rows,
-				"interface_addresses", { "interface", "address" }, complete);
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_rows<InterfaceAddresses>(db, agent_id, rows, "interface_addresses", { "interface", "address" });
 		}
 
 		/**
@@ -50,24 +45,12 @@ namespace Argus.Shared.OSQuery
 					mask           TEXT NOT NULL DEFAULT '',
 					broadcast      TEXT NOT NULL DEFAULT '',
 					point_to_point TEXT NOT NULL DEFAULT '',
-					type           TEXT NOT NULL DEFAULT '',
-					added_dt       INTEGER NOT NULL DEFAULT 0,
-					updated_dt     INTEGER NOT NULL DEFAULT 0,
-					deleted_dt     INTEGER NOT NULL DEFAULT 0
+					type           TEXT NOT NULL DEFAULT ''
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("interface_addresses create failed: %s", db.db.errmsg());
 			}
-			db.db.exec(
-				"ALTER TABLE interface_addresses ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE interface_addresses ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE interface_addresses ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
 		}
 
 		/**

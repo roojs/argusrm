@@ -265,10 +265,7 @@ namespace Argus.Shared
 					username      TEXT NOT NULL DEFAULT '',
 					hostname      TEXT NOT NULL DEFAULT '',
 					is_controller INTEGER NOT NULL DEFAULT 0,
-					last_connected INT64 NOT NULL DEFAULT 0,
-					added_dt       INTEGER NOT NULL DEFAULT 0,
-					updated_dt     INTEGER NOT NULL DEFAULT 0,
-					deleted_dt     INTEGER NOT NULL DEFAULT 0
+					last_connected INT64 NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
@@ -306,15 +303,6 @@ namespace Argus.Shared
 				null,
 				out errmsg
 			);
-			db.db.exec(
-				"ALTER TABLE agent ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE agent ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE agent ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
 			var q = Agent.query(db);
 			var now = new GLib.DateTime.now_utc().to_unix();
 			var int_binds = new Gee.HashMap<string, int>();

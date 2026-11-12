@@ -71,24 +71,12 @@ namespace Argus.Shared.SQT
 					id                    INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					script_repository_id  INTEGER NOT NULL DEFAULT 0,
 					path                  TEXT NOT NULL DEFAULT '',
-					filetype              TEXT NOT NULL DEFAULT '',
-					added_dt              INTEGER NOT NULL DEFAULT 0,
-					updated_dt            INTEGER NOT NULL DEFAULT 0,
-					deleted_dt            INTEGER NOT NULL DEFAULT 0
+					filetype              TEXT NOT NULL DEFAULT ''
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("script create failed: %s", db.db.errmsg());
 			}
-			db.db.exec(
-				"ALTER TABLE script ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE script ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE script ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
 		}
 	}
 }

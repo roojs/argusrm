@@ -23,14 +23,9 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class CpuInfo : Row
 	{
-		public override bool sync(
-			SQ.Database db,
-			int64 agent_id,
-			Gee.ArrayList<AgentInfo> rows,
-			bool complete = true
-		) {
-			return this.sync_rows<CpuInfo>(db, agent_id, rows,
-				"cpu_info", { "device-id" }, complete);
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_rows<CpuInfo>(db, agent_id, rows, "cpu_info", { "device-id" });
 		}
 
 		/**
@@ -55,24 +50,12 @@ namespace Argus.Shared.OSQuery
 					address_width       INTEGER NOT NULL DEFAULT 0,
 					current_clock_speed INTEGER NOT NULL DEFAULT 0,
 					max_clock_speed     INTEGER NOT NULL DEFAULT 0,
-					socket_designation  TEXT NOT NULL DEFAULT '',
-					added_dt            INTEGER NOT NULL DEFAULT 0,
-					updated_dt          INTEGER NOT NULL DEFAULT 0,
-					deleted_dt          INTEGER NOT NULL DEFAULT 0
+					socket_designation  TEXT NOT NULL DEFAULT ''
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("cpu_info create failed: %s", db.db.errmsg());
 			}
-			db.db.exec(
-				"ALTER TABLE cpu_info ADD COLUMN added_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE cpu_info ADD COLUMN updated_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
-			db.db.exec(
-				"ALTER TABLE cpu_info ADD COLUMN deleted_dt INTEGER NOT NULL DEFAULT 0;",
-				null, out errmsg);
 		}
 
 		/**
