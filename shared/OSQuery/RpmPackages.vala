@@ -54,13 +54,15 @@ namespace Argus.Shared.OSQuery
 					epoch         INTEGER NOT NULL DEFAULT 0,
 					install_time  INT64 NOT NULL DEFAULT 0,
 					vendor        TEXT NOT NULL DEFAULT '',
-					package_group TEXT NOT NULL DEFAULT ''
+					package_group    TEXT NOT NULL DEFAULT '',
+					update_available INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("rpm_packages create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "rpm_packages");
+			db.db.exec("ALTER TABLE rpm_packages ADD COLUMN update_available INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 		}
 
 		/**
@@ -185,6 +187,12 @@ namespace Argus.Shared.OSQuery
 		public int64 install_time { get; set; default = 0; }
 		public string vendor { get; set; default = ""; }
 		public string package_group { get; set; default = ""; }
+		/**
+		 * A newer candidate is already on this host.
+		 *
+		 * ''1'' when an update is waiting. ''0'' when not.
+		 */
+		public int update_available { get; set; default = 0; }
 		/**
 		 * Lowest epoch, version, and release for this name.
 		 * The cell is epoch, version, and release. Filled by

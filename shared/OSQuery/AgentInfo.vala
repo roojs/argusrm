@@ -56,6 +56,9 @@ namespace Argus.Shared.OSQuery
 					case "added-dt":
 					case "updated-dt":
 					case "deleted-dt":
+					case "pkgs-updated":
+					case "pkgs-status":
+					case "update-available":
 						continue;
 					default:
 						break;

@@ -145,7 +145,8 @@ namespace Argus.Agent
 		 * Open the server connection from the stored server and certificate.
 		 *
 		 * A second call returns the connection already open.
-		 * Registration wrote those certificate files.
+		 * Registration wrote those certificate files. The socket
+		 * waits five seconds, then the open fails.
 		 *
 		 * @return the connection, or null when it cannot be opened
 		 */
@@ -187,6 +188,7 @@ namespace Argus.Agent
 				accept_any = true,
 				tls_certificate = tls_files.certificate
 			};
+			opened.timeout = 5;
 			try {
 				opened.open();
 			} catch (GLib.Error e) {
@@ -279,6 +281,9 @@ namespace Argus.Agent
 		 * A registered process starts
 		 * {@link OSQuery.Initialize} and watches the server connection.
 		 * A failed open waits and is tried again every thirty seconds.
+		 * On Windows a stored certificate that cannot reach the
+		 * server, or that the server does not accept, is removed
+		 * and the registration window is offered again.
 		 * The Android {@link OSQuery.Initialize} does not query.
 		 * With none of those, the process browses and stays up.
 		 *
@@ -410,10 +415,6 @@ namespace Argus.Agent
 			GLib.debug("staying up");
 #if LINUX
 			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
-#else
-			var cert = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
-#endif
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				this.attach_connection();
 				if (this.connection != null) {
@@ -423,6 +424,55 @@ namespace Argus.Agent
 					this.monitor.start();
 				}
 			}
+#else
+			var cert = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+				this.attach_connection();
+				var rejected = this.connection == null;
+				var notice = "Could not reach the management server.";
+				if (this.connection != null) {
+					try {
+						var response = this.connection.call(new OLLMrpc.Request() {
+							method = "RPC-Daemon.hello",
+							args = OLLMrpc.args("is", 1, "argus-agent")
+						});
+						if (response.error != null) {
+							rejected = true;
+							if (response.error.code ==
+								(int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
+								notice = "Not registered with the management server.";
+							}
+						}
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+						rejected = true;
+					}
+				}
+				if (rejected) {
+					if (this.connection_check_id != 0) {
+						GLib.Source.remove(this.connection_check_id);
+						this.connection_check_id = 0;
+					}
+					this.connection = null;
+					Application.connection_down = true;
+					var dir = GLib.Path.build_filename(
+						GLib.Environment.get_user_data_dir(), "argus");
+					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"));
+					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
+					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
+					GLib.Environment.set_variable("ARGUS_AGENT_TIP", notice, true);
+					GLib.debug("registration cleared");
+				}
+				if (!rejected && this.connection != null) {
+					new OSQuery.Initialize(this).start();
+					this.osquery.send_startup();
+					this.monitor = new PackageMonitor(this);
+					this.monitor.start();
+				}
+			}
+#endif
 			this.hold();
 			return 0;
 		}

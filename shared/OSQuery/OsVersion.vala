@@ -79,6 +79,8 @@ namespace Argus.Shared.OSQuery
 				GLib.warning("os_version create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "os_version");
+			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_updated INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_status INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 		}
 
 		/**
@@ -99,6 +101,18 @@ namespace Argus.Shared.OSQuery
 		public string platform_like { get; set; default = ""; }
 		public string codename { get; set; default = ""; }
 		public string arch { get; set; default = ""; }
+		/**
+		 * Unix time this host last checked installed packages.
+		 *
+		 * ''0'' means that check has not happened.
+		 */
+		public int pkgs_updated { get; set; default = 0; }
+		/**
+		 * Installed packages are up to date.
+		 *
+		 * ''1'' when they are. ''0'' when an update is waiting.
+		 */
+		public int pkgs_status { get; set; default = 0; }
 
 		/**
 		 * Package command for this operating system.

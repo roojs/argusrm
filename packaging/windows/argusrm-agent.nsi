@@ -33,11 +33,12 @@ Unicode true
 Section "Argus RM Agent" SecMain
   SectionIn RO
 
+  ExecWait 'taskkill /F /IM argus-agent.exe'
+  ExecWait 'taskkill /F /IM argus-tray.exe'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ${SERVICE_NAME}'
-  ExecWait 'taskkill /F /IM argus-tray.exe'
   Push "ArgusAgent"
   Call WaitServiceGone
   Push "${SERVICE_NAME}"
@@ -66,11 +67,12 @@ Section "Argus RM Agent" SecMain
 SectionEnd
 
 Section "Uninstall"
+  ExecWait 'taskkill /F /IM argus-agent.exe'
+  ExecWait 'taskkill /F /IM argus-tray.exe'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ${SERVICE_NAME}'
-  ExecWait 'taskkill /F /IM argus-tray.exe'
 
   Delete "$SMPROGRAMS\Argus RM\Register this machine.lnk"
   Delete "$SMPROGRAMS\Argus RM\Argus Agent.lnk"

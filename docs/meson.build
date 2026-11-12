@@ -89,6 +89,7 @@ valadoc_sources += files(
   '../agent/linux/ServiceManager.vala',
   '../agent/linux/Command.vala',
   '../agent/linux/PackageMonitor.vala',
+  '../agent/linux/UpdatesAvailable.vala',
   # server sources
   '../server/namespace.vala',
   '../server/Net/namespace.vala',

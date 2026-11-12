@@ -53,13 +53,15 @@ namespace Argus.Shared.OSQuery
 					status     TEXT NOT NULL DEFAULT '',
 					maintainer TEXT NOT NULL DEFAULT '',
 					section    TEXT NOT NULL DEFAULT '',
-					priority   TEXT NOT NULL DEFAULT ''
+					priority         TEXT NOT NULL DEFAULT '',
+					update_available INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("deb_packages create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "deb_packages");
+			db.db.exec("ALTER TABLE deb_packages ADD COLUMN update_available INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 		}
 
 		/**
@@ -181,6 +183,12 @@ namespace Argus.Shared.OSQuery
 		public string maintainer { get; set; default = ""; }
 		public string section { get; set; default = ""; }
 		public string priority { get; set; default = ""; }
+		/**
+		 * A newer candidate is already on this host.
+		 *
+		 * ''1'' when an update is waiting. ''0'' when not.
+		 */
+		public int update_available { get; set; default = 0; }
 		/**
 		 * Lowest version for this name, with the lowest revision
 		 * of that version. Filled by ''list''. Not stored.

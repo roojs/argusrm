@@ -162,6 +162,13 @@ namespace Argus.Agent.Win32
 		private bool tick()
 		{
 			this.ticks++;
+			var notice = GLib.Environment.get_variable("ARGUS_AGENT_TIP") != null ?
+				GLib.Environment.get_variable("ARGUS_AGENT_TIP") : "";
+			if (this.tip == "" && notice != "") {
+				this.tip = notice;
+				GLib.Environment.unset_variable("ARGUS_AGENT_TIP");
+				GLib.debug("tip %s", this.tip);
+			}
 			if ((intptr) this.pipe == -1) {
 				this.pipe = create_registration_pipe();
 				this.pipe_up = false;
@@ -280,13 +287,13 @@ namespace Argus.Agent.Win32
 					this.number, GLib.Environment.get_host_name());
 				GLib.debug("registration %d", code);
 			}
-			if (line != "" && line != "none" && code == 0) {
+			var attach = line != "" && line != "none" && code == 0;
+			if (attach) {
 				this.probe_id++;
 				this.probe_open = false;
 				this.tip = "Connected to management server";
 				GLib.debug("tip %s", this.tip);
 				this.tip_due = true;
-				this.application.attach_connection();
 			}
 			if (line != "" && line != "none") {
 				this.reply_line = "%d".printf(code);
@@ -369,6 +376,9 @@ namespace Argus.Agent.Win32
 				CloseHandle(this.pipe);
 				this.pipe = (void*) (intptr) (-1);
 				this.pipe_up = false;
+			}
+			if (attach) {
+				this.application.attach_connection();
 			}
 			if (this.ticks % 5 != 1) {
 				return true;

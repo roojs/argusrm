@@ -127,6 +127,13 @@ namespace Argus.Agent.Win32
 					var text = msg.substring(4).strip();
 					this.set_tip(text);
 					this.known = text == "Connected to management server";
+					if (!this.started) {
+						this.started = true;
+						this.present();
+					}
+					if (this.window_up && !this.known) {
+						this.registration.listen_label.label = text;
+					}
 				}
 				if (this.known && this.window_up && !this.submitted) {
 					this.registration.close();

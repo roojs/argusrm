@@ -98,7 +98,9 @@ The tray closes the window on `Connected to management server` only when the num
 ## Next
 
 - 🔴 Restart `argusrm-server`. The 14:38 process has to stop answering before another number is used.
-- 🔴 The pipe reply has to be written before `attach_connection`. That call is what holds the window.
+- ✔️ The pipe reply is written before `attach_connection`.
+- ✔️ The installer kills `argus-agent.exe` and `argus-tray.exe` before it stops and deletes the service. `sc stop` does not return while the process is blocked in a socket open.
+- ✔️ A stored certificate is checked with a five-second open and `RPC-Daemon.hello`. If the open fails, or the server does not accept the certificate, the local registration files are removed and the window offers registration again. The label is `Could not reach the management server.` or `Not registered with the management server.`
 
 ---
 

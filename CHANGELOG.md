@@ -8,6 +8,13 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.15] - Unreleased
+
+### Fixed
+
+- The Windows installer kills the running agent and tray before it replaces the service.
+- A stored registration the server does not accept is cleared, and the registration window is offered again.
+
 ## [0.1.14] - Unreleased
 
 ### Fixed
