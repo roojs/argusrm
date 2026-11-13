@@ -22,7 +22,6 @@
 #include <wchar.h>
 #include <winevt.h>
 
-HANDLE argus_create_registration_pipe(void);
 DWORD argus_active_session(void);
 
 #endif

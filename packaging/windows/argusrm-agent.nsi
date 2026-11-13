@@ -22,6 +22,13 @@ InstallDir "$PROGRAMFILES64\Argus"
 RequestExecutionLevel admin
 Unicode true
 
+!ifndef MUI_ICON
+  !define MUI_ICON "packaging\windows\argusrm.ico"
+!endif
+!ifndef MUI_UNICON
+  !define MUI_UNICON "${MUI_ICON}"
+!endif
+
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
@@ -54,10 +61,11 @@ Section "Argus RM Agent" SecMain
   CreateDirectory "$SMPROGRAMS\Argus RM"
   Delete "$SMPROGRAMS\Argus RM\Register this machine.lnk"
   CreateShortCut "$SMPROGRAMS\Argus RM\Argus Agent.lnk" \
-    "$INSTDIR\argus-tray.exe"
+    "$INSTDIR\argus-tray.exe" "" "$INSTDIR\argus-tray.exe" 0
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKLM "${UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
+  WriteRegStr HKLM "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\argus-tray.exe"
   WriteRegStr HKLM "${UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr HKLM "${UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
   WriteRegStr HKLM "${UNINST_KEY}" "InstallLocation" "$INSTDIR"

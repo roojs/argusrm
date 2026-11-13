@@ -25,6 +25,11 @@ namespace Argus.Shared.OSQuery
 	{
 		private static SQ.Database db;
 
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_packages<DebPackages>(db, agent_id, rows);
+		}
+
 		public override string pkg_name() { return this.name + "\n" + this.arch; }
 
 		public override string table_name() { return "deb_packages"; }
@@ -53,15 +58,27 @@ namespace Argus.Shared.OSQuery
 					status     TEXT NOT NULL DEFAULT '',
 					maintainer TEXT NOT NULL DEFAULT '',
 					section    TEXT NOT NULL DEFAULT '',
-					priority         TEXT NOT NULL DEFAULT '',
-					update_available INTEGER NOT NULL DEFAULT 0
+					priority   TEXT NOT NULL DEFAULT ''
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("deb_packages create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "deb_packages");
-			db.db.exec("ALTER TABLE deb_packages ADD COLUMN update_available INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+			var idx_query = """
+				CREATE INDEX IF NOT EXISTS deb_packages_deleted_name_agent
+				ON deb_packages (deleted_dt, name, agent_id);
+				""";
+			if (Sqlite.OK != db.db.exec(idx_query, null, out errmsg)) {
+				GLib.warning("deb_packages index failed: %s", db.db.errmsg());
+			}
+			var idx_agent = """
+				CREATE INDEX IF NOT EXISTS deb_packages_agent
+				ON deb_packages (agent_id);
+				""";
+			if (Sqlite.OK != db.db.exec(idx_agent, null, out errmsg)) {
+				GLib.warning("deb_packages agent index failed: %s", db.db.errmsg());
+			}
 		}
 
 		/**
@@ -130,38 +147,63 @@ namespace Argus.Shared.OSQuery
 					""".printf(since, since, since), rows);
 			}
 			if (since <= 0 && agent_id > 0) {
-				query.select("""
+				query.selectQuery("""
+					SELECT
+						%s,
+						COALESCE(package_updates.since, 0) AS update_since
+					FROM
+						deb_packages
+					LEFT JOIN
+						package_updates
+					ON
+						package_updates.agent_id = deb_packages.agent_id
+					AND
+						package_updates.name = deb_packages.name
 					WHERE
-						agent_id = %d
+						deb_packages.agent_id = %d
 					AND
-						deleted_dt = 0
-					AND
-						agent_id IN (SELECT id FROM agent)
-					""".printf(agent_id), rows);
+						deb_packages.deleted_dt = 0
+					""".printf(
+						string.joinv(", ", query.getColsExcept(null, "deb_packages.")),
+						agent_id), rows);
 			}
 			if (since <= 0 && agent_id <= 0) {
 				query.selectQuery("""
 					SELECT
-						name,
-						GROUP_CONCAT(DISTINCT NULLIF(arch, '')) AS arch,
-						GROUP_CONCAT(DISTINCT NULLIF(section, '')) AS section,
-						GROUP_CONCAT(DISTINCT NULLIF(priority, '')) AS priority,
-						GROUP_CONCAT(DISTINCT NULLIF(source, '')) AS source,
-						GROUP_CONCAT(DISTINCT NULLIF(maintainer, '')) AS maintainer,
-						MIN(version || '-' || revision) AS min_version,
-						MAX(version || '-' || revision) AS max_version,
-						MAX(size) AS max_size,
-						COUNT(DISTINCT agent_id) AS installed
+						deb_packages.name AS name,
+						GROUP_CONCAT(DISTINCT NULLIF(deb_packages.arch, '')) AS arch,
+						GROUP_CONCAT(DISTINCT NULLIF(deb_packages.section, '')) AS section,
+						GROUP_CONCAT(DISTINCT NULLIF(deb_packages.priority, '')) AS priority,
+						GROUP_CONCAT(DISTINCT NULLIF(deb_packages.source, '')) AS source,
+						GROUP_CONCAT(DISTINCT NULLIF(deb_packages.maintainer, '')) AS maintainer,
+						MIN(deb_packages.version || '-' || deb_packages.revision) AS min_version,
+						MAX(deb_packages.version || '-' || deb_packages.revision) AS max_version,
+						MAX(deb_packages.size) AS max_size,
+						COUNT(DISTINCT deb_packages.agent_id) AS installed,
+						COALESCE(pkg_updates.update_since, 0) AS update_since
 					FROM
 						deb_packages
+					LEFT JOIN (
+						SELECT
+							name,
+							MIN(since) AS update_since
+						FROM
+							package_updates
+						WHERE
+							agent_id IN (SELECT id FROM agent)
+						GROUP BY
+							name
+					) AS pkg_updates
+					ON
+						pkg_updates.name = deb_packages.name
 					WHERE
-						agent_id IN (SELECT id FROM agent)
+						deb_packages.deleted_dt = 0
 					AND
-						deleted_dt = 0
+						deb_packages.agent_id IN (SELECT id FROM agent)
 					GROUP BY
-						name
+						deb_packages.name
 					ORDER BY
-						name
+						deb_packages.name
 					""", rows);
 			}
 			request.reply(new OLLMrpc.Response() {
@@ -184,11 +226,12 @@ namespace Argus.Shared.OSQuery
 		public string section { get; set; default = ""; }
 		public string priority { get; set; default = ""; }
 		/**
-		 * A newer candidate is already on this host.
+		 * Earliest unix time an update for this package has been waiting.
 		 *
-		 * ''1'' when an update is waiting. ''0'' when not.
+		 * Filled by ''list'' from ''package_updates''. Zero when none.
+		 * Not stored on ''deb_packages''.
 		 */
-		public int update_available { get; set; default = 0; }
+		public int update_since { get; set; default = 0; }
 		/**
 		 * Lowest version for this name, with the lowest revision
 		 * of that version. Filled by ''list''. Not stored.

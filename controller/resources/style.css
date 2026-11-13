@@ -143,3 +143,21 @@ popover.menu.column-menu checkbutton check:dir(rtl) {
 	margin-left: 6px;
 	margin-right: -2px;
 }
+
+.status-dot {
+	min-width: 12px;
+	min-height: 12px;
+	border-radius: 6px;
+}
+
+.status-dot.status-ok {
+	background-color: #2ec27e;
+}
+
+.status-dot.status-warn {
+	background-color: #ff7800;
+}
+
+.status-dot.status-bad {
+	background-color: #c01c28;
+}

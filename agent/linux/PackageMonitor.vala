@@ -26,6 +26,9 @@ namespace Argus.Agent
 	 * ''.rpm.lock'' and waits for that lock. The rescan then
 	 * queries osquery. {@link start} reads the startup
 	 * ''os_version'' row and calls {@link apt} or {@link rpm}.
+	 * {@link send_pending} posts the names that need updating
+	 * through ''OSQuery.sync'' as ''PackageUpdates'' every
+	 * twelve hours.
 	 *
 	 * == Example ==
 	 *
@@ -52,6 +55,13 @@ namespace Argus.Agent
 		private uint later = 0;
 
 		/**
+		 * Source id of the twelve-hour update check.
+		 *
+		 * Zero when {@link start} did not arm it.
+		 */
+		private uint pending_id = 0;
+
+		/**
 		 * @param application agent whose startup fetch is kept
 		 */
 		public PackageMonitor(Application application)
@@ -60,24 +70,75 @@ namespace Argus.Agent
 		}
 
 		/**
-		 * Start the watch this host uses.
+		 * Start the watch this host uses, then the update check.
 		 *
 		 * {@link Application.os_version} is the startup osquery
 		 * row. {@link Argus.Shared.OSQuery.OsVersion.package_manager}
 		 * chooses the watch. APT calls {@link apt}. DNF calls
-		 * {@link rpm}. Any other value returns.
+		 * {@link rpm}. Either one then calls {@link send_pending}
+		 * and repeats that every twelve hours. Any other value
+		 * returns.
 		 */
 		public void start()
 		{
 			switch (this.application.os_version.package_manager()) {
 				case Argus.Shared.OSQuery.PackageManager.APT:
 					this.apt();
-					return;
+					break;
+
 				case Argus.Shared.OSQuery.PackageManager.DNF:
 					this.rpm();
-					return;
+					break;
+
 				default:
 					return;
+			}
+			this.send_pending();
+			this.pending_id = GLib.Timeout.add_seconds(12 * 60 * 60, () => {
+				this.send_pending();
+				return true;
+			});
+		}
+
+		/**
+		 * Post the names that need updating through ''OSQuery.sync''.
+		 *
+		 * {@link UpdatesAvailable.check} reads the host. A failure
+		 * is not sent. An empty list clears stored pending updates.
+		 */
+		public void send_pending()
+		{
+			var names = new Gee.ArrayList<string>();
+			try {
+				names = new UpdatesAvailable().check(this.application.os_version);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return;
+			}
+			if (this.application.connection == null) {
+				GLib.warning("server connection is not open");
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			foreach (var name in names) {
+				if (name == "") {
+					continue;
+				}
+				rows.add(new Argus.Shared.OSQuery.PackageUpdates() {
+					name = name
+				});
+			}
+			try {
+				var response = this.application.connection.call(new OLLMrpc.Request() {
+					method = "OSQuery.sync",
+					args = OLLMrpc.args("so", "PackageUpdates", rows)
+				});
+				if (response.error != null) {
+					GLib.debug("PackageUpdates sync failed %s", response.error.message);
+				}
+			} catch (GLib.Error e) {
+				Application.connection_down = true;
+				GLib.warning("%s", e.message);
 			}
 		}
 

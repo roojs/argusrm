@@ -47,6 +47,7 @@ valadoc_sources = files(
   # shared sources (must come before agent, server, and controller)
   '../shared/namespace.vala',
   '../shared/Agent.vala',
+  '../shared/OsReleases.vala',
   '../shared/Registration/Data.vala',
   '../shared/Register.vala',
   '../shared/RegisterWindow.vala',
@@ -67,6 +68,7 @@ valadoc_sources += files(
   '../shared/OSQuery/DebPackages.vala',
   '../shared/OSQuery/RpmPackages.vala',
   '../shared/OSQuery/Programs.vala',
+  '../shared/OSQuery/PackageUpdates.vala',
   '../shared/SQT/namespace.vala',
   '../shared/SQT/Task.vala',
   '../shared/SQT/TaskTarget.vala',
@@ -106,6 +108,7 @@ valadoc_sources += files(
   '../server/RegistrationData.vala',
   '../server/Registration.vala',
   '../server/OSQuery.vala',
+  '../server/OsUpdate.vala',
   '../server/Command.vala',
   '../server/SQT/Script.vala',
   '../server/SQT/ScriptRepository.vala',

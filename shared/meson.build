@@ -31,6 +31,7 @@ shared_osquery_sources = files(
 	'OSQuery/DebPackages.vala',
 	'OSQuery/RpmPackages.vala',
 	'OSQuery/Programs.vala',
+	'OSQuery/PackageUpdates.vala',
 )
 shared_sqt_sources = files(
 	'SQT/namespace.vala',
@@ -43,6 +44,7 @@ shared_sqt_sources = files(
 shared_sources = files(
 	'namespace.vala',
 	'Agent.vala',
+	'OsReleases.vala',
 	'Register.vala',
 )
 shared_sources += paths_vala

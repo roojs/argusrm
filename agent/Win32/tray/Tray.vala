@@ -45,13 +45,111 @@ namespace Argus.Agent.Win32
 		private uint32 taskbar = 0;
 		private uint32 tray_msg = WM_APP + 42;
 		private Argus.Shared.RegisterWindow registration;
+		private Argus.Shared.Notice status_notice;
 		private bool window_up = false;
+		private bool notice_up = false;
 		private bool gtk_up = false;
-		private void* pipe = (void*) (intptr) (-1);
-		private bool known = false;
+		private OLLMrpc.Client rpc;
+		private bool registered = false;
 		private bool started = false;
 		private bool submitted = false;
 		private int waits = 0;
+		private bool connecting = false;
+		private bool waiting_service = false;
+		private string tip_text = "";
+		private void* restart_proc = null;
+		private bool restarting = false;
+
+		/**
+		 * Return true when another ''argus-tray.exe'' process is running.
+		 *
+		 * @return true if another tray process already exists
+		 */
+		private bool other_copy()
+		{
+			var ids = new uint32[4096];
+			var needed = (uint32) 0;
+			if (!EnumProcesses(ids, (uint32) (ids.length * 4), out needed)) {
+				return false;
+			}
+			var count = int.min((int) (needed / 4), ids.length);
+			var self = GetCurrentProcessId();
+			for (var i = 0; i < count; i++) {
+				if (ids[i] == 0 || ids[i] == self) {
+					continue;
+				}
+				var proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, ids[i]);
+				if (proc == null) {
+					continue;
+				}
+				var image = g_utf8_to_utf16(string.nfill(259, ' '));
+				var size = (uint32) 260;
+				if (!QueryFullProcessImageNameW(proc, 0, image, ref size)) {
+					CloseHandle(proc);
+					continue;
+				}
+				CloseHandle(proc);
+				try {
+					if (image.to_utf8().down().has_suffix("\\argus-tray.exe")) {
+						return true;
+					}
+				} catch (GLib.ConvertError e) {
+					continue;
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * Connect to the local Windows service and query its initial status.
+		 */
+		private async void connect_service()
+		{
+			if (this.connecting || this.rpc.connected) {
+				return;
+			}
+			this.connecting = true;
+			var ok = yield this.rpc.connect(new OLLMrpc.Request() {
+				method = "AgentService.hello",
+				args = OLLMrpc.args("is", 1, "argus-tray")
+			});
+			if (!ok) {
+				this.connecting = false;
+				this.waits++;
+				if (!this.started && this.waits >= 10) {
+					this.started = true;
+					this.present();
+				}
+				return;
+			}
+			try {
+				var resp = yield this.rpc.call(new OLLMrpc.Request() {
+					method = "AgentService.status"
+				});
+				var info = (string[]) resp.retval;
+				if (info.length >= 3) {
+					this.registered = info[0] == "1";
+					this.tip_text = info[2];
+					this.set_tip(this.tip_text);
+				}
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			this.connecting = false;
+			if (!this.started) {
+				this.started = true;
+				if (!this.registered) {
+					this.present();
+				}
+			}
+			if (this.window_up && this.registered && !this.submitted) {
+				this.registration.close();
+			}
+			if (this.window_up && !this.registered && this.waiting_service) {
+				this.waiting_service = false;
+				this.registration.show_add();
+			}
+		}
 
 		/**
 		 * Function pointer the message window calls.
@@ -80,82 +178,53 @@ namespace Argus.Agent.Win32
 		 */
 		public int run()
 		{
+			if (this.other_copy()) {
+				return 0;
+			}
 			Tray.app = this;
 			Tray.proc_slot = Tray.proc;
 			if (!this.install()) {
 				return 1;
 			}
-			try {
-				this.pipe = CreateFileW(
-					"\\\\.\\pipe\\Argus.Register".to_utf16(),
-					GENERIC_READ | GENERIC_WRITE,
-					0, null, OPEN_EXISTING, 0, null);
-			} catch (GLib.ConvertError e) {
-				this.pipe = (void*) (intptr) (-1);
-			}
-			if (this.pipe == null) {
-				this.pipe = (void*) (intptr) (-1);
-			}
-			var mode = PIPE_READMODE_MESSAGE;
-			if ((intptr) this.pipe != -1) {
-				SetNamedPipeHandleState(this.pipe, ref mode, null, null);
-			}
-			var hs = new void*[1];
-			while (true) {
-				uint32 avail = 0;
-				if ((intptr) this.pipe != -1 &&
-					!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
-					switch (GetLastError()) {
-						case ERROR_BROKEN_PIPE:
-						case 233:
-							CloseHandle(this.pipe);
-							this.pipe = (void*) (intptr) (-1);
-							break;
-						default:
-							break;
-					}
+			OLLMrpc.rpc_register();
+			this.rpc = new OLLMrpc.Client("", "", "tcp://127.0.0.1:4142");
+			this.rpc.notification.connect((notif) => {
+				if (notif.method != "agent.status" || notif.args.size < 3) {
+					return;
 				}
-				var msg = "";
-				if ((intptr) this.pipe != -1 && avail > 0) {
-					uint32 got = 0;
-					var buf = new uint8[256];
-					if (ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
-						msg = (string) buf[0:int.min((int) got, buf.length)];
-					}
-				}
-				if (msg.has_prefix("tip ")) {
-					var text = msg.substring(4).strip();
-					this.set_tip(text);
-					this.known = text == "Connected to management server";
-					if (!this.started) {
-						this.started = true;
-						this.present();
-					}
-					if (this.window_up && !this.known) {
-						this.registration.listen_label.label = text;
-					}
-				}
-				if (this.known && this.window_up && !this.submitted) {
-					this.registration.close();
-				}
-				if (!this.started && (intptr) this.pipe != -1 && !this.known && this.waits < 6) {
-					this.waits++;
-					Sleep(200);
-					continue;
-				}
+				this.registered = notif.args.get(0).get_boolean();
+				this.tip_text = notif.args.get(2).get_string();
+				this.set_tip(this.tip_text);
 				if (!this.started) {
 					this.started = true;
-					this.present();
+					if (!this.registered) {
+						this.present();
+					}
 				}
-				if (this.window_up) {
+				if (this.window_up && this.registered && !this.submitted) {
+					this.registration.close();
+				}
+				if (this.window_up && !this.registered && !this.waiting_service &&
+					this.tip_text != "Not registered") {
+					this.registration.listen_label.label = this.tip_text;
+				}
+			});
+			GLib.Timeout.add(500, () => {
+				if (!this.rpc.connected && !this.connecting) {
+					this.connect_service.begin();
+				}
+				return true;
+			});
+			this.connect_service.begin();
+			var hs = new void*[1];
+			while (true) {
+				while (GLib.MainContext.@default().iteration(false)) {
+				}
+				if (this.window_up || this.notice_up) {
 					GLib.MainContext.@default().iteration(true);
 					continue;
 				}
-				var wait_ms = INFINITE;
-				if ((intptr) this.pipe != -1) {
-					wait_ms = 1000;
-				}
-				var wr = MsgWaitForMultipleObjects(0, hs, false, wait_ms, QS_ALLINPUT);
+				var wr = MsgWaitForMultipleObjects(0, hs, false, 100, QS_ALLINPUT);
 				if (wr == WAIT_OBJECT_0 && !this.pump()) {
 					break;
 				}
@@ -216,8 +285,9 @@ namespace Argus.Agent.Win32
 				return false;
 			}
 			this.hwnd = CreateWindowExW(
-				0, g_utf8_to_utf16("ArgusAgentTray"), g_utf8_to_utf16(""),
-				0, 0, 0, 0, 0, (void*) (intptr) (-3), null, wc.instance, null);
+				WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+				g_utf8_to_utf16("ArgusAgentTray"), g_utf8_to_utf16(""),
+				WS_POPUP, 0, 0, 0, 0, null, null, wc.instance, null);
 			if (this.hwnd == null) {
 				OutputDebugStringW(g_utf8_to_utf16(
 					"argus-tray: %s (%u)\n".printf("CreateWindow", GetLastError())));
@@ -229,8 +299,8 @@ namespace Argus.Agent.Win32
 		/**
 		 * Window procedure for the tray.
 		 *
-		 * Taskbar recreate and the left-click timer are the Snappr
-		 * cases. The timer does not start another process.
+		 * Taskbar recreate, left-click status or registration,
+		 * right-click menu, and the elevated restart command.
 		 *
 		 * @param hwnd window the message was sent to
 		 * @param msg window message
@@ -254,6 +324,31 @@ namespace Argus.Agent.Win32
 					case WM_LBUTTONUP:
 						SetTimer(hwnd, 1, 150, null);
 						return 0;
+
+					case WM_RBUTTONUP:
+					case WM_CONTEXTMENU:
+						var pt = POINT();
+						GetCursorPos(out pt);
+						var menu = CreatePopupMenu();
+						AppendMenuW(menu, MF_STRING | MF_GRAYED, 0,
+							g_utf8_to_utf16("Argus RM Agent " + Argus.VERSION));
+						var status = this.tip_text != "" ? this.tip_text : "Not registered";
+						if (this.restarting) {
+							status = "Restarting agent…";
+						}
+						AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, g_utf8_to_utf16(status));
+						AppendMenuW(menu, MF_SEPARATOR, 0, null);
+						var restart_flags = this.restarting ? MF_STRING | MF_GRAYED : MF_STRING;
+						AppendMenuW(menu, restart_flags, 1001, g_utf8_to_utf16("Restart Agent"));
+						if (!this.registered) {
+							AppendMenuW(menu, MF_STRING, 1002, g_utf8_to_utf16("Register…"));
+						}
+						SetForegroundWindow(this.hwnd);
+						TrackPopupMenu(menu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, this.hwnd, null);
+						PostMessageW(this.hwnd, WM_NULL, 0, 0);
+						DestroyMenu(menu);
+						return 0;
+
 					default:
 						return 0;
 				}
@@ -262,8 +357,177 @@ namespace Argus.Agent.Win32
 				switch (wparam) {
 					case 1:
 						KillTimer(hwnd, 1);
+						if (!this.registered) {
+							this.present();
+							return 0;
+						}
+						if (!this.gtk_up) {
+							Adw.init();
+							this.gtk_up = true;
+						}
+						if (this.notice_up) {
+							this.status_notice.present(null);
+							return 0;
+						}
+						var heading = this.restarting ?
+							"Argus agent is restarting" : "Argus agent is running";
+						var detail = this.tip_text != "" ?
+							this.tip_text : "Not connected to the management server.";
+						this.status_notice = new Argus.Shared.Notice(heading, detail);
+						this.status_notice.title =
+							"Argus Remote Management Agent " + Argus.VERSION;
+						this.status_notice.add_response("close", "Close");
+						if (!this.restarting) {
+							this.status_notice.add_response("restart", "Restart");
+						}
+						this.status_notice.responded.connect((response) => {
+							if (response == "restart") {
+								PostMessageW(this.hwnd, WM_COMMAND, 1001, 0);
+							}
+						});
+						this.notice_up = true;
+						this.status_notice.closed.connect(() => {
+							this.notice_up = false;
+						});
+						this.status_notice.present(null);
+						return 0;
+
+					default:
+						break;
+				}
+			}
+			if (msg == WM_COMMAND) {
+				switch ((uint32) (wparam & 0xffff)) {
+					case 1001:
+						if (this.restarting) {
+							return 0;
+						}
+						var exe_buf = g_utf8_to_utf16(string.nfill(259, ' '));
+						if (GetModuleFileNameW(null, exe_buf, 260) == 0) {
+							return 0;
+						}
+						var exe_path = "";
+						try {
+							exe_path = exe_buf.to_utf8();
+						} catch (GLib.ConvertError e) {
+							return 0;
+						}
+						var slash = exe_path.last_index_of("\\");
+						var dir_w = g_utf8_to_utf16(slash > 0 ? exe_path.substring(0, slash) : "");
+						var verb_w = g_utf8_to_utf16("runas");
+						var params_w = g_utf8_to_utf16("--restart");
+						var sei = SHELLEXECUTEINFOW() {
+							cbSize = (uint32) sizeof(SHELLEXECUTEINFOW),
+							fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI,
+							hwnd = this.hwnd,
+							lpVerb = verb_w,
+							lpFile = exe_buf,
+							lpParameters = params_w,
+							nShow = SW_SHOWNORMAL,
+						};
+						if (slash > 0) {
+							sei.lpDirectory = dir_w;
+						}
+						if (!ShellExecuteExW(ref sei)) {
+							var err = GetLastError();
+							var title = "Could not restart the Argus agent service";
+							var detail = "Error %u.".printf(err);
+							if (err == ERROR_CANCELLED) {
+								title = "Could not request administrator access";
+								detail = "Administrator access was not granted.";
+							}
+							if (!this.gtk_up) {
+								Adw.init();
+								this.gtk_up = true;
+							}
+							if (!this.notice_up) {
+								this.status_notice = new Argus.Shared.Notice(title, detail);
+								this.status_notice.title =
+									"Argus Remote Management Agent " + Argus.VERSION;
+								this.status_notice.add_response("ok", "OK");
+								this.notice_up = true;
+								this.status_notice.closed.connect(() => {
+									this.notice_up = false;
+								});
+								this.status_notice.present(null);
+							}
+							return 0;
+						}
+						this.restarting = true;
+						this.set_tip("Restarting agent…");
+						if (sei.hProcess == null) {
+							this.restarting = false;
+							return 0;
+						}
+						this.restart_proc = sei.hProcess;
+						GLib.Timeout.add(200, () => {
+							if (this.restart_proc == null) {
+								return false;
+							}
+							if (WaitForSingleObject(this.restart_proc, 0) != WAIT_OBJECT_0) {
+								return true;
+							}
+							var code = (uint32) 1;
+							GetExitCodeProcess(this.restart_proc, (void*) (&code));
+							CloseHandle(this.restart_proc);
+							this.restart_proc = null;
+							this.restarting = false;
+							if (code == 0) {
+								this.set_tip("Argus RM Agent");
+								var info = NotifyIcon() {
+									cb_size = (uint32) sizeof(NotifyIcon),
+									hwnd = this.hwnd,
+									id = 1,
+									flags = NIF_INFO,
+									info_flags = NIIF_INFO,
+								};
+								copy_wide(&info.info_title[0], g_utf8_to_utf16("Argus RM Agent"), 63);
+								info.info_title[63] = 0;
+								copy_wide(&info.info[0],
+									g_utf8_to_utf16("The agent service has been restarted."), 255);
+								info.info[255] = 0;
+								Shell_NotifyIconW(NIM_MODIFY, &info);
+								return false;
+							}
+							this.set_tip(this.tip_text != "" ? this.tip_text : "Disconnected");
+							if (!this.gtk_up) {
+								Adw.init();
+								this.gtk_up = true;
+							}
+							if (this.notice_up) {
+								return false;
+							}
+							var detail = "Restart exited with code %u.".printf(code);
+							switch (code) {
+								case 5:
+									detail = "Administrator access was not granted.";
+									break;
+
+								case 1060:
+									detail = "The Argus agent service is not installed.";
+									break;
+
+								default:
+									break;
+							}
+							this.status_notice = new Argus.Shared.Notice(
+								"Could not restart the Argus agent service", detail);
+							this.status_notice.title =
+								"Argus Remote Management Agent " + Argus.VERSION;
+							this.status_notice.add_response("ok", "OK");
+							this.notice_up = true;
+							this.status_notice.closed.connect(() => {
+								this.notice_up = false;
+							});
+							this.status_notice.present(null);
+							return false;
+						});
+						return 0;
+
+					case 1002:
 						this.present();
 						return 0;
+
 					default:
 						break;
 				}
@@ -374,18 +638,9 @@ namespace Argus.Agent.Win32
 		 */
 		private void present()
 		{
-			if (this.known) {
+			if (this.registered) {
 				return;
 			}
-			var dir = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus");
-			var registered = GLib.Path.build_filename(dir, "ollmrpc-ca.pem");
-			if (GLib.FileUtils.test(registered, GLib.FileTest.EXISTS)) {
-				return;
-			}
-			GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
-			GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
-			GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
 			if (!this.gtk_up) {
 				Adw.init();
 				this.gtk_up = true;
@@ -398,97 +653,38 @@ namespace Argus.Agent.Win32
 			this.registration.use_pipe = true;
 			this.registration.send_pin.connect((pin, hostport) => {
 				this.submitted = true;
-				var bytes = (pin + "\n" + hostport).data;
-				var wrote = (uint32) 0;
-				for (var attempt = 0; attempt < 15; attempt++) {
-					if ((intptr) this.pipe == -1) {
-						try {
-							this.pipe = CreateFileW(
-								"\\\\.\\pipe\\Argus.Register".to_utf16(),
-								GENERIC_READ | GENERIC_WRITE,
-								0, null, OPEN_EXISTING, 0, null);
-						} catch (GLib.ConvertError e) {
-							this.pipe = (void*) (intptr) (-1);
-						}
-						if (this.pipe == null || (intptr) this.pipe == -1) {
-							this.pipe = (void*) (intptr) (-1);
-						}
-						if ((intptr) this.pipe != -1) {
-							var mode = PIPE_READMODE_MESSAGE;
-							SetNamedPipeHandleState(this.pipe, ref mode, null, null);
-						}
-					}
-					if ((intptr) this.pipe != -1 &&
-						WriteFile(this.pipe, bytes, (uint32) bytes.length, out wrote, null)) {
-						break;
-					}
-					if ((intptr) this.pipe != -1) {
-						CloseHandle(this.pipe);
-						this.pipe = (void*) (intptr) (-1);
-					}
-					Sleep(200);
-				}
-				if ((intptr) this.pipe == -1) {
+				if (!this.rpc.connected) {
 					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 					return;
 				}
-				while (true) {
-					uint32 got = 0;
-					var buf = new uint8[256];
-					if (!ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
-						this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				try {
+					var resp = this.rpc.call_sync(new OLLMrpc.Request() {
+						method = "AgentService.register",
+						args = OLLMrpc.args("ss", pin, hostport)
+					});
+					if (resp.error != null) {
+						this.registration.pipe_code = resp.error.code;
 						return;
 					}
-					var n = int.min((int) got, buf.length);
-					var msg = (string) buf[0:n];
-					if (msg.has_prefix("tip ")) {
-						this.set_tip(msg.substring(4));
-						continue;
-					}
-					var code = 0;
-					if (!int.try_parse(msg.strip(), out code)) {
-						this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-						return;
-					}
+					var code = resp.retval.get_int();
 					if (code == 0) {
-						this.known = true;
+						this.registered = true;
 					}
 					this.registration.pipe_code = code;
-					return;
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					this.registration.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				}
 			});
 			this.window_up = true;
 			this.registration.closed.connect(() => {
 				this.window_up = false;
 			});
+			this.waiting_service = true;
 			this.registration.show_add();
-			if ((intptr) this.pipe != -1) {
+			if (this.rpc.connected) {
+				this.waiting_service = false;
 				this.registration.show_add();
-			} else {
-				var window = this.registration;
-				GLib.Timeout.add(200, () => {
-					if (!this.window_up || this.registration != window) {
-						return false;
-					}
-					if ((intptr) this.pipe == -1) {
-						try {
-							this.pipe = CreateFileW(
-								"\\\\.\\pipe\\Argus.Register".to_utf16(),
-								GENERIC_READ | GENERIC_WRITE,
-								0, null, OPEN_EXISTING, 0, null);
-						} catch (GLib.ConvertError e) {
-							this.pipe = (void*) (intptr) (-1);
-						}
-						if (this.pipe == null || (intptr) this.pipe == -1) {
-							this.pipe = (void*) (intptr) (-1);
-							return true;
-						}
-						var mode = PIPE_READMODE_MESSAGE;
-						SetNamedPipeHandleState(this.pipe, ref mode, null, null);
-					}
-					this.registration.show_add();
-					return false;
-				});
 			}
 			this.registration.present(null);
 		}

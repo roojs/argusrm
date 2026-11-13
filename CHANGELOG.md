@@ -8,6 +8,37 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.19] - Unreleased
+
+### Fixed
+
+- Query and serialize agent package snapshots (`Programs`, `DebPackages`, `RpmPackages`) using the wire-registered `GType` instead of the agent subclass type.
+
+## [0.1.18] - Unreleased
+
+### Fixed
+
+- Ship GLib's `gspawn-win64-helper.exe` and `gspawn-win64-helper-console.exe` in the Windows installer so `GLib.Subprocess` can launch `msiexec.exe`, `osqueryi.exe`, and remote commands.
+
+## [0.1.17] - Unreleased
+
+### Changed
+
+- Replace the Windows tray named-pipe protocol with `OLLMrpc` over loopback TCP (`127.0.0.1:4142`) using `OLLMchat` `v1.4.12`.
+
+### Fixed
+
+- Stop the Windows tray from hanging on "Waiting for the Windows service…" after upgrades by accepting tray RPC connections before background `OSQuery` startup, enforcing single-instance tray execution, and querying service-side registration state.
+- Add right-click menu, left-click status dialog, and UAC-elevated service restart to the Windows tray icon.
+
+## [0.1.16] - Unreleased
+
+### Fixed
+
+- Start osquery initialization, startup sync, and package monitor on Windows immediately after pairing.
+- Fix package snapshot sync instantiating abstract `Package` instead of the concrete `DebPackages`, `RpmPackages`, or `Programs` row type.
+- Embed the approved Argus bird icon in Windows executables, tray icon, desktop windows, Start Menu shortcut, and NSIS installer.
+
 ## [0.1.15] - Unreleased
 
 ### Fixed

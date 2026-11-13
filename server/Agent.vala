@@ -459,10 +459,10 @@ namespace Argus.Server
 			Argus.Shared.Agent.query(this.app.db).select("LIMIT 20", rows);
 			var live = new Gee.HashMap<int, bool>();
 			foreach (var connection in this.app.ssl_listen.connections) {
-				if (!connection.running || connection.agent_id < 1) {
+				if (!connection.running || connection.user.id < 1) {
 					continue;
 				}
-				live.set((int) connection.agent_id, true);
+				live.set((int) connection.user.id, true);
 			}
 			foreach (var row in rows) {
 				row.connected = live.has_key((int) row.id);
@@ -503,7 +503,7 @@ namespace Argus.Server
 			}
 			Argus.Shared.Agent.query(this.app.db).deleteId(id);
 			foreach (var connection in this.app.ssl_listen.connections) {
-				if (connection.agent_id != id) {
+				if (connection.user.id != id) {
 					continue;
 				}
 				connection.write(new OLLMrpc.Notification() {

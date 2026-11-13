@@ -34,6 +34,7 @@ namespace Argus.Server
 			Argus.Shared.OSQuery.DebPackages.rpc_register();
 			Argus.Shared.OSQuery.RpmPackages.rpc_register();
 			Argus.Shared.OSQuery.Programs.rpc_register();
+			Argus.Shared.OSQuery.PackageUpdates.rpc_register();
 			OLLMrpc.Request.add_class(
 				"OSQuery", typeof(OSQuery),
 				"sync", "so"
@@ -65,13 +66,16 @@ namespace Argus.Server
 				return;
 			}
 			var model = (Argus.Shared.OSQuery.Row) GLib.Object.new(row_type);
-			if (!model.sync(this.app.db, connection.agent_id, rows)) {
+			if (!model.sync(this.app.db, connection.user.id, rows)) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("invalid " + name + " row")
 				});
 				return;
 			}
 			this.app.db.backupDB();
+			if (name == "OsVersion") {
+				this.app.os_update.check.begin();
+			}
 			request.reply(new OLLMrpc.Response() { 
 				msg = "ok" 
 			});

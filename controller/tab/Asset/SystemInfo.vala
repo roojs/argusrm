@@ -86,14 +86,9 @@ namespace Argus.Controller.Tab.Asset
 			}
 			this.filter.visible_text = visible;
 			var rows = new Gtk.FilterListModel(this.store, this.filter) {
-				incremental = false
+				incremental = true
 			};
-			this.grid = new Gtk.ColumnView(new Gtk.MultiSelection(rows)) {
-				hexpand = true,
-				vexpand = true,
-				show_row_separators = true
-			};
-			var group = this.column_menu();
+			var group = this.column_grid(rows, true);
 			group.action_state_changed.connect((action_name, state) => {
 				if (!text_columns.contains(action_name)) {
 					return;

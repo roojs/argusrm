@@ -114,6 +114,11 @@ namespace Argus.Server
 		public SQT.Scheduler scheduler { get; private set; }
 
 		/**
+		 * OS release catalog syncer.
+		 */
+		public OsUpdate os_update { get; private set; }
+
+		/**
 		 * Unix socket the controller uses for {@link Agent.offer}.
 		 */
 		public OLLMrpc.Transport.SocketListen listen { get; private set; }
@@ -193,6 +198,7 @@ namespace Argus.Server
 			this.db = new SQ.Database(
 				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sqlite"), true);
 			this.scheduler = new SQT.Scheduler(this);
+			this.os_update = new OsUpdate(this);
 			this.listen = new OLLMrpc.Transport.SocketListen(
 				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
 				live_handles = true
@@ -206,6 +212,7 @@ namespace Argus.Server
 			this.shutdown.connect(() => {
 				this.publish.stop();
 				this.scheduler.stop();
+				this.os_update.stop();
 				this.listen.stop();
 				this.db.backup_real();
 				this.ssl_listen.stop();
@@ -352,6 +359,7 @@ namespace Argus.Server
 			SQT.Script.rpc_register();
 			SQT.Task.rpc_register();
 			Argus.Shared.Agent.init_db(this.db);
+			Argus.Shared.OsReleases.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
 			Argus.Shared.SQT.init_db(this.db);
 			OLLMrpc.Request.register("Agent", new Agent.for_rpc(this));
@@ -426,6 +434,7 @@ namespace Argus.Server
 				return 1;
 			}
 			this.scheduler.start();
+			this.os_update.start();
 			GLib.debug("staying up");
 			this.hold();
 			return 0;

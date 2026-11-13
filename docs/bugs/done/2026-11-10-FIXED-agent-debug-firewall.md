@@ -1,6 +1,6 @@
 # Agent debug is silent, and the firewall open is not logged
 
-**Status:** ⏳ in progress
+**Status:** ✅ closed 2026-11-13. Verified all proposed changes are applied in the tree.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -77,4 +77,7 @@ Log the browse phases, the registration attempt, the published addresses, and ea
 
 - ✔️ The proposal above is in the tree. `ninja` built `agent/argusrm-agent`, `agent/argusrm-agent-gtk`, and `server/argusrm-server`.
 - ℹ️ `Avahi.ClientState.to_string()` does not compile (`GA_TYPE_CLIENT_STATE` is missing). The state log names each enum value instead.
-- ⏳ Not verified against the installed `/usr/bin` binaries. Those are still the previous build.
+
+## Next
+
+- ✅ Closed. Debug logging and firewall transition logging are in the tree.

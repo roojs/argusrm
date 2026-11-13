@@ -48,7 +48,10 @@ namespace Argus.Controller.Tab
 		 * The file is ''/argusrm/columns/'' plus {@link table}.
 		 *
 		 *  * The first row is headings. Blank lines are skipped.
-		 *  * Each row is the header, the JSON name, ''ON'' or ''off'', the width, and the format.
+		 *  * Each row is the header, the JSON name, ''ON'' or ''off'',
+		 *    the width, the format, and sort.
+		 *  * Sort is ''ON'' or ''off''. ''ON'' sorts. A missing field
+		 *    does not.
 		 *  * A hyphen in the JSON name stands in for an underscore.
 		 *  * The file order is the column order. The first column is the row header.
 		 *  * The menu stays open so several columns can be chosen.
@@ -105,6 +108,12 @@ namespace Argus.Controller.Tab
 				};
 				if (int.try_parse(parts[3].strip(), out width) && width > 0) {
 					column.fixed_width = width;
+				}
+				if (width == 0) {
+					column.expand = true;
+				}
+				if (parts.length > 5 && parts[5].strip() == "ON") {
+					column.sorter = this.column_sorter(name, format);
 				}
 				this.grid.append_column(column);
 				columns.add(column);
@@ -177,6 +186,74 @@ namespace Argus.Controller.Tab
 		}
 
 		/**
+		 * Build {@link grid} over ''model'' with sorting and column menu.
+		 *
+		 * Wraps ''model'' in a {@link Gtk.SortListModel} bound to the
+		 * grid's own sorter, then sets up {@link column_menu}.
+		 *
+		 * @param model store or filter model supplying rows
+		 * @param multi true for {@link Gtk.MultiSelection}, false for
+		 *   {@link Gtk.SingleSelection}
+		 * @return the group whose actions show and hide columns
+		 */
+		protected GLib.SimpleActionGroup column_grid(GLib.ListModel model, bool multi = false)
+		{
+			var sorted = new Gtk.SortListModel(model, null) {
+				incremental = false
+			};
+			this.grid = new Gtk.ColumnView(multi
+				? (Gtk.SelectionModel) new Gtk.MultiSelection(sorted)
+				: (Gtk.SelectionModel) new Gtk.SingleSelection(sorted)) {
+				hexpand = true,
+				vexpand = true,
+				show_row_separators = true
+			};
+			sorted.sorter = this.grid.sorter;
+			return this.column_menu();
+		}
+
+		/**
+		 * Sorter for one column, chosen from the row property's type.
+		 *
+		 *  * Numeric and boolean properties return
+		 *    {@link Gtk.NumericSorter}.
+		 *  * ''remove'' sorts by ''installed''.
+		 *  * String properties return {@link Gtk.StringSorter}
+		 *    ignoring case.
+		 *  * Returns null when the property is not on the row class yet.
+		 *
+		 * @param name JSON name. A hyphen is an underscore.
+		 * @param format column format from the CSV
+		 * @return the sorter for this column, or null when missing
+		 */
+		private Gtk.Sorter? column_sorter(string name, string format)
+		{
+			var sort_name = format == "remove" ? "installed" : name;
+			var item_type = this.grid.model.get_item_type();
+			var klass = (GLib.ObjectClass) item_type.class_ref();
+			var prop = klass.find_property(sort_name);
+			if (prop == null) {
+				return null;
+			}
+			var expr = (Gtk.Expression) new Gtk.PropertyExpression(item_type, null, sort_name);
+			switch (prop.value_type) {
+				case GLib.Type.INT:
+				case GLib.Type.INT64:
+				case GLib.Type.UINT:
+				case GLib.Type.UINT64:
+				case GLib.Type.FLOAT:
+				case GLib.Type.DOUBLE:
+				case GLib.Type.BOOLEAN:
+					return new Gtk.NumericSorter(expr);
+
+				default:
+					return new Gtk.StringSorter(expr) {
+						ignore_case = true
+					};
+			}
+		}
+
+		/**
 		 * Factory for one column format.
 		 *
 		 *  * ''text'' and ''date'' are labels.
@@ -211,9 +288,11 @@ namespace Argus.Controller.Tab
 				var item = (Gtk.ListItem) obj;
 				switch (format) {
 					case "status":
-						item.child = new Gtk.Image() {
+						item.child = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+							css_classes = { "status-dot" },
 							halign = Gtk.Align.CENTER,
-							hexpand = true
+							valign = Gtk.Align.CENTER,
+							visible = false
 						};
 						break;
 
@@ -280,7 +359,7 @@ namespace Argus.Controller.Tab
 					return;
 				}
 				var value = GLib.Value(prop.value_type);
-				((GLib.Object) row).get_property(name, ref value);
+				((GLib.Object) row).get_property(lookup, ref value);
 				var shown = "";
 				switch (prop.value_type) {
 					case GLib.Type.INT:
@@ -297,6 +376,50 @@ namespace Argus.Controller.Tab
 				}
 				switch (format) {
 					case "status":
+						var flag = -1;
+						if (prop.value_type == GLib.Type.INT) {
+							flag = value.get_int();
+						}
+						var dot = (Gtk.Box) item.child;
+						dot.remove_css_class("status-ok");
+						dot.remove_css_class("status-warn");
+						dot.remove_css_class("status-bad");
+						dot.visible = flag == 0 || flag == 1 || flag == 2;
+						switch (flag) {
+							case 1:
+								dot.add_css_class("status-ok");
+								break;
+
+							case 2:
+								dot.add_css_class("status-warn");
+								break;
+
+							case 0:
+								dot.add_css_class("status-bad");
+								break;
+
+							default:
+								break;
+						}
+						break;
+
+					case "date":
+						var stamp = (int64) 0;
+						if (prop.value_type == GLib.Type.INT64) {
+							stamp = value.get_int64();
+						}
+						if (prop.value_type == GLib.Type.INT) {
+							stamp = (int64) value.get_int();
+						}
+						var date_text = "";
+						if (stamp > 0) {
+							var when = new GLib.DateTime.from_unix_local(stamp);
+							if (when != null) {
+								var formatted = when.format("%Y-%m-%d");
+								date_text = formatted != null ? formatted : "";
+							}
+						}
+						((Gtk.Label) item.child).label = date_text;
 						break;
 
 					case "tick":

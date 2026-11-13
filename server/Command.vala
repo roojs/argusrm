@@ -199,7 +199,7 @@ namespace Argus.Server
 				return false;
 			}
 			foreach (var connection in this.app.ssl_listen.connections) {
-				if (!connection.running || connection.agent_id != agent_id) {
+				if (!connection.running || connection.user.id != agent_id) {
 					continue;
 				}
 				var now = new GLib.DateTime.now_local();
@@ -270,7 +270,7 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier.to_string() + ".stdin";
+			var name = Command.agents.get(identifier).user.id.to_string() + "-" + identifier.to_string() + ".stdin";
 			var path = GLib.Path.build_filename(Command.logs.get(identifier), name);
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
@@ -311,13 +311,13 @@ namespace Argus.Server
 				return;
 			}
 			var caller = request.connection as Net.SslConnection;
-			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
+			if (caller == null || caller.user.id != Command.agents.get(identifier).user.id) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
-			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier.to_string() + ".stdout";
+			var name = Command.agents.get(identifier).user.id.to_string() + "-" + identifier.to_string() + ".stdout";
 			var path = GLib.Path.build_filename(Command.logs.get(identifier), name);
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
@@ -359,13 +359,13 @@ namespace Argus.Server
 				return;
 			}
 			var caller = request.connection as Net.SslConnection;
-			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
+			if (caller == null || caller.user.id != Command.agents.get(identifier).user.id) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});
 				return;
 			}
-			var name = Command.agents.get(identifier).agent_id.to_string() + "-" + identifier.to_string() + ".stderr";
+			var name = Command.agents.get(identifier).user.id.to_string() + "-" + identifier.to_string() + ".stderr";
 			var path = GLib.Path.build_filename(Command.logs.get(identifier), name);
 			var stream = GLib.FileStream.open(path, "a");
 			if (stream == null) {
@@ -407,7 +407,7 @@ namespace Argus.Server
 				return;
 			}
 			var caller = request.connection as Net.SslConnection;
-			if (caller == null || caller.agent_id != Command.agents.get(identifier).agent_id) {
+			if (caller == null || caller.user.id != Command.agents.get(identifier).user.id) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
 				});

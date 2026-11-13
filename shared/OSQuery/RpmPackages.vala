@@ -25,6 +25,11 @@ namespace Argus.Shared.OSQuery
 	{
 		private static SQ.Database db;
 
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_packages<RpmPackages>(db, agent_id, rows);
+		}
+
 		public override string pkg_name() { return this.name + "\n" + this.arch; }
 
 		public override string table_name() { return "rpm_packages"; }
@@ -54,15 +59,27 @@ namespace Argus.Shared.OSQuery
 					epoch         INTEGER NOT NULL DEFAULT 0,
 					install_time  INT64 NOT NULL DEFAULT 0,
 					vendor        TEXT NOT NULL DEFAULT '',
-					package_group    TEXT NOT NULL DEFAULT '',
-					update_available INTEGER NOT NULL DEFAULT 0
+					package_group TEXT NOT NULL DEFAULT ''
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("rpm_packages create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "rpm_packages");
-			db.db.exec("ALTER TABLE rpm_packages ADD COLUMN update_available INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+			var idx_query = """
+				CREATE INDEX IF NOT EXISTS rpm_packages_deleted_name_agent
+				ON rpm_packages (deleted_dt, name, agent_id);
+				""";
+			if (Sqlite.OK != db.db.exec(idx_query, null, out errmsg)) {
+				GLib.warning("rpm_packages index failed: %s", db.db.errmsg());
+			}
+			var idx_agent = """
+				CREATE INDEX IF NOT EXISTS rpm_packages_agent
+				ON rpm_packages (agent_id);
+				""";
+			if (Sqlite.OK != db.db.exec(idx_agent, null, out errmsg)) {
+				GLib.warning("rpm_packages agent index failed: %s", db.db.errmsg());
+			}
 		}
 
 		/**
@@ -131,37 +148,62 @@ namespace Argus.Shared.OSQuery
 					""".printf(since, since, since), rows);
 			}
 			if (since <= 0 && agent_id > 0) {
-				query.select("""
+				query.selectQuery("""
+					SELECT
+						%s,
+						COALESCE(package_updates.since, 0) AS update_since
+					FROM
+						rpm_packages
+					LEFT JOIN
+						package_updates
+					ON
+						package_updates.agent_id = rpm_packages.agent_id
+					AND
+						package_updates.name = rpm_packages.name
 					WHERE
-						agent_id = %d
+						rpm_packages.agent_id = %d
 					AND
-						deleted_dt = 0
-					AND
-						agent_id IN (SELECT id FROM agent)
-					""".printf(agent_id), rows);
+						rpm_packages.deleted_dt = 0
+					""".printf(
+						string.joinv(", ", query.getColsExcept(null, "rpm_packages.")),
+						agent_id), rows);
 			}
 			if (since <= 0 && agent_id <= 0) {
 				query.selectQuery("""
 					SELECT
-						name,
-						GROUP_CONCAT(DISTINCT NULLIF(arch, '')) AS arch,
-						GROUP_CONCAT(DISTINCT NULLIF(package_group, '')) AS package_group,
-						GROUP_CONCAT(DISTINCT NULLIF(source, '')) AS source,
-						GROUP_CONCAT(DISTINCT NULLIF(vendor, '')) AS vendor,
-						MIN(epoch || ':' || version || '-' || release) AS min_version,
-						MAX(epoch || ':' || version || '-' || release) AS max_version,
-						MAX(size) AS max_size,
-						COUNT(DISTINCT agent_id) AS installed
+						rpm_packages.name AS name,
+						GROUP_CONCAT(DISTINCT NULLIF(rpm_packages.arch, '')) AS arch,
+						GROUP_CONCAT(DISTINCT NULLIF(rpm_packages.package_group, '')) AS package_group,
+						GROUP_CONCAT(DISTINCT NULLIF(rpm_packages.source, '')) AS source,
+						GROUP_CONCAT(DISTINCT NULLIF(rpm_packages.vendor, '')) AS vendor,
+						MIN(rpm_packages.epoch || ':' || rpm_packages.version || '-' || rpm_packages.release) AS min_version,
+						MAX(rpm_packages.epoch || ':' || rpm_packages.version || '-' || rpm_packages.release) AS max_version,
+						MAX(rpm_packages.size) AS max_size,
+						COUNT(DISTINCT rpm_packages.agent_id) AS installed,
+						COALESCE(pkg_updates.update_since, 0) AS update_since
 					FROM
 						rpm_packages
+					LEFT JOIN (
+						SELECT
+							name,
+							MIN(since) AS update_since
+						FROM
+							package_updates
+						WHERE
+							agent_id IN (SELECT id FROM agent)
+						GROUP BY
+							name
+					) AS pkg_updates
+					ON
+						pkg_updates.name = rpm_packages.name
 					WHERE
-						agent_id IN (SELECT id FROM agent)
+						rpm_packages.deleted_dt = 0
 					AND
-						deleted_dt = 0
+						rpm_packages.agent_id IN (SELECT id FROM agent)
 					GROUP BY
-						name
+						rpm_packages.name
 					ORDER BY
-						name
+						rpm_packages.name
 					""", rows);
 			}
 			request.reply(new OLLMrpc.Response() {
@@ -188,11 +230,12 @@ namespace Argus.Shared.OSQuery
 		public string vendor { get; set; default = ""; }
 		public string package_group { get; set; default = ""; }
 		/**
-		 * A newer candidate is already on this host.
+		 * Earliest unix time an update for this package has been waiting.
 		 *
-		 * ''1'' when an update is waiting. ''0'' when not.
+		 * Filled by ''list'' from ''package_updates''. Zero when none.
+		 * Not stored on ''rpm_packages''.
 		 */
-		public int update_available { get; set; default = 0; }
+		public int update_since { get; set; default = 0; }
 		/**
 		 * Lowest epoch, version, and release for this name.
 		 * The cell is epoch, version, and release. Filled by

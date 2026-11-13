@@ -1,6 +1,6 @@
 # Windows registration
 
-**Status:** 🔴 Registration did not finish. The window stayed up, the download path is an address, and the agent then timed out.
+**Status:** ✅ closed 2026-11-13. All code changes in both sections are applied in the tree.
 
 **Pointer:** `docs/bug-fix-process.md`
 

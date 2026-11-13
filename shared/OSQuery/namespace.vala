@@ -24,6 +24,7 @@ namespace Argus.Shared.OSQuery
 		DebPackages.init_db(db);
 		RpmPackages.init_db(db);
 		Programs.init_db(db);
+		PackageUpdates.init_db(db);
 	}
 
 }

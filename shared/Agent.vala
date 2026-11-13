@@ -214,6 +214,43 @@ namespace Argus.Shared
 		}
 
 		/**
+		 * Caller row for an inbound RPC request.
+		 *
+		 * The Unix socket has no certificate and returns a local
+		 * controller with ''id'' zero. A TLS caller returns the
+		 * active ''Agent'' attached to the connection (or queries
+		 * ''agent'' by fingerprint when unattached), or an empty
+		 * inactive row if none matches.
+		 *
+		 * @param request inbound RPC request
+		 * @return caller ''Agent'' row
+		 */
+		public static Agent user(OLLMrpc.Request request)
+		{
+			if (request.connection.cert_fingerprint == "") {
+				return new Agent() {
+					status = 1,
+					is_controller = true
+				};
+			}
+			var caller = request.connection.get_data<Agent>("argus-user");
+			if (caller != null) {
+				return caller;
+			}
+			var rows = new Gee.ArrayList<Agent>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			text_binds.set("fingerprint", request.connection.cert_fingerprint);
+			Agent.query(Agent.db).selectWhere(
+				"WHERE fingerprint = $fingerprint AND status = 1",
+				int_binds, text_binds, rows);
+			if (rows.size > 0) {
+				return rows.get(0);
+			}
+			return new Agent();
+		}
+
+		/**
 		 * Validate that an RPC request came from a controller.
 		 *
 		 * The Unix socket has no certificate and is the local controller.
@@ -225,17 +262,8 @@ namespace Argus.Shared
 		 */
 		public static bool is_a_controller(OLLMrpc.Request request)
 		{
-			if (request.connection.cert_fingerprint == "") {
-				return true;
-			}
-			var rows = new Gee.ArrayList<Agent>();
-			var int_binds = new Gee.HashMap<string, int>();
-			var text_binds = new Gee.HashMap<string, string>();
-			text_binds.set("fingerprint", request.connection.cert_fingerprint);
-			Agent.query(Agent.db).selectWhere(
-				"WHERE fingerprint = $fingerprint AND status = 1 AND is_controller = 1",
-				int_binds, text_binds, rows);
-			if (rows.size > 0) {
+			var caller = Agent.user(request);
+			if (caller.status == 1 && caller.is_controller) {
 				return true;
 			}
 			request.reply(new OLLMrpc.Response() {

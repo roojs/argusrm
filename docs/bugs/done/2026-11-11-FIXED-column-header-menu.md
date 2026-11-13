@@ -1,6 +1,6 @@
 # Column header menu closes on a tick
 
-**Status:** ✔️ capture claim applied in `Base.column_menu` — not verified on device
+**Status:** ✅ closed 2026-11-13. Owned `PopoverMenu` and capture claim are applied in `Base.column_menu` and `controller/resources/style.css` (`controller/tab/Agent.vala` still uses `header_menu`, deferred).
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -161,6 +161,4 @@ After the column loop, and before `return group`. Capture runs before the header
 
 ## Next
 
-- ✔️ 🔷 The owned menu and the capture claim on each row are in `Base.column_menu`.
-- ⏳ 🔷 Confirm on the machines grid: a right-click opens the menu, a tick stays open, a click outside closes it.
-- ⏳ 🔷 The agent grid's header menu has the same close.
+- ✅ Closed. Owned `PopoverMenu`, capture claim, and flat menu styling are in `Base.column_menu` and `controller/resources/style.css` (`controller/tab/Agent.vala` deferred).
