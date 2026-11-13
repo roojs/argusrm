@@ -1,0 +1,11 @@
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+
+Name,name,ON,220,text,ON
+Version,version,ON,120,text,ON
+Publisher,publisher,ON,180,text,ON
+Install date,install-date,ON,110,text,ON
+Language,language,off,80,text,ON
+Identifying number,identifying-number,off,220,text,ON
+Install location,install-location,off,200,text,ON
+Install source,install-source,off,200,text,ON
+Uninstall string,uninstall-string,off,220,text,ON

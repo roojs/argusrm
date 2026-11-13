@@ -109,6 +109,22 @@ namespace Argus.Controller
 				css_classes = { "title" }
 			};
 			header.title_widget = this.title_label;
+			var logo = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+				width_request = 34,
+				height_request = 34,
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
+			logo.append(new Gtk.Image() {
+				icon_name = "org.roojs.ArgusController",
+				pixel_size = 24,
+				hexpand = true,
+				vexpand = true,
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			});
+			header.pack_start(logo);
+			header.pack_end(new About());
 			this.pairing_dialog = new Dialog.Pairing(this);
 			var actions = new GLib.SimpleActionGroup();
 			this.deregister_action = new GLib.SimpleAction("deregister", null);
@@ -157,6 +173,10 @@ namespace Argus.Controller
 			var repository = new Tab.Repository(this);
 			for (var i = 0; i < tabs.keys.length; i++) {
 				var key = tabs.keys[i];
+				if (key == "dashboard") {
+					pages.add_named(new Tab.Dashboard(this), key);
+					continue;
+				}
 				if (key == "agents") {
 					pages.add_named(agent, key);
 					continue;
@@ -167,6 +187,10 @@ namespace Argus.Controller
 				}
 				if (key == "assets") {
 					pages.add_named(new Tab.Assets(this), key);
+					continue;
+				}
+				if (key == "tasks") {
+					pages.add_named(new Tab.Tasks(this), key);
 					continue;
 				}
 				pages.add_named(new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {

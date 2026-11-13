@@ -1,8 +1,8 @@
 # Column headers do not sort
 
-**Status:** ⏳ sections 1–6 applied; `Agent` & `Repository` migration + UI verify open
+**Status:** ⏳ `column_sorter()` unwrap inlined and ready to verify; `Agent` & `Repository` split to [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md)
 
-**Pointer:** `docs/bug-fix-process.md`
+**Pointer:** `docs/bug-fix-process.md`, `docs/bugs/2026-11-13-agent-repository-column-sort.md`
 
 ---
 
@@ -11,44 +11,41 @@
 - 🔷 A left click on a column header sorts that column.
 - 🔷 The next click on that header reverses the order.
 - 🔷 The order is the column's value. A size sorts by its byte count. A count sorts by the count.
-- ℹ️ The grids are Machines, Debian, RPM, Windows, Agents, and Repositories.
+- ℹ️ The grids in scope here are Machines, Debian, RPM, and Windows. Agents and Repositories were split to [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md).
 
 ## Evidence
 
-- ✔️ `controller/tab/Base.vala` builds each `Gtk.ColumnViewColumn` with `resizable` and `visible` only. `column.sorter` is never set.
-- ✔️ `controller/tab/Agent.vala` and `controller/tab/Repository.vala` do the same.
-- ✔️ No grid wraps its rows in a `Gtk.SortListModel`. Machines and Debian put a `Gtk.FilterListModel` straight into the selection. RPM and Windows put the store straight in. Agents and Repositories do too.
+- ✔️ `controller/tab/Base.vala` originally built each `Gtk.ColumnViewColumn` with `resizable` and `visible` only (`column.sorter` never set), and no grid wrapped its rows in a `Gtk.SortListModel`.
+- ✔️ After sections 1–6 landed, clicking any column header on Machines, Debian, RPM, or Windows still showed no sort indicator and did not sort.
+- ✔️ `/tmp/probe_sort.vala` (`valac --pkg gtk4`) proved why:
+  - `Gtk.SingleSelection.get_item_type()`, `Gtk.MultiSelection.get_item_type()`, `Gtk.SortListModel.get_item_type()`, and `Gtk.FilterListModel.get_item_type()` all return `GObject` (`GLib.Type.OBJECT`), NOT the underlying store's row type (`Row`).
+  - `column_sorter()` called `this.grid.model.get_item_type()` and `klass.find_property(sort_name)` on `GObject`, so `prop` was always `null` and `column.sorter` was never set on any column.
+  - Unwrapping `Gtk.SingleSelection` / `Gtk.MultiSelection` / `Gtk.SortListModel` / `Gtk.FilterListModel` down to the underlying store yields `Row`, `find_property()` resolves `min-version` / `max-size` / `installed`, and `grid.sort_by_column(...)` sets `column.sorter` and sorts `Gtk.SortListModel` numerically and alphabetically.
 - ℹ️ `Gtk.ColumnView.sorter` is the view's own `Gtk.ColumnViewSorter`. A header click changes it only when that column's `sorter` is set. The rows move only when a `Gtk.SortListModel` uses that sorter.
 - ℹ️ The column menu gesture in `Base.column_menu` listens for the secondary button. A left click on a header is not that gesture.
-- ✔️ Agents. Remove walks `this.store` by index and asks `this.selection.is_selected` with that same index. Those indexes match only while the selection model's order is the store's order.
 - ℹ️ `os-updated` and `os-status` exist on `Argus.Shared.OSQuery.SystemInfo`; `pkgs-updated` and `pkgs-status` are not on the row class yet and await [5.10](../plans/5.10-data-enrichment.md).
-- 💩 The running controller was not clicked for this.
 
 ## Root cause
 
-- ✔️ A header sorts only when the column has a `sorter` and the selection model is a `Gtk.SortListModel` of `grid.sorter`. Neither is wired.
+- ✔️ Two causes:
+  1. Neither `column.sorter` nor `Gtk.SortListModel` was wired originally (fixed in sections 1–6).
+  2. `Base.column_sorter()` inspected `this.grid.model.get_item_type()`, which returns `GObject` on GTK4 selection/filter/sort wrapper models, so `klass.find_property()` always returned `null` and left `column.sorter` unset on every column.
 
 ## Proposed fix
 
 - 🔷 The header click and the arrow stay GTK's. A column with Sort `ON` is given a `sorter`. The rows sit in a `Gtk.SortListModel` whose sorter is the view's sorter.
 - 🔷 Sort is the sixth field of the column CSV. `ON` sorts. `off` does not. The format does not decide.
 - 🔷 A missing Sort field does not sort.
-- 🔷 `Base` provides `column_sorter` (inspects the row property's `GLib.Type` once per column via `this.grid.model.get_item_type()` and returns a `Gtk.NumericSorter` or `Gtk.StringSorter` rather than checking types on every comparison) and `column_grid` (wraps `SortListModel`, builds `this.grid`, and calls `column_menu`).
-- 🔷 All six grids (`Machines`, `Debian`, `RPM`, `Windows`, `Agents`, `Repositories`) use `Base` and column CSV files rather than hardcoding column sorters per grid.
+- 🔷 `Base` provides `column_sorter` (unwraps GTK selection/sort/filter wrapper models inline to the store's `GLib.Type`, inspects the row property's `GLib.Type` once per column, and returns a `Gtk.NumericSorter` or `Gtk.StringSorter` rather than checking types on every comparison) and `column_grid` (wraps `SortListModel`, builds `this.grid`, and calls `column_menu`).
 - 💩 OS status and S/W status start `off`. Every other column in the four asset CSVs starts `ON`.
 - 💩 Text and versions sort as text, A–Z, ignoring case. `1.10` stays before `1.9`. An address sorts as text.
-- 💩 An `int`, `int64`, or `bool` property sorts by its underlying value (`bytes` by byte count, `remove` by `installed`, `Agent` `created` / `last-connected` by unix timestamp rather than formatted `"HH:MM"` strings).
+- 💩 An `int`, `int64`, or `bool` property sorts by its underlying value (`bytes` by byte count, `remove` by `installed`).
 - ℹ️ `os-updated` and `pkgs-updated` are `ON`. `os-updated` is filled from `os_releases`; `pkgs-updated` awaits [5.10](../plans/5.10-data-enrichment.md).
 - 🔷 The row filter stays under the sort. A filtered grid sorts the rows that are showing.
-- 🔷 Agents. Remove reads `this.grid.model` (the `Gtk.MultiSelection` over `SortListModel`), so a sorted row is the row that was ticked.
-- 💩 Open points to confirm before applying to `Agent` and `Repository`:
-  - 💩 `Base.column_menu()` currently claims every secondary click on `this.grid` in `CAPTURE` phase; on `Agent`, right-clicking a row must still open the row `Remove` menu, so `Base` must restrict the column menu to header clicks (needs a GTK4 header-pick probe per `docs/bug-fix-process.md`) or let `Agent` opt out.
-  - 💩 `Base` sets `column.expand = true` when the CSV width field is `0` (for `Agent` and `Repository` columns that currently expand).
-  - 💩 `Agent` live updates (`Store.Agent` mutates `status`, `last_connected`, `connected` in place without `items_changed`), `Kind` `"argus-this-controller"` CSS highlight, `recent-date` (`%H:%M` today, `%Y-%m-%d` otherwise), and `Repository` `name == ""` fallback / `"dim-label"` styling need small `Base` / model support or explicit approval.
+- ℹ️ Agents and Repositories column sorting split to [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md).
 - 🚫 A sort of the store itself.
 - 🚫 A version comparer, or a sort of the painted label.
-- 🚫 Deciding sort from the format. `status` and `tick` are not a special case in code.
-- 🚫 Hardcoding `column.sorter` column-by-column in `Agent.vala` and `Repository.vala`.
+- 🚫 Deciding sort from the format. `status` is not a special case in code.
 
 ### 1. Column files
 
@@ -156,30 +153,6 @@ Installed,installed,ON,80,number,ON
 Uninstall,uninstall-count,ON,80,bin,ON
 ```
 
-- 💩 `controller/resources/columns/agent.csv` (and add to `controller/resources/argusrm.gresource.xml`):
-
-```
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
-
-Hostname,display-name,ON,0,text,ON
-Address,ip,ON,0,text,ON
-User,username,ON,0,text,ON
-Kind,display-kind,ON,0,text,ON
-Registered,status,off,90,tick,ON
-Registered on,created,ON,0,recent-date,ON
-Connected,connected,ON,90,tick,ON
-Last connected,last-connected,ON,0,recent-date,ON
-```
-
-- 💩 `controller/resources/columns/repository.csv` (and add to `controller/resources/argusrm.gresource.xml`):
-
-```
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
-
-Name,name,ON,0,text,ON
-URL,url,ON,0,text,ON
-```
-
 ### 2. `controller/tab/Base.vala` — `column_menu`, `column_sorter`, `column_grid`
 
 The row description names the sort field.
@@ -262,7 +235,27 @@ Add `column_sorter` and `column_grid` helper methods to `Base`:
 			if (format == "remove") {
 				sort_name = "installed";
 			}
-			var item_type = this.grid.model.get_item_type();
+			var model = (GLib.ListModel) this.grid.model;
+			while (true) {
+				if (model is Gtk.SingleSelection) {
+					model = ((Gtk.SingleSelection) model).model;
+					continue;
+				}
+				if (model is Gtk.MultiSelection) {
+					model = ((Gtk.MultiSelection) model).model;
+					continue;
+				}
+				if (model is Gtk.SortListModel) {
+					model = ((Gtk.SortListModel) model).model;
+					continue;
+				}
+				if (model is Gtk.FilterListModel) {
+					model = ((Gtk.FilterListModel) model).model;
+					continue;
+				}
+				break;
+			}
+			var item_type = model.get_item_type();
 			var klass = (GLib.ObjectClass) item_type.class_ref();
 			var prop = klass.find_property(sort_name);
 			if (prop == null) {
@@ -367,41 +360,16 @@ Same wrap via `this.column_grid(rows, true)`. The selection stays a `Gtk.MultiSe
 			this.column_grid(this.store);
 ```
 
-### 7. `controller/tab/Agent.vala` (💩 migrate to `Base` + `agent.csv`)
-
-- 💩 Replace hardcoded columns, `header_menu`, and `Gtk.ColumnView` construction with `Argus.Controller.Tab.Base` (`table: "agent"`) and `this.column_grid(this.store, true)`.
-- 💩 Prerequisites to resolve before writing the exact hunks:
-  - 💩 Restrict `Base.column_menu()`'s secondary-click capture to header widgets (verified with a quick GTK4 probe) so right-clicking a row still opens `Agent`'s `Remove` menu.
-  - 💩 Decide how `Base.column_factory()` handles `Agent`'s `recent-date` (`%H:%M` today, `%Y-%m-%d` otherwise), `tick` (`status == 1` / `connected` bool), live updates when `Store.Agent.load()` mutates rows in place, `argus-agent-row` lookup, and the `"argus-this-controller"` CSS highlight on `Kind`.
-- 🔷 Remove reads `this.grid.model` (`Gtk.MultiSelection`) instead of `this.store`, so a sorted row is the row that was ticked:
-
-```vala
-				var selection = (Gtk.MultiSelection) this.grid.model;
-				var count = (int) selection.get_n_items();
-				for (var i = 0; i < count; i++) {
-					if (!selection.is_selected((uint) i)) {
-						continue;
-					}
-					var row = selection.get_item((uint) i) as Argus.Shared.Agent;
-```
-
-### 8. `controller/tab/Repository.vala` (💩 migrate to `Base` + `repository.csv`)
-
-- 💩 Inherit `Argus.Controller.Tab.Base` (`table: "repository"`) and call `this.column_grid(this.store)` instead of hardcoding `name_column.sorter` and `url_column.sorter`.
-- 💩 Set `autoselect = false` and `can_unselect = true` on `(Gtk.SingleSelection) this.grid.model`.
-- 💩 Prerequisites to confirm before writing the exact hunks:
-  - 💩 `ScriptRepository.display_name` (or fallback to `url` when `name == ""`) and `"dim-label"` on `URL`.
-
 ## Attempts
 
 - ✔️ Applied sections 1–6: added the `Sort` field to `system_info.csv`, `deb_packages.csv`, `rpm_packages.csv`, and `programs.csv`; added `column_grid` and `column_sorter` (`Gtk.NumericSorter` / `Gtk.StringSorter` chosen by `GLib.Type`) plus `width == 0` expand and CSV sort wiring to `controller/tab/Base.vala`; updated `DebPackages.vala`, `SystemInfo.vala`, `Programs.vala`, and `RpmPackages.vala` to call `this.column_grid(...)`.
 - ✔️ Built `ninja -C build controller/argusrm-controller` and `ninja -C build docs/valadoc` with zero new warnings.
-- ℹ️ Sections 7 (`Agent.vala`) and 8 (`Repository.vala`) are not applied yet because their `💩` migration prerequisites (`Base` header-only right-click vs row `Remove` menu, `recent-date` / `tick` / live updates / CSS styling) are unconfirmed.
+- ✔️ Diagnosed why headers still showed no sort indicator on the new controller: `/tmp/probe_sort.vala` proved `Gtk.SingleSelection`, `Gtk.MultiSelection`, `Gtk.SortListModel`, and `Gtk.FilterListModel` all return `GObject` from `get_item_type()`, so `column_sorter()` never found any row property and left `column.sorter == null`.
+- ✔️ Split sections 7 (`Agent`) and 8 (`Repository`) out into [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md).
+- ✔️ Inlined model unwrapping directly inside `column_sorter()` in `controller/tab/Base.vala` (removed the unapproved helper method).
 
 ## Next
 
-- ⏳ 🔷 Confirm whether `Agent` and `Repository` should migrate to `Base` + `agent.csv` / `repository.csv` as part of this fix (and resolve the `💩` open points above).
-- ⏳ 🔷 Run a GTK4 probe if `Base.column_menu()` needs header-only right-click detection for `Agent`.
 - ⏳ 🔷 Click a header whose Sort field is `ON` on Machines, Debian, RPM, and Windows. The rows reverse on the next click, and the arrow follows. OS status does not sort.
 - ⏳ 🔷 Click Installed and Max size. The order is numeric.
-- ⏳ 🔷 Sort, then remove a ticked agent (once sections 7–8 are applied). The removed row is the one that was ticked.
+- ⏳ 🔷 Move to `docs/bugs/done/2026-11-11-FIXED-column-sort.md` once user verifies on the running controller.

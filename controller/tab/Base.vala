@@ -171,6 +171,15 @@ namespace Argus.Controller.Tab
 				propagation_phase = Gtk.PropagationPhase.CAPTURE
 			};
 			open.pressed.connect((n_press, x, y) => {
+				var picked = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
+				while (picked != null && picked != this.grid &&
+					picked.get_data<Gtk.ListItem>("argus-grid-row") == null) {
+					picked = picked.parent;
+				}
+				if (picked != null && picked != this.grid) {
+					open.set_state(Gtk.EventSequenceState.DENIED);
+					return;
+				}
 				open.set_state(Gtk.EventSequenceState.CLAIMED);
 				var where = Gdk.Rectangle() {
 					x = (int) x,
@@ -229,7 +238,27 @@ namespace Argus.Controller.Tab
 		private Gtk.Sorter? column_sorter(string name, string format)
 		{
 			var sort_name = format == "remove" ? "installed" : name;
-			var item_type = this.grid.model.get_item_type();
+			var model = (GLib.ListModel) this.grid.model;
+			while (true) {
+				if (model is Gtk.SingleSelection) {
+					model = ((Gtk.SingleSelection) model).model;
+					continue;
+				}
+				if (model is Gtk.MultiSelection) {
+					model = ((Gtk.MultiSelection) model).model;
+					continue;
+				}
+				if (model is Gtk.SortListModel) {
+					model = ((Gtk.SortListModel) model).model;
+					continue;
+				}
+				if (model is Gtk.FilterListModel) {
+					model = ((Gtk.FilterListModel) model).model;
+					continue;
+				}
+				break;
+			}
+			var item_type = model.get_item_type();
 			var klass = (GLib.ObjectClass) item_type.class_ref();
 			var prop = klass.find_property(sort_name);
 			if (prop == null) {
@@ -346,10 +375,20 @@ namespace Argus.Controller.Tab
 						};
 						break;
 				}
+				item.child.set_data("argus-grid-row", item);
 			});
 			factory.bind.connect((obj) => {
 				var item = (Gtk.ListItem) obj;
 				var row = (GLib.Object) item.item;
+				item.child.remove_css_class("dim-label");
+				var dim_prop = row.get_class().find_property("dimmed");
+				if (dim_prop != null && dim_prop.value_type == GLib.Type.BOOLEAN) {
+					var dim_val = GLib.Value(GLib.Type.BOOLEAN);
+					row.get_property("dimmed", ref dim_val);
+					if (dim_val.get_boolean()) {
+						item.child.add_css_class("dim-label");
+					}
+				}
 				var lookup = name;
 				if (format == "remove") {
 					lookup = "installed";
