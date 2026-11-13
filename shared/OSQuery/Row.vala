@@ -147,13 +147,22 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * Database identity is assigned by the server, not sent by the agent.
+		 * Omit server-assigned fields on the wire.
 		 */
 		public override void bin_write_prop(
 			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop) throws GLib.Error
 		{
-			if (prop.name == "id" || prop.name == "agent-id") {
-				return;
+			switch (prop.name) {
+				// Database identity assigned by the server.
+				case "id":
+				case "agent-id":
+				// Server-checked OS fields on OsVersion.
+				case "os-updated":
+				case "os-status":
+					return;
+
+				default:
+					break;
 			}
 			this.bin_default_write_prop(ctx, prop);
 		}

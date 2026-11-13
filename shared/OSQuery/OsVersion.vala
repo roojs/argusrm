@@ -35,14 +35,68 @@ namespace Argus.Shared.OSQuery
 	/**
 	 * One ''os_version'' row.
 	 *
-	 * This is the operating system on the agent. Assets treats
-	 * it as software, not as a column on the machine.
+	 * Each registered agent stores one operating-system row,
+	 * joined onto {@link SystemInfo.list} for the Machines
+	 * page.
 	 */
 	public class OsVersion : Row
 	{
+		/**
+		 * Store one agent's ''os_version'' row.
+		 *
+		 * Each agent has one operating-system row. A snapshot
+		 * that does not carry a single {@link OsVersion} is
+		 * rejected. Stored package check fields stay, and
+		 * stored OS check fields stay while ''platform'',
+		 * ''version'', and ''codename'' match.
+		 *
+		 * @param db Argus database
+		 * @param agent_id registered agent
+		 * @param rows single-row ''os_version'' snapshot
+		 * @return true when ''rows'' has one ''OsVersion'' row
+		 */
 		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
 		{
-			return this.sync_rows<OsVersion>(db, agent_id, rows, "os_version", { "name", "arch" });
+			if (rows.size != 1 || rows.get(0).get_type() != typeof(OsVersion)) {
+				return false;
+			}
+			var newer = (OsVersion) rows.get(0);
+			newer.agent_id = agent_id;
+			var query = new SQ.Query<OsVersion>(db, "os_version");
+			var stored = new Gee.ArrayList<OsVersion>();
+			var int_binds = new Gee.HashMap<string, int>();
+			int_binds.set("agent_id", (int) agent_id);
+			query.selectWhere("WHERE agent_id = $agent_id", int_binds, null, stored);
+			var now = (int) new GLib.DateTime.now_utc().to_unix();
+			if (stored.size == 0) {
+				newer.id = 0;
+				newer.added_dt = now;
+				newer.updated_dt = 0;
+				newer.deleted_dt = 0;
+				query.insert(newer);
+				return true;
+			}
+			var old = stored.get(0);
+			if (old.deleted_dt == 0 && old.compare(newer)) {
+				return true;
+			}
+			var updated = new OsVersion();
+			updated.copy_from(old, {});
+			string[] keep = {
+				"id", "added-dt", "updated-dt", "deleted-dt",
+				"pkgs-updated", "pkgs-status"
+			};
+			if (old.platform == newer.platform &&
+				old.version == newer.version &&
+				old.codename == newer.codename) {
+				keep += "os-updated";
+				keep += "os-status";
+			}
+			updated.copy_from(newer, keep);
+			updated.deleted_dt = 0;
+			updated.updated_dt = now;
+			query.updateOld(old, updated);
+			return true;
 		}
 
 		public override string table_name() { return "os_version"; }
@@ -71,16 +125,22 @@ namespace Argus.Shared.OSQuery
 					platform_like TEXT NOT NULL DEFAULT '',
 					codename      TEXT NOT NULL DEFAULT '',
 					arch              TEXT NOT NULL DEFAULT '',
-					pkgs_updated   INTEGER NOT NULL DEFAULT 0,
-					pkgs_status    INTEGER NOT NULL DEFAULT 0
+					os_updated      INTEGER NOT NULL DEFAULT 0,
+					os_status       INTEGER NOT NULL DEFAULT 0,
+					pkgs_updated    INTEGER NOT NULL DEFAULT 0,
+					pkgs_status     INTEGER NOT NULL DEFAULT 0,
+					reboot_required INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("os_version create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "os_version");
+			db.db.exec("ALTER TABLE os_version ADD COLUMN os_updated INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+			db.db.exec("ALTER TABLE os_version ADD COLUMN os_status INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_updated INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_status INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+			db.db.exec("ALTER TABLE os_version ADD COLUMN reboot_required INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 		}
 
 		/**
@@ -113,6 +173,26 @@ namespace Argus.Shared.OSQuery
 		 * ''1'' when they are. ''0'' when an update is waiting.
 		 */
 		public int pkgs_status { get; set; default = 0; }
+		/**
+		 * Unix time the server last checked whether this OS release
+		 * is current.
+		 *
+		 * ''0'' means that check has not happened.
+		 */
+		public int os_updated { get; set; default = 0; }
+		/**
+		 * Operating-system release is up to date.
+		 *
+		 * ''1'' when current. ''0'' when not. ''-1'' when the
+		 * release file did not list this release.
+		 */
+		public int os_status { get; set; default = 0; }
+		/**
+		 * A system restart is waiting on this host.
+		 *
+		 * ''1'' when waiting. ''0'' when not.
+		 */
+		public int reboot_required { get; set; default = 0; }
 
 		/**
 		 * Package command for this operating system.
