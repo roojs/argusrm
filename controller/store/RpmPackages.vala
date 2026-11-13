@@ -45,6 +45,7 @@ namespace Argus.Controller.Store
 			get; set; default = new Gee.ArrayList<Argus.Shared.OSQuery.RpmPackages>();
 		}
 		private int epoch = 0;
+		private int loaded_agent = -1;
 
 		/**
 		 * Rows from the last list reply. This list is the model.
@@ -128,10 +129,14 @@ namespace Argus.Controller.Store
 		 */
 		public void load(int agent_id)
 		{
-			if (this.busy) {
+			if (this.busy && agent_id == this.loaded_agent) {
 				return;
 			}
 			this.busy = true;
+			if (agent_id != this.loaded_agent && agent_id > 0 && this.items_store.size > 0) {
+				this.items = new Gee.ArrayList<Argus.Shared.OSQuery.RpmPackages>();
+			}
+			this.loaded_agent = agent_id;
 			this.epoch++;
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {

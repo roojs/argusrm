@@ -1,6 +1,6 @@
 # Controller package and asset loading performance & hangs
 
-**Status:** ✔️ fixes `### 1`–`### 5` applied; awaiting live controller/server verification (plus server stall re-check on current binaries)
+**Status:** ✅ fixed (`### 1`–`### 5`); user verified fast enough on live controller/server
 
 **Pointer:** `docs/bug-fix-process.md`.
 
@@ -731,7 +731,8 @@ Edits are **Remove** / **Replace with** / **Add** from the tree. Verify surround
 - ℹ️ 2026-11-13: Suspended/deferred per user request while continuing Windows testing.
 - ✔️ 2026-11-13: Applied `### 1`–`### 5` (`controller/tab/Base.vala`, `shared/OSQuery/Row.vala`, `shared/OSQuery/DebPackages.vala`, `shared/OSQuery/RpmPackages.vala`, `shared/OSQuery/Programs.vala`, `shared/OSQuery/PackageUpdates.vala`, `controller/store/DebPackages.vala`, `controller/store/RpmPackages.vala`, `controller/store/Programs.vala`, `controller/tab/Asset/DebPackages.vala`, `controller/tab/Asset/SystemInfo.vala`).
 - ✔️ 2026-11-13: Verified `meson compile -C build`, `meson test -C build` (6/6), `ninja -C build docs/valadoc`, `valac -C -D WINDOWS -D G_OS_WIN32`, and `Row.bin_write_prop` round-trip (`os_status = 0`, `1`, `-1`).
+- ✅ 2026-11-13: User verified controller loading is fast enough; closed and moved to `docs/bugs/done/`.
 
 ## Next
 
-- ⏳ 🔷 Install `build/` (`sudo meson install -C build`), restart `argusrm-server` and `argusrm-controller`, verify package load latency and absence of `remove` criticals, and re-check whether `argusrm-server` still stalls on port `817`.
+- ✅ Closed.

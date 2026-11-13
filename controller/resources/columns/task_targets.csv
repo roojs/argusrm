@@ -1,0 +1,23 @@
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+
+Machine,agent-id-hostname,ON,160,text,ON
+Task,display-task,ON,260,text,ON
+Task name,task-id-name,off,180,text,ON
+Command,task-id-command,off,280,text,ON
+
+State,display-state,ON,100,text,ON
+Start,display-started,ON,135,text,ON
+Duration,display-duration,ON,90,text,ON
+Exit,display-exit,ON,64,number,ON
+
+Task scheduled,task-id-scheduled,off,110,date,ON
+Target scheduled,scheduled,off,110,date,ON
+Cancelled,is-cancelled,off,80,text,ON
+Watched,is-watched,off,80,text,ON
+Draft,task-id-is-draft,off,72,text,ON
+
+Task ID,task-id,off,72,number,ON
+Agent ID,agent-id,off,72,number,ON
+Run ID,identifier,off,80,number,ON
+Timeout,timeout,off,72,number,ON
+Log dir,log-dir,off,220,text,ON

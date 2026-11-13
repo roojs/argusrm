@@ -1,6 +1,6 @@
 # Machines tab detail pane and per-machine data tabs
 
-**Status:** ⏳ rough sketch — awaiting review of layout, tabs, and available machine fields before writing code proposals
+**Status:** ✔️ Phase 1 implemented (`Gtk.Paned` split + `Machine/Detail` + per-machine package tabs; compiled & tests pass, awaiting live UI check); Phase 2 (CPUs/Users/Interfaces) and Phase 3 (General) next
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, `docs/rpc-commands.md`
 
@@ -12,9 +12,11 @@
 - 🔷 When no machine is selected, the bottom area is hidden and the Machines grid uses the full height.
 - 🔷 When a machine is selected, the bottom area opens at a 50% vertical split.
 - 🔷 The lower half contains a tabbed area:
-  - 🔷 **General** — vertical left-right key/value display of joined machine information (`system_info`, `os_version`, `os_releases`, etc.).
   - 🔷 **Column-based tabs** — per-machine tables such as **CPUs**, **Users**, **Interfaces**, and **Packages**.
   - 🔷 **Packages** — generate three tabs for the three package types (**Debian packages**, **RPM packages**, **Windows programs**) and hide the two that are not relevant for the selected machine.
+  - 🔷 **General** — vertical dump of the horizontal Machines table (`system_info.csv`) with nothing hidden, grouped with expanders, built generically from data and multiple queries (CSV-driven) with its own vertical-list CSS style.
+- 🔷 **Tab location** — put the per-machine tab classes in a dedicated subdirectory (`controller/tab/Asset/Machine/`) rather than flat in `controller/tab/` or `controller/tab/Asset/`.
+- 🔷 **Phasing** — build the column-based tabs first and leave the **General** tab for a later phase.
 - ℹ️ Android design is deferred for now; on Android, selecting a machine will open a separate window with the tabbed content.
 
 ---
@@ -73,6 +75,11 @@
   - `Programs.list(agent_id, 0)` with `agent_id > 0` already returns that machine's rows (`deleted_dt = 0`):
   - Columns: `name`, `version`, `publisher`, `language`, `identifying_number`, `install_date` (text), `install_location`, `install_source`, `uninstall_string`
   - ℹ️ `controller/resources/columns/programs.csv` is currently aggregated (`min-version`, `max-version`, `installed`, `uninstall-count`).
+- ✔️ **Feasibility of reusing existing package stores and tabs (`controller/store/`, `controller/tab/Asset/`):**
+  - ✔️ `Store.DebPackages`, `Store.RpmPackages`, and `Store.Programs` are directly reusable as-is (`load(int agent_id)` already calls `*.list(agent_id, 0)`). Note: their `if (this.busy) return;` guard should be checked if switching machines rapidly while a previous load is in flight.
+  - ℹ️ Reusing `Tab.Asset.DebPackages`, `RpmPackages`, and `Programs` widget classes is feasible (parameterize `table` CSV and `agent_id`, skip `map -> load(0)`, and hide `Versions differ` / `spread` in `DebPackages` when `agent_id > 0`), **but not essential**:
+    - `RpmPackages` and `Programs` tabs are ~99 lines each, and Software tabs will later add Software-specific filters, bulk update, sign-off, and machine drill-down (`5.9.2`, `5.9.3`, `5.5`).
+    - Thin per-machine tabs in `controller/tab/Asset/Machine/` reusing `Tab.Base` (`column_grid`) and the existing `Store.*` classes keep Software and Machine detail cleanly separated.
 
 ### 5. Other per-machine tables in DB (scripts and tasks)
 
@@ -82,7 +89,8 @@
 
 ### 6. Not collected yet
 
-- ℹ️ `users` (local OS accounts), `uptime`, power state, storage/mounts, and listening ports/processes (`docs/plans/5.8-assets-page.md`, `docs/plans/1.1-implementation.md`).
+- ℹ️ `users` (local OS accounts), `uptime`, storage/mounts, listening ports/processes, power state (`docs/plans/5.8-assets-page.md`, `docs/plans/1.1-implementation.md`).
+- ℹ️ Startup + log monitoring refresh (`logged_in_users`, logins, system/security events) is tracked separately in `docs/bugs/2026-11-13-log-monitoring.md`.
 
 ---
 
@@ -93,65 +101,49 @@
 
 ---
 
-## Proposed fix (rough sketch)
+## Proposed fix (rough sketch, phased)
 
-### 1. Split pane and selection behaviour (`controller/tab/Asset/SystemInfo.vala`)
+### Phase 1 — Split pane, `Machine/` tab container, and Package tabs (existing RPCs) ✔️
 
-- 🔷 Wrap the Machines grid (`ScrolledWindow`) and the detail pane inside a `Gtk.Paned(Gtk.Orientation.VERTICAL)`:
-  - Top child: existing `ScrolledWindow` containing `this.grid`.
-  - Bottom child: detail container, `visible = false` when no machine is selected.
-- 🔷 When a machine is selected, show the bottom child and set `paned.position` to 50% of the paned height (`get_allocated_height() / 2`) if it was previously hidden (💩 preserve the user's dragged splitter position while switching between machines once open).
-- 💩 Selection model is currently `Gtk.MultiSelection` (`this.column_grid(rows, true)`):
-  - Show the detail pane when `selection.get_selection().get_size() == 1` (or show the focused/first selected machine when `>= 1`? Confirm which behaviour is wanted).
-  - Clear/hide the detail pane when `0` rows are selected or the selected row disappears on reload/filter.
+- 🔷 ✔️ **Split pane (`controller/tab/Asset/SystemInfo.vala`):**
+  - Wrapped the Machines grid (`ScrolledWindow`) and `Machine.Detail` inside a `Gtk.Paned(Gtk.Orientation.VERTICAL)`:
+    - Top child: existing `ScrolledWindow` containing `this.grid`.
+    - Bottom child: `Machine.Detail`, `visible = false` when `selected.get_size() != 1`.
+  - When a single machine is selected and the detail pane was hidden, shows `detail`, sets `paned.position = paned.get_height() / 2`, and preserves the dragged splitter position while switching between single machines.
+- 🔷 ✔️ **Subdirectory & container (`controller/tab/Asset/Machine/`):**
+  - Added `controller/tab/Asset/Machine/namespace.vala`, `Detail.vala`, `DebPackages.vala`, `RpmPackages.vala`, `Programs.vala` (`namespace Argus.Controller.Tab.Asset.Machine`), plus `controller/meson.build` and `docs/meson.build`.
+  - `Detail` uses `Adw.ToggleGroup` + `Adw.ViewStack` matching `controller/tab/Asset/Software.vala`, with lazy loading on visible tab selection.
+- 🔷 ✔️ **Package tabs (`DebPackages`, `RpmPackages`, `Programs`) & stores (`controller/store/*.vala`):**
+  - Reused existing `DebPackages.list(agent_id, 0)`, `RpmPackages.list(agent_id, 0)`, and `Programs.list(agent_id, 0)` RPCs and existing `Store.DebPackages`, `Store.RpmPackages`, and `Store.Programs` (updated `loaded_agent` check in `Store.*.load` so switching machines supersedes an in-flight load for a different machine and clears stale rows).
+  - Constructed all three package tabs upfront; on `show_machine(machine)`, `machine.package_manager()` decides which one stays visible and hides the other two (showing an `Adw.StatusPage` when `UNKNOWN`).
+  - Added `controller/resources/columns/deb_packages_machine.csv`, `rpm_packages_machine.csv`, and `programs_machine.csv` to `controller/resources/argusrm.gresource.xml`.
 
-### 2. Lower tabbed area layout
+### Phase 2 — Remaining column-based tabs: CPUs, Users, Interfaces (new RPCs)
 
-- 💩 Reuse the `Adw.ToggleGroup` + `Adw.ViewStack` pattern from `controller/tab/Asset/Software.vala` (inline tab bar across the top of the bottom pane, no controls in the window header bar).
-- 💩 Tab list (left to right):
-  1. **General** (key/value list)
-  2. **CPUs** (column grid — `cpu_info`)
-  3. **Users** (column grid — `logged_in_users`)
-  4. **Interfaces** (column grid — `interface_addresses`)
-  5. **Debian packages** (column grid — `deb_packages`, visible only when `PackageManager.APT`)
-  6. **RPM packages** (column grid — `rpm_packages`, visible only when `PackageManager.DNF`)
-  7. **Windows programs** (column grid — `programs`, visible only when `PackageManager.WIN`)
-  8. 💩 Optional later tabs: **Tasks** (`task_target`) / **Scripts** (`script_agent`).
-- 🔷 All three package tabs are constructed upfront; on machine selection, `OsVersion.package_manager()` logic (`platform_like`, then `platform`) decides which one of the three package tabs stays visible and hides the other two.
-- 💩 If the currently active tab is a package tab that becomes hidden on switching to a machine with a different OS, switch back to **General** (or the newly visible package tab).
-
-### 3. **General** tab — vertical left/right key-value view
-
-- 🔷 Vertical scrolled list (`Gtk.ScrolledWindow` + `Gtk.Grid` or `Adw.PreferencesGroup` / `Adw.ActionRow` with `.property` / selectable labels) displaying grouped key/value pairs:
-  - 💩 **System & Identity**: Hostname, Computer name, Local hostname, UUID, Logged-in users
-  - 💩 **Operating System**: Operating system (`name` + `version`), Platform / Platform like, Codename, Arch, Build, OS status (dot/label), OS checked (`os_updated`), Package status (`pkgs_status` / `pkgs_updated` once joined), Reboot required (`reboot_required` when set)
-  - 💩 **Hardware**: Hardware vendor, Hardware model, Hardware version, Hardware serial, Physical memory (formatted size), Board vendor/model/version/serial
-  - 💩 **CPU Summary**: CPU brand, Type / Subtype, Physical cores, Logical cores, Microcode
-  - 💩 **Agent / Connection** (if joined from `agent`): IP address, Connected, Last connected, Registered on
-- 💩 Omit blank rows (e.g. `computer_name` on Linux or `board_*` when empty) or show `—`?
-
-### 4. Column-based detail tabs and RPCs needed
-
-- 💩 Reuse `Tab.Base` (`column_grid` + column CSVs) for each column-based tab so sorting, column visibility menu, and `bytes`/`date`/`status` formatting work consistently:
-  - 💩 **CPUs** (`cpu_info_machine.csv`, new `CpuInfo.list(int agent_id)` RPC):
+- 🔷 Reuse `Tab.Base` (`column_grid` + column CSVs) inside `controller/tab/Asset/Machine/` for the remaining many-row osquery tables:
+  - 💩 **CPUs** (`cpu_info_machine.csv`, new `CpuInfo.list(int agent_id)` RPC + `Store.CpuInfo`):
     - Device ID, Model, Manufacturer, Cores (`number_of_cores`), Logical (`logical_processors`), Current MHz, Max MHz, Socket (`socket_designation`), Address width, Type, Status.
-  - 💩 **Users** (`logged_in_users_machine.csv`, new `LoggedInUsers.list(int agent_id)` RPC):
-    - User, TTY, Host, Time (`date` or `recent-date`), Type (`ctype`), PID.
-  - 💩 **Interfaces** (`interface_addresses_machine.csv`, new `InterfaceAddresses.list(int agent_id)` RPC):
+  - 💩 **Users** (`logged_in_users_machine.csv`, new `LoggedInUsers.list(int agent_id)` RPC + `Store.LoggedInUsers`):
+    - User, TTY, Host, Time (`date`), Type (`ctype`), PID.
+  - 💩 **Interfaces** (`interface_addresses_machine.csv`, new `InterfaceAddresses.list(int agent_id)` RPC + `Store.InterfaceAddresses`):
     - Interface (`interface`), Address, Mask, Broadcast, Point-to-point, Type (`ctype`).
-  - 💩 **Debian packages** (`deb_packages_machine.csv`, existing `DebPackages.list(agent_id, 0)` RPC):
-    - Name, Version, Revision, Arch, Section, Priority, Size (`bytes`), Update waiting (`update_since` date/dot), Source (off), Maintainer (off), Status (off).
-  - 💩 **RPM packages** (`rpm_packages_machine.csv`, existing `RpmPackages.list(agent_id, 0)` RPC):
-    - Name, Epoch, Version, Release, Arch, Package group, Size (`bytes`), Install time (`date`), Update waiting (`update_since`), Source (off), Vendor (off).
-  - 💩 **Windows programs** (`programs_machine.csv`, existing `Programs.list(agent_id, 0)` RPC):
-    - Name, Version, Publisher, Install date, Language (off), Identifying number (off), Install location (off), Install source (off), Uninstall string (off).
-- 💩 Lazy loading: load a detail tab's RPC only when a machine is selected and that tab is visible (or reload visible tab on selection change, and load newly switched-to tab for the current `agent_id`), rather than firing 4–6 RPCs on every row click.
+
+### Phase 3 — **General** tab (vertical dump with expanders, multi-query generic builder)
+
+- 🔷 Just a vertical dump of the horizontal Machines table (`system_info.csv` fields) with **nothing hidden** (rows that start `off` in the horizontal `ColumnView` are included here).
+- 🔷 Group categories into **expanders** (`Gtk.Expander` or `Adw.ExpanderRow`, matching the blank-line-separated category groups in `system_info.csv`).
+- 🔷 Add a dedicated CSS style for vertical lists in `controller/resources/style.css` (distinct from `ColumnView` horizontal row styling).
+- 🔷 Build it generically from data and **multiple queries** rather than stuffing extra joins onto the horizontal `SystemInfo.list(true)` query:
+  - 💩 Generic vertical-list builder (e.g. on `Tab.Base` or `Machine.General`) driven by **CSV files** (reusing `system_info.csv` plus optional additional source CSVs such as `Agent` / `OsVersion` / `OsReleases` rows) that maps each CSV row to a GObject property on the corresponding query result and formats values with the existing `Tab.Base` formatters (`text`, `number`, `bytes`, `date`, `status`).
+  - 💩 Decide tab order once General lands (e.g. **General**, **CPUs**, **Users**, **Interfaces**, **Debian** / **RPM** / **Windows**).
+
+### Phase 4 — Optional later tabs
+
+- 💩 **Tasks** (`task_target`) and **Scripts** (`script_agent`) tabs once per-agent list RPCs exist.
 
 ---
 
 ## Next
 
-- ⏳ 🔷 Confirm the tab list (**General**, **CPUs**, **Users**, **Interfaces**, **Debian** / **RPM** / **Windows**, and whether **Tasks** / **Scripts** belong here now or later).
-- ⏳ 🔷 Confirm `MultiSelection` behaviour for the detail pane (show only when 1 row selected vs show active/first row) and whether `SystemInfo.list(true)` should also join `agent` (`ip`, `connected`, `last_connected`, `created`) and `os_version.pkgs_updated` / `pkgs_status`.
-- ⏳ 🔷 Confirm whether blank key/value rows in **General** are hidden or shown empty, and whether column-based detail tabs should lazy-load when visible.
-- ⏳ 💩 Once confirmed, write verbatim `Remove` / `Replace with` / `Add` code proposals (`docs/rpc-commands.md`, `shared/OSQuery/*.vala`, `controller/resources/columns/*.csv`, `controller/tab/Asset/*.vala`, `controller/store/*.vala`).
+- ⏳ 🔷 Verify Phase 1 split pane and package tabs in the running `argusrm-controller` UI.
+- ⏳ 💩 Prepare Phase 2 (`CpuInfo.list`, `LoggedInUsers.list`, `InterfaceAddresses.list` + `Machine/CpuInfo`, `LoggedInUsers`, `InterfaceAddresses` tabs) and Phase 3 (`General` vertical expander view).

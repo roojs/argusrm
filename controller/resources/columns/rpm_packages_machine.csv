@@ -1,0 +1,14 @@
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+
+Name,name,ON,200,text,ON
+Epoch,epoch,ON,70,number,ON
+Version,version,ON,140,text,ON
+Release,release,ON,120,text,ON
+Arch,arch,ON,90,text,ON
+Package group,package-group,ON,200,text,ON
+Size,size,ON,90,bytes,ON
+Install time,install-time,ON,110,date,ON
+Update waiting,update-since,ON,120,date,ON
+Source,source,off,180,text,ON
+Vendor,vendor,off,160,text,ON
+SHA1,sha1,off,200,text,ON

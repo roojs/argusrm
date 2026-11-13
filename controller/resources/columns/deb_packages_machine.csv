@@ -1,0 +1,13 @@
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+
+Name,name,ON,200,text,ON
+Version,version,ON,140,text,ON
+Revision,revision,ON,100,text,ON
+Arch,arch,ON,80,text,ON
+Section,section,ON,110,text,ON
+Priority,priority,ON,90,text,ON
+Size,size,ON,90,bytes,ON
+Update waiting,update-since,ON,120,date,ON
+Source,source,off,160,text,ON
+Maintainer,maintainer,off,220,text,ON
+Status,status,off,140,text,ON

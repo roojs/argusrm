@@ -189,12 +189,116 @@ namespace Argus.Controller.Tab.Asset
 			this.map.connect(() => {
 				this.store.load();
 			});
-			this.append(bar);
-			this.append(new Gtk.ScrolledWindow() {
-				child = this.grid,
+			var detail = new Machine.Detail(window) {
+				visible = false,
 				hexpand = true,
 				vexpand = true
+			};
+			var paned = new Gtk.Paned(Gtk.Orientation.VERTICAL) {
+				start_child = new Gtk.ScrolledWindow() {
+					child = this.grid,
+					hexpand = true,
+					vexpand = true
+				},
+				end_child = detail,
+				resize_start_child = true,
+				resize_end_child = true,
+				hexpand = true,
+				vexpand = true
+			};
+			var selection = (Gtk.MultiSelection) this.grid.model;
+			selection.selection_changed.connect((position, n_items) => {
+				var selected = selection.get_selection();
+				if (selected.get_size() != 1) {
+					detail.visible = false;
+					detail.clear();
+					return;
+				}
+				if (!detail.visible) {
+					detail.visible = true;
+					paned.position = paned.get_height() / 2;
+				}
+				detail.show_machine(
+					(Argus.Shared.OSQuery.SystemInfo) selection.get_item(selected.get_minimum()));
 			});
+			var toasts = new Adw.ToastOverlay() {
+				child = paned,
+				hexpand = true,
+				vexpand = true
+			};
+			var row_model = new GLib.Menu();
+			row_model.append("Update", "row.update");
+			row_model.append("Upgrade", "row.upgrade");
+			var row_menu = new Gtk.PopoverMenu.from_model(row_model) {
+				has_arrow = false
+			};
+			row_menu.set_parent(this.grid);
+			var row_actions = new GLib.SimpleActionGroup();
+			var update_action = new GLib.SimpleAction("update", null);
+			var upgrade_action = new GLib.SimpleAction("upgrade", null);
+			row_actions.add_action(update_action);
+			row_actions.add_action(upgrade_action);
+			this.grid.insert_action_group("row", row_actions);
+			var row_click = new Gtk.GestureClick() {
+				button = Gdk.BUTTON_SECONDARY
+			};
+			row_click.pressed.connect((n_press, x, y) => {
+				var picked = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
+				while (picked != null && picked != this.grid &&
+					picked.get_data<Gtk.ListItem>("argus-grid-row") == null) {
+					picked = picked.parent;
+				}
+				if (picked == null || picked == this.grid) {
+					row_click.set_state(Gtk.EventSequenceState.DENIED);
+					return;
+				}
+				var row_item = picked.get_data<Gtk.ListItem>("argus-grid-row");
+				if (row_item == null || row_item.item == null) {
+					return;
+				}
+				if (!selection.is_selected(row_item.position)) {
+					selection.select_item(row_item.position, true);
+				}
+				var has_linux = false;
+				var total = selection.get_n_items();
+				for (var i = (uint) 0; i < total; i++) {
+					if (!selection.is_selected(i)) {
+						continue;
+					}
+					var row = selection.get_item(i) as Argus.Shared.OSQuery.SystemInfo;
+					if (row == null) {
+						continue;
+					}
+					switch (row.package_manager()) {
+						case Argus.Shared.OSQuery.PackageManager.APT:
+						case Argus.Shared.OSQuery.PackageManager.DNF:
+							has_linux = true;
+							break;
+
+						default:
+							continue;
+					}
+					break;
+				}
+				if (!has_linux) {
+					row_click.set_state(Gtk.EventSequenceState.DENIED);
+					return;
+				}
+				var where = Gdk.Rectangle() {
+					x = (int) x,
+					y = (int) y,
+					width = 1,
+					height = 1
+				};
+				row_menu.set_pointing_to(where);
+				row_menu.popup();
+			});
+			this.grid.add_controller(row_click);
+			this.destroy.connect(() => {
+				row_menu.unparent();
+			});
+			this.append(bar);
+			this.append(toasts);
 		}
 	}
 }

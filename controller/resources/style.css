@@ -161,3 +161,18 @@ popover.menu.column-menu checkbutton check:dir(rtl) {
 .status-dot.status-bad {
 	background-color: #c01c28;
 }
+
+.tool-output,
+.tool-output text {
+	font-family: "Droid Sans Mono", monospace;
+	font-size: 8pt;
+	background-color: #000000;
+	color: #ffffff;
+}
+
+.tool-output-header {
+	padding: 6px 12px;
+	background-color: color-mix(in srgb, currentColor 8%, var(--window-bg-color));
+	border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+

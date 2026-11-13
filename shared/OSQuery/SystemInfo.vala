@@ -312,5 +312,21 @@ namespace Argus.Shared.OSQuery
 		 * Not a column of ''system_info''.
 		 */
 		public string logged_in_users { get; set; default = ""; }
+
+		/**
+		 * Package command for this operating system.
+		 *
+		 * Delegates to {@link OsVersion.package_manager} using
+		 * {@link platform_like} and {@link platform}.
+		 *
+		 * @return apt, dnf, Windows, or unknown
+		 */
+		public PackageManager package_manager()
+		{
+			return new OsVersion() {
+				platform_like = this.platform_like,
+				platform = this.platform
+			}.package_manager();
+		}
 	}
 }
