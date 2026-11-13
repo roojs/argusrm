@@ -33,7 +33,7 @@ Rules-Requires-Root: no
 
 Package: argusrm-server
 Architecture: any
-Depends: libocrpc1, libocsqlite1, ${shlibs:Depends}, ${misc:Depends}
+Depends: libocrpc1, libocsqlite1, libosinfo-bin, osinfo-db, ${shlibs:Depends}, ${misc:Depends}
 Recommends: avahi-daemon
 Description: Argus Remote Manager server
  Argus Remote Manager enrolls managed machines, provides authenticated

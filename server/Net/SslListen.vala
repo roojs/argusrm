@@ -193,7 +193,7 @@ namespace Argus.Server.Net
 						var row = rows.get(0);
 						row.last_connected = new GLib.DateTime.now_utc().to_unix();
 						Argus.Shared.Agent.query(this.app.db).updateById(row);
-						rpc.agent_id = row.id;
+						rpc.user = row;
 						known = true;
 					}
 					rpc.start();

@@ -1,13 +1,13 @@
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
 
-Name,name,ON,180,text
-Arch,arch,ON,90,text
-Section,section,ON,110,text
-Priority,priority,ON,90,text
-Min version,min-version,ON,140,text
-Max version,max-version,ON,140,maxver
-Max size,max-size,ON,90,bytes
-Source,source,off,160,text
-Maintainer,maintainer,off,220,text
-Installed,installed,ON,80,number
-Remove,remove,ON,48,remove
+Name,name,ON,180,text,ON
+Arch,arch,ON,90,text,ON
+Section,section,ON,110,text,ON
+Priority,priority,ON,90,text,ON
+Min version,min-version,ON,140,text,ON
+Max version,max-version,ON,140,maxver,ON
+Max size,max-size,ON,90,bytes,ON
+Source,source,off,160,text,ON
+Maintainer,maintainer,off,220,text,ON
+Installed,installed,ON,80,number,ON
+Remove,remove,ON,48,remove,ON

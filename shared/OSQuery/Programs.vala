@@ -25,6 +25,11 @@ namespace Argus.Shared.OSQuery
 	{
 		private static SQ.Database db;
 
+		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
+		{
+			return this.sync_packages<Programs>(db, agent_id, rows);
+		}
+
 		public override string pkg_name() { return this.name + "\n" + this.identifying_number; }
 
 		public override string table_name() { return "programs"; }
@@ -59,6 +64,20 @@ namespace Argus.Shared.OSQuery
 				GLib.warning("programs create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "programs");
+			var idx_query = """
+				CREATE INDEX IF NOT EXISTS programs_deleted_name_agent
+				ON programs (deleted_dt, name, agent_id);
+				""";
+			if (Sqlite.OK != db.db.exec(idx_query, null, out errmsg)) {
+				GLib.warning("programs index failed: %s", db.db.errmsg());
+			}
+			var idx_agent = """
+				CREATE INDEX IF NOT EXISTS programs_agent
+				ON programs (agent_id);
+				""";
+			if (Sqlite.OK != db.db.exec(idx_agent, null, out errmsg)) {
+				GLib.warning("programs agent index failed: %s", db.db.errmsg());
+			}
 		}
 
 		/**

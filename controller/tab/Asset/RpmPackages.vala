@@ -59,12 +59,7 @@ namespace Argus.Controller.Tab.Asset
 			this.hexpand = true;
 			this.vexpand = true;
 			this.store = new Argus.Controller.Store.RpmPackages(window.app);
-			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(this.store)) {
-				hexpand = true,
-				vexpand = true,
-				show_row_separators = true
-			};
-			this.column_menu();
+			this.column_grid(this.store);
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");

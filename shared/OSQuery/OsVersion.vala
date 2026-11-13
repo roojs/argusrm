@@ -46,9 +46,7 @@ namespace Argus.Shared.OSQuery
 		 *
 		 * Each agent has one operating-system row. A snapshot
 		 * that does not carry a single {@link OsVersion} is
-		 * rejected. Stored package check fields stay, and
-		 * stored OS check fields stay while ''platform'',
-		 * ''version'', and ''codename'' match.
+		 * rejected. Stored package check fields stay.
 		 *
 		 * @param db Argus database
 		 * @param agent_id registered agent
@@ -86,12 +84,6 @@ namespace Argus.Shared.OSQuery
 				"id", "added-dt", "updated-dt", "deleted-dt",
 				"pkgs-updated", "pkgs-status"
 			};
-			if (old.platform == newer.platform &&
-				old.version == newer.version &&
-				old.codename == newer.codename) {
-				keep += "os-updated";
-				keep += "os-status";
-			}
 			updated.copy_from(newer, keep);
 			updated.deleted_dt = 0;
 			updated.updated_dt = now;
@@ -123,10 +115,8 @@ namespace Argus.Shared.OSQuery
 					build         TEXT NOT NULL DEFAULT '',
 					platform      TEXT NOT NULL DEFAULT '',
 					platform_like TEXT NOT NULL DEFAULT '',
-					codename      TEXT NOT NULL DEFAULT '',
-					arch              TEXT NOT NULL DEFAULT '',
-					os_updated      INTEGER NOT NULL DEFAULT 0,
-					os_status       INTEGER NOT NULL DEFAULT 0,
+					codename        TEXT NOT NULL DEFAULT '',
+					arch            TEXT NOT NULL DEFAULT '',
 					pkgs_updated    INTEGER NOT NULL DEFAULT 0,
 					pkgs_status     INTEGER NOT NULL DEFAULT 0,
 					reboot_required INTEGER NOT NULL DEFAULT 0
@@ -136,8 +126,6 @@ namespace Argus.Shared.OSQuery
 				GLib.warning("os_version create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "os_version");
-			db.db.exec("ALTER TABLE os_version ADD COLUMN os_updated INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
-			db.db.exec("ALTER TABLE os_version ADD COLUMN os_status INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_updated INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_status INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
 			db.db.exec("ALTER TABLE os_version ADD COLUMN reboot_required INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
@@ -173,20 +161,6 @@ namespace Argus.Shared.OSQuery
 		 * ''1'' when they are. ''0'' when an update is waiting.
 		 */
 		public int pkgs_status { get; set; default = 0; }
-		/**
-		 * Unix time the server last checked whether this OS release
-		 * is current.
-		 *
-		 * ''0'' means that check has not happened.
-		 */
-		public int os_updated { get; set; default = 0; }
-		/**
-		 * Operating-system release is up to date.
-		 *
-		 * ''1'' when current. ''0'' when not. ''-1'' when the
-		 * release file did not list this release.
-		 */
-		public int os_status { get; set; default = 0; }
 		/**
 		 * A system restart is waiting on this host.
 		 *

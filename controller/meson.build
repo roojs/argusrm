@@ -83,6 +83,13 @@ sources = files(
 	'TabList.vala',
 	'Window.vala',
 )
+if host_machine.system() == 'windows'
+	win_mod = import('windows')
+	sources += win_mod.compile_resources(
+		files('../packaging/windows/argusrm.rc'),
+		include_directories: include_directories('../packaging/windows'),
+	)
+endif
 if host_machine.system() == 'android'
 	executable(
 		'argus-controller',

@@ -21,6 +21,18 @@ namespace Argus.Agent.Win32 {
 	public const uint32 SERVICE_CONTROL_INTERROGATE;
 	[CCode (cname = "ERROR_FAILED_SERVICE_CONTROLLER_CONNECT", cheader_filename = "win32.h")]
 	public const uint32 ERROR_FAILED_SERVICE_CONTROLLER_CONNECT;
+	[CCode (cname = "ERROR_SERVICE_ALREADY_RUNNING", cheader_filename = "win32.h")]
+	public const uint32 ERROR_SERVICE_ALREADY_RUNNING;
+	[CCode (cname = "SC_MANAGER_CONNECT", cheader_filename = "win32.h")]
+	public const uint32 SC_MANAGER_CONNECT;
+	[CCode (cname = "SERVICE_QUERY_STATUS", cheader_filename = "win32.h")]
+	public const uint32 SERVICE_QUERY_STATUS;
+	[CCode (cname = "SERVICE_START", cheader_filename = "win32.h")]
+	public const uint32 SERVICE_START;
+	[CCode (cname = "SERVICE_STOP", cheader_filename = "win32.h")]
+	public const uint32 SERVICE_STOP;
+	[CCode (cname = "SC_STATUS_PROCESS_INFO", cheader_filename = "win32.h")]
+	public const uint32 SC_STATUS_PROCESS_INFO;
 
 	[CCode (cheader_filename = "win32.h", has_type_id = false, destroy_function = "")]
 	public struct SERVICE_STATUS {
@@ -31,6 +43,19 @@ namespace Argus.Agent.Win32 {
 		public uint32 dwServiceSpecificExitCode;
 		public uint32 dwCheckPoint;
 		public uint32 dwWaitHint;
+	}
+
+	[CCode (cheader_filename = "win32.h", has_type_id = false, destroy_function = "")]
+	public struct SERVICE_STATUS_PROCESS {
+		public uint32 dwServiceType;
+		public uint32 dwCurrentState;
+		public uint32 dwControlsAccepted;
+		public uint32 dwWin32ExitCode;
+		public uint32 dwServiceSpecificExitCode;
+		public uint32 dwCheckPoint;
+		public uint32 dwWaitHint;
+		public uint32 dwProcessId;
+		public uint32 dwServiceFlags;
 	}
 
 	[CCode (cheader_filename = "win32.h", has_target = false)]
@@ -56,6 +81,24 @@ namespace Argus.Agent.Win32 {
 	public bool SetServiceStatus (void* hServiceStatus, ref SERVICE_STATUS lpServiceStatus);
 
 	[CCode (cheader_filename = "win32.h")]
+	public void* OpenSCManagerW (void* lpMachineName, void* lpDatabaseName, uint32 dwDesiredAccess);
+
+	[CCode (cheader_filename = "win32.h")]
+	public void* OpenServiceW (void* hSCManager, string16 lpServiceName, uint32 dwDesiredAccess);
+
+	[CCode (cheader_filename = "win32.h")]
+	public bool CloseServiceHandle (void* hSCObject);
+
+	[CCode (cheader_filename = "win32.h")]
+	public bool ControlService (void* hService, uint32 dwControl, ref SERVICE_STATUS lpServiceStatus);
+
+	[CCode (cheader_filename = "win32.h")]
+	public bool StartServiceW (void* hService, uint32 dwNumServiceArgs, void* lpServiceArgVectors);
+
+	[CCode (cheader_filename = "win32.h")]
+	public bool QueryServiceStatusEx (void* hService, uint32 InfoLevel, void* lpBuffer, uint32 cbBufSize, void* pcbBytesNeeded);
+
+	[CCode (cheader_filename = "win32.h")]
 	public uint32 GetLastError ();
 
 	/* Tray icon. Copied from Snappr src/Win32/win32.vapi. */
@@ -68,6 +111,10 @@ namespace Argus.Agent.Win32 {
 	public const uint32 NIF_TIP;
 	[CCode (cname = "NIF_SHOWTIP", cheader_filename = "win32.h")]
 	public const uint32 NIF_SHOWTIP;
+	[CCode (cname = "NIF_INFO", cheader_filename = "win32.h")]
+	public const uint32 NIF_INFO;
+	[CCode (cname = "NIIF_INFO", cheader_filename = "win32.h")]
+	public const uint32 NIIF_INFO;
 	[CCode (cname = "NIM_ADD", cheader_filename = "win32.h")]
 	public const uint32 NIM_ADD;
 	[CCode (cname = "NIM_MODIFY", cheader_filename = "win32.h")]
@@ -84,16 +131,46 @@ namespace Argus.Agent.Win32 {
 	public const uint32 NIN_KEYSELECT;
 	[CCode (cname = "NIN_BALLOONUSERCLICK", cheader_filename = "win32.h")]
 	public const uint32 NIN_BALLOONUSERCLICK;
+	[CCode (cname = "WM_NULL", cheader_filename = "win32.h")]
+	public const uint32 WM_NULL;
 	[CCode (cname = "WM_DESTROY", cheader_filename = "win32.h")]
 	public const uint32 WM_DESTROY;
 	[CCode (cname = "WM_QUIT", cheader_filename = "win32.h")]
 	public const uint32 WM_QUIT;
 	[CCode (cname = "WM_TIMER", cheader_filename = "win32.h")]
 	public const uint32 WM_TIMER;
+	[CCode (cname = "WM_COMMAND", cheader_filename = "win32.h")]
+	public const uint32 WM_COMMAND;
+	[CCode (cname = "WM_CONTEXTMENU", cheader_filename = "win32.h")]
+	public const uint32 WM_CONTEXTMENU;
 	[CCode (cname = "WM_LBUTTONUP", cheader_filename = "win32.h")]
 	public const uint32 WM_LBUTTONUP;
+	[CCode (cname = "WM_RBUTTONUP", cheader_filename = "win32.h")]
+	public const uint32 WM_RBUTTONUP;
 	[CCode (cname = "WM_APP", cheader_filename = "win32.h")]
 	public const uint32 WM_APP;
+	[CCode (cname = "WS_POPUP", cheader_filename = "win32.h")]
+	public const uint32 WS_POPUP;
+	[CCode (cname = "WS_EX_TOOLWINDOW", cheader_filename = "win32.h")]
+	public const uint32 WS_EX_TOOLWINDOW;
+	[CCode (cname = "WS_EX_NOACTIVATE", cheader_filename = "win32.h")]
+	public const uint32 WS_EX_NOACTIVATE;
+	[CCode (cname = "MF_STRING", cheader_filename = "win32.h")]
+	public const uint32 MF_STRING;
+	[CCode (cname = "MF_GRAYED", cheader_filename = "win32.h")]
+	public const uint32 MF_GRAYED;
+	[CCode (cname = "MF_SEPARATOR", cheader_filename = "win32.h")]
+	public const uint32 MF_SEPARATOR;
+	[CCode (cname = "TPM_RIGHTBUTTON", cheader_filename = "win32.h")]
+	public const uint32 TPM_RIGHTBUTTON;
+	[CCode (cname = "SW_SHOWNORMAL", cheader_filename = "win32.h")]
+	public const int32 SW_SHOWNORMAL;
+	[CCode (cname = "SEE_MASK_NOCLOSEPROCESS", cheader_filename = "win32.h")]
+	public const uint32 SEE_MASK_NOCLOSEPROCESS;
+	[CCode (cname = "SEE_MASK_FLAG_NO_UI", cheader_filename = "win32.h")]
+	public const uint32 SEE_MASK_FLAG_NO_UI;
+	[CCode (cname = "ERROR_CANCELLED", cheader_filename = "win32.h")]
+	public const uint32 ERROR_CANCELLED;
 	[CCode (cname = "PM_REMOVE", cheader_filename = "win32.h")]
 	public const uint32 PM_REMOVE;
 	[CCode (cname = "QS_ALLINPUT", cheader_filename = "win32.h")]
@@ -108,6 +185,26 @@ namespace Argus.Agent.Win32 {
 	public const uint32 IMAGE_ICON;
 	[CCode (cname = "LR_DEFAULTSIZE", cheader_filename = "win32.h")]
 	public const uint32 LR_DEFAULTSIZE;
+
+	[CCode (cname = "POINT", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct POINT {
+		public int32 x;
+		public int32 y;
+	}
+
+	[CCode (cname = "SHELLEXECUTEINFOW", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct SHELLEXECUTEINFOW {
+		public uint32 cbSize;
+		public uint32 fMask;
+		public void* hwnd;
+		public unowned string16 lpVerb;
+		public unowned string16 lpFile;
+		public unowned string16 lpParameters;
+		public unowned string16 lpDirectory;
+		public int32 nShow;
+		public void* hInstApp;
+		public void* hProcess;
+	}
 
 	[CCode (cname = "MSG", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
 	public struct Msg {
@@ -172,6 +269,22 @@ namespace Argus.Agent.Win32 {
 	public void* LoadIconW (void* instance, void* name);
 	[CCode (cname = "Shell_NotifyIconW", cheader_filename = "win32.h")]
 	public bool Shell_NotifyIconW (uint32 message, NotifyIcon* data);
+	[CCode (cname = "ShellExecuteExW", cheader_filename = "win32.h")]
+	public bool ShellExecuteExW (ref SHELLEXECUTEINFOW info);
+	[CCode (cname = "GetCursorPos", cheader_filename = "win32.h")]
+	public bool GetCursorPos (out POINT pt);
+	[CCode (cname = "CreatePopupMenu", cheader_filename = "win32.h")]
+	public void* CreatePopupMenu ();
+	[CCode (cname = "AppendMenuW", cheader_filename = "win32.h")]
+	public bool AppendMenuW (void* menu, uint32 flags, uint64 id, void* text);
+	[CCode (cname = "DestroyMenu", cheader_filename = "win32.h")]
+	public bool DestroyMenu (void* menu);
+	[CCode (cname = "SetForegroundWindow", cheader_filename = "win32.h")]
+	public bool SetForegroundWindow (void* hwnd);
+	[CCode (cname = "TrackPopupMenu", cheader_filename = "win32.h")]
+	public bool TrackPopupMenu (void* menu, uint32 flags, int32 x, int32 y, int32 reserved, void* hwnd, void* rect);
+	[CCode (cname = "PostMessageW", cheader_filename = "win32.h")]
+	public bool PostMessageW (void* hwnd, uint32 msg, uint64 wparam, int64 lparam);
 	[CCode (cname = "RegisterClassW", cheader_filename = "win32.h")]
 	public uint16 RegisterClassW (WndClass* klass);
 	[CCode (cname = "RegisterWindowMessageW", cheader_filename = "win32.h")]
@@ -234,6 +347,10 @@ namespace Argus.Agent.Win32 {
 	public const uint32 PIPE_NOWAIT;
 	[CCode (cname = "PROCESS_QUERY_LIMITED_INFORMATION", cheader_filename = "win32.h")]
 	public const uint32 PROCESS_QUERY_LIMITED_INFORMATION;
+	[CCode (cname = "PROCESS_TERMINATE", cheader_filename = "win32.h")]
+	public const uint32 PROCESS_TERMINATE;
+	[CCode (cname = "SYNCHRONIZE", cheader_filename = "win32.h")]
+	public const uint32 SYNCHRONIZE;
 	[CCode (cname = "MAXIMUM_ALLOWED", cheader_filename = "win32.h")]
 	public const uint32 MAXIMUM_ALLOWED;
 	[CCode (cname = "SecurityIdentification", cheader_filename = "win32.h")]
@@ -271,8 +388,6 @@ namespace Argus.Agent.Win32 {
 	public void* CreateFileW (string16 name, uint32 access, uint32 share, void* security, uint32 disposition, uint32 flags, void* template);
 	[CCode (cname = "CreateNamedPipeW", cheader_filename = "win32.h")]
 	public void* CreateNamedPipeW (string16 name, uint32 open_mode, uint32 mode, uint32 instances, uint32 out_size, uint32 in_size, uint32 timeout, void* security);
-	[CCode (cname = "argus_create_registration_pipe", cheader_filename = "win32.h")]
-	public void* create_registration_pipe ();
 	[CCode (cheader_filename = "win32.h")]
 	public uint32 argus_active_session ();
 	[CCode (cname = "ConnectNamedPipe", cheader_filename = "win32.h")]
@@ -291,6 +406,14 @@ namespace Argus.Agent.Win32 {
 	public bool CreateProcessAsUserW (void* token, string16 app, void* command, void* process_attr, void* thread_attr, bool inherit, uint32 flags, void* env, string16 cwd, StartupInfo* startup, out ProcessInfo info);
 	[CCode (cname = "OpenProcess", cheader_filename = "win32.h")]
 	public void* OpenProcess (uint32 access, bool inherit, uint32 pid);
+	[CCode (cname = "GetCurrentProcessId", cheader_filename = "win32.h")]
+	public uint32 GetCurrentProcessId ();
+	[CCode (cname = "WaitForSingleObject", cheader_filename = "win32.h")]
+	public uint32 WaitForSingleObject (void* handle, uint32 ms);
+	[CCode (cname = "TerminateProcess", cheader_filename = "win32.h")]
+	public bool TerminateProcess (void* process, uint32 code);
+	[CCode (cname = "GetExitCodeProcess", cheader_filename = "win32.h")]
+	public bool GetExitCodeProcess (void* process, void* code);
 	[CCode (cname = "EnumProcesses", cheader_filename = "win32.h")]
 	public bool EnumProcesses ([CCode (array_length = false)] uint32[] ids, uint32 bytes, out uint32 needed);
 	[CCode (cname = "QueryFullProcessImageNameW", cheader_filename = "win32.h")]

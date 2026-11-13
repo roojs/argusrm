@@ -128,6 +128,9 @@ namespace Argus.Controller.Store
 		 */
 		public void load(int agent_id)
 		{
+			if (this.busy) {
+				return;
+			}
 			this.busy = true;
 			this.epoch++;
 			var epoch = this.epoch;
@@ -155,56 +158,7 @@ namespace Argus.Controller.Store
 				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
 					listed = (Gee.ArrayList<Argus.Shared.OSQuery.DebPackages>) response.retval.get_object();
 				}
-				if (this.items_store.size == 0) {
-					this.items = listed;
-					this.busy = false;
-					return;
-				}
-				// NASTY - needs fixing
-				var at = new Gee.HashMap<string, int>();
-				for (var i = 0; i < this.items_store.size; i++) {
-					at.set(this.items_store.get(i).name, i);
-				}
-				foreach (var row in listed) {
-					if (!at.has_key(row.name)) {
-						this.items_store.add(row);
-						this.items_changed((uint) (this.items_store.size - 1), 0, 1);
-						continue;
-					}
-					var index = at.get(row.name);
-					var have = this.items_store.get(index);
-					at.unset(row.name);
-					if (have.arch == row.arch &&
-						have.section == row.section &&
-						have.priority == row.priority &&
-						have.source == row.source &&
-						have.maintainer == row.maintainer &&
-						have.min_version == row.min_version &&
-						have.max_version == row.max_version &&
-						have.max_size == row.max_size &&
-						have.installed == row.installed) {
-						continue;
-					}
-					this.items_store.set(index, row);
-					this.items_changed((uint) index, 1, 1);
-				}
-				var gone = new Gee.ArrayList<int>();
-				foreach (var index in at.values) {
-					gone.add(index);
-				}
-				gone.sort((a, b) => {
-					if (a == b) {
-						return 0;
-					}
-					if (a > b) {
-						return -1;
-					}
-					return 1;
-				});
-				foreach (var index in gone) {
-					this.items_store.remove_at(index);
-					this.items_changed((uint) index, 1, 0);
-				}
+				this.items = listed;
 				this.busy = false;
 			});
 		}

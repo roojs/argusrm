@@ -1,6 +1,6 @@
 # Debian package list kills the server
 
-**Status:** ✔️ SQL fixed and covered by `server/tests/packages.vala` — not verified on device
+**Status:** ✅ closed 2026-11-13. SQL fix and `server/tests/packages.vala` are applied in the tree.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -106,4 +106,4 @@
 
 ## Next
 
-- 🔷 ⏳ Install with ninja and restart `argusrm-server`, then open Software. The Debian grid should fill. The server should stay up.
+- ✅ Closed. SQL fix and `server/tests/packages.vala` are in the tree.

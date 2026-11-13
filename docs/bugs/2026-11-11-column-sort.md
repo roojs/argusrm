@@ -1,6 +1,6 @@
 # Column headers do not sort
 
-**Status:** ⏳ fix proposed — await apply approval
+**Status:** ⏳ sections 1–6 applied; `Agent` & `Repository` migration + UI verify open
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -21,7 +21,7 @@
 - ℹ️ `Gtk.ColumnView.sorter` is the view's own `Gtk.ColumnViewSorter`. A header click changes it only when that column's `sorter` is set. The rows move only when a `Gtk.SortListModel` uses that sorter.
 - ℹ️ The column menu gesture in `Base.column_menu` listens for the secondary button. A left click on a header is not that gesture.
 - ✔️ Agents. Remove walks `this.store` by index and asks `this.selection.is_selected` with that same index. Those indexes match only while the selection model's order is the store's order.
-- ℹ️ `os-updated`, `os-status`, `pkgs-updated`, and `pkgs-status` are columns on Machines. The row class has none of those properties. [5.10](../plans/5.10-data-enrichment.md) fills them.
+- ℹ️ `os-updated` and `os-status` exist on `Argus.Shared.OSQuery.SystemInfo`; `pkgs-updated` and `pkgs-status` are not on the row class yet and await [5.10](../plans/5.10-data-enrichment.md).
 - 💩 The running controller was not clicked for this.
 
 ## Root cause
@@ -33,17 +33,22 @@
 - 🔷 The header click and the arrow stay GTK's. A column with Sort `ON` is given a `sorter`. The rows sit in a `Gtk.SortListModel` whose sorter is the view's sorter.
 - 🔷 Sort is the sixth field of the column CSV. `ON` sorts. `off` does not. The format does not decide.
 - 🔷 A missing Sort field does not sort.
-- 💩 OS status and S/W status start `off`. Every other column in the four files starts `ON`.
-- 💩 Text, dates, and versions sort as text, A–Z, ignoring case. `1.10` stays before `1.9`. An address sorts as text.
-- 💩 An `int` or `int64` property sorts by that number. `bytes` uses the byte count, not the label `12 MB`. `remove` sorts by `installed`, the count the cell shows.
-- ℹ️ `os-updated` and `pkgs-updated` are `ON`. The property is missing, so a click there does not reorder until [5.10](../plans/5.10-data-enrichment.md).
-- ℹ️ Agents and Repositories have no column CSV. Their columns are set in code.
+- 🔷 `Base` provides `column_sorter` (inspects the row property's `GLib.Type` once per column via `this.grid.model.get_item_type()` and returns a `Gtk.NumericSorter` or `Gtk.StringSorter` rather than checking types on every comparison) and `column_grid` (wraps `SortListModel`, builds `this.grid`, and calls `column_menu`).
+- 🔷 All six grids (`Machines`, `Debian`, `RPM`, `Windows`, `Agents`, `Repositories`) use `Base` and column CSV files rather than hardcoding column sorters per grid.
+- 💩 OS status and S/W status start `off`. Every other column in the four asset CSVs starts `ON`.
+- 💩 Text and versions sort as text, A–Z, ignoring case. `1.10` stays before `1.9`. An address sorts as text.
+- 💩 An `int`, `int64`, or `bool` property sorts by its underlying value (`bytes` by byte count, `remove` by `installed`, `Agent` `created` / `last-connected` by unix timestamp rather than formatted `"HH:MM"` strings).
+- ℹ️ `os-updated` and `pkgs-updated` are `ON`. `os-updated` is filled from `os_releases`; `pkgs-updated` awaits [5.10](../plans/5.10-data-enrichment.md).
 - 🔷 The row filter stays under the sort. A filtered grid sorts the rows that are showing.
-- 🔷 Agents. Remove reads the selection model, so a sorted row is the row that was ticked.
+- 🔷 Agents. Remove reads `this.grid.model` (the `Gtk.MultiSelection` over `SortListModel`), so a sorted row is the row that was ticked.
+- 💩 Open points to confirm before applying to `Agent` and `Repository`:
+  - 💩 `Base.column_menu()` currently claims every secondary click on `this.grid` in `CAPTURE` phase; on `Agent`, right-clicking a row must still open the row `Remove` menu, so `Base` must restrict the column menu to header clicks (needs a GTK4 header-pick probe per `docs/bug-fix-process.md`) or let `Agent` opt out.
+  - 💩 `Base` sets `column.expand = true` when the CSV width field is `0` (for `Agent` and `Repository` columns that currently expand).
+  - 💩 `Agent` live updates (`Store.Agent` mutates `status`, `last_connected`, `connected` in place without `items_changed`), `Kind` `"argus-this-controller"` CSS highlight, `recent-date` (`%H:%M` today, `%Y-%m-%d` otherwise), and `Repository` `name == ""` fallback / `"dim-label"` styling need small `Base` / model support or explicit approval.
 - 🚫 A sort of the store itself.
 - 🚫 A version comparer, or a sort of the painted label.
 - 🚫 Deciding sort from the format. `status` and `tick` are not a special case in code.
-- 🚫 A new method. The comparison stays in `column_menu`.
+- 🚫 Hardcoding `column.sorter` column-by-column in `Agent.vala` and `Repository.vala`.
 
 ### 1. Column files
 
@@ -151,7 +156,31 @@ Installed,installed,ON,80,number,ON
 Uninstall,uninstall-count,ON,80,bin,ON
 ```
 
-### 2. `controller/tab/Base.vala` — `column_menu`
+- 💩 `controller/resources/columns/agent.csv` (and add to `controller/resources/argusrm.gresource.xml`):
+
+```
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+
+Hostname,display-name,ON,0,text,ON
+Address,ip,ON,0,text,ON
+User,username,ON,0,text,ON
+Kind,display-kind,ON,0,text,ON
+Registered,status,off,90,tick,ON
+Registered on,created,ON,0,recent-date,ON
+Connected,connected,ON,90,tick,ON
+Last connected,last-connected,ON,0,recent-date,ON
+```
+
+- 💩 `controller/resources/columns/repository.csv` (and add to `controller/resources/argusrm.gresource.xml`):
+
+```
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+
+Name,name,ON,0,text,ON
+URL,url,ON,0,text,ON
+```
+
+### 2. `controller/tab/Base.vala` — `column_menu`, `column_sorter`, `column_grid`
 
 The row description names the sort field.
 
@@ -168,250 +197,211 @@ The row description names the sort field.
 		 *  * Sort is ''ON'' or ''off''. ''ON'' sorts. A missing field does not.
 ```
 
-After `fixed_width`, before `append_column`. The sorter runs only when Sort is `ON`.
+After `fixed_width`, before `append_column`. The sorter is built by `column_sorter` once per column only when Sort is `ON`.
 
 #### Add
 
 ```vala
-				var sorts = parts.length > 5 && parts[5].strip() == "ON";
-				if (sorts) {
-					var sort_name = name;
-					if (format == "remove") {
-						sort_name = "installed";
-					}
-					column.sorter = new Gtk.CustomSorter((a, b) => {
-						var left_row = (GLib.Object) a;
-						var right_row = (GLib.Object) b;
-						var prop = left_row.get_class().find_property(sort_name);
-						if (prop == null) {
-							return 0;
-						}
-						var left_value = GLib.Value(prop.value_type);
-						var right_value = GLib.Value(prop.value_type);
-						left_row.get_property(sort_name, ref left_value);
-						right_row.get_property(sort_name, ref right_value);
-						if (prop.value_type == GLib.Type.INT) {
-							var left_int = left_value.get_int();
-							var right_int = right_value.get_int();
-							if (left_int == right_int) {
-								return 0;
-							}
-							if (left_int < right_int) {
-								return -1;
-							}
-							return 1;
-						}
-						if (prop.value_type == GLib.Type.INT64) {
-							var left_size = left_value.get_int64();
-							var right_size = right_value.get_int64();
-							if (left_size == right_size) {
-								return 0;
-							}
-							if (left_size < right_size) {
-								return -1;
-							}
-							return 1;
-						}
-						var left_text = left_value.get_string();
-						var right_text = right_value.get_string();
-						if (left_text == null) {
-							left_text = "";
-						}
-						if (right_text == null) {
-							right_text = "";
-						}
-						return left_text.casefold().collate(right_text.casefold());
-					});
+				if (width == 0) {
+					column.expand = true;
 				}
+				if (parts.length > 5 && parts[5].strip() == "ON") {
+					column.sorter = this.column_sorter(name, format);
+				}
+```
+
+Add `column_sorter` and `column_grid` helper methods to `Base`:
+
+#### Add
+
+```vala
+		/**
+		 * Build {@link grid} over ''model'' with sorting and column menu.
+		 *
+		 * Wraps ''model'' in a {@link Gtk.SortListModel} bound to the
+		 * grid's own sorter, then sets up {@link column_menu}.
+		 *
+		 * @param model store or filter model supplying rows
+		 * @param multi true for {@link Gtk.MultiSelection}, false for {@link Gtk.SingleSelection}
+		 * @return the group whose actions show and hide columns
+		 */
+		protected GLib.SimpleActionGroup column_grid(
+			GLib.ListModel model,
+			bool multi = false
+		) {
+			var sorted = new Gtk.SortListModel(model, null) {
+				incremental = false
+			};
+			var selection = multi
+				? (Gtk.SelectionModel) new Gtk.MultiSelection(sorted)
+				: (Gtk.SelectionModel) new Gtk.SingleSelection(sorted);
+			this.grid = new Gtk.ColumnView(selection) {
+				hexpand = true,
+				vexpand = true,
+				show_row_separators = true
+			};
+			sorted.sorter = this.grid.sorter;
+			return this.column_menu();
+		}
+
+		/**
+		 * Sorter for one column, chosen from the row property's type.
+		 *
+		 *  * Numeric and boolean properties return {@link Gtk.NumericSorter}.
+		 *  * ''remove'' sorts by ''installed''.
+		 *  * String properties return {@link Gtk.StringSorter} ignoring case.
+		 *  * Returns null when the property is not on the row class yet.
+		 *
+		 * @param name JSON name. A hyphen is an underscore.
+		 * @param format column format from the CSV
+		 * @return the sorter for this column, or null when missing
+		 */
+		private Gtk.Sorter? column_sorter(string name, string format)
+		{
+			var sort_name = name;
+			if (format == "remove") {
+				sort_name = "installed";
+			}
+			var item_type = this.grid.model.get_item_type();
+			var klass = (GLib.ObjectClass) item_type.class_ref();
+			var prop = klass.find_property(sort_name);
+			if (prop == null) {
+				return null;
+			}
+			var expr = (Gtk.Expression) new Gtk.PropertyExpression(item_type, null, sort_name);
+			switch (prop.value_type) {
+				case GLib.Type.INT:
+				case GLib.Type.INT64:
+				case GLib.Type.UINT:
+				case GLib.Type.UINT64:
+				case GLib.Type.FLOAT:
+				case GLib.Type.DOUBLE:
+				case GLib.Type.BOOLEAN:
+					return new Gtk.NumericSorter(expr);
+
+				default:
+					return new Gtk.StringSorter(expr) {
+						ignore_case = true
+					};
+			}
+		}
 ```
 
 ### 3. `controller/tab/Asset/DebPackages.vala`
 
-The sort wraps the filter.
+The sort wraps the filter via `this.column_grid(rows)`.
 
-#### Replace with
+#### Remove
 
 ```vala
-			var rows = new Gtk.FilterListModel(this.store, this.filter) {
-				incremental = false
-			};
-			var sorted = new Gtk.SortListModel(rows, null) {
-				incremental = false
-			};
-			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(sorted)) {
+			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(rows)) {
 				hexpand = true,
 				vexpand = true,
 				show_row_separators = true
 			};
-			sorted.sorter = this.grid.sorter;
+			this.column_menu();
+```
+
+#### Replace with
+
+```vala
+			this.column_grid(rows);
 ```
 
 ### 4. `controller/tab/Asset/SystemInfo.vala`
 
-Same wrap. The selection stays a `Gtk.MultiSelection`.
+Same wrap via `this.column_grid(rows, true)`. The selection stays a `Gtk.MultiSelection`.
 
-#### Replace with
+#### Remove
 
 ```vala
-			var rows = new Gtk.FilterListModel(this.store, this.filter) {
-				incremental = false
-			};
-			var sorted = new Gtk.SortListModel(rows, null) {
-				incremental = false
-			};
-			this.grid = new Gtk.ColumnView(new Gtk.MultiSelection(sorted)) {
+			this.grid = new Gtk.ColumnView(new Gtk.MultiSelection(rows)) {
 				hexpand = true,
 				vexpand = true,
 				show_row_separators = true
 			};
-			sorted.sorter = this.grid.sorter;
+			var group = this.column_menu();
+```
+
+#### Replace with
+
+```vala
+			var group = this.column_grid(rows, true);
 ```
 
 ### 5. `controller/tab/Asset/Programs.vala`
 
-#### Replace with
+#### Remove
 
 ```vala
-			var sorted = new Gtk.SortListModel(this.store, null) {
-				incremental = false
-			};
-			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(sorted)) {
+			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(this.store)) {
 				hexpand = true,
 				vexpand = true,
 				show_row_separators = true
 			};
-			sorted.sorter = this.grid.sorter;
+			this.column_menu();
+```
+
+#### Replace with
+
+```vala
+			this.column_grid(this.store);
 ```
 
 ### 6. `controller/tab/Asset/RpmPackages.vala`
 
-#### Replace with
+#### Remove
 
 ```vala
-			var sorted = new Gtk.SortListModel(this.store, null) {
-				incremental = false
-			};
-			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(sorted)) {
+			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(this.store)) {
 				hexpand = true,
 				vexpand = true,
 				show_row_separators = true
 			};
-			sorted.sorter = this.grid.sorter;
+			this.column_menu();
 ```
-
-### 7. `controller/tab/Agent.vala`
-
-Each column sorts the string it shows. The GObject name uses a hyphen.
-
-#### Add
-
-```vala
-			name_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "display-name")) {
-				ignore_case = true
-			};
-			address_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "ip")) {
-				ignore_case = true
-			};
-			user_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "username")) {
-				ignore_case = true
-			};
-			kind_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "display-kind")) {
-				ignore_case = true
-			};
-			registered_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "display-registered")) {
-				ignore_case = true
-			};
-			created_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "display-created")) {
-				ignore_case = true
-			};
-			connected_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "display-connected")) {
-				ignore_case = true
-			};
-			last_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(typeof(Argus.Shared.Agent), null, "display-last")) {
-				ignore_case = true
-			};
-```
-
-The selection model is the sorted rows.
 
 #### Replace with
 
 ```vala
-			var sorted = new Gtk.SortListModel(this.store, null) {
-				incremental = false
-			};
-			this.selection = new Gtk.MultiSelection(sorted);
-			var view = new Gtk.ColumnView(this.selection) {
-				hexpand = true,
-				vexpand = true,
-				show_row_separators = true
-			};
-			sorted.sorter = view.sorter;
+			this.column_grid(this.store);
 ```
 
-Remove reads that model.
+### 7. `controller/tab/Agent.vala` (💩 migrate to `Base` + `agent.csv`)
 
-#### Replace with
+- 💩 Replace hardcoded columns, `header_menu`, and `Gtk.ColumnView` construction with `Argus.Controller.Tab.Base` (`table: "agent"`) and `this.column_grid(this.store, true)`.
+- 💩 Prerequisites to resolve before writing the exact hunks:
+  - 💩 Restrict `Base.column_menu()`'s secondary-click capture to header widgets (verified with a quick GTK4 probe) so right-clicking a row still opens `Agent`'s `Remove` menu.
+  - 💩 Decide how `Base.column_factory()` handles `Agent`'s `recent-date` (`%H:%M` today, `%Y-%m-%d` otherwise), `tick` (`status == 1` / `connected` bool), live updates when `Store.Agent.load()` mutates rows in place, `argus-agent-row` lookup, and the `"argus-this-controller"` CSS highlight on `Kind`.
+- 🔷 Remove reads `this.grid.model` (`Gtk.MultiSelection`) instead of `this.store`, so a sorted row is the row that was ticked:
 
 ```vala
-				var count = (int) this.selection.get_n_items();
+				var selection = (Gtk.MultiSelection) this.grid.model;
+				var count = (int) selection.get_n_items();
 				for (var i = 0; i < count; i++) {
-					if (!this.selection.is_selected((uint) i)) {
+					if (!selection.is_selected((uint) i)) {
 						continue;
 					}
-					var row = this.selection.get_item((uint) i) as Argus.Shared.Agent;
+					var row = selection.get_item((uint) i) as Argus.Shared.Agent;
 ```
 
-### 8. `controller/tab/Repository.vala`
+### 8. `controller/tab/Repository.vala` (💩 migrate to `Base` + `repository.csv`)
 
-#### Add
-
-```vala
-			name_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(
-					typeof(Argus.Shared.SQT.ScriptRepository), null, "name")) {
-				ignore_case = true
-			};
-			url_column.sorter = new Gtk.StringSorter(
-				new Gtk.PropertyExpression(
-					typeof(Argus.Shared.SQT.ScriptRepository), null, "url")) {
-				ignore_case = true
-			};
-```
-
-#### Replace with
-
-```vala
-			var sorted = new Gtk.SortListModel(this.store, null) {
-				incremental = false
-			};
-			this.selection = new Gtk.SingleSelection(sorted) {
-				autoselect = false,
-				can_unselect = true
-			};
-			var view = new Gtk.ColumnView(this.selection) {
-				hexpand = true,
-				vexpand = true,
-				show_row_separators = true
-			};
-			sorted.sorter = view.sorter;
-```
+- 💩 Inherit `Argus.Controller.Tab.Base` (`table: "repository"`) and call `this.column_grid(this.store)` instead of hardcoding `name_column.sorter` and `url_column.sorter`.
+- 💩 Set `autoselect = false` and `can_unselect = true` on `(Gtk.SingleSelection) this.grid.model`.
+- 💩 Prerequisites to confirm before writing the exact hunks:
+  - 💩 `ScriptRepository.display_name` (or fallback to `url` when `name == ""`) and `"dim-label"` on `URL`.
 
 ## Attempts
 
-- ℹ️ No code change yet.
+- ✔️ Applied sections 1–6: added the `Sort` field to `system_info.csv`, `deb_packages.csv`, `rpm_packages.csv`, and `programs.csv`; added `column_grid` and `column_sorter` (`Gtk.NumericSorter` / `Gtk.StringSorter` chosen by `GLib.Type`) plus `width == 0` expand and CSV sort wiring to `controller/tab/Base.vala`; updated `DebPackages.vala`, `SystemInfo.vala`, `Programs.vala`, and `RpmPackages.vala` to call `this.column_grid(...)`.
+- ✔️ Built `ninja -C build controller/argusrm-controller` and `ninja -C build docs/valadoc` with zero new warnings.
+- ℹ️ Sections 7 (`Agent.vala`) and 8 (`Repository.vala`) are not applied yet because their `💩` migration prerequisites (`Base` header-only right-click vs row `Remove` menu, `recent-date` / `tick` / live updates / CSS styling) are unconfirmed.
 
 ## Next
 
-- ⏳ 🔷 Apply the proposal after approval.
-- ⏳ 🔷 Click a header whose Sort field is `ON`. The rows reverse on the next click, and the arrow follows. OS status does not sort.
+- ⏳ 🔷 Confirm whether `Agent` and `Repository` should migrate to `Base` + `agent.csv` / `repository.csv` as part of this fix (and resolve the `💩` open points above).
+- ⏳ 🔷 Run a GTK4 probe if `Base.column_menu()` needs header-only right-click detection for `Agent`.
+- ⏳ 🔷 Click a header whose Sort field is `ON` on Machines, Debian, RPM, and Windows. The rows reverse on the next click, and the arrow follows. OS status does not sort.
 - ⏳ 🔷 Click Installed and Max size. The order is numeric.
-- ⏳ 🔷 Sort, then remove a ticked agent. The removed row is the one that was ticked.
+- ⏳ 🔷 Sort, then remove a ticked agent (once sections 7–8 are applied). The removed row is the one that was ticked.

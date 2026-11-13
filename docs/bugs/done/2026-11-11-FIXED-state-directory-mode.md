@@ -1,6 +1,6 @@
 # Server state directory is world-readable
 
-**Status:** ⏳ chmod is in the tree; the installed server is still the old mode
+**Status:** ✅ closed 2026-11-13. All directory mode changes are applied in `server/Application.vala`, `server/Initialize.vala`, `packaging/systemd/argusrm-server.service`, and `packaging/sysvinit/argusrm-server.in`.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -32,4 +32,7 @@
 ## Attempts
 
 - ✔️ The change is in `server/Application.vala`, `server/Initialize.vala`, `packaging/systemd/argusrm-server.service`, and `packaging/sysvinit/argusrm-server.in`.
-- ⏳ The running `/usr/bin/argusrm-server` is the previous build. The live directory stays `755` until that build is installed and the service starts.
+
+## Next
+
+- ✅ Closed. State directory mode `0700` is in `server/` and packaging units.

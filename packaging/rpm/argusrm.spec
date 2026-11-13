@@ -34,6 +34,8 @@ BuildRequires: libocrpc-devel
 BuildRequires: libocsqlite-devel
 Requires: libocrpc
 Requires: libocsqlite
+Requires: libosinfo
+Requires: osinfo-db
 Recommends: avahi
 
 %description

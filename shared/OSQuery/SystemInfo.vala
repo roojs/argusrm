@@ -137,6 +137,23 @@ namespace Argus.Shared.OSQuery
 						os_version.platform_like as platform_like,
 						os_version.codename as codename,
 						os_version.arch as arch,
+						COALESCE(os_version.reboot_required, 0) as reboot_required,
+						COALESCE((
+							SELECT MAX(updated)
+							FROM os_releases
+							WHERE platform = os_version.platform
+						), 0) as os_updated,
+						CASE
+							WHEN os_releases.id IS NULL THEN -1
+							WHEN os_releases.eol != '' AND os_releases.eol < date('now') THEN 0
+							WHEN (
+								SELECT MAX(released)
+								FROM os_releases
+								WHERE platform = os_version.platform
+								AND released <= date('now')
+							) > os_releases.released THEN 2
+							ELSE 1
+						END as os_status,
 						COALESCE((
 							SELECT GROUP_CONCAT(DISTINCT logged_in_users.user)
 							FROM logged_in_users
@@ -150,10 +167,17 @@ namespace Argus.Shared.OSQuery
 						os_version
 					ON 
 						os_version.agent_id = system_info.agent_id
+						AND os_version.deleted_dt = 0
 						AND os_version.agent_id IN (SELECT id FROM agent)
+					LEFT JOIN
+						os_releases
+					ON
+						os_releases.platform = os_version.platform
+						AND os_releases.major = os_version.major
+						AND os_releases.minor = os_version.minor
 					WHERE
 						system_info.agent_id IN (SELECT id FROM agent)
-					",rows);
+					", rows);
 			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),
@@ -262,6 +286,25 @@ namespace Argus.Shared.OSQuery
 		public string platform_like { get; set; default = ""; }
 		public string codename { get; set; default = ""; }
 		public string arch { get; set; default = ""; }
+		/**
+		 * Unix time the server last synced this host's platform releases.
+		 *
+		 * ''0'' when unchecked or not in ''os_releases''.
+		 */
+		public int os_updated { get; set; default = 0; }
+		/**
+		 * Joined OS release status for the grid.
+		 *
+		 * ''1'' up to date, ''2'' update available, ''0'' EOL,
+		 * and ''-1'' when unchecked or unmatched.
+		 */
+		public int os_status { get; set; default = -1; }
+		/**
+		 * Windows restart waiting on this host.
+		 *
+		 * ''1'' when waiting. ''0'' otherwise.
+		 */
+		public int reboot_required { get; set; default = 0; }
 		/**
 		 * Distinct logins already stored for this host.
 		 *

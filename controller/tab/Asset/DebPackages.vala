@@ -65,14 +65,9 @@ namespace Argus.Controller.Tab.Asset
 			this.store = new Argus.Controller.Store.DebPackages(window.app);
 			this.filter = new Argus.Controller.Filters.DebPackages();
 			var rows = new Gtk.FilterListModel(this.store, this.filter) {
-				incremental = false
+				incremental = true
 			};
-			this.grid = new Gtk.ColumnView(new Gtk.SingleSelection(rows)) {
-				hexpand = true,
-				vexpand = true,
-				show_row_separators = true
-			};
-			this.column_menu();
+			this.column_grid(rows);
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
@@ -160,16 +155,18 @@ namespace Argus.Controller.Tab.Asset
 		 */
 		private void build_sections(Gtk.Box rows)
 		{
-			var names = new Gee.ArrayList<string>();
+			var seen = new Gee.HashSet<string>();
 			foreach (var package in this.store.items) {
 				foreach (var part in package.section.split(",")) {
 					var section = part.strip();
-					if (section == "" || names.contains(section)) {
+					if (section == "") {
 						continue;
 					}
-					names.add(section);
+					seen.add(section);
 				}
 			}
+			var names = new Gee.ArrayList<string>();
+			names.add_all(seen);
 			names.sort((a, b) => {
 				return a.ascii_casecmp(b);
 			});
@@ -254,8 +251,8 @@ namespace Argus.Controller.Tab.Asset
 				});
 				rows.append(button);
 			}
-			this.filter.sections = on;
 			this.filter.section_count = names.size;
+			this.filter.sections = on;
 			this.filling = false;
 		}
 	}

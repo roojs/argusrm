@@ -69,17 +69,143 @@ namespace Argus.Agent.Win32
 		private void* handle;
 		private uint32 state;
 		private Argus.Agent.Application application;
-		private void* pipe = (void*) (intptr) (-1);
-		private bool pipe_up = false;
-		private bool pipe_warned = false;
-		private string number = "";
-		private string directed = "";
-		private string tip = "";
-		private string reply_line = "";
-		private bool tip_due = false;
+		private OLLMrpc.Transport.TcpListen local_listen;
 		private int ticks = 0;
-		private bool probe_open = false;
-		private int probe_id = 0;
+
+		/**
+		 * Register ''AgentService'' RPC methods on {@link OLLMrpc.Request}.
+		 */
+		public static void rpc_register()
+		{
+			OLLMrpc.Request.add_class(
+				"AgentService", typeof(Service),
+				"hello", "is",
+				"status", "",
+				"register", "ss"
+			);
+		}
+
+		/**
+		 * Answer the tray client's initial handshake.
+		 *
+		 * @param request inbound RPC from the tray
+		 * @param protocol client protocol version
+		 * @param client client name
+		 */
+		public void hello(OLLMrpc.Request request, int protocol, string client)
+		{
+			GLib.debug("local hello %s %d", client, protocol);
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Return registered flag, server connection flag, and tray tip.
+		 *
+		 * @param request inbound RPC from the tray
+		 */
+		public void status(OLLMrpc.Request request)
+		{
+			var dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argus");
+			var registered =
+				GLib.FileUtils.test(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"),
+					GLib.FileTest.EXISTS) &&
+				GLib.FileUtils.test(GLib.Path.build_filename(dir, "client.pem"),
+					GLib.FileTest.EXISTS);
+			var connected = registered &&
+				this.application.connection != null &&
+				!Argus.Agent.Application.connection_down;
+			var tip = "Not registered";
+			if (!registered && this.application.status_notice != "") {
+				tip = this.application.status_notice;
+			}
+			if (registered && connected) {
+				tip = "Connected to management server";
+			}
+			if (registered && !connected) {
+				tip = "Disconnected";
+			}
+			string[] reply = {
+				registered ? "1" : "0",
+				connected ? "1" : "0",
+				tip
+			};
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("as", reply),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Register this machine using a PIN and optional ''host:port''.
+		 *
+		 * @param request inbound RPC from the tray
+		 * @param pin six-digit registration PIN
+		 * @param hostport management server address, or empty to browse
+		 */
+		public void register(OLLMrpc.Request request, string pin, string hostport)
+		{
+			var dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argus");
+			var registered =
+				GLib.FileUtils.test(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"),
+					GLib.FileTest.EXISTS) &&
+				GLib.FileUtils.test(GLib.Path.build_filename(dir, "client.pem"),
+					GLib.FileTest.EXISTS);
+			if (registered) {
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("i", (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR),
+					msg = "ok"
+				});
+				return;
+			}
+			var target = hostport.strip();
+			if (target == "") {
+				var line = this.application.browse.poll();
+				var split = line.index_of("\n");
+				if (split >= 1) {
+					target = line.substring(split + 1);
+				}
+			}
+			var colon = target.last_index_of(":");
+			var host = colon >= 1 ? target.substring(0, colon) : "";
+			var port = colon >= 1 ? int.parse(target.substring(colon + 1)) : 0;
+			var code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			if (host != "" && port > 0) {
+				var registration = new Argus.Shared.Register();
+				code = registration.try_connection(host, (uint16) port,
+					pin.strip(), GLib.Environment.get_host_name());
+				GLib.debug("registration %d", code);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("i", code),
+				msg = "ok"
+			});
+			if (code != 0) {
+				return;
+			}
+			this.application.status_notice = "";
+			GLib.Idle.add(() => {
+				this.application.attach_connection();
+				if (this.application.connection != null) {
+					new GLib.Thread<int>("osquery-init", () => {
+						var init_code = new Argus.Agent.OSQuery.Initialize(this.application).run();
+						GLib.Idle.add(() => {
+							if (init_code == 0 && this.application.connection != null) {
+								this.application.osquery.send_startup();
+								this.application.monitor = new Argus.Agent.PackageMonitor(this.application);
+								this.application.monitor.start();
+							}
+							return false;
+						});
+						return 0;
+					});
+				}
+				return false;
+			});
+		}
 
 		/**
 		 * Hand this process to the Service Control Manager.
@@ -133,6 +259,39 @@ namespace Argus.Agent.Win32
 			pending.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
 			pending.dwCurrentState = this.state;
 			SetServiceStatus(this.handle, ref pending);
+			OLLMrpc.rpc_register();
+			Service.rpc_register();
+			OLLMrpc.Request.register("AgentService", this);
+			this.local_listen = new OLLMrpc.Transport.TcpListen("127.0.0.1", 4142);
+			if (!this.local_listen.start()) {
+				GLib.warning("local RPC listener did not bind");
+			}
+			this.application.state_changed.connect(() => {
+				var dir = GLib.Path.build_filename(
+					GLib.Environment.get_user_data_dir(), "argus");
+				var registered =
+					GLib.FileUtils.test(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"),
+						GLib.FileTest.EXISTS) &&
+					GLib.FileUtils.test(GLib.Path.build_filename(dir, "client.pem"),
+						GLib.FileTest.EXISTS);
+				var connected = registered &&
+					this.application.connection != null &&
+					!Argus.Agent.Application.connection_down;
+				var tip = "Not registered";
+				if (!registered && this.application.status_notice != "") {
+					tip = this.application.status_notice;
+				}
+				if (registered && connected) {
+					tip = "Connected to management server";
+				}
+				if (registered && !connected) {
+					tip = "Disconnected";
+				}
+				this.local_listen.broadcast(new OLLMrpc.Notification() {
+					method = "agent.status",
+					args = OLLMrpc.args("bbs", registered, connected, tip)
+				});
+			});
 			this.state = SERVICE_RUNNING;
 			var running = SERVICE_STATUS();
 			running.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -141,6 +300,7 @@ namespace Argus.Agent.Win32
 			SetServiceStatus(this.handle, ref running);
 			GLib.Timeout.add_seconds(1, this.tick);
 			this.application.run({ "argus-agent" });
+			this.local_listen.stop();
 			this.state = SERVICE_STOPPED;
 			var stopped = SERVICE_STATUS();
 			stopped.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -162,224 +322,6 @@ namespace Argus.Agent.Win32
 		private bool tick()
 		{
 			this.ticks++;
-			var notice = GLib.Environment.get_variable("ARGUS_AGENT_TIP") != null ?
-				GLib.Environment.get_variable("ARGUS_AGENT_TIP") : "";
-			if (this.tip == "" && notice != "") {
-				this.tip = notice;
-				GLib.Environment.unset_variable("ARGUS_AGENT_TIP");
-				GLib.debug("tip %s", this.tip);
-			}
-			if ((intptr) this.pipe == -1) {
-				this.pipe = create_registration_pipe();
-				this.pipe_up = false;
-			}
-			if (this.pipe == null) {
-				this.pipe = (void*) (intptr) (-1);
-			}
-			if ((intptr) this.pipe == -1 && !this.pipe_warned) {
-				GLib.warning("pipe: %u", GetLastError());
-				this.pipe_warned = true;
-			}
-			if ((intptr) this.pipe != -1) {
-				this.pipe_warned = false;
-			}
-			// FIXME? == stored publically?
-			var dir = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus");
-			var cert = GLib.Path.build_filename(dir, "ollmrpc-ca.pem");
-			if (this.number == "" && !GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
-			}
-			var became = false;
-			if ((intptr) this.pipe != -1 && !this.pipe_up) {
-				var joined = ConnectNamedPipe(this.pipe, null);
-				var pipe_err = GetLastError();
-				if (joined || pipe_err == ERROR_PIPE_CONNECTED) {
-					became = true;
-					this.pipe_up = true;
-					GLib.debug("registration pipe open");
-				}
-				if (!joined && pipe_err != ERROR_PIPE_CONNECTED &&
-					pipe_err != ERROR_PIPE_LISTENING) {
-					GLib.warning("registration pipe %u", pipe_err);
-					DisconnectNamedPipe(this.pipe);
-					CloseHandle(this.pipe);
-					this.pipe = (void*) (intptr) (-1);
-					this.pipe_up = false;
-				}
-			}
-			if (became && this.tip != "") {
-				this.tip_due = true;
-			}
-			if (became && this.tip == "" &&
-				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				this.tip = "Disconnected";
-				GLib.debug("tip %s", this.tip);
-				this.tip_due = true;
-			}
-			uint32 avail = 0;
-			if (this.pipe_up && this.number == "" &&
-				!PeekNamedPipe(this.pipe, null, 0, null, out avail, null)) {
-				DisconnectNamedPipe(this.pipe);
-				CloseHandle(this.pipe);
-				this.pipe = (void*) (intptr) (-1);
-				this.pipe_up = false;
-			}
-			uint32 got = 0;
-			var buf = new uint8[256];
-			if (this.pipe_up && this.number == "" && avail > 0 &&
-				!ReadFile(this.pipe, buf, (uint32) buf.length, out got, null)) {
-				DisconnectNamedPipe(this.pipe);
-				CloseHandle(this.pipe);
-				this.pipe = (void*) (intptr) (-1);
-				this.pipe_up = false;
-			}
-			if (this.pipe_up && this.number == "" && got >= 6) {
-				var msg = ((string) buf[0:got]).strip();
-				var nl = msg.index_of("\n");
-				if (nl == 6) {
-					this.number = msg.substring(0, 6);
-					this.directed = msg.substring(7);
-					GLib.debug("registration pin for %s", this.directed);
-				}
-				if (nl < 0 && msg.length == 6) {
-					this.number = msg;
-					this.directed = "";
-				}
-			}
-			var line = "";
-			if (this.number != "" &&
-				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				this.reply_line = "%d".printf(
-					(int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
-				this.number = "";
-				this.directed = "";
-			}
-			if (this.number != "" && this.directed != "") {
-				line = "address\n" + this.directed;
-			}
-			if (this.number != "" && this.directed == "") {
-				line = this.application.browse.poll();
-			}
-			if (line == "none") {
-				this.reply_line = "%d".printf((int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR);
-				this.number = "";
-				this.directed = "";
-			}
-			var host = "";
-			var port = 0;
-			var split = line.index_of("\n");
-			var hostport = "";
-			if (split >= 1) {
-				hostport = line.substring(split + 1);
-			}
-			var colon = hostport.last_index_of(":");
-			if (line != "" && line != "none" && colon >= 1) {
-				host = hostport.substring(0, colon);
-				port = int.parse(hostport.substring(colon + 1));
-			}
-			var code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			if (host != "" && port > 0) {
-				var registration = new Argus.Shared.Register();
-				code = registration.try_connection(host, (uint16) port,
-					this.number, GLib.Environment.get_host_name());
-				GLib.debug("registration %d", code);
-			}
-			var attach = line != "" && line != "none" && code == 0;
-			if (attach) {
-				this.probe_id++;
-				this.probe_open = false;
-				this.tip = "Connected to management server";
-				GLib.debug("tip %s", this.tip);
-				this.tip_due = true;
-			}
-			if (line != "" && line != "none") {
-				this.reply_line = "%d".printf(code);
-				this.number = "";
-				this.directed = "";
-			}
-			var probing = this.ticks % 120 == 1 && !this.probe_open &&
-				GLib.FileUtils.test(cert, GLib.FileTest.EXISTS);
-			var text = "";
-			if (probing) {
-				try {
-					GLib.FileUtils.get_contents(GLib.Path.build_filename(
-						GLib.Environment.get_user_data_dir(), "argus", "download"), out text);
-				} catch (GLib.Error e) {
-					text = "";
-				}
-				text = text.strip();
-			}
-			var mark = text.last_index_of(":");
-			if (probing && (text == "" || mark < 1) && this.tip != "Disconnected") {
-				this.tip = "Disconnected";
-				GLib.debug("tip %s", this.tip);
-				this.tip_due = true;
-			}
-			var reach_port = 0;
-			if (probing && text != "" && mark >= 1) {
-				reach_port = int.parse(text.substring(mark + 1));
-			}
-			if (reach_port > 0) {
-				this.probe_open = true;
-				this.probe_id++;
-				var id = this.probe_id;
-				var client = new GLib.SocketClient() {
-					timeout = 10
-				};
-				client.connect_to_host_async.begin(text.substring(0, mark),
-					(uint16) reach_port, null, (obj, res) => {
-						if (id != this.probe_id) {
-							return;
-						}
-						this.probe_open = false;
-						var next = "Disconnected";
-						try {
-							var conn = client.connect_to_host_async.end(res);
-							next = "Connected to management server";
-							conn.close();
-						} catch (GLib.Error e) {
-							if (next == "Connected to management server") {
-								GLib.debug("download socket: %s", e.message);
-							}
-						}
-						if (next == this.tip) {
-							return;
-						}
-						this.tip = next;
-						GLib.debug("tip %s", this.tip);
-						this.tip_due = true;
-				});
-			}
-			uint32 wrote = 0;
-			var reply = this.reply_line.data;
-			if (this.reply_line != "" && this.pipe_up && (intptr) this.pipe != -1 &&
-				WriteFile(this.pipe, reply, (uint32) reply.length, out wrote, null)) {
-				this.reply_line = "";
-			}
-			if (this.reply_line != "" && this.pipe_up && (intptr) this.pipe != -1) {
-				DisconnectNamedPipe(this.pipe);
-				CloseHandle(this.pipe);
-				this.pipe = (void*) (intptr) (-1);
-				this.pipe_up = false;
-				this.reply_line = "";
-			}
-			var tip_bytes = ("tip " + this.tip).data;
-			if (this.tip_due && this.pipe_up && (intptr) this.pipe != -1 && this.tip != "" &&
-				WriteFile(this.pipe, tip_bytes, (uint32) tip_bytes.length, out wrote, null)) {
-				this.tip_due = false;
-			}
-			if (this.tip_due && this.pipe_up && (intptr) this.pipe != -1 && this.tip != "") {
-				DisconnectNamedPipe(this.pipe);
-				CloseHandle(this.pipe);
-				this.pipe = (void*) (intptr) (-1);
-				this.pipe_up = false;
-			}
-			if (attach) {
-				this.application.attach_connection();
-			}
 			if (this.ticks % 5 != 1) {
 				return true;
 			}

@@ -40,15 +40,21 @@ namespace Argus.Server.Net
 		public Application app { get; construct; }
 
 		/**
-		 * ''agent.id'' for this certificate. ''-1'' until
+		 * Approved ''agent'' row for this certificate.
+		 *
+		 * ''id'' is ''0'' until {@link SslListen} or
 		 * {@link allow_request} finds an approved row.
-		 * ''0'' is the Unix controller, not a TLS agent.
 		 */
-		public int64 agent_id { get; set; default = -1; }
+		public Argus.Shared.Agent user {
+			get; set; default = new Argus.Shared.Agent();
+		}
 
 		public SslConnection(GLib.SocketConnection stream, Application app)
 		{
 			GLib.Object(stream: stream, app: app);
+			this.notify["user"].connect(() => {
+				this.set_data("argus-user", this.user);
+			});
 		}
 
 		/**
@@ -68,9 +74,9 @@ namespace Argus.Server.Net
 				return true;
 			}
 			if (this.cert_fingerprint == "") {
-				this.reply(request, new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("client certificate required")
-				});
+				GLib.debug("closing connection without client certificate (%s)", request.method);
+				this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+				this.stop();
 				return false;
 			}
 			var rows = new Gee.ArrayList<Argus.Shared.Agent>();
@@ -82,7 +88,7 @@ namespace Argus.Server.Net
 			if (rows.size > 0) {
 				var row = rows.get(0);
 				if (row.status == 1) {
-					this.agent_id = row.id;
+					this.user = row;
 					return true;
 				}
 				if (row.status == 0 && row.is_controller &&
@@ -91,13 +97,14 @@ namespace Argus.Server.Net
 					row.last_connected = new GLib.DateTime.now_utc().to_unix();
 					cert_q.updateById(row);
 					this.app.db.backupDB();
-					this.agent_id = row.id;
+					this.user = row;
 					return true;
 				}
 			}
-			this.reply(request, new OLLMrpc.Response() {
-				error = new OLLMrpc.Error.CERT_NOT_REGISTERED("certificate not registered")
-			});
+			GLib.debug("closing connection for failed certificate %s (%s)",
+				this.cert_fingerprint, request.method);
+			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			this.stop();
 			return false;
 		}
 
@@ -106,12 +113,12 @@ namespace Argus.Server.Net
 		 */
 		public override void stop()
 		{
-			var tell = this.running && this.agent_id > 0;
+			var tell = this.running && this.user.id > 0;
 			if (tell) {
 				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 				var int_binds = new Gee.HashMap<string, int>();
 				var text_binds = new Gee.HashMap<string, string>();
-				int_binds.set("id", (int) this.agent_id);
+				int_binds.set("id", (int) this.user.id);
 				Argus.Shared.Agent.query(this.app.db).selectWhere(
 					"WHERE id = $id", int_binds, text_binds, rows);
 				if (rows.size > 0) {

@@ -42,7 +42,8 @@ namespace Argus.Controller.Filters
 		 */
 		public string os_type { get; set; default = ""; }
 		/**
-		 * Empty means every row. A choice keeps machines that need that update. Nothing matches yet.
+		 * Empty means every row. ''OS needs update'' keeps rows with
+		 * ''os_status == 0'' or ''os_status == 2''.
 		 */
 		public string status { get; set; default = ""; }
 		/**
@@ -65,17 +66,32 @@ namespace Argus.Controller.Filters
 		 *
 		 *  * Search looks in {@link visible_text}.
 		 *  * OS type is the operating-system name.
-		 *  * A set Status keeps machines that need that update. Nothing matches yet.
+		 *  * ''OS needs update'' keeps rows with ''os_status'' ''0'' or ''2''.
 		 *
 		 * @param item a ''system_info'' row
 		 * @return true when the row passes these settings
 		 */
 		public override bool match(GLib.Object? item)
 		{
-			if (this.status != "") {
-				return false;
-			}
 			var row = (Argus.Shared.OSQuery.SystemInfo) item;
+			switch (this.status) {
+				case "":
+					break;
+
+				case "OS needs update":
+					switch (row.os_status) {
+						case 0:
+						case 2:
+							break;
+
+						default:
+							return false;
+					}
+					break;
+
+				default:
+					return false;
+			}
 			if (this.os_type != "") {
 				var shown = row.operating_system;
 				if (shown != this.os_type &&

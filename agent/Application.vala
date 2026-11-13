@@ -107,6 +107,16 @@ namespace Argus.Agent
 		 */
 		internal static bool connection_down = false;
 
+		/**
+		 * Emitted when the stored registration or server connection state changes.
+		 */
+		internal signal void state_changed();
+
+		/**
+		 * Last startup or rejection notice for the Windows tray.
+		 */
+		internal string status_notice = "";
+
 		private uint connection_check_id = 0;
 		private bool connecting = false;
 
@@ -232,6 +242,7 @@ namespace Argus.Agent
 				if (opened != null) {
 					opened.closed.connect(() => {
 						Application.connection_down = true;
+						this.state_changed();
 					});
 					opened.notification.connect(this.notification);
 				}
@@ -242,18 +253,21 @@ namespace Argus.Agent
 					GLib.warning("%s", e.message);
 					Application.connection_down = true;
 					this.connecting = false;
+					this.state_changed();
 					return;
 				}
 			}
 			if (opened == null) {
 				Application.connection_down = true;
 				this.connecting = false;
+				this.state_changed();
 				return;
 			}
 			opened.watch();
 			Application.connection_down = false;
 			GLib.debug("watching the server connection");
 			this.connecting = false;
+			this.state_changed();
 		}
 
 		public Application()
@@ -302,6 +316,7 @@ namespace Argus.Agent
 			Argus.Shared.OSQuery.DebPackages.rpc_register();
 			Argus.Shared.OSQuery.RpmPackages.rpc_register();
 			Argus.Shared.OSQuery.Programs.rpc_register();
+			Argus.Shared.OSQuery.PackageUpdates.rpc_register();
 			Command.rpc_register();
 			opt_debug = false;
 			opt_debug_critical = false;
@@ -428,49 +443,62 @@ namespace Argus.Agent
 			var cert = GLib.Path.build_filename(
 				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				this.attach_connection();
-				var rejected = this.connection == null;
-				var notice = "Could not reach the management server.";
-				if (this.connection != null) {
-					try {
-						var response = this.connection.call(new OLLMrpc.Request() {
-							method = "RPC-Daemon.hello",
-							args = OLLMrpc.args("is", 1, "argus-agent")
-						});
-						if (response.error != null) {
-							rejected = true;
-							if (response.error.code ==
-								(int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
-								notice = "Not registered with the management server.";
+				GLib.Idle.add(() => {
+					this.attach_connection();
+					var rejected = this.connection == null;
+					var notice = "Could not reach the management server.";
+					if (this.connection != null) {
+						try {
+							var response = this.connection.call(new OLLMrpc.Request() {
+								method = "RPC-Daemon.hello",
+								args = OLLMrpc.args("is", 1, "argus-agent")
+							});
+							if (response.error != null) {
+								rejected = true;
+								if (response.error.code ==
+									(int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
+									notice = "Not registered with the management server.";
+								}
 							}
+						} catch (GLib.Error e) {
+							GLib.warning("%s", e.message);
+							rejected = true;
 						}
-					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
-						rejected = true;
 					}
-				}
-				if (rejected) {
-					if (this.connection_check_id != 0) {
-						GLib.Source.remove(this.connection_check_id);
-						this.connection_check_id = 0;
+					if (rejected) {
+						if (this.connection_check_id != 0) {
+							GLib.Source.remove(this.connection_check_id);
+							this.connection_check_id = 0;
+						}
+						this.connection = null;
+						Application.connection_down = true;
+						var dir = GLib.Path.build_filename(
+							GLib.Environment.get_user_data_dir(), "argus");
+						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"));
+						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
+						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
+						this.status_notice = notice;
+						GLib.debug("registration cleared");
+						this.state_changed();
+						return false;
 					}
-					this.connection = null;
-					Application.connection_down = true;
-					var dir = GLib.Path.build_filename(
-						GLib.Environment.get_user_data_dir(), "argus");
-					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"));
-					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
-					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
-					GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
-					GLib.Environment.set_variable("ARGUS_AGENT_TIP", notice, true);
-					GLib.debug("registration cleared");
-				}
-				if (!rejected && this.connection != null) {
-					new OSQuery.Initialize(this).start();
-					this.osquery.send_startup();
-					this.monitor = new PackageMonitor(this);
-					this.monitor.start();
-				}
+					this.status_notice = "";
+					this.state_changed();
+					new GLib.Thread<int>("osquery-init", () => {
+						var code = new OSQuery.Initialize(this).run();
+						GLib.Idle.add(() => {
+							if (code == 0 && this.connection != null) {
+								this.osquery.send_startup();
+								this.monitor = new PackageMonitor(this);
+								this.monitor.start();
+							}
+							return false;
+						});
+						return 0;
+					});
+					return false;
+				});
 			}
 #endif
 			this.hold();
@@ -528,6 +556,7 @@ namespace Argus.Agent
 #endif
 					GLib.FileUtils.remove(removed);
 					GLib.debug("registration removed");
+					this.state_changed();
 					return;
 				case "agent.run":
 					if (notification.args.size == 0) {

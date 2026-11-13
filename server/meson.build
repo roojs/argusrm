@@ -42,6 +42,7 @@ sources = files(
 	'RegistrationData.vala',
 	'Registration.vala',
 	'OSQuery.vala',
+	'OsUpdate.vala',
 	'Command.vala',
 	'SQT/Script.vala',
 	'SQT/ScriptRepository.vala',

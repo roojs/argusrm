@@ -56,3 +56,5 @@ done
 modules="${out}/gio/modules"
 mkdir -p "${modules}"
 cp -f "${MSYSTEM_PREFIX:-/ucrt64}/lib/gio/modules/libgiognutls.dll" "${modules}/"
+cp -f "${MSYSTEM_PREFIX:-/ucrt64}/bin/gspawn-win64-helper.exe" "${out}/"
+cp -f "${MSYSTEM_PREFIX:-/ucrt64}/bin/gspawn-win64-helper-console.exe" "${out}/"

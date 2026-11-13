@@ -85,6 +85,11 @@ if host_machine.system() == 'windows'
 		'-D_WIN32_IE=0x0601',
 		'-I' + meson.current_source_dir() / 'Win32',
 	]
+	win_mod = import('windows')
+	sources += win_mod.compile_resources(
+		files('../packaging/windows/argusrm.rc'),
+		include_directories: include_directories('../packaging/windows'),
+	)
 endif
 
 if host_machine.system() == 'android'
@@ -100,6 +105,7 @@ else
 		installed_name,
 		sources,
 		dependencies: deps,
+		export_dynamic: true,
 		vala_args: vala_args,
 		c_args: c_args,
 		install: true,

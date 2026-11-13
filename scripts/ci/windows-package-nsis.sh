@@ -13,9 +13,14 @@ out_dir="${ROOT}/dist-windows"
 version="$(scripts/release/changelog.sh packaging-version)"
 out_name="ArgusAgent-${version}-Setup.exe"
 exe="${build_dir}/agent/argus-agent.exe"
+icon="${ROOT}/packaging/windows/argusrm.ico"
 
 [[ -f "${exe}" ]] || {
 	echo "missing ${exe}" >&2
+	exit 1
+}
+[[ -f "${icon}" ]] || {
+	echo "missing ${icon}" >&2
 	exit 1
 }
 command -v makensis >/dev/null || {
@@ -31,10 +36,14 @@ objcopy --subsystem windows "${stage}/argus-tray.exe"
 
 scripts/ci/copy-windows-runtime.sh "${stage}/argus-agent.exe" "${stage}"
 
+win_icon="$(cygpath -aw "${icon}")"
+
 makensis \
 	-DINST_SRC="$(cygpath -aw "${stage}")" \
 	-DPRODUCT_VERSION="${version}" \
 	-DOUTFILE="$(cygpath -aw "${out_dir}/${out_name}")" \
+	-DMUI_ICON="${win_icon}" \
+	-DMUI_UNICON="${win_icon}" \
 	packaging/windows/argusrm-agent.nsi
 
 ls -lh "${out_dir}/${out_name}"

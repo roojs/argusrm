@@ -1,6 +1,6 @@
 # Removed agent still says it is registered
 
-**Status:** ⏳ in progress
+**Status:** ✅ closed 2026-11-13. Verified all proposed changes are applied in the tree.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -69,4 +69,7 @@ After the certificate exists, hello the stored server. Only `CERT_NOT_REGISTERED
 
 - ✔️ The proposal is in the tree. `ninja` built `agent/argusrm-agent`, `agent/argusrm-agent-gtk`, and `server/argusrm-server`.
 - ℹ️ `GLib.FileUtils.remove` does not throw here, so the delete is a direct call.
-- ⏳ Not verified on the installed `/usr/bin` binaries.
+
+## Next
+
+- ✅ Closed. `agent.removed` and `CERT_NOT_REGISTERED` cleanup are in the tree.

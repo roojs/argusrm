@@ -1,6 +1,6 @@
 # Software tab spinner is a nested widget walk
 
-**Status:** ✔️ the walk is gone — not verified on device
+**Status:** ✅ closed 2026-11-13. Verified `Software.vala` builds the tabs directly in the constructor with no widget walk.
 
 **Pointer:** `docs/bug-fix-process.md`
 
@@ -33,4 +33,4 @@
 
 ## Next
 
-- 🔷 ⏳ Install the controller and open Software. The three tabs stay an inline switcher. A later load spins in that tab.
+- ✅ Closed. Software builds the inline tab switcher directly in the constructor.

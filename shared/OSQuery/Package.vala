@@ -23,7 +23,7 @@ namespace Argus.Shared.OSQuery
 	 *
 	 * {@link DebPackages}, {@link RpmPackages}, and
 	 * {@link Programs} extend this. {@link pkg_name} is the
-	 * hash key. {@link sync} applies one snapshot.
+	 * hash key. {@link sync_packages} applies one snapshot.
 	 */
 	public abstract class Package : Row
 	{
@@ -37,34 +37,35 @@ namespace Argus.Shared.OSQuery
 		/**
 		 * Apply one package snapshot.
 		 *
-		 * The instance is the row class. {@link table_name} is
+		 * ''T'' is the concrete row class. {@link Row.table_name} is
 		 * the stored table. {@link pkg_name} is the hash key.
 		 *
 		 * @param db Argus database
 		 * @param agent_id registered agent
 		 * @param rows complete table snapshot
-		 * @return true when every row has this class
+		 * @return true when every row has type ''T''
 		 */
-		public override bool sync(
+		protected bool sync_packages<T>(
 			SQ.Database db,
 			int64 agent_id,
 			Gee.ArrayList<AgentInfo> rows)
 		{
 			foreach (var row in rows) {
-				if (row.get_type() != this.get_type()) {
+				if (row.get_type() != typeof(T)) {
 					return false;
 				}
 			}
-			var query = new SQ.Query<Package>(db, this.table_name());
-			var stored = new Gee.ArrayList<Package>();
+			var query = new SQ.Query<T>(db, this.table_name());
+			var stored = new Gee.ArrayList<T>();
 			var int_binds = new Gee.HashMap<string, int>();
 			int_binds.set("agent_id", (int) agent_id);
 			query.selectWhere("WHERE agent_id = $agent_id", int_binds, null, stored);
 			var index = new Gee.HashMap<string, Package>();
 			foreach (var old in stored) {
-				var key = old.pkg_name();
+				var pkg = (Package) old;
+				var key = pkg.pkg_name();
 				if (!index.has_key(key)) {
-					index.set(key, old);
+					index.set(key, pkg);
 				}
 			}
 			var now = (int) new GLib.DateTime.now_utc().to_unix();
@@ -79,7 +80,7 @@ namespace Argus.Shared.OSQuery
 					newer.added_dt = now;
 					newer.updated_dt = 0;
 					newer.deleted_dt = 0;
-					query.insert(pkg);
+					query.insert((T) row);
 					continue;
 				}
 				newer.id = old.id;
@@ -87,14 +88,14 @@ namespace Argus.Shared.OSQuery
 				if (old.deleted_dt != 0) {
 					newer.deleted_dt = 0;
 					newer.updated_dt = now;
-					query.updateOld(old, pkg);
+					query.updateOld((T) old, (T) row);
 					index.unset(key);
 					continue;
 				}
 				newer.deleted_dt = 0;
 				if (!old.compare(newer)) {
 					newer.updated_dt = now;
-					query.updateOld(old, pkg);
+					query.updateOld((T) old, (T) row);
 				}
 				index.unset(key);
 			}
@@ -103,7 +104,7 @@ namespace Argus.Shared.OSQuery
 					continue;
 				}
 				old.deleted_dt = now;
-				query.updateById(old);
+				query.updateById((T) old);
 			}
 			return true;
 		}

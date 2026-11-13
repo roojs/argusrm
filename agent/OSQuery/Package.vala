@@ -48,8 +48,8 @@ namespace Argus.Agent.OSQuery
 				return 0;
 			}
 			var fresh = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
-			application.osquery.select(
-				this.get_type(), "SELECT * FROM " + this.table_name(), fresh);
+			application.osquery.select(OLLMrpc.Bin.alias_to_gtype.get(this.rpc_name()),
+				"SELECT * FROM " + this.table_name(), fresh);
 			if (application.packages_sent && fresh.size == 0) {
 				return 0;
 			}

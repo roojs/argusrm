@@ -156,10 +156,42 @@ namespace Argus.Shared.OSQuery
 				// Database identity assigned by the server.
 				case "id":
 				case "agent-id":
-				// Server-checked OS fields on OsVersion.
-				case "os-updated":
-				case "os-status":
+				// Server-assigned timestamp on PackageUpdates.
+				case "since":
 					return;
+
+				default:
+					break;
+			}
+			var val = GLib.Value(prop.value_type);
+			((GLib.Object) this).get_property(prop.name, ref val);
+			var def = prop.get_default_value();
+			switch (prop.value_type) {
+				case GLib.Type.STRING:
+					var text = val.get_string();
+					var def_text = def.get_string();
+					if ((text != null ? text : "") == (def_text != null ? def_text : "")) {
+						return;
+					}
+					break;
+
+				case GLib.Type.INT:
+					if (val.get_int() == def.get_int()) {
+						return;
+					}
+					break;
+
+				case GLib.Type.INT64:
+					if (val.get_int64() == def.get_int64()) {
+						return;
+					}
+					break;
+
+				case GLib.Type.BOOLEAN:
+					if (val.get_boolean() == def.get_boolean()) {
+						return;
+					}
+					break;
 
 				default:
 					break;

@@ -1,42 +1,42 @@
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format
+Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
 
-Logged in users,logged-in-users,ON,160,text
-Hostname,hostname,ON,160,text
-Local hostname,local-hostname,off,150,text
-Computer name,computer-name,ON,150,text
-UUID,uuid,off,270,text
+Logged in users,logged-in-users,ON,160,text,ON
+Hostname,hostname,ON,160,text,ON
+Local hostname,local-hostname,off,150,text,ON
+Computer name,computer-name,ON,150,text,ON
+UUID,uuid,off,270,text,ON
 
-Hardware vendor,hardware-vendor,ON,130,text
-Hardware model,hardware-model,off,160,text
-Hardware version,hardware-version,off,120,text
-Hardware serial,hardware-serial,off,140,text
+Hardware vendor,hardware-vendor,ON,130,text,ON
+Hardware model,hardware-model,off,160,text,ON
+Hardware version,hardware-version,off,120,text,ON
+Hardware serial,hardware-serial,off,140,text,ON
 
-Board vendor,board-vendor,off,130,text
-Board model,board-model,off,140,text
-Board version,board-version,off,120,text
-Board serial,board-serial,off,140,text
+Board vendor,board-vendor,off,130,text,ON
+Board model,board-model,off,140,text,ON
+Board version,board-version,off,120,text,ON
+Board serial,board-serial,off,140,text,ON
 
-Physical memory,physical-memory,off,90,bytes
+Physical memory,physical-memory,off,90,bytes,ON
 
-CPU brand,cpu-brand,ON,240,text
-CPU type,cpu-type,off,80,text
-CPU subtype,cpu-subtype,off,80,text
-CPU physical cores,cpu-physical-cores,off,72,number
-CPU logical cores,cpu-logical-cores,off,72,number
-CPU microcode,cpu-microcode,off,110,text
+CPU brand,cpu-brand,ON,240,text,ON
+CPU type,cpu-type,off,80,text,ON
+CPU subtype,cpu-subtype,off,80,text,ON
+CPU physical cores,cpu-physical-cores,off,72,number,ON
+CPU logical cores,cpu-logical-cores,off,72,number,ON
+CPU microcode,cpu-microcode,off,110,text,ON
 
-Operating system,operating-system,ON,180,text
-Major,major,off,64,number
-Minor,minor,off,64,number
-Patch,patch,off,64,number
-Build,build,off,100,text
-Platform,platform,off,90,text
-Platform like,platform-like,off,100,text
-Codename,codename,off,110,text
-Arch,arch,off,72,text
+Operating system,operating-system,ON,180,text,ON
+Major,major,off,64,number,ON
+Minor,minor,off,64,number,ON
+Patch,patch,off,64,number,ON
+Build,build,off,100,text,ON
+Platform,platform,off,90,text,ON
+Platform like,platform-like,off,100,text,ON
+Codename,codename,off,110,text,ON
+Arch,arch,off,72,text,ON
 
-OS updated,os-updated,off,110,date
-OS status,os-status,ON,90,status
+OS updated,os-updated,off,110,date,ON
+OS status,os-status,ON,90,status,off
 
-Package updated,pkgs-updated,off,120,date
-S/W status,pkgs-status,ON,90,status
+Package updated,pkgs-updated,off,120,date,ON
+S/W status,pkgs-status,ON,90,status,off
