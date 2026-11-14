@@ -31,7 +31,7 @@ namespace Argus.Controller.Tab
 	 * this.column_menu();
 	 * }}}
 	 */
-	public abstract class Base : Gtk.Box
+	public abstract class Base : Gtk.Box, Argus.Controller.Store.Base
 	{
 		/**
 		 * File name under columns, without ''.csv''.
@@ -69,9 +69,6 @@ namespace Argus.Controller.Tab
 		 */
 		public GLib.SimpleActionGroup column_menu()
 		{
-			var text = (string) GLib.resources_lookup_data(
-				"/argusrm/columns/" + this.table + ".csv",
-				GLib.ResourceLookupFlags.NONE).get_data();
 			var columns = new Gee.ArrayList<Gtk.ColumnViewColumn>();
 			var menu = new GLib.Menu();
 			var menu_popup = new Gtk.PopoverMenu.from_model(menu) {
@@ -81,78 +78,50 @@ namespace Argus.Controller.Tab
 			menu_popup.add_css_class("column-menu");
 			menu_popup.set_parent(this.grid);
 			var group = new GLib.SimpleActionGroup();
-			var headings = true;
 			var first = true;
 			this.insert_action_group(this.table, group);
-			foreach (var line in text.split("\n")) {
-				if (line.strip() == "") {
-					continue;
-				}
-				if (headings) {
-					headings = false;
-					continue;
-				}
-				var parts = line.strip().split(",");
-				if (parts.length < 4) {
-					continue;
-				}
-				var title = parts[0].strip();
-				var name = parts[1].strip();
-				if (title == "" || name == "") {
-					continue;
-				}
-				var starts = parts[2].strip() == "ON";
-				var format = "text";
-				if (parts.length > 4 && parts[4].strip() != "") {
-					format = parts[4].strip();
-				}
+			foreach (var col in this.read_columns(this.table)) {
 				var header_column = first && this.bold_header;
 				first = false;
-				var width = 0;
-				var factory = this.column_factory(name, format, header_column);
-				var column = new Gtk.ColumnViewColumn(title, factory) {
+				var factory = this.column_factory(col.name, col.format, header_column);
+				var column = new Gtk.ColumnViewColumn(col.title, factory) {
 					resizable = true,
-					visible = starts
+					visible = col.visible,
+					fixed_width = col.width,
+					expand = col.width < 1 || col.name == this.expand_column
 				};
-				if (int.try_parse(parts[3].strip(), out width) && width > 0) {
-					column.fixed_width = width;
-				}
-				if (width == 0 || name == this.expand_column) {
-					column.expand = true;
-				}
-				if (parts.length > 5 && parts[5].strip() == "ON") {
-					column.sorter = this.column_sorter(name, format);
+				if (col.sort) {
+					column.sorter = this.column_sorter(col.name, col.format);
 				}
 				this.grid.append_column(column);
 				columns.add(column);
 				var action = new GLib.SimpleAction.stateful(
-					name, null, new GLib.Variant.boolean(starts));
+					col.name, null, new GLib.Variant.boolean(col.visible));
 				action.change_state.connect((value) => {
-					var on = value.get_boolean();
-					var keep = true;
-					if (!on) {
-						var others = 0;
-						foreach (var other in columns) {
-							if (other == column || !other.visible) {
-								continue;
-							}
-							others++;
-						}
-						if (others < 1) {
-							keep = false;
-						}
-					}
-					if (keep) {
+					if (value.get_boolean()) {
 						action.set_state(value);
-						column.visible = on;
+						column.visible = true;
+						return;
 					}
+					var others = 0;
+					foreach (var other in columns) {
+						if (other == column || !other.visible) {
+							continue;
+						}
+						others++;
+					}
+					if (others < 1) {
+						return;
+					}
+					action.set_state(value);
+					column.visible = false;
 				});
 				group.add_action(action);
 				var item = new GLib.MenuItem(null, null);
-				item.set_attribute("custom", "s", name);
+				item.set_attribute("custom", "s", col.name);
 				menu.append_item(item);
-				var row = new Gtk.CheckButton.with_label(title) {
-					active = starts,
+				var row = new Gtk.CheckButton.with_label(col.title) {
+					active = col.visible,
 					hexpand = true,
 					halign = Gtk.Align.FILL
 				};
@@ -172,7 +141,7 @@ namespace Argus.Controller.Tab
 					tick.set_state(Gtk.EventSequenceState.CLAIMED);
 				});
 				row.add_controller(tick);
-				menu_popup.add_child(row, name);
+				menu_popup.add_child(row, col.name);
 			}
 			var open = new Gtk.GestureClick() {
 				button = Gdk.BUTTON_SECONDARY,
@@ -307,7 +276,9 @@ namespace Argus.Controller.Tab
 		 *    ''uninstallable''.
 		 *  * ''remove'' is that same bin. The count is ''installed''.
 		 *    The mouseover is the count alone.
-		 *  * ''status'' is a centered circle with a mouseover tooltip.
+		 *  * ''status'' is a centered circle. If the row has a
+		 *    ''tooltip-<name>'' string property, it is used as the
+		 *    mouseover tooltip.
 		 *  * ''tick'' is an image.
 		 *  * The row header is bold when {@link bold_header} is true.
 		 *
@@ -465,80 +436,16 @@ namespace Argus.Controller.Tab
 							default:
 								break;
 						}
-						var tip = (string?) null;
-						switch (name) {
-							case "os-status":
-								switch (flag) {
-									case 0:
-										var eol_text = "";
-										var eol_prop = row.get_class().find_property("os-eol");
-										if (eol_prop != null && eol_prop.value_type == GLib.Type.STRING) {
-											var eol_val = GLib.Value(GLib.Type.STRING);
-											row.get_property("os-eol", ref eol_val);
-											eol_text = eol_val.get_string() != null ? eol_val.get_string() : "";
-										}
-										tip = eol_text != "" ? "End of life (" + eol_text + ")" : "End of life";
-										break;
-
-									case 2:
-										var latest_text = "";
-										var latest_prop = row.get_class().find_property("os-latest");
-										if (latest_prop != null && latest_prop.value_type == GLib.Type.STRING) {
-											var latest_val = GLib.Value(GLib.Type.STRING);
-											row.get_property("os-latest", ref latest_val);
-											latest_text = latest_val.get_string() != null ? latest_val.get_string() : "";
-										}
-										tip = latest_text != "" ? "Update available (" + latest_text + ")" : "Update available";
-										break;
-
-									case 1:
-										var ok_eol = "";
-										var ok_eol_prop = row.get_class().find_property("os-eol");
-										if (ok_eol_prop != null && ok_eol_prop.value_type == GLib.Type.STRING) {
-											var ok_eol_val = GLib.Value(GLib.Type.STRING);
-											row.get_property("os-eol", ref ok_eol_val);
-											ok_eol = ok_eol_val.get_string() != null ? ok_eol_val.get_string() : "";
-										}
-										tip = ok_eol != "" ? "Up to date (EOL " + ok_eol + ")" : "Up to date";
-										break;
-
-									default:
-										break;
-								}
-								break;
-
-							case "pkgs-status":
-								switch (flag) {
-									case 0:
-										var pending = 0;
-										var pending_prop = row.get_class().find_property("pkgs-updates");
-										if (pending_prop != null && pending_prop.value_type == GLib.Type.INT) {
-											var pending_val = GLib.Value(GLib.Type.INT);
-											row.get_property("pkgs-updates", ref pending_val);
-											pending = pending_val.get_int();
-										}
-										tip = "Package updates available";
-										if (pending == 1) {
-											tip = "1 package update available";
-										}
-										if (pending > 1) {
-											tip = pending.to_string() + " package updates available";
-										}
-										break;
-
-									case 1:
-										tip = "Packages up to date";
-										break;
-
-									default:
-										break;
-								}
-								break;
-
-							default:
-								break;
+						cell.tooltip_text = null;
+						var tip_prop = row.get_class().find_property("tooltip-" + name);
+						if (tip_prop != null && tip_prop.value_type == GLib.Type.STRING) {
+							var tip_val = GLib.Value(GLib.Type.STRING);
+							row.get_property("tooltip-" + name, ref tip_val);
+							var tip = tip_val.get_string();
+							if (tip != null && tip != "") {
+								cell.tooltip_text = tip;
+							}
 						}
-						cell.tooltip_text = tip;
 						break;
 
 					case "date":

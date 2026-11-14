@@ -34,6 +34,7 @@ if host_machine.system() == 'linux'
 	sources += files(
 		'OSQuery/Initialize.vala',
 		'OSQuery/Execute.vala',
+		'OSQuery/LoggedInUsers.vala',
 		'OSQuery/Package.vala',
 		'OSQuery/DebPackages.vala',
 		'OSQuery/RpmPackages.vala',
@@ -121,6 +122,7 @@ else
 				'Download.vala',
 				'OSQuery/Initialize.vala',
 				'OSQuery/Execute.vala',
+				'OSQuery/LoggedInUsers.vala',
 				'OSQuery/Package.vala',
 				'OSQuery/DebPackages.vala',
 				'OSQuery/RpmPackages.vala',

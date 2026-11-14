@@ -314,8 +314,13 @@ namespace Argus.Server
 			new Argus.Shared.OSQuery.CpuInfo().list(request, (int) first);
 			new Argus.Shared.OSQuery.LoggedInUsers().list(request, (int) first);
 			new Argus.Shared.OSQuery.InterfaceAddresses().list(request, (int) first);
-			new Argus.Shared.OSQuery.SystemInfo().list(request, true);
+			new Argus.Shared.OSQuery.SystemInfo().list(request, 0, true);
+			new Argus.Shared.OSQuery.SystemInfo().list(request, (int) first, false);
+			new Argus.Shared.OSQuery.OsVersion().list(request, (int) first);
+			new Argus.Shared.OsReleases().list(request, (int) first);
 			Argus.Shared.OSQuery.SystemInfo.rpc_register();
+			Argus.Shared.OSQuery.OsVersion.rpc_register();
+			Argus.Shared.OsReleases.rpc_register();
 			try {
 				var mem_out = new GLib.MemoryOutputStream.resizable();
 				var data_out = new GLib.DataOutputStream(mem_out);
@@ -338,7 +343,9 @@ namespace Argus.Server
 				if (parsed == null || parsed.agent_id != first || parsed.id != 0 ||
 					parsed.os_status != 0 || parsed.os_eol != "2026-01-15" ||
 					parsed.os_latest != "25.04" || parsed.pkgs_updated != 1763000000 ||
-					parsed.pkgs_status != 0 || parsed.pkgs_updates != 1) {
+					parsed.pkgs_status != 0 || parsed.pkgs_updates != 1 ||
+					parsed.tooltip_os_status != "End of life (2026-01-15)" ||
+					parsed.tooltip_pkgs_status != "1 package update available") {
 					GLib.printerr("fail system_info bin agent_id round-trip\n");
 					return 1;
 				}

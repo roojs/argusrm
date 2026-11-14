@@ -135,15 +135,33 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments `b`: true includes that host's `os_version` and the distinct logged-in users on the row. false is `system_info` only.
-- Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info` and whose `agent_id` is still in `agent`.
+- Arguments `ib`: `agent_id` and `join`. When `agent_id` is greater than zero, only that host is returned. `join` true includes that host's `os_version` and the distinct logged-in users on the row; false is `system_info` only.
+- Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info` (and whose `agent_id` is still in `agent` when `agent_id` is zero).
 - `os_version` and `logged_in_users` in that reply are included only when their `agent_id` is in `agent`.
 - Startup deletes `system_info` rows whose `agent_id` is not in `agent`.
-- With the flag, the row also carries `logged-in-users`, `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, `arch`, `os_updated`, `os_status`, `os_eol`, `os_latest`, `pkgs_updated`, `pkgs_status`, `pkgs_updates`, and `reboot_required`. `os_updated`, `os_status`, `os_eol`, and `os_latest` come from `os_releases` (`1` up to date, `2` update available, `0` EOL, `-1` unchecked or unmatched). `pkgs_updated`, `pkgs_status`, and `pkgs_updates` come from `os_version` and `package_updates` (`1` up to date, `0` updates available, `-1` unchecked or unsupported). `logged-in-users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)`. A host with no `os_version` row, or no session, stays in the list and those fields are empty.
+- With `join` true, the row also carries `logged-in-users`, `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, `arch`, `os_updated`, `os_status`, `os_eol`, `os_latest`, `pkgs_updated`, `pkgs_status`, `pkgs_updates`, and `reboot_required`. `os_updated`, `os_status`, `os_eol`, and `os_latest` come from `os_releases` (`1` up to date, `2` update available, `0` EOL, `-1` unchecked or unmatched). `pkgs_updated`, `pkgs_status`, and `pkgs_updates` come from `os_version` and `package_updates` (`1` up to date, `0` updates available, `-1` unchecked or unsupported). `logged-in-users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)`. A host with no `os_version` row, or no session, stays in the list and those fields are empty.
 - `logged-in-users` is not a column of `system_info`. The list reads rows already stored. It does not ask the agent.
 - `major`, `minor`, and `patch` are text here, so a missing row stays blank. They are not columns of `system_info`.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls it. [5.8](plans/5.8-assets-page.md).
+- ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls `SystemInfo.list(0, true)` and `Store.MachineGeneral` calls `SystemInfo.list(agent_id, false)`. [5.8](plans/5.8-assets-page.md).
+
+### `OsVersion.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `OsVersion` rows (`deleted_dt = 0`) for that `agent_id`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/OsVersion.vala`. `Store.MachineGeneral` calls it.
+
+### `OsReleases.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array containing zero or one `OsReleases` row matching that host's `os_version` (`platform`, `major`, `minor`, with `os_version.deleted_dt = 0`). An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OsReleases.vala`. `Store.MachineGeneral` calls it.
 
 ### `CpuInfo.list`
 

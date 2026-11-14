@@ -9,8 +9,8 @@
 ## Problem
 
 - 🔷 When package status or installed package data updates on the server (e.g. `PackageUpdates`, `DebPackages`, `RpmPackages`, `Programs` via `OSQuery.sync`), the server must notify the controller frontend so it clears its cached package state and refreshes visible views.
-- 🔷 The same pattern applies to logged-in users (`LoggedInUsers` / `users_loaded`), although there is no agent-side update process for `logged_in_users` yet (tracked in [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md)).
-- 🔷 Currently, the frontend holds cached per-machine tab flags and in-memory store lists with no server push notification to invalidate or reload them when an agent reports new package status.
+- 🔷 Logged-in users (`Users` tab / `LoggedInUsers`) should **not** be cached in `Machine.Detail`: refresh `Users` every time the user switches to that tab, while the other tabs (`General`, package tabs, `Interfaces`, `CPUs`) keep caching until invalidated by server notifications.
+- 🔷 Currently, the frontend holds cached per-machine tab flags (`users_loaded`, `general_loaded`, `debian_loaded`, etc.) and in-memory store lists with no server push notification to invalidate or reload them when an agent reports new data.
 
 ---
 
@@ -28,8 +28,9 @@
 
 ### 2. Machine detail pane caches per-tab load state (`controller/tab/Asset/Machine/Detail.vala`)
 
-- ✔️ `Detail` keeps per-tab booleans (`users_loaded`, `debian_loaded`, `rpm_loaded`, `windows_loaded`, `interfaces_loaded`, `cpus_loaded`) for `current_agent_id`.
-- ✔️ `show_machine(machine)` and `clear()` are the only places that reset `*_loaded = false`; switching back and forth between tabs on the same `current_agent_id` skips `load(this.current_agent_id)` once `*_loaded` is `true`.
+- ✔️ `Detail` keeps per-tab booleans (`general_loaded`, `users_loaded`, `debian_loaded`, `rpm_loaded`, `windows_loaded`, `interfaces_loaded`, `cpus_loaded`) for `current_agent_id`.
+- ✔️ `show_machine(machine)` and `clear()` are the only places that reset `*_loaded = false`; switching back and forth between tabs on the same `current_agent_id` skips `load(this.current_agent_id)` once `*_loaded` is `true` — including `users`.
+- ✔️ `Store.LoggedInUsers.load(agent_id)` (`controller/store/LoggedInUsers.vala`) already keeps existing rows visible (`refreshing = true` on the tab toggle spinner) when reloading the same `loaded_agent`, and drops duplicate calls if already `busy` for that agent.
 - 🚫 `Detail` does not listen to `window.app.rpc.notification`, so neither its cached `*_loaded` flags nor the currently visible package tab ever invalidate or reload when package status changes on the server.
 
 ### 3. Software and Machines tabs only reload on `map` (`controller/tab/Asset/*.vala`, `controller/store/*.vala`)
@@ -57,21 +58,95 @@
 - 💩 Also consider whether `OSQuery.sync` should only broadcast when rows actually changed (or always on `PackageUpdates` / package syncs) to avoid redundant controller reloads during agent startup bursts.
 - 🔷 Document the new notification in `docs/rpc-commands.md` in the same change.
 
-### 2. Frontend cache invalidation and reload (`controller/tab/Asset/`, `controller/store/`)
+### 2. `Machine.Detail` (`Users` tab — no caching) (`controller/tab/Asset/Machine/Detail.vala`)
+
+- 🔷 Drop `users_loaded` from `controller/tab/Asset/Machine/Detail.vala` so `this.users.load(...)` runs every time `"users"` becomes active (`Store.LoggedInUsers.load` already keeps existing rows visible with the tab's `refreshing` spinner when reloading the same `loaded_agent`).
+
+#### Remove (`controller/tab/Asset/Machine/Detail.vala`)
+
+```vala
+		private bool general_loaded = false;
+		private bool users_loaded = false;
+		private bool debian_loaded = false;
+```
+
+#### Replace with (`controller/tab/Asset/Machine/Detail.vala`)
+
+```vala
+		private bool general_loaded = false;
+		private bool debian_loaded = false;
+```
+
+#### Remove (`controller/tab/Asset/Machine/Detail.vala`, `notify["active-name"]`)
+
+```vala
+					case "users":
+						if (this.users_loaded) {
+							break;
+						}
+						this.users_loaded = true;
+						this.users.load(this.current_agent_id);
+						break;
+```
+
+#### Replace with (`controller/tab/Asset/Machine/Detail.vala`, `notify["active-name"]`)
+
+```vala
+					case "users":
+						this.users.load(this.current_agent_id);
+						break;
+```
+
+#### Remove (`controller/tab/Asset/Machine/Detail.vala`, `clear()` and `show_machine()`)
+
+```vala
+			this.general_loaded = false;
+			this.users_loaded = false;
+			this.debian_loaded = false;
+```
+
+#### Replace with (`controller/tab/Asset/Machine/Detail.vala`, both occurrences)
+
+```vala
+			this.general_loaded = false;
+			this.debian_loaded = false;
+```
+
+#### Remove (`controller/tab/Asset/Machine/Detail.vala`, `show_machine()`)
+
+```vala
+				case "users":
+					if (this.users_loaded) {
+						break;
+					}
+					this.users_loaded = true;
+					this.users.load(agent_id);
+					break;
+```
+
+#### Replace with (`controller/tab/Asset/Machine/Detail.vala`, `show_machine()`)
+
+```vala
+				case "users":
+					this.users.load(agent_id);
+					break;
+```
+
+### 3. Frontend notification invalidation and reload (`controller/tab/Asset/`, `controller/store/`)
 
 - 🔷 On receiving the package-status / table-update notification, clear cached state on the controller so stale rows are not shown:
   - 💩 **`Machine.Detail` (`controller/tab/Asset/Machine/Detail.vala`):**
     - Connect to `window.app.rpc.notification`.
-    - When `agent_id == this.current_agent_id` (or `agent_id <= 0`), reset the matching `*_loaded` flag (`debian_loaded`, `rpm_loaded`, `windows_loaded`, and later `users_loaded`) to `false` (and clear the child store if unmapped / inactive), and immediately call `load(this.current_agent_id)` if that sub-tab is currently visible.
+    - When `agent_id == this.current_agent_id` (or `agent_id <= 0`), reset the matching `*_loaded` flag (`general_loaded`, `debian_loaded`, `rpm_loaded`, `windows_loaded`, `interfaces_loaded`, `cpus_loaded`) to `false` (and clear the child store if unmapped / inactive), and immediately call `load(this.current_agent_id)` if that sub-tab is currently visible.
   - 💩 **Software tabs (`Tab.Asset.DebPackages`, `RpmPackages`, `Programs`) & Machines tab (`Tab.Asset.SystemInfo`):**
     - Listen for matching notifications (`PackageUpdates` / `DebPackages` / `RpmPackages` / `Programs`, and `OsVersion` / `PackageUpdates` for `SystemInfo`).
     - If the widget is currently mapped (`this.get_mapped()`), trigger `this.store.load(...)` (debounced if needed for startup bursts); if unmapped, mark/clear the store's cached state so it does not flash stale rows before the next `map` reload completes.
-- ℹ️ Keep `LoggedInUsers` (`users_loaded`) aligned with the same notification/invalidation hook so [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md) can plug into it without a separate mechanism once agent-side user updates exist.
 
 ---
 
 ## Next
 
+- ⏳ 🔷 Approve section 2 (`controller/tab/Asset/Machine/Detail.vala` — drop `users_loaded` so `Users` refreshes on every visit).
 - ⏳ 🔷 Confirm notification shape (`event.osquery` with `name` + `agent_id` vs `event.packages`) and whether `OSQuery.sync` should suppress notifications during unchanged snapshots / debounce startup bursts.
 - ⏳ 🔷 Confirm whether unmapped tabs should clear their in-memory `Store` items immediately on notification (showing the loading spinner on next open) or keep existing rows with the tab spinner while reloading on `map`.
-- ⏳ 💩 Once confirmed, add verbatim `Remove` / `Replace with` / `Add` hunks and `docs/rpc-commands.md` updates.
+- ⏳ 💩 Once confirmed, add verbatim `Remove` / `Replace with` / `Add` hunks and `docs/rpc-commands.md` updates for sections 1 and 3.

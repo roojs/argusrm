@@ -161,7 +161,12 @@ namespace Argus.Agent.OSQuery
 			var code = 0;
 			code += this.sync_table("system_info", "SystemInfo");
 			code += this.sync_table("cpu_info", "CpuInfo");
+#if LINUX
+			// deal with buggy logged in users in osquery
+			code += new LoggedInUsers().send(this.application);
+#else
 			code += this.sync_table("logged_in_users", "LoggedInUsers");
+#endif
 			code += this.sync_table("interface_addresses", "InterfaceAddresses");
 			code += this.sync_table("os_version", "OsVersion");
 			code += this.send_packages();
@@ -175,99 +180,11 @@ namespace Argus.Agent.OSQuery
 		 * @param class_name registered row name
 		 * @return zero, or an {@link OLLMrpc.RpcErrorCode} value
 		 */
-		private int sync_table(string table, string class_name)
+		internal int sync_table(string table, string class_name)
 		{
 			var rows = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
 			var row_type = OLLMrpc.Bin.alias_to_gtype.get(class_name);
 			this.select(row_type, "SELECT * FROM " + table, rows);
-#if LINUX
-			if (table == "logged_in_users" && rows.size == 0) {
-				try {
-					var bus = GLib.Bus.get_sync(GLib.BusType.SYSTEM);
-					var reply = bus.call_sync(
-						"org.freedesktop.login1",
-						"/org/freedesktop/login1",
-						"org.freedesktop.login1.Manager",
-						"ListSessions",
-						null,
-						new GLib.VariantType("(a(susso))"),
-						GLib.DBusCallFlags.NONE,
-						-1
-					);
-					var iter = reply.get_child_value(0).iterator();
-					GLib.Variant? entry = null;
-					while ((entry = iter.next_value()) != null) {
-						string sid, uname, seat, path;
-						uint32 uid;
-						entry.get("(susso)", out sid, out uid, out uname, out seat, out path);
-						var props_reply = bus.call_sync(
-							"org.freedesktop.login1",
-							path,
-							"org.freedesktop.DBus.Properties",
-							"GetAll",
-							new GLib.Variant("(s)", "org.freedesktop.login1.Session"),
-							new GLib.VariantType("(a{sv})"),
-							GLib.DBusCallFlags.NONE,
-							-1
-						);
-						var dict = props_reply.get_child_value(0);
-						var sclass = "";
-						var v_class = dict.lookup_value("Class", GLib.VariantType.STRING);
-						if (v_class != null) {
-							sclass = v_class.get_string();
-						}
-						if (sclass != "user") {
-							continue;
-						}
-						var tty = "";
-						var v_tty = dict.lookup_value("TTY", GLib.VariantType.STRING);
-						if (v_tty != null) {
-							tty = v_tty.get_string();
-						}
-						var display = "";
-						var v_display = dict.lookup_value("Display", GLib.VariantType.STRING);
-						if (v_display != null) {
-							display = v_display.get_string();
-						}
-						var stype = "";
-						var v_type = dict.lookup_value("Type", GLib.VariantType.STRING);
-						if (v_type != null) {
-							stype = v_type.get_string();
-						}
-						var state = "";
-						var v_state = dict.lookup_value("State", GLib.VariantType.STRING);
-						if (v_state != null) {
-							state = v_state.get_string();
-						}
-						var remote_host = "";
-						var v_rhost = dict.lookup_value("RemoteHost", GLib.VariantType.STRING);
-						if (v_rhost != null) {
-							remote_host = v_rhost.get_string();
-						}
-						var ts = (uint64) 0;
-						var v_ts = dict.lookup_value("Timestamp", GLib.VariantType.UINT64);
-						if (v_ts != null) {
-							ts = v_ts.get_uint64();
-						}
-						var leader = (uint32) 0;
-						var v_leader = dict.lookup_value("Leader", GLib.VariantType.UINT32);
-						if (v_leader != null) {
-							leader = v_leader.get_uint32();
-						}
-						rows.add(new Argus.Shared.OSQuery.LoggedInUsers() {
-							user = uname,
-							tty = tty != "" ? tty : (display != "" ? display : stype),
-							host = remote_host != "" ? remote_host : (display != "" ? display : seat),
-							time = (int) (ts / 1000000),
-							ctype = state != "" ? state : sclass,
-							pid = (int) leader
-						});
-					}
-				} catch (GLib.Error e) {
-					GLib.warning("logind sessions: %s", e.message);
-				}
-			}
-#endif
 			GLib.debug("SELECT * FROM %s %d rows", table, rows.size);
 			var connection = this.application.connection;
 			if (connection == null) {

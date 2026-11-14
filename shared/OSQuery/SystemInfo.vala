@@ -94,25 +94,28 @@ namespace Argus.Shared.OSQuery
 			OLLMrpc.Bin.register("SystemInfo", typeof(SystemInfo));
 			OLLMrpc.Request.add_class(
 				"SystemInfo", typeof(SystemInfo),
-				"list", "b"
+				"list", "ib"
 			);
 		}
 
 		/**
-		 * List every stored row.
+		 * List stored rows, or one agent's row.
 		 *
 		 * A controller calls this. An agent with no row is absent.
 		 * A row whose ''agent_id'' is not in ''agent'' is absent.
 		 * Joined ''os_version'' and logins follow that same rule.
 		 * A caller that is not a controller is refused.
+		 * When ''agent_id'' is greater than zero, only that host is
+		 * returned.
 		 * ''join'' adds that host's ''os_version'' onto the row.
 		 * The same flag adds the distinct logged-in users.
 		 * Those values are not stored on ''system_info''.
 		 *
 		 * @param request inbound RPC from a controller
+		 * @param agent_id selected machine agent id, or zero for all
 		 * @param join true adds ''os_version'' and the logins
 		 */
-		public void list(OLLMrpc.Request request, bool join)
+		public void list(OLLMrpc.Request request, int agent_id, bool join)
 		{
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
@@ -120,9 +123,17 @@ namespace Argus.Shared.OSQuery
 			var rows = new Gee.ArrayList<SystemInfo>();
 			var query = SystemInfo.query(SystemInfo.db);
 			if (!join) {
-				query.select("WHERE agent_id IN (SELECT id FROM agent)", rows);
+				var where = "WHERE agent_id = " + agent_id.to_string();
+				if (agent_id < 1) {
+					where = "WHERE agent_id IN (SELECT id FROM agent)";
+				}
+				query.select(where, rows);
 			}
 			if (join) {
+				var where = "system_info.agent_id = " + agent_id.to_string();
+				if (agent_id < 1) {
+					where = "system_info.agent_id IN (SELECT id FROM agent)";
+				}
 				var columns = string.joinv(", ", query.getColsExcept(null, "system_info."));
 				query.selectQuery(@"
 					SELECT 
@@ -200,7 +211,7 @@ namespace Argus.Shared.OSQuery
 						AND os_releases.major = os_version.major
 						AND os_releases.minor = os_version.minor
 					WHERE
-						system_info.agent_id IN (SELECT id FROM agent)
+						$(where)
 					", rows);
 			}
 			request.reply(new OLLMrpc.Response() {
@@ -354,6 +365,55 @@ namespace Argus.Shared.OSQuery
 		 * Not stored on ''system_info''.
 		 */
 		public int pkgs_updates { get; set; default = 0; }
+		/**
+		 * Mouseover text for {@link os_status} in the Machines grid.
+		 *
+		 * Derived from {@link os_status}, {@link os_eol}, and
+		 * {@link os_latest}. Not stored or sent on the wire.
+		 */
+		public string tooltip_os_status {
+			owned get {
+				switch (this.os_status) {
+					case 0:
+						return "End of life (" + this.os_eol + ")";
+
+					case 2:
+						return "Update available (" + this.os_latest + ")";
+
+					case 1:
+						if (this.os_eol != "") {
+							return "Up to date (EOL " + this.os_eol + ")";
+						}
+						return "Up to date";
+
+					default:
+						return "";
+				}
+			}
+		}
+		/**
+		 * Mouseover text for {@link pkgs_status} in the Machines grid.
+		 *
+		 * Derived from {@link pkgs_status} and {@link pkgs_updates}.
+		 * Not stored or sent on the wire.
+		 */
+		public string tooltip_pkgs_status {
+			owned get {
+				switch (this.pkgs_status) {
+					case 0:
+						if (this.pkgs_updates == 1) {
+							return "1 package update available";
+						}
+						return this.pkgs_updates.to_string() + " package updates available";
+
+					case 1:
+						return "Packages up to date";
+
+					default:
+						return "";
+				}
+			}
+		}
 		/**
 		 * Windows restart waiting on this host.
 		 *

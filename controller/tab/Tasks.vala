@@ -60,31 +60,15 @@ namespace Argus.Controller.Tab
 			this.vexpand = true;
 			this.store = new GLib.ListStore(typeof(Argus.Shared.SQT.TaskTarget));
 			this.filter = new Argus.Controller.Filters.Tasks();
-			var text = (string) GLib.resources_lookup_data("/argusrm/columns/task_targets.csv",
-					GLib.ResourceLookupFlags.NONE).get_data();
-					
 			var text_columns = new Gee.ArrayList<string>();
 			var visible = new Gee.ArrayList<string>();
-			var headings = true;
-			foreach (var line in text.split("\n")) {
-				if (line.strip() == "") {
+			foreach (var col in this.read_columns(this.table)) {
+				if (col.format != "text") {
 					continue;
 				}
-				if (headings) {
-					headings = false;
-					continue;
-				}
-				var parts = line.strip().split(",");
-				if (parts.length < 5) {
-					continue;
-				}
-				var name = parts[1].strip();
-				if (parts[4].strip() != "text") {
-					continue;
-				}
-				text_columns.add(name);
-				if (parts[2].strip() == "ON") {
-					visible.add(name);
+				text_columns.add(col.name);
+				if (col.visible) {
+					visible.add(col.name);
 				}
 			}
 			this.filter.visible_text = visible;
