@@ -53,28 +53,51 @@
 
 ---
 
-## Proposed direction (rough sketch)
+## Plan
 
-### 1. Startup + log monitoring for dynamic tables (`logged_in_users`, `users`)
+Startup unchanged (`Execute.send_startup()`). New agent monitor(s) debounce like `PackageMonitor` (~60s) and call existing sync (`LoggedInUsers.send()` on Linux, `sync_table` on Windows; `OSQuery.sync("Users")` when built).
 
-- 🔷 Run `send_startup()` at boot/connect, then rely on log/event monitoring to detect changes without heavy polling.
-- 💩 **Linux login / user changes:**
-  - Watch login/session sources (e.g. `/run/utmp` or `systemd-logind` D-Bus / `journald` / `/var/log/auth.log`) and `/etc/passwd` + `/etc/group` (for local `users`) using the same debounced resync pattern as `PackageMonitor` (`OSQuery.sync("LoggedInUsers")` / `OSQuery.sync("Users")`).
-- 💩 **Windows login / user changes:**
-  - Subscribe via `Win32.EvtSubscribe` to `Security` log events (e.g. logon `4624`, logoff `4634`/`4647`, account create/delete/change `4720`/`4726`/`4738`) and debounce `OSQuery.sync("LoggedInUsers")` / `OSQuery.sync("Users")`.
+🚫 **Phase 1 must not watch `/var/log/auth.log` or an unfiltered auth journal.** Volume (SSH failures, `sudo`, cron PAM) would constantly arm resync. Auth belongs in phase 3 with server-side filters (`docs/plans/1.1-implementation.md`), not as the driver for table refresh.
 
-### 2. Optional periodic (daily) sync for slow-changing host state
+ℹ️ Linux **read** path for `logged_in_users` is `agent/OSQuery/LoggedInUsers.vala` (utmp or cgroup fallback; see [done/2026-11-14-FIXED-logged-in-users-empty-linux.md](done/2026-11-14-FIXED-logged-in-users-empty-linux.md)). Phase 1 **triggers** are separate: low-volume session/account signals, not D-Bus row population in `Execute`.
 
-- 💩 Re-sync `os_version` (picks up `reboot_required` on Windows or OS point-release upgrades) and `interface_addresses` (picks up DHCP/VPN IP changes) on a daily timer (or on network/log triggers).
+### Phase 1 — session and local accounts
 
-### 3. General log / security event monitoring (later)
+| Piece | Linux | Windows |
+|-------|-------|---------|
+| Class | New `UserSessionMonitor` (or split Linux/Win32 like `PackageMonitor`) | same |
+| Sessions → `logged_in_users` | **Preferred:** `org.freedesktop.login1` — `SessionNew`, `SessionRemoved` | `Win32.EvtSubscribe` Security: `4624`, `4634`, `4647` |
+| | **Legacy optional:** `GLib.FileMonitor` on `/run/utmp` only if path exists | |
+| logind vs SSH | ✔️ Typical **interactive SSH** (`UsePAM yes`, `pam_systemd` in PAM session stack, default on Ubuntu/Debian/Fedora): sshd registers a logind session → `SessionNew` / `SessionRemoved` fire; same sessions the Linux cgroup fallback in `LoggedInUsers.send()` uses (`session-*.scope`). | |
+| | ℹ️ **May not** register (no signal, table may stay stale until next login elsewhere): hosts without logind, sshd with `UsePAM no`, PAM stacks without `pam_systemd`, or one-off `ssh host cmd` / automation that never opens a session scope. Not fixed by watching `/var/log/auth.log` in phase 1. | |
+| Local accounts → `users` | `GLib.FileMonitor` on `/etc/passwd`, `/etc/group` | Security: `4720`, `4726`, `4738` (if `users` in cut) |
+| Action | Debounce → `LoggedInUsers.send()` / `sync_table("logged_in_users", …)` | same |
+| | Debounce → `OSQuery.sync("Users")` (and `Groups` / `UserGroups` if in cut) | same |
+| RPC | None if only existing `OSQuery.sync` / `LoggedInUsers` RPCs | same |
+| Periodic poll | 🚫 No timer for `logged_in_users` — unlike `PackageUpdates`, a 12h (or daily) resync would not catch short logon/logoff windows and would not fix “who was on the box for five minutes” after the fact. Refresh is **startup + session events only** (debounced). | |
 
-- 💩 Decide whether log monitoring only triggers `OSQuery.sync` of existing tables or also ships filtered log/security events (new executables, unexpected sockets, failed logins) to the server as sketched in `docs/plans/1.1-implementation.md`.
+**Decisions (pick one per row):**
+
+| # | Question | A (recommended) | B |
+|---|----------|-----------------|---|
+| 1 | Phase 1 tables | `logged_in_users` only | + `users` (± `groups`, `user_groups`) |
+| 2 | Linux session trigger | logind `SessionNew` / `SessionRemoved` | utmp file monitor where present only (no logind) |
+| 4 | Windows Security IDs | logon/logoff first | include account IDs in same debouncer |
+
+### Phase 2 — slow-changing host state
+
+- Daily timer (or separate debounced network trigger later): `os_version`, `interface_addresses`.
+- Out of phase 1 unless explicitly folded in.
+
+### Phase 3 — security / log events
+
+- Filtered journal or Windows Security IDs; may ship events to server, not only `OSQuery.sync`.
+- Not tied to refreshing `logged_in_users` / `users`.
 
 ---
 
 ## Next
 
-- ⏳ 🔷 Confirm which tables and events belong in the first cut of log monitoring (`logged_in_users`, local `users`, `os_version` / `reboot_required`, `interface_addresses`, or auth/security log alerts).
-- ⏳ 🔷 Confirm whether Linux log monitoring should use `GLib.FileMonitor` (e.g. `/run/utmp`, `/etc/passwd`, `/var/log/auth.log`) / `systemd-logind` D-Bus or `sd-journal`, and whether Windows uses `Win32.EvtSubscribe` on `Security`.
-- ⏳ 💩 Once confirmed, add verbatim code proposals and update `docs/rpc-commands.md` if any new tables or event RPCs are added.
+- ⏳ 🔷 User: decisions 1, 2, 4 in phase 1 table.
+- ⏳ 💩 After decisions: verbatim code in this file (`UserSessionMonitor`, wire from `Application` / `meson.build`), server cache notification for `LoggedInUsers` if not done ([2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md)).
+- ⏳ 💩 New RPCs or event posts → `docs/rpc-commands.md`.
