@@ -55,7 +55,8 @@ namespace Argus.Controller.Tab.Asset.Machine
 			Object(
 				orientation: Gtk.Orientation.VERTICAL,
 				spacing: 0,
-				table: "rpm_packages_machine"
+				table: "rpm_packages_machine",
+				expand_column: "name"
 			);
 			this.hexpand = true;
 			this.vexpand = true;
@@ -66,7 +67,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
-			var spinner = new Gtk.Spinner() {
+			var spinner = new Adw.Spinner() {
 				halign = Gtk.Align.CENTER,
 				valign = Gtk.Align.CENTER,
 				width_request = 48,
@@ -85,9 +86,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 			};
 			overlay.add_overlay(spinner);
 			this.store.notify["busy"].connect(() => {
-				var waiting = this.store.busy && this.store.get_n_items() == 0;
-				spinner.visible = waiting;
-				spinner.spinning = waiting;
+				spinner.visible = this.store.busy && this.store.get_n_items() == 0;
 				this.refreshing = this.store.busy && this.store.get_n_items() > 0;
 			});
 			this.append(overlay);

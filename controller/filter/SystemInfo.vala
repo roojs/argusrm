@@ -43,7 +43,8 @@ namespace Argus.Controller.Filters
 		public string os_type { get; set; default = ""; }
 		/**
 		 * Empty means every row. ''OS needs update'' keeps rows with
-		 * ''os_status == 0'' or ''os_status == 2''.
+		 * ''os_status == 0'' or ''os_status == 2''. ''S/W needs update''
+		 * keeps rows with ''pkgs_status == 0''.
 		 */
 		public string status { get; set; default = ""; }
 		/**
@@ -67,6 +68,7 @@ namespace Argus.Controller.Filters
 		 *  * Search looks in {@link visible_text}.
 		 *  * OS type is the operating-system name.
 		 *  * ''OS needs update'' keeps rows with ''os_status'' ''0'' or ''2''.
+		 *  * ''S/W needs update'' keeps rows with ''pkgs_status'' ''0''.
 		 *
 		 * @param item a ''system_info'' row
 		 * @return true when the row passes these settings
@@ -86,6 +88,12 @@ namespace Argus.Controller.Filters
 
 						default:
 							return false;
+					}
+					break;
+
+				case "S/W needs update":
+					if (row.pkgs_status != 0) {
+						return false;
 					}
 					break;
 

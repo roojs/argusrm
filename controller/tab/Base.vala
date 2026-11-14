@@ -41,6 +41,14 @@ namespace Argus.Controller.Tab
 		 * Grid that receives the columns.
 		 */
 		public Gtk.ColumnView grid { get; set; }
+		/**
+		 * Bold the first column as a row header.
+		 */
+		public bool bold_header { get; set; default = true; }
+		/**
+		 * Database name of the column that expands to fill spare width.
+		 */
+		public string expand_column { get; set; default = ""; }
 
 		/**
 		 * Add this table's columns and its header menu.
@@ -98,7 +106,7 @@ namespace Argus.Controller.Tab
 				if (parts.length > 4 && parts[4].strip() != "") {
 					format = parts[4].strip();
 				}
-				var header_column = first;
+				var header_column = first && this.bold_header;
 				first = false;
 				var width = 0;
 				var factory = this.column_factory(name, format, header_column);
@@ -109,7 +117,7 @@ namespace Argus.Controller.Tab
 				if (int.try_parse(parts[3].strip(), out width) && width > 0) {
 					column.fixed_width = width;
 				}
-				if (width == 0) {
+				if (width == 0 || name == this.expand_column) {
 					column.expand = true;
 				}
 				if (parts.length > 5 && parts[5].strip() == "ON") {
@@ -285,8 +293,12 @@ namespace Argus.Controller.Tab
 		/**
 		 * Factory for one column format.
 		 *
-		 *  * ''text'' and ''date'' are labels.
+		 *  * ''text'', ''date'', ''elapsed'', and ''cidr'' are labels.
+		 *  * ''elapsed'' shows relative time since a unix timestamp, with
+		 *    the local date and time in the tooltip.
+		 *  * ''cidr'' appends the prefix length from ''mask'' to ''address''.
 		 *  * ''number'' is right aligned.
+		 *  * ''mhz'' is a megahertz count with commas and '' MHz'', right aligned.
 		 *  * ''bytes'' is a byte count, shown as a size, right aligned.
 		 *  * ''maxver'' is a label. It is red with white text when
 		 *    it differs from ''min-version'' on that row.
@@ -295,13 +307,15 @@ namespace Argus.Controller.Tab
 		 *    ''uninstallable''.
 		 *  * ''remove'' is that same bin. The count is ''installed''.
 		 *    The mouseover is the count alone.
-		 *  * ''status'' and ''tick'' are an image.
-		 *  * The row header is bold.
+		 *  * ''status'' is a centered circle with a mouseover tooltip.
+		 *  * ''tick'' is an image.
+		 *  * The row header is bold when {@link bold_header} is true.
 		 *
 		 * A column whose database name is on the row fills its cell. Other columns stay empty.
 		 *
 		 * @param name JSON name. A hyphen is an underscore.
-		 * @param format text, number, bytes, date, status, tick, bin, or remove
+		 * @param format text, number, bytes, mhz, date, elapsed, cidr,
+		 *   status, tick, bin, or remove
 		 * @param header_column true for the row header
 		 * @return the factory that sets up each cell
 		 */
@@ -317,12 +331,19 @@ namespace Argus.Controller.Tab
 				var item = (Gtk.ListItem) obj;
 				switch (format) {
 					case "status":
-						item.child = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+						var dot = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 							css_classes = { "status-dot" },
 							halign = Gtk.Align.CENTER,
 							valign = Gtk.Align.CENTER,
+							hexpand = true,
 							visible = false
 						};
+						var cell = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+							hexpand = true,
+							vexpand = true
+						};
+						cell.append(dot);
+						item.child = cell;
 						break;
 
 					case "tick":
@@ -344,6 +365,7 @@ namespace Argus.Controller.Tab
 
 					case "number":
 					case "bytes":
+					case "mhz":
 						item.child = new Gtk.Label("") {
 							xalign = 1,
 							hexpand = true,
@@ -352,6 +374,8 @@ namespace Argus.Controller.Tab
 						break;
 
 					case "date":
+					case "elapsed":
+					case "cidr":
 						item.child = new Gtk.Label("") {
 							xalign = 0,
 							hexpand = true,
@@ -419,7 +443,8 @@ namespace Argus.Controller.Tab
 						if (prop.value_type == GLib.Type.INT) {
 							flag = value.get_int();
 						}
-						var dot = (Gtk.Box) item.child;
+						var cell = (Gtk.Box) item.child;
+						var dot = (Gtk.Box) cell.get_first_child();
 						dot.remove_css_class("status-ok");
 						dot.remove_css_class("status-warn");
 						dot.remove_css_class("status-bad");
@@ -440,6 +465,80 @@ namespace Argus.Controller.Tab
 							default:
 								break;
 						}
+						var tip = (string?) null;
+						switch (name) {
+							case "os-status":
+								switch (flag) {
+									case 0:
+										var eol_text = "";
+										var eol_prop = row.get_class().find_property("os-eol");
+										if (eol_prop != null && eol_prop.value_type == GLib.Type.STRING) {
+											var eol_val = GLib.Value(GLib.Type.STRING);
+											row.get_property("os-eol", ref eol_val);
+											eol_text = eol_val.get_string() != null ? eol_val.get_string() : "";
+										}
+										tip = eol_text != "" ? "End of life (" + eol_text + ")" : "End of life";
+										break;
+
+									case 2:
+										var latest_text = "";
+										var latest_prop = row.get_class().find_property("os-latest");
+										if (latest_prop != null && latest_prop.value_type == GLib.Type.STRING) {
+											var latest_val = GLib.Value(GLib.Type.STRING);
+											row.get_property("os-latest", ref latest_val);
+											latest_text = latest_val.get_string() != null ? latest_val.get_string() : "";
+										}
+										tip = latest_text != "" ? "Update available (" + latest_text + ")" : "Update available";
+										break;
+
+									case 1:
+										var ok_eol = "";
+										var ok_eol_prop = row.get_class().find_property("os-eol");
+										if (ok_eol_prop != null && ok_eol_prop.value_type == GLib.Type.STRING) {
+											var ok_eol_val = GLib.Value(GLib.Type.STRING);
+											row.get_property("os-eol", ref ok_eol_val);
+											ok_eol = ok_eol_val.get_string() != null ? ok_eol_val.get_string() : "";
+										}
+										tip = ok_eol != "" ? "Up to date (EOL " + ok_eol + ")" : "Up to date";
+										break;
+
+									default:
+										break;
+								}
+								break;
+
+							case "pkgs-status":
+								switch (flag) {
+									case 0:
+										var pending = 0;
+										var pending_prop = row.get_class().find_property("pkgs-updates");
+										if (pending_prop != null && pending_prop.value_type == GLib.Type.INT) {
+											var pending_val = GLib.Value(GLib.Type.INT);
+											row.get_property("pkgs-updates", ref pending_val);
+											pending = pending_val.get_int();
+										}
+										tip = "Package updates available";
+										if (pending == 1) {
+											tip = "1 package update available";
+										}
+										if (pending > 1) {
+											tip = pending.to_string() + " package updates available";
+										}
+										break;
+
+									case 1:
+										tip = "Packages up to date";
+										break;
+
+									default:
+										break;
+								}
+								break;
+
+							default:
+								break;
+						}
+						cell.tooltip_text = tip;
 						break;
 
 					case "date":
@@ -459,6 +558,121 @@ namespace Argus.Controller.Tab
 							}
 						}
 						((Gtk.Label) item.child).label = date_text;
+						break;
+
+					case "elapsed":
+						var elapsed_stamp = (int64) 0;
+						if (prop.value_type == GLib.Type.INT64) {
+							elapsed_stamp = value.get_int64();
+						}
+						if (prop.value_type == GLib.Type.INT) {
+							elapsed_stamp = (int64) value.get_int();
+						}
+						var elapsed_label = (Gtk.Label) item.child;
+						if (elapsed_stamp < 1) {
+							elapsed_label.label = "";
+							elapsed_label.tooltip_text = null;
+							break;
+						}
+						var elapsed_when = new GLib.DateTime.from_unix_local(elapsed_stamp);
+						elapsed_label.tooltip_text = null;
+						if (elapsed_when != null) {
+							elapsed_label.tooltip_text = elapsed_when.format("%Y-%m-%d %H:%M:%S");
+						}
+						var diff = new GLib.DateTime.now_local().to_unix() - elapsed_stamp;
+						if (diff < 0) {
+							diff = 0;
+						}
+						if (diff < 60) {
+							elapsed_label.label = diff.to_string() + "s";
+							break;
+						}
+						if (diff < 3600) {
+							elapsed_label.label = (diff / 60).to_string() + "m";
+							break;
+						}
+						if (diff < 86400) {
+							var rem_mins = (diff % 3600) / 60;
+							elapsed_label.label = (diff / 3600).to_string() + "h";
+							if (rem_mins > 0) {
+								elapsed_label.label = elapsed_label.label + " " + rem_mins.to_string() + "m";
+							}
+							break;
+						}
+						var rem_hours = (diff % 86400) / 3600;
+						elapsed_label.label = (diff / 86400).to_string() + "d";
+						if (rem_hours > 0) {
+							elapsed_label.label = elapsed_label.label + " " + rem_hours.to_string() + "h";
+						}
+						break;
+
+					case "mhz":
+						var mhz = (int64) 0;
+						if (prop.value_type == GLib.Type.INT64) {
+							mhz = value.get_int64();
+						}
+						if (prop.value_type == GLib.Type.INT) {
+							mhz = (int64) value.get_int();
+						}
+						((Gtk.Label) item.child).label = "";
+						if (mhz > 0) {
+							((Gtk.Label) item.child).label = mhz.to_string("%'" + int64.FORMAT) + " MHz";
+						}
+						break;
+
+					case "cidr":
+						var mask_prop = row.get_class().find_property("mask");
+						if (shown == "" || mask_prop == null) {
+							((Gtk.Label) item.child).label = shown;
+							break;
+						}
+						var mask_value = GLib.Value(mask_prop.value_type);
+						row.get_property("mask", ref mask_value);
+						var mask_text = mask_value.get_string();
+						if (mask_text == null || mask_text == "") {
+							((Gtk.Label) item.child).label = shown;
+							break;
+						}
+						var mask_addr = new GLib.InetAddress.from_string(mask_text);
+						if (mask_addr == null) {
+							((Gtk.Label) item.child).label = shown;
+							break;
+						}
+						unowned uint8[] bytes = mask_addr.to_bytes();
+						var size = mask_addr.get_native_size();
+						var prefix = 0;
+						var valid = true;
+						var finished = false;
+						for (var idx = (size_t) 0; idx < size; idx++) {
+							var part = bytes[idx];
+							if (finished && part != 0) {
+								valid = false;
+								break;
+							}
+							if (part == 0xff) {
+								prefix += 8;
+								continue;
+							}
+							finished = true;
+							var bits = part;
+							for (var bit = 0; bit < 8; bit++) {
+								if ((bits & 0x80) == 0) {
+									if (bits != 0) {
+										valid = false;
+									}
+									break;
+								}
+								prefix++;
+								bits = (uint8) (bits << 1);
+							}
+							if (!valid) {
+								break;
+							}
+						}
+						((Gtk.Label) item.child).label = shown;
+						if (valid) {
+							((Gtk.Label) item.child).label = shown + "/" + prefix.to_string();
+						}
 						break;
 
 					case "tick":

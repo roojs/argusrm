@@ -139,11 +139,38 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info` and whose `agent_id` is still in `agent`.
 - `os_version` and `logged_in_users` in that reply are included only when their `agent_id` is in `agent`.
 - Startup deletes `system_info` rows whose `agent_id` is not in `agent`.
-- With the flag, the row also carries `logged-in-users`, `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, `arch`, `os_updated`, `os_status`, and `reboot_required`. `os_updated` and `os_status` come from `os_releases` (`1` up to date, `2` update available, `0` EOL, `-1` unchecked or unmatched). `logged-in-users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)`. A host with no `os_version` row, or no session, stays in the list and those fields are empty.
+- With the flag, the row also carries `logged-in-users`, `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, `arch`, `os_updated`, `os_status`, `os_eol`, `os_latest`, `pkgs_updated`, `pkgs_status`, `pkgs_updates`, and `reboot_required`. `os_updated`, `os_status`, `os_eol`, and `os_latest` come from `os_releases` (`1` up to date, `2` update available, `0` EOL, `-1` unchecked or unmatched). `pkgs_updated`, `pkgs_status`, and `pkgs_updates` come from `os_version` and `package_updates` (`1` up to date, `0` updates available, `-1` unchecked or unsupported). `logged-in-users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)`. A host with no `os_version` row, or no session, stays in the list and those fields are empty.
 - `logged-in-users` is not a column of `system_info`. The list reads rows already stored. It does not ask the agent.
 - `major`, `minor`, and `patch` are text here, so a missing row stays blank. They are not columns of `system_info`.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls it. [5.8](plans/5.8-assets-page.md).
+
+### `CpuInfo.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `CpuInfo` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `device_id`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/CpuInfo.vala`. `Store.CpuInfo` calls it.
+
+### `LoggedInUsers.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `LoggedInUsers` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `time DESC, user`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/LoggedInUsers.vala`. `Store.LoggedInUsers` calls it.
+
+### `InterfaceAddresses.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `InterfaceAddresses` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `interface, address`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/InterfaceAddresses.vala`. `Store.InterfaceAddresses` calls it.
 
 ### `DebPackages.list`
 

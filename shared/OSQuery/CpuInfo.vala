@@ -23,6 +23,8 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class CpuInfo : Row
 	{
+		private static SQ.Database db;
+
 		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
 		{
 			return this.sync_rows<CpuInfo>(db, agent_id, rows, "cpu_info", { "device-id" });
@@ -39,6 +41,7 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			CpuInfo.db = db;
 			string errmsg;
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS cpu_info (
@@ -64,11 +67,51 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * Register this row with the bin codec.
+		 * Register this row and ''CpuInfo.list''.
 		 */
 		public static void rpc_register()
 		{
 			OLLMrpc.Bin.register("CpuInfo", typeof(CpuInfo));
+			OLLMrpc.Request.add_class(
+				"CpuInfo", typeof(CpuInfo),
+				"list", "i"
+			);
+		}
+
+		/**
+		 * Stored ''cpu_info'' rows for one agent.
+		 *
+		 * A controller calls this. An ''agent_id'' less than one returns
+		 * an empty list. A row whose ''agent_id'' is not in ''agent'' or
+		 * whose ''deleted_dt'' is set is absent. A caller that is not a
+		 * controller is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param agent_id selected machine agent id
+		 */
+		public void list(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<CpuInfo>();
+			if (agent_id > 0) {
+				var query = new SQ.Query<CpuInfo>(CpuInfo.db, "cpu_info");
+				query.select("""
+					WHERE
+						agent_id = %d
+					AND
+						deleted_dt = 0
+					AND
+						agent_id IN (SELECT id FROM agent)
+					ORDER BY
+						device_id
+					""".printf(agent_id), rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
 		}
 
 		public string device_id { get; set; default = ""; }

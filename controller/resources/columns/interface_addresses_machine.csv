@@ -1,0 +1,8 @@
+Column header | Database name [JSON] | Visible | Width | Format | Sort
+
+Interface,interface,ON,120,text,ON
+Address,address,ON,240,cidr,ON
+Point-to-point,point-to-point,ON,160,text,ON
+Mask,mask,off,220,text,ON
+Broadcast,broadcast,off,160,text,ON
+Type,ctype,off,100,text,ON

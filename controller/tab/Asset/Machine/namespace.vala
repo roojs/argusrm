@@ -20,9 +20,10 @@
  * Detail tabs shown under a selected machine on the Machines page.
  *
  * {@link Detail} switches per-machine tabs below
- * {@link Argus.Controller.Tab.Asset.SystemInfo}. Package tabs load
- * {@link DebPackages}, {@link RpmPackages}, or {@link Programs} for
- * the selected machine's ''agent_id''.
+ * {@link Argus.Controller.Tab.Asset.SystemInfo}. Per-machine tabs load
+ * {@link LoggedInUsers}, {@link DebPackages}, {@link RpmPackages},
+ * {@link Programs}, {@link InterfaceAddresses}, and {@link CpuInfo}
+ * for the selected machine's ''agent_id''.
  *
  * == Example ==
  *

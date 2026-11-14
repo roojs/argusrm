@@ -89,6 +89,18 @@ namespace Argus.Shared.OSQuery
 			foreach (var old in index.values) {
 				query.deleteId(old.id);
 			}
+			var os_query = new SQ.Query<OsVersion>(db, "os_version");
+			var os_rows = new Gee.ArrayList<OsVersion>();
+			os_query.selectWhere(
+				"WHERE agent_id = $agent_id AND deleted_dt = 0",
+				int_binds, null, os_rows);
+			foreach (var os_row in os_rows) {
+				var updated_os = new OsVersion();
+				updated_os.copy_from(os_row, {});
+				updated_os.pkgs_updated = now;
+				updated_os.pkgs_status = seen.size == 0 ? 1 : 0;
+				os_query.updateOld(os_row, updated_os);
+			}
 			return true;
 		}
 

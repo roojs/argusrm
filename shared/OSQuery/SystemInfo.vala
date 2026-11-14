@@ -154,6 +154,30 @@ namespace Argus.Shared.OSQuery
 							) > os_releases.released THEN 2
 							ELSE 1
 						END as os_status,
+						COALESCE(os_releases.eol, '') as os_eol,
+						COALESCE((
+							SELECT version
+							FROM os_releases
+							WHERE platform = os_version.platform
+							AND released <= date('now')
+							ORDER BY released DESC
+							LIMIT 1
+						), '') as os_latest,
+						COALESCE(os_version.pkgs_updated, 0) as pkgs_updated,
+						(
+							SELECT COUNT(*)
+							FROM package_updates
+							WHERE package_updates.agent_id = system_info.agent_id
+						) as pkgs_updates,
+						CASE
+							WHEN os_version.id IS NULL OR os_version.pkgs_updated = 0 THEN -1
+							WHEN EXISTS (
+								SELECT 1
+								FROM package_updates
+								WHERE package_updates.agent_id = system_info.agent_id
+							) THEN 0
+							ELSE 1
+						END as pkgs_status,
 						COALESCE((
 							SELECT GROUP_CONCAT(DISTINCT logged_in_users.user)
 							FROM logged_in_users
@@ -299,6 +323,37 @@ namespace Argus.Shared.OSQuery
 		 * and ''-1'' when unchecked or unmatched.
 		 */
 		public int os_status { get; set; default = -1; }
+		/**
+		 * Matched release end-of-life date in ''YYYY-MM-DD'' format.
+		 *
+		 * Empty when unknown or unmatched. Not stored on ''system_info''.
+		 */
+		public string os_eol { get; set; default = ""; }
+		/**
+		 * Latest released version string for this host's platform.
+		 *
+		 * Empty when unmatched. Not stored on ''system_info''.
+		 */
+		public string os_latest { get; set; default = ""; }
+		/**
+		 * Unix time this host last synced pending package updates.
+		 *
+		 * ''0'' when unchecked. Not stored on ''system_info''.
+		 */
+		public int pkgs_updated { get; set; default = 0; }
+		/**
+		 * Joined package update status for the grid.
+		 *
+		 * ''1'' up to date, ''0'' updates available, and ''-1'' when
+		 * unchecked or unsupported. Not stored on ''system_info''.
+		 */
+		public int pkgs_status { get; set; default = -1; }
+		/**
+		 * Number of pending package updates stored for this host.
+		 *
+		 * Not stored on ''system_info''.
+		 */
+		public int pkgs_updates { get; set; default = 0; }
 		/**
 		 * Windows restart waiting on this host.
 		 *

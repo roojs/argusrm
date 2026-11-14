@@ -45,7 +45,7 @@ namespace Argus.Controller.Tab
 		private Argus.Controller.Store.Agent store;
 		private Gtk.MultiSelection selection;
 		private Gtk.Stack body;
-		private Gtk.Spinner spinner;
+		private Adw.Spinner spinner;
 		private Adw.ToastOverlay toasts;
 
 		/**
@@ -60,7 +60,7 @@ namespace Argus.Controller.Tab
 			this.hexpand = true;
 			this.vexpand = true;
 			this.store = new Argus.Controller.Store.Agent(window.app);
-			this.spinner = new Gtk.Spinner() {
+			this.spinner = new Adw.Spinner() {
 				visible = false
 			};
 			var removing_label = new Gtk.Label("Removing") {
@@ -595,8 +595,6 @@ namespace Argus.Controller.Tab
 			toolbar.append(register_add);
 			this.append(toolbar);
 			this.append(this.toasts);
-			this.store.bind_property("busy", this.spinner, "spinning",
-				GLib.BindingFlags.SYNC_CREATE);
 			this.store.bind_property("busy", this.spinner, "visible",
 				GLib.BindingFlags.SYNC_CREATE);
 			this.store.bind_property("busy", register_add, "sensitive",

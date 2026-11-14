@@ -43,7 +43,7 @@ namespace Argus.Controller.Tab
 		private Gtk.Button pull_button;
 		private Gtk.Button remove_button;
 		private Gtk.Button clone_button;
-		private Gtk.Spinner spinner;
+		private Adw.Spinner spinner;
 		private Adw.ToastOverlay toasts;
 
 		/**
@@ -59,7 +59,7 @@ namespace Argus.Controller.Tab
 			this.vexpand = true;
 			this.store = new Argus.Controller.Store.Repository(window.app);
 			this.dialog = new Argus.Controller.Dialog.Repository(this.store);
-			this.spinner = new Gtk.Spinner() {
+			this.spinner = new Adw.Spinner() {
 				visible = false
 			};
 			this.clone_button = new Gtk.Button.with_label("Clone") {
@@ -174,8 +174,6 @@ namespace Argus.Controller.Tab
 			this.append(toolbar);
 			this.append(this.toasts);
 			this.append(bottom);
-			this.store.bind_property("busy", this.spinner, "spinning",
-				GLib.BindingFlags.SYNC_CREATE);
 			this.store.bind_property("busy", this.spinner, "visible",
 				GLib.BindingFlags.SYNC_CREATE);
 			this.store.notify["empty"].connect(() => {

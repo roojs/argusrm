@@ -21,11 +21,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 	/**
 	 * Tabbed detail pane shown under the Machines grid.
 	 *
-	 * Constructs the three per-machine package tabs ({@link DebPackages},
-	 * {@link RpmPackages}, {@link Programs}) upfront and shows only the
-	 * one matching the selected machine's
-	 * {@link Argus.Shared.OSQuery.SystemInfo.package_manager}. Tabs
-	 * lazy-load when visible for the current machine.
+	 * Displays per-machine {@link LoggedInUsers}, the relevant package
+	 * tab ({@link DebPackages}, {@link RpmPackages}, or
+	 * {@link Programs}) for the selected machine's
+	 * {@link Argus.Shared.OSQuery.SystemInfo.package_manager},
+	 * {@link InterfaceAddresses}, and {@link CpuInfo}. Tabs lazy-load
+	 * when visible for the current machine.
 	 *
 	 * == Example ==
 	 *
@@ -39,18 +40,27 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Adw.ToggleGroup group;
 		private Adw.ViewStack pages;
 		private Gtk.Box bar;
+		private Adw.Toggle users_toggle;
 		private Adw.Toggle debian_toggle;
 		private Adw.Toggle rpm_toggle;
 		private Adw.Toggle windows_toggle;
+		private Adw.Toggle interfaces_toggle;
+		private Adw.Toggle cpus_toggle;
+		private LoggedInUsers users;
 		private DebPackages debian;
 		private RpmPackages rpm;
 		private Programs windows;
+		private InterfaceAddresses interfaces;
+		private CpuInfo cpus;
 		private int current_agent_id = 0;
 		private Argus.Shared.OSQuery.PackageManager current_pm = Argus.Shared.OSQuery.PackageManager.UNKNOWN;
 		private bool has_pm = false;
+		private bool users_loaded = false;
 		private bool debian_loaded = false;
 		private bool rpm_loaded = false;
 		private bool windows_loaded = false;
+		private bool interfaces_loaded = false;
+		private bool cpus_loaded = false;
 
 		/**
 		 * Build the per-machine tab switcher and stacked detail pages.
@@ -72,10 +82,33 @@ namespace Argus.Controller.Tab.Asset.Machine
 				hexpand = true
 			};
 			this.group.add_css_class("both");
+			this.users = new LoggedInUsers(window);
+			this.pages.add_titled_with_icon(
+				this.users, "users", "Users", "system-users-symbolic");
+			var users_spin = new Adw.Spinner() {
+				visible = false,
+				halign = Gtk.Align.END,
+				valign = Gtk.Align.CENTER
+			};
+			var users_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
+			users_row.append(new Gtk.Image.from_icon_name("system-users-symbolic"));
+			users_row.append(new Gtk.Label("Users"));
+			this.users_toggle = new Adw.Toggle() {
+				name = "users",
+				child = new Gtk.CenterBox() {
+					center_widget = users_row,
+					end_widget = users_spin,
+					hexpand = true
+				}
+			};
+			this.users.bind_property("refreshing", users_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
 			this.debian = new DebPackages(window);
 			this.pages.add_titled_with_icon(
 				this.debian, "debian", "Debian packages", "emblem-debian-symbolic");
-			var debian_spin = new Gtk.Spinner() {
+			var debian_spin = new Adw.Spinner() {
 				visible = false,
 				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
@@ -95,11 +128,10 @@ namespace Argus.Controller.Tab.Asset.Machine
 				}
 			};
 			this.debian.bind_property("refreshing", debian_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
-			this.debian.bind_property("refreshing", debian_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
 			this.rpm = new RpmPackages(window);
 			this.pages.add_titled_with_icon(
-				this.rpm, "rpm", "RPM packages", "application-x-rpm");
-			var rpm_spin = new Gtk.Spinner() {
+				this.rpm, "rpm", "RPM packages", "application-x-rpm-symbolic");
+			var rpm_spin = new Adw.Spinner() {
 				visible = false,
 				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
@@ -108,7 +140,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 				halign = Gtk.Align.CENTER,
 				valign = Gtk.Align.CENTER
 			};
-			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm"));
+			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm-symbolic"));
 			rpm_row.append(new Gtk.Label("RPM packages"));
 			this.rpm_toggle = new Adw.Toggle() {
 				name = "rpm",
@@ -119,11 +151,10 @@ namespace Argus.Controller.Tab.Asset.Machine
 				}
 			};
 			this.rpm.bind_property("refreshing", rpm_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
-			this.rpm.bind_property("refreshing", rpm_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
 			this.windows = new Programs(window);
 			this.pages.add_titled_with_icon(
 				this.windows, "windows", "Windows programs", "windows-symbolic");
-			var windows_spin = new Gtk.Spinner() {
+			var windows_spin = new Adw.Spinner() {
 				visible = false,
 				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
@@ -143,13 +174,52 @@ namespace Argus.Controller.Tab.Asset.Machine
 				}
 			};
 			this.windows.bind_property("refreshing", windows_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
-			this.windows.bind_property("refreshing", windows_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
-			this.pages.add_named(new Adw.StatusPage() {
-				title = "No packages",
-				description = "Package listing is not available for this operating system.",
-				icon_name = "package-x-generic-symbolic",
-				vexpand = true
-			}, "unknown");
+			this.interfaces = new InterfaceAddresses(window);
+			this.pages.add_titled_with_icon(
+				this.interfaces, "interfaces", "Interfaces", "network-wired-symbolic");
+			var interfaces_spin = new Adw.Spinner() {
+				visible = false,
+				halign = Gtk.Align.END,
+				valign = Gtk.Align.CENTER
+			};
+			var interfaces_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
+			interfaces_row.append(new Gtk.Image.from_icon_name("network-wired-symbolic"));
+			interfaces_row.append(new Gtk.Label("Interfaces"));
+			this.interfaces_toggle = new Adw.Toggle() {
+				name = "interfaces",
+				child = new Gtk.CenterBox() {
+					center_widget = interfaces_row,
+					end_widget = interfaces_spin,
+					hexpand = true
+				}
+			};
+			this.interfaces.bind_property("refreshing", interfaces_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
+			this.cpus = new CpuInfo(window);
+			this.pages.add_titled_with_icon(
+				this.cpus, "cpus", "CPUs", "computer-symbolic");
+			var cpus_spin = new Adw.Spinner() {
+				visible = false,
+				halign = Gtk.Align.END,
+				valign = Gtk.Align.CENTER
+			};
+			var cpus_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
+			cpus_row.append(new Gtk.Image.from_icon_name("computer-symbolic"));
+			cpus_row.append(new Gtk.Label("CPUs"));
+			this.cpus_toggle = new Adw.Toggle() {
+				name = "cpus",
+				child = new Gtk.CenterBox() {
+					center_widget = cpus_row,
+					end_widget = cpus_spin,
+					hexpand = true
+				}
+			};
+			this.cpus.bind_property("refreshing", cpus_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
 			this.group.notify["active-name"].connect(() => {
 				var name = this.group.active_name;
 				if (name == null || name == "") {
@@ -160,25 +230,52 @@ namespace Argus.Controller.Tab.Asset.Machine
 					return;
 				}
 				switch (name) {
-					case "debian":
-						if (!this.debian_loaded) {
-							this.debian_loaded = true;
-							this.debian.load(this.current_agent_id);
+					case "users":
+						if (this.users_loaded) {
+							break;
 						}
+						this.users_loaded = true;
+						this.users.load(this.current_agent_id);
+						break;
+
+					case "debian":
+						if (this.debian_loaded) {
+							break;
+						}
+						this.debian_loaded = true;
+						this.debian.load(this.current_agent_id);
 						break;
 
 					case "rpm":
-						if (!this.rpm_loaded) {
-							this.rpm_loaded = true;
-							this.rpm.load(this.current_agent_id);
+						if (this.rpm_loaded) {
+							break;
 						}
+						this.rpm_loaded = true;
+						this.rpm.load(this.current_agent_id);
 						break;
 
 					case "windows":
-						if (!this.windows_loaded) {
-							this.windows_loaded = true;
-							this.windows.load(this.current_agent_id);
+						if (this.windows_loaded) {
+							break;
 						}
+						this.windows_loaded = true;
+						this.windows.load(this.current_agent_id);
+						break;
+
+					case "interfaces":
+						if (this.interfaces_loaded) {
+							break;
+						}
+						this.interfaces_loaded = true;
+						this.interfaces.load(this.current_agent_id);
+						break;
+
+					case "cpus":
+						if (this.cpus_loaded) {
+							break;
+						}
+						this.cpus_loaded = true;
+						this.cpus.load(this.current_agent_id);
 						break;
 
 					default:
@@ -188,8 +285,8 @@ namespace Argus.Controller.Tab.Asset.Machine
 			this.bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				margin_start = 12,
 				margin_end = 12,
-				margin_top = 6,
-				margin_bottom = 6
+				margin_top = 4,
+				margin_bottom = 4
 			};
 			this.bar.append(this.group);
 			this.append(this.bar);
@@ -202,13 +299,16 @@ namespace Argus.Controller.Tab.Asset.Machine
 		public void clear()
 		{
 			this.current_agent_id = 0;
+			this.users_loaded = false;
 			this.debian_loaded = false;
 			this.rpm_loaded = false;
 			this.windows_loaded = false;
+			this.interfaces_loaded = false;
+			this.cpus_loaded = false;
 		}
 
 		/**
-		 * Update visible package tabs and load the active tab for
+		 * Update visible detail tabs and load the active tab for
 		 * ''machine''.
 		 *
 		 * @param machine selected row from the Machines grid
@@ -220,67 +320,128 @@ namespace Argus.Controller.Tab.Asset.Machine
 				this.clear();
 				return;
 			}
-			this.current_agent_id = agent_id;
+			this.current_agent_id = 0;
+			this.users_loaded = false;
 			this.debian_loaded = false;
 			this.rpm_loaded = false;
 			this.windows_loaded = false;
+			this.interfaces_loaded = false;
+			this.cpus_loaded = false;
 			var pm = machine.package_manager();
 			if (!this.has_pm || pm != this.current_pm) {
 				this.has_pm = true;
 				this.current_pm = pm;
-				this.group.remove_all();
+				var previous = "";
+				if (this.group.active_name != null) {
+					previous = this.group.active_name;
+				}
+				var pkg_tab = "";
+				while (this.group.n_toggles > 0) {
+					var toggle = this.group.get_toggle(0);
+					if (toggle == null) {
+						break;
+					}
+					this.group.remove(toggle);
+				}
+				this.group.add(this.users_toggle);
 				switch (pm) {
 					case Argus.Shared.OSQuery.PackageManager.APT:
-						this.bar.visible = true;
 						this.group.add(this.debian_toggle);
-						this.group.active_name = "debian";
+						pkg_tab = "debian";
 						break;
 
 					case Argus.Shared.OSQuery.PackageManager.DNF:
-						this.bar.visible = true;
 						this.group.add(this.rpm_toggle);
-						this.group.active_name = "rpm";
+						pkg_tab = "rpm";
 						break;
 
 					case Argus.Shared.OSQuery.PackageManager.WIN:
-						this.bar.visible = true;
 						this.group.add(this.windows_toggle);
-						this.group.active_name = "windows";
+						pkg_tab = "windows";
 						break;
 
 					default:
-						this.bar.visible = false;
-						this.pages.visible_child_name = "unknown";
-						return;
+						break;
 				}
+				this.group.add(this.interfaces_toggle);
+				this.group.add(this.cpus_toggle);
+				var target = "users";
+				switch (previous) {
+					case "users":
+					case "interfaces":
+					case "cpus":
+						target = previous;
+						break;
+
+					case "debian":
+					case "rpm":
+					case "windows":
+						if (pkg_tab != "") {
+							target = pkg_tab;
+						}
+						break;
+
+					default:
+						break;
+				}
+				this.group.active_name = target;
 			}
-			switch (pm) {
-				case Argus.Shared.OSQuery.PackageManager.APT:
-					this.pages.visible_child_name = "debian";
-					if (!this.debian_loaded) {
-						this.debian_loaded = true;
-						this.debian.load(agent_id);
+			this.current_agent_id = agent_id;
+			var active = "users";
+			if (this.group.active_name != null) {
+				active = this.group.active_name;
+			}
+			this.pages.visible_child_name = active;
+			switch (active) {
+				case "users":
+					if (this.users_loaded) {
+						break;
 					}
+					this.users_loaded = true;
+					this.users.load(agent_id);
 					break;
 
-				case Argus.Shared.OSQuery.PackageManager.DNF:
-					this.pages.visible_child_name = "rpm";
-					if (!this.rpm_loaded) {
-						this.rpm_loaded = true;
-						this.rpm.load(agent_id);
+				case "debian":
+					if (this.debian_loaded) {
+						break;
 					}
+					this.debian_loaded = true;
+					this.debian.load(agent_id);
 					break;
 
-				case Argus.Shared.OSQuery.PackageManager.WIN:
-					this.pages.visible_child_name = "windows";
-					if (!this.windows_loaded) {
-						this.windows_loaded = true;
-						this.windows.load(agent_id);
+				case "rpm":
+					if (this.rpm_loaded) {
+						break;
 					}
+					this.rpm_loaded = true;
+					this.rpm.load(agent_id);
+					break;
+
+				case "windows":
+					if (this.windows_loaded) {
+						break;
+					}
+					this.windows_loaded = true;
+					this.windows.load(agent_id);
+					break;
+
+				case "interfaces":
+					if (this.interfaces_loaded) {
+						break;
+					}
+					this.interfaces_loaded = true;
+					this.interfaces.load(agent_id);
+					break;
+
+				case "cpus":
+					if (this.cpus_loaded) {
+						break;
+					}
+					this.cpus_loaded = true;
+					this.cpus.load(agent_id);
 					break;
 
 				default:
-					this.pages.visible_child_name = "unknown";
 					break;
 			}
 		}

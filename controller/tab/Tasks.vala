@@ -52,7 +52,8 @@ namespace Argus.Controller.Tab
 			Object(
 				orientation: Gtk.Orientation.VERTICAL,
 				spacing: 0,
-				table: "task_targets"
+				table: "task_targets",
+				expand_column: "display-task"
 			);
 			this.window = window;
 			this.hexpand = true;
@@ -236,7 +237,7 @@ namespace Argus.Controller.Tab
 				icon_name = "view-refresh-symbolic",
 				tooltip_text = "Refresh tasks"
 			};
-			var spinner = new Gtk.Spinner() {
+			var spinner = new Adw.Spinner() {
 				visible = false
 			};
 			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {

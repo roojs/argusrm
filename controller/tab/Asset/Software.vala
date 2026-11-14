@@ -25,9 +25,9 @@ namespace Argus.Controller.Tab.Asset
 	 * own table. Debian packages, RPM packages, and Windows.
 	 * Each tab has an icon and a spinner. The icon and the label
 	 * sit in the middle of the tab. The spinner stays at the end.
-	 * This row is an inline switcher: a grey bar, the active tab
-	 * white, a light border. It spans the window. The window
-	 * header stays the title.
+	 * This row is an inline switcher: a grey bar with the active
+	 * tab highlighted in the theme selection colour. It spans the
+	 * window. The window header stays the title.
 	 * An empty grid shows its spinner over the grid. A later
 	 * load keeps the rows and spins in that tab.
 	 *
@@ -61,7 +61,7 @@ namespace Argus.Controller.Tab.Asset
 			group.add_css_class("both");
 			var debian = new DebPackages(window);
 			pages.add_titled_with_icon(debian, "debian", "Debian packages", "emblem-debian-symbolic");
-			var debian_spin = new Gtk.Spinner() {
+			var debian_spin = new Adw.Spinner() {
 				visible = false,
 				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
@@ -81,10 +81,9 @@ namespace Argus.Controller.Tab.Asset
 				}
 			});
 			debian.bind_property("refreshing", debian_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
-			debian.bind_property("refreshing", debian_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
 			var rpm = new RpmPackages(window);
-			pages.add_titled_with_icon(rpm, "rpm", "RPM packages", "application-x-rpm");
-			var rpm_spin = new Gtk.Spinner() {
+			pages.add_titled_with_icon(rpm, "rpm", "RPM packages", "application-x-rpm-symbolic");
+			var rpm_spin = new Adw.Spinner() {
 				visible = false,
 				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
@@ -93,7 +92,7 @@ namespace Argus.Controller.Tab.Asset
 				halign = Gtk.Align.CENTER,
 				valign = Gtk.Align.CENTER
 			};
-			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm"));
+			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm-symbolic"));
 			rpm_row.append(new Gtk.Label("RPM packages"));
 			group.add(new Adw.Toggle() {
 				name = "rpm",
@@ -104,10 +103,9 @@ namespace Argus.Controller.Tab.Asset
 				}
 			});
 			rpm.bind_property("refreshing", rpm_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
-			rpm.bind_property("refreshing", rpm_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
 			var windows = new Programs(window);
 			pages.add_titled_with_icon(windows, "windows", "Windows", "windows-symbolic");
-			var windows_spin = new Gtk.Spinner() {
+			var windows_spin = new Adw.Spinner() {
 				visible = false,
 				halign = Gtk.Align.END,
 				valign = Gtk.Align.CENTER
@@ -127,7 +125,6 @@ namespace Argus.Controller.Tab.Asset
 				}
 			});
 			windows.bind_property("refreshing", windows_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
-			windows.bind_property("refreshing", windows_spin, "spinning", GLib.BindingFlags.SYNC_CREATE);
 			group.notify["active-name"].connect(() => {
 				var name = group.active_name;
 				if (name == null || name == "") {
@@ -142,8 +139,8 @@ namespace Argus.Controller.Tab.Asset
 			bar.append(group);
 			bar.margin_start = 12;
 			bar.margin_end = 12;
-			bar.margin_top = 6;
-			bar.margin_bottom = 6;
+			bar.margin_top = 0;
+			bar.margin_bottom = 4;
 			this.append(bar);
 			this.append(pages);
 		}
