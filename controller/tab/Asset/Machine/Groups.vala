@@ -56,7 +56,10 @@ namespace Argus.Controller.Tab.Asset.Machine
 		 *
 		 * @param window the window this page belongs to
 		 */
-		public Groups(Argus.Controller.Window window)
+		public Groups(
+			Argus.Controller.Window window,
+			Argus.Controller.Filters.Groups filter
+		)
 		{
 			Object(
 				orientation: Gtk.Orientation.VERTICAL,
@@ -67,7 +70,10 @@ namespace Argus.Controller.Tab.Asset.Machine
 			this.hexpand = true;
 			this.vexpand = true;
 			this.store = new Argus.Controller.Store.Groups(window.app);
-			this.column_grid(this.store);
+			var rows = new Gtk.FilterListModel(this.store, filter) {
+				incremental = true
+			};
+			this.column_grid(rows);
 			var selection = (Gtk.SingleSelection) this.grid.model;
 			selection.autoselect = false;
 			selection.can_unselect = true;

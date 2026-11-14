@@ -76,9 +76,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 			search.search_changed.connect(() => {
 				this.filter.search = search.text;
 			});
+			var groups_filter = new Argus.Controller.Filters.Groups();
 			var show_system = new Gtk.CheckButton.with_label("Show system users");
 			show_system.toggled.connect(() => {
-				this.filter.show_system = show_system.active;
+				var on = show_system.active;
+				this.filter.show_system = on;
+				groups_filter.show_system = on;
 			});
 			var filter_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				css_classes = { "machines-filter" },
@@ -89,7 +92,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 			};
 			filter_bar.append(search);
 			filter_bar.append(show_system);
-			this.groups = new Groups(window);
+			this.groups = new Groups(window, groups_filter);
 			this.groups.group_selected.connect((group_name) => {
 				this.filter.group_name = group_name;
 			});
@@ -108,7 +111,9 @@ namespace Argus.Controller.Tab.Asset.Machine
 				xalign = 0
 			});
 			groups_bar.append(clear);
-			var groups_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+			var groups_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				width_request = 320
+			};
 			groups_box.append(groups_bar);
 			groups_box.append(this.groups);
 			var users_spinner = new Adw.Spinner() {
@@ -143,7 +148,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 				end_child = users_overlay,
 				resize_start_child = false,
 				shrink_start_child = false,
-				position = 260,
+				position = 340,
 				hexpand = true,
 				vexpand = true
 			};
