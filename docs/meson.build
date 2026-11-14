@@ -147,6 +147,7 @@ valadoc_sources += files(
   '../controller/filter/SystemInfo.vala',
   '../controller/filter/DebPackages.vala',
   '../controller/filter/Users.vala',
+  '../controller/filter/Groups.vala',
   '../controller/filter/Tasks.vala',
   '../controller/tab/Agent.vala',
   '../controller/tab/Assets.vala',

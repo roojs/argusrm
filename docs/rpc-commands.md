@@ -195,7 +195,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
 - Arguments `i`: `agent_id`.
-- Reply `retval` `o`: an array of `Groups` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `gid, groupname`. Stored columns are the osquery `groups` fields plus audit timestamps. Derived (not stored): `member_count` (`COUNT(DISTINCT user_groups.uid)` for live memberships of live users). An `agent_id` less than one returns an empty array.
+- Reply `retval` `o`: an array of `Groups` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `gid, groupname`. Stored columns are the osquery `groups` fields plus audit timestamps. Derived (not stored): `member_count` (`COUNT(DISTINCT user_groups.uid)` for live memberships of live users); `users_uid_ge_1000_member_count` (same join, counting only members with `uid >= 1000` and `uid != 65534`). An `agent_id` less than one returns an empty array.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Groups.vala`. `Store.Groups` calls it. The columns are `columns/groups.csv`.
 

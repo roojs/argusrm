@@ -79,6 +79,7 @@ sources = files(
 	'filter/SystemInfo.vala',
 	'filter/DebPackages.vala',
 	'filter/Users.vala',
+	'filter/Groups.vala',
 	'filter/Tasks.vala',
 	'tab/Agent.vala',
 	'tab/Assets.vala',

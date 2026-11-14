@@ -116,7 +116,31 @@ namespace Argus.Shared.OSQuery
 								user_groups.gid = groups.gid
 							AND
 								user_groups.deleted_dt = 0
-						), 0) AS member_count
+						), 0) AS member_count,
+						COALESCE((
+							SELECT
+								COUNT(DISTINCT user_groups.uid)
+							FROM
+								user_groups
+							INNER JOIN
+								users
+							ON
+								users.agent_id = user_groups.agent_id
+							AND
+								users.uid = user_groups.uid
+							AND
+								users.deleted_dt = 0
+							WHERE
+								user_groups.agent_id = groups.agent_id
+							AND
+								user_groups.gid = groups.gid
+							AND
+								user_groups.deleted_dt = 0
+							AND
+								users.uid >= 1000
+							AND
+								users.uid != 65534
+						), 0) AS users_uid_ge_1000_member_count
 					FROM
 						groups
 					WHERE
@@ -144,5 +168,11 @@ namespace Argus.Shared.OSQuery
 		 * Derived. Not a column of groups.
 		 */
 		public int64 member_count { get; set; default = 0; }
+		/**
+		 * Live members with ''uid >= 1000'' and not ''nobody''. Filled by
+		 * {@link list}. Used by the groups list filter when system groups
+		 * are hidden.
+		 */
+		public int64 users_uid_ge_1000_member_count { get; set; default = 0; }
 	}
 }
