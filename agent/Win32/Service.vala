@@ -189,20 +189,29 @@ namespace Argus.Agent.Win32
 			this.application.status_notice = "";
 			GLib.Idle.add(() => {
 				this.application.attach_connection();
-				if (this.application.connection != null) {
-					new GLib.Thread<int>("osquery-init", () => {
-						var init_code = new Argus.Agent.OSQuery.Initialize(this.application).run();
-						GLib.Idle.add(() => {
-							if (init_code == 0 && this.application.connection != null) {
-								this.application.osquery.send_startup();
-								this.application.monitor = new Argus.Agent.PackageMonitor(this.application);
-								this.application.monitor.start();
-							}
-							return false;
-						});
-						return 0;
-					});
+				if (this.application.connection == null) {
+					return false;
 				}
+				new GLib.Thread<int>("osquery-init", () => {
+					var init_code = new Argus.Agent.OSQuery.Initialize(this.application).run();
+					GLib.Idle.add(() => {
+						if (init_code != 0) {
+							return false;
+						}
+						if (this.application.connection == null) {
+							return false;
+						}
+						this.application.osquery.send_startup();
+						this.application.monitor =
+							new Argus.Agent.PackageMonitor(this.application);
+						this.application.monitor.start();
+						this.application.user_monitor =
+							new Argus.Agent.UserMonitor(this.application);
+						this.application.user_monitor.start();
+						return false;
+					});
+					return 0;
+				});
 				return false;
 			});
 		}

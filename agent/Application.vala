@@ -99,6 +99,13 @@ namespace Argus.Agent
 		internal PackageMonitor monitor;
 
 		/**
+		 * Logged-in users and local account watch.
+		 *
+		 * Started after the startup snapshot.
+		 */
+		internal UserMonitor user_monitor;
+
+		/**
 		 * True when {@link connection} is down.
 		 *
 		 * Set when {@link open_connection} fails, or when
@@ -440,6 +447,8 @@ namespace Argus.Agent
 					this.osquery.send_startup();
 					this.monitor = new PackageMonitor(this);
 					this.monitor.start();
+					this.user_monitor = new UserMonitor(this);
+					this.user_monitor.start();
 				}
 				if (this.connection == null || Application.connection_down) {
 					GLib.debug("waiting for connection");
@@ -452,6 +461,8 @@ namespace Argus.Agent
 						this.osquery.send_startup();
 						this.monitor = new PackageMonitor(this);
 						this.monitor.start();
+						this.user_monitor = new UserMonitor(this);
+						this.user_monitor.start();
 						return false;
 					});
 				}
@@ -509,6 +520,8 @@ namespace Argus.Agent
 								this.osquery.send_startup();
 								this.monitor = new PackageMonitor(this);
 								this.monitor.start();
+								this.user_monitor = new UserMonitor(this);
+								this.user_monitor.start();
 							}
 							return false;
 						});
