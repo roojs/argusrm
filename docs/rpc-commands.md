@@ -127,7 +127,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - A row left out of a standard table snapshot gets `deleted_dt`. For `PackageUpdates`, existing names keep their `since` time, new names are inserted, and names left out are deleted.
 - The machine tables are posted even when the array is empty. After the first package send, an empty package query is not posted. An empty `PackageUpdates` list is posted when `UpdatesAvailable.check` succeeds with no updates.
 - The row objects are `Argus.Shared.OSQuery`. The property name is the column name.
-- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`, `PackageUpdates`.
+- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `Users`, `Groups`, `UserGroups`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`, `PackageUpdates`.
 - Reply `msg`: `ok`. An unknown name, a name that is not a row class, or a row the apply rejects is an error.
 - ℹ️ `Execute.send_startup` posts the machine tables, then `Execute.send_packages`. A later package change posts `Execute.send_packages` again. `Initialize` installs `osqueryi` and does not query.
 
@@ -179,7 +179,25 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments `i`: `agent_id`.
 - Reply `retval` `o`: an array of `LoggedInUsers` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `time DESC, user`. An `agent_id` less than one returns an empty array.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/LoggedInUsers.vala`. `Store.LoggedInUsers` calls it.
+- ℹ️ The method is `shared/OSQuery/LoggedInUsers.vala`. Used by `SystemInfo.list` and `Users.list` joins; no dedicated controller tab after the Users change.
+
+### `Users.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `Users` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `uid, username`. Stored columns are the osquery `users` fields plus audit timestamps. Joined (not stored): `gid_groupname` (primary `groups.groupname`), `logged_in_users_time` (`MAX` of live `logged_in_users.time` for that username), `groups_groupnames` (`GROUP_CONCAT` of member `groups.groupname` via live `user_groups`). An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Users.vala`. `Store.Users` calls it. The columns are `columns/users.csv`.
+
+### `Groups.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `Groups` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `gid, groupname`. Stored columns are the osquery `groups` fields plus audit timestamps. Derived (not stored): `member_count` (`COUNT(DISTINCT user_groups.uid)` for live memberships of live users). An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Groups.vala`. `Store.Groups` calls it. The columns are `columns/groups.csv`.
 
 ### `InterfaceAddresses.list`
 

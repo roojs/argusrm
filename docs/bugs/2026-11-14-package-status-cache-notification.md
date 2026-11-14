@@ -2,7 +2,7 @@
 
 **Status:** ⏳ investigation opened — awaiting notification shape and cache-invalidation design review
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-machines-detail-pane.md](2026-11-13-machines-detail-pane.md), [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md), [2026-11-13-FIXED-package-updates.md](done/2026-11-13-FIXED-package-updates.md), [2026-11-13-FIXED-controller-package-load-performance.md](done/2026-11-13-FIXED-controller-package-load-performance.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md), [2026-11-13-FIXED-package-updates.md](done/2026-11-13-FIXED-package-updates.md), [2026-11-13-FIXED-controller-package-load-performance.md](done/2026-11-13-FIXED-controller-package-load-performance.md)
 
 ---
 
@@ -38,7 +38,7 @@
 - ✔️ `controller/tab/Asset/DebPackages.vala`, `RpmPackages.vala`, `Programs.vala`, and `SystemInfo.vala` only call `this.store.load(...)` inside `this.map.connect(...)`.
 - ✔️ `controller/store/DebPackages.vala`, `RpmPackages.vala`, `Programs.vala`, `SystemInfo.vala`, `LoggedInUsers.vala`, `InterfaceAddresses.vala`, and `CpuInfo.vala` retain `items_store` in memory across unmap/remap until a later `load()` reply replaces `this.items`.
 - 🚫 Unlike `controller/tab/Agent.vala` (which connects `this.window.app.rpc.notification` to reload on `event.agent` and `event.pair`), none of the Asset tabs or stores subscribe to server notifications.
-- ℹ️ `SystemInfo.list(true)` (`shared/OSQuery/SystemInfo.vala`) does not select `os_version.pkgs_updated` / `os_version.pkgs_status` yet (noted in [2026-11-13-machines-detail-pane.md](2026-11-13-machines-detail-pane.md)), though `SystemInfo` and `Machine.Detail` still need notification-driven cache invalidation once those or `PackageUpdates` change.
+- ℹ️ `SystemInfo.list(true)` (`shared/OSQuery/SystemInfo.vala`) does not select `os_version.pkgs_updated` / `os_version.pkgs_status` yet (noted in [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md)), though `SystemInfo` and `Machine.Detail` still need notification-driven cache invalidation once those or `PackageUpdates` change.
 
 ---
 

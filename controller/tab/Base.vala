@@ -404,6 +404,10 @@ namespace Argus.Controller.Tab
 						shown = value.get_int64().to_string();
 						break;
 
+					case GLib.Type.BOOLEAN:
+						shown = value.get_boolean() ? "1" : "0";
+						break;
+
 					default:
 						shown = value.get_string();
 						break;
@@ -464,7 +468,15 @@ namespace Argus.Controller.Tab
 								date_text = formatted != null ? formatted : "";
 							}
 						}
-						((Gtk.Label) item.child).label = date_text;
+						var date_label = (Gtk.Label) item.child;
+						date_label.label = date_text;
+						date_label.tooltip_text = null;
+						if (stamp > 0) {
+							var tip_when = new GLib.DateTime.from_unix_local(stamp);
+							if (tip_when != null) {
+								date_label.tooltip_text = tip_when.format("%Y-%m-%d %H:%M:%S");
+							}
+						}
 						break;
 
 					case "elapsed":
@@ -583,6 +595,19 @@ namespace Argus.Controller.Tab
 						break;
 
 					case "tick":
+						var tick_image = (Gtk.Image) item.child;
+						var ticked = false;
+						if (prop.value_type == GLib.Type.BOOLEAN) {
+							ticked = value.get_boolean();
+						}
+						if (prop.value_type == GLib.Type.INT) {
+							ticked = value.get_int() != 0;
+						}
+						if (prop.value_type == GLib.Type.INT64) {
+							ticked = value.get_int64() != 0;
+						}
+						tick_image.icon_name = ticked ? "object-select-symbolic" : null;
+						tick_image.visible = ticked;
 						break;
 
 					case "maxver":

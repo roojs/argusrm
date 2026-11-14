@@ -19,6 +19,9 @@ namespace Argus.Shared.OSQuery
 		SystemInfo.init_db(db);
 		CpuInfo.init_db(db);
 		LoggedInUsers.init_db(db);
+		Users.init_db(db);
+		Groups.init_db(db);
+		UserGroups.init_db(db);
 		InterfaceAddresses.init_db(db);
 		OsVersion.init_db(db);
 		DebPackages.init_db(db);

@@ -313,6 +313,47 @@ namespace Argus.Server
 			new Argus.Shared.OSQuery.Programs().list(request, 0, 0);
 			new Argus.Shared.OSQuery.CpuInfo().list(request, (int) first);
 			new Argus.Shared.OSQuery.LoggedInUsers().list(request, (int) first);
+			var users_q = new SQ.Query<Argus.Shared.OSQuery.Users>(db, "users");
+			if (users_q.insert(new Argus.Shared.OSQuery.Users() {
+				agent_id = first,
+				uid = 1000,
+				gid = 1000,
+				username = "alan",
+				directory = "/home/alan",
+				shell = "/bin/bash"
+			}) < 1) {
+				GLib.printerr("fail insert users\n");
+				return 1;
+			}
+			var groups_q = new SQ.Query<Argus.Shared.OSQuery.Groups>(db, "groups");
+			if (groups_q.insert(new Argus.Shared.OSQuery.Groups() {
+				agent_id = first,
+				gid = 1000,
+				groupname = "alan"
+			}) < 1) {
+				GLib.printerr("fail insert groups\n");
+				return 1;
+			}
+			var ug_q = new SQ.Query<Argus.Shared.OSQuery.UserGroups>(db, "user_groups");
+			if (ug_q.insert(new Argus.Shared.OSQuery.UserGroups() {
+				agent_id = first,
+				uid = 1000,
+				gid = 1000
+			}) < 1) {
+				GLib.printerr("fail insert user_groups\n");
+				return 1;
+			}
+			var li_q = new SQ.Query<Argus.Shared.OSQuery.LoggedInUsers>(db, "logged_in_users");
+			if (li_q.insert(new Argus.Shared.OSQuery.LoggedInUsers() {
+				agent_id = first,
+				user = "alan",
+				time = 1763000000
+			}) < 1) {
+				GLib.printerr("fail insert logged_in_users for users join\n");
+				return 1;
+			}
+			new Argus.Shared.OSQuery.Users().list(request, (int) first);
+			new Argus.Shared.OSQuery.Groups().list(request, (int) first);
 			new Argus.Shared.OSQuery.InterfaceAddresses().list(request, (int) first);
 			new Argus.Shared.OSQuery.SystemInfo().list(request, 0, true);
 			new Argus.Shared.OSQuery.SystemInfo().list(request, (int) first, false);

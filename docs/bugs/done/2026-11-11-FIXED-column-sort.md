@@ -1,8 +1,8 @@
 # Column headers do not sort
 
-**Status:** ⏳ `column_sorter()` unwrap inlined and ready to verify; `Agent` & `Repository` split to [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md)
+**Status:** ✅ closed 2026-11-14. Column sorting verified fixed on Machines, Debian, RPM, and Windows; `Agent` & `Repository` split to [2026-11-13-agent-repository-column-sort.md](../2026-11-13-agent-repository-column-sort.md).
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/bugs/2026-11-13-agent-repository-column-sort.md`
+**Pointer:** `docs/bug-fix-process.md`, [2026-11-13-agent-repository-column-sort.md](../2026-11-13-agent-repository-column-sort.md)
 
 ---
 
@@ -11,7 +11,7 @@
 - 🔷 A left click on a column header sorts that column.
 - 🔷 The next click on that header reverses the order.
 - 🔷 The order is the column's value. A size sorts by its byte count. A count sorts by the count.
-- ℹ️ The grids in scope here are Machines, Debian, RPM, and Windows. Agents and Repositories were split to [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md).
+- ℹ️ The grids in scope here are Machines, Debian, RPM, and Windows. Agents and Repositories were split to [2026-11-13-agent-repository-column-sort.md](../2026-11-13-agent-repository-column-sort.md).
 
 ## Evidence
 
@@ -23,7 +23,7 @@
   - Unwrapping `Gtk.SingleSelection` / `Gtk.MultiSelection` / `Gtk.SortListModel` / `Gtk.FilterListModel` down to the underlying store yields `Row`, `find_property()` resolves `min-version` / `max-size` / `installed`, and `grid.sort_by_column(...)` sets `column.sorter` and sorts `Gtk.SortListModel` numerically and alphabetically.
 - ℹ️ `Gtk.ColumnView.sorter` is the view's own `Gtk.ColumnViewSorter`. A header click changes it only when that column's `sorter` is set. The rows move only when a `Gtk.SortListModel` uses that sorter.
 - ℹ️ The column menu gesture in `Base.column_menu` listens for the secondary button. A left click on a header is not that gesture.
-- ℹ️ `os-updated` and `os-status` exist on `Argus.Shared.OSQuery.SystemInfo`; `pkgs-updated` and `pkgs-status` are not on the row class yet and await [5.10](../plans/5.10-data-enrichment.md).
+- ℹ️ `os-updated` and `os-status` exist on `Argus.Shared.OSQuery.SystemInfo`; `pkgs-updated` and `pkgs-status` are not on the row class yet and await [5.10](../../plans/5.10-data-enrichment.md).
 
 ## Root cause
 
@@ -40,16 +40,16 @@
 - 💩 OS status and S/W status start `off`. Every other column in the four asset CSVs starts `ON`.
 - 💩 Text and versions sort as text, A–Z, ignoring case. `1.10` stays before `1.9`. An address sorts as text.
 - 💩 An `int`, `int64`, or `bool` property sorts by its underlying value (`bytes` by byte count, `remove` by `installed`).
-- ℹ️ `os-updated` and `pkgs-updated` are `ON`. `os-updated` is filled from `os_releases`; `pkgs-updated` awaits [5.10](../plans/5.10-data-enrichment.md).
+- ℹ️ `os-updated` and `pkgs-updated` are `ON`. `os-updated` is filled from `os_releases`; `pkgs-updated` awaits [5.10](../../plans/5.10-data-enrichment.md).
 - 🔷 The row filter stays under the sort. A filtered grid sorts the rows that are showing.
-- ℹ️ Agents and Repositories column sorting split to [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md).
+- ℹ️ Agents and Repositories column sorting split to [2026-11-13-agent-repository-column-sort.md](../2026-11-13-agent-repository-column-sort.md).
 - 🚫 A sort of the store itself.
 - 🚫 A version comparer, or a sort of the painted label.
 - 🚫 Deciding sort from the format. `status` is not a special case in code.
 
 ### 1. Column files
 
-The first line gains `Sort`. [5.8](../plans/5.8-assets-page.md) names the five words in front of it. Those words stay. `SystemInfo` still reads the format from the fifth field.
+The first line gains `Sort`. [5.8](../../plans/5.8-assets-page.md) names the five words in front of it. Those words stay. `SystemInfo` still reads the format from the fifth field.
 
 #### Replace with
 
@@ -365,11 +365,9 @@ Same wrap via `this.column_grid(rows, true)`. The selection stays a `Gtk.MultiSe
 - ✔️ Applied sections 1–6: added the `Sort` field to `system_info.csv`, `deb_packages.csv`, `rpm_packages.csv`, and `programs.csv`; added `column_grid` and `column_sorter` (`Gtk.NumericSorter` / `Gtk.StringSorter` chosen by `GLib.Type`) plus `width == 0` expand and CSV sort wiring to `controller/tab/Base.vala`; updated `DebPackages.vala`, `SystemInfo.vala`, `Programs.vala`, and `RpmPackages.vala` to call `this.column_grid(...)`.
 - ✔️ Built `ninja -C build controller/argusrm-controller` and `ninja -C build docs/valadoc` with zero new warnings.
 - ✔️ Diagnosed why headers still showed no sort indicator on the new controller: `/tmp/probe_sort.vala` proved `Gtk.SingleSelection`, `Gtk.MultiSelection`, `Gtk.SortListModel`, and `Gtk.FilterListModel` all return `GObject` from `get_item_type()`, so `column_sorter()` never found any row property and left `column.sorter == null`.
-- ✔️ Split sections 7 (`Agent`) and 8 (`Repository`) out into [2026-11-13-agent-repository-column-sort.md](2026-11-13-agent-repository-column-sort.md).
+- ✔️ Split sections 7 (`Agent`) and 8 (`Repository`) out into [2026-11-13-agent-repository-column-sort.md](../2026-11-13-agent-repository-column-sort.md).
 - ✔️ Inlined model unwrapping directly inside `column_sorter()` in `controller/tab/Base.vala` (removed the unapproved helper method).
 
 ## Next
 
-- ⏳ 🔷 Click a header whose Sort field is `ON` on Machines, Debian, RPM, and Windows. The rows reverse on the next click, and the arrow follows. OS status does not sort.
-- ⏳ 🔷 Click Installed and Max size. The order is numeric.
-- ⏳ 🔷 Move to `docs/bugs/done/2026-11-11-FIXED-column-sort.md` once user verifies on the running controller.
+- ✅ Closed 2026-11-14. Column sorting verified on Machines, Debian, RPM, and Windows in the running controller.

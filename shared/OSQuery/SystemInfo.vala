@@ -195,6 +195,7 @@ namespace Argus.Shared.OSQuery
 							WHERE logged_in_users.agent_id = system_info.agent_id
 							AND logged_in_users.agent_id IN (SELECT id FROM agent)
 							AND logged_in_users.user != ''
+							AND logged_in_users.deleted_dt = 0
 						), '') as logged_in_users
 					FROM 
 						system_info

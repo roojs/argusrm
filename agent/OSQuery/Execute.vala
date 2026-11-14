@@ -167,6 +167,9 @@ namespace Argus.Agent.OSQuery
 #else
 			code += this.sync_table("logged_in_users", "LoggedInUsers");
 #endif
+			code += this.sync_table("users", "Users");
+			code += this.sync_table("groups", "Groups");
+			code += this.sync_table("user_groups", "UserGroups");
 			code += this.sync_table("interface_addresses", "InterfaceAddresses");
 			code += this.sync_table("os_version", "OsVersion");
 			code += this.send_packages();

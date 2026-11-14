@@ -5,7 +5,8 @@
     <file>columns/system_info.csv</file>
     <file>columns/machine_general.csv</file>
     <file>columns/cpu_info_machine.csv</file>
-    <file>columns/logged_in_users_machine.csv</file>
+    <file>columns/users.csv</file>
+    <file>columns/groups.csv</file>
     <file>columns/interface_addresses_machine.csv</file>
     <file>columns/deb_packages.csv</file>
     <file>columns/deb_packages_machine.csv</file>

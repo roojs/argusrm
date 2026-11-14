@@ -1,6 +1,6 @@
 # Agent skips startup osquery and package sync when server is not yet reachable
 
-**Status:** ✔️ approved fix implemented in `agent/Application.vala` (`ninja` build and 6/6 `meson test` pass); awaiting install + live service verification
+**Status:** ✅ closed 2026-11-14. Approved fix in `agent/Application.vala` verified fixed.
 
 **Pointer:** `docs/bug-fix-process.md`, `agent/Application.vala`, `agent/OSQuery/Execute.vala`, `agent/linux/PackageMonitor.vala`
 
@@ -109,4 +109,4 @@
 
 ## Next
 
-- ⏳ 🔷 Install the rebuilt agent (`sudo ninja -C build install`) and restart `argusrm-agent` to verify live sync on this host.
+- ✅ Closed 2026-11-14. Verified startup osquery and package sync after connection becomes ready.

@@ -21,7 +21,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 	/**
 	 * Tabbed detail pane shown under the Machines grid.
 	 *
-	 * Displays per-machine {@link LoggedInUsers}, the relevant package
+	 * Displays per-machine {@link Users}, the relevant package
 	 * tab ({@link DebPackages}, {@link RpmPackages}, or
 	 * {@link Programs}) for the selected machine's
 	 * {@link Argus.Shared.OSQuery.SystemInfo.package_manager},
@@ -48,7 +48,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Adw.Toggle interfaces_toggle;
 		private Adw.Toggle cpus_toggle;
 		private General general;
-		private LoggedInUsers users;
+		private Users users;
 		private DebPackages debian;
 		private RpmPackages rpm;
 		private Programs windows;
@@ -108,7 +108,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 				}
 			};
 			this.general.bind_property("refreshing", general_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
-			this.users = new LoggedInUsers(window);
+			this.users = new Users(window);
 			this.pages.add_titled_with_icon(
 				this.users, "users", "Users", "system-users-symbolic");
 			var users_spin = new Adw.Spinner() {
