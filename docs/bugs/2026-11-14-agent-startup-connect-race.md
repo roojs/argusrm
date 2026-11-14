@@ -1,6 +1,6 @@
 # Agent skips startup osquery and package sync when server is not yet reachable
 
-**Status:** ✔️ fix implemented in `agent/Application.vala` (`ninja` build and 6/6 `meson test` pass); awaiting install + live service verification
+**Status:** ✔️ approved fix implemented in `agent/Application.vala` (`ninja` build and 6/6 `meson test` pass); awaiting install + live service verification
 
 **Pointer:** `docs/bug-fix-process.md`, `agent/Application.vala`, `agent/OSQuery/Execute.vala`, `agent/linux/PackageMonitor.vala`
 
@@ -8,9 +8,9 @@
 
 ## Problem
 
-- 🔷 On this machine (`fastboy`), `argusrm-agent` is connected to `argusrm-server` and receives `event.agent`, yet does not send up the package list (`deb_packages` / `PackageUpdates`) or startup osquery tables.
-- 🔷 Expected: once `argusrm-agent` connects to `argusrm-server` (whether on initial startup or on a 30-second retry / reconnect), it runs `OSQuery.Initialize`, sends startup osquery tables and packages (`send_startup()`), and starts `PackageMonitor`.
-- 🔷 Actual: when `argusrm-agent` starts before `argusrm-server` is listening (or when the server is unreachable at agent startup), `attach_connection()` connects 30 seconds later on retry, emits `state_changed()`, and never runs `OSQuery.Initialize`, `send_startup()`, or `PackageMonitor`.
+- 🔷 On this machine (`fastboy`), `argusrm-agent` connects to `argusrm-server` and receives `event.agent`, yet does not send up the package list (`deb_packages` / `PackageUpdates`) or startup osquery tables.
+- 🔷 Expected: when `argusrm-agent` starts before `argusrm-server` is listening, it waits on a timeout (logging debug output while waiting) until the connection is ready, then runs `OSQuery.Initialize`, `send_startup()`, and `PackageMonitor`.
+- 🔷 Actual: when `argusrm-agent` starts before `argusrm-server` is listening, the first `attach_connection()` fails (`this.connection == null`), `command_line()` skips `OSQuery.Initialize`, `send_startup()`, and `PackageMonitor`, and the 30-second retry later connects without ever running startup inventory.
 
 ---
 
@@ -25,26 +25,32 @@
 - ✔️ `/var/log/argusrm/server.log` and `~/.cache/argusrm/controller.log` confirm `DebPackages.list` returns 0 rows (`type id '0' is invalid` on empty `ArrayList` reply).
 - ✔️ `osqueryi --json "SELECT COUNT(*) AS cnt FROM deb_packages"` on this host returns `5570` rows, and `osqueryi --json "SELECT * FROM os_version"` returns `"platform":"ubuntu"`, `"platform_like":"debian"`.
 - ✔️ Temporary probe `/tmp/argus-pkg-probe.vala` verified that querying all 5,570 `deb_packages` rows (`343 ms`), sending them over `OLLMrpc.Transport.TlsClient` with `timeout = 5` and `watch()` (`405 ms` parse), and running `DebPackages.sync` + `db.backupDB()` (`156 ms`) succeeds end-to-end (`561 ms` total).
-- ✔️ Temporary probe `/tmp/argus-startup-race-probe.vala` reproduced the 450 ms server startup race:
-  - `broken` mode (current `if (this.connection != null)` check only at `command_line()`): `[result] fixed=false connected=true deb_rows=0 monitor_started=false`.
-  - `fixed` mode (`state_changed` handler running `osquery-init` + `send_startup()` + `PackageMonitor`): `[result] fixed=true connected=true deb_rows=5570 monitor_started=true`.
 
 ---
 
 ## Root cause
 
-- ✔️ In `agent/Application.vala` (`command_line()`, `#if LINUX`), `OSQuery.Initialize`, `this.osquery.send_startup()`, and `PackageMonitor` are only started inside `if (this.connection != null)` immediately after the first `this.attach_connection()` call.
-- ✔️ When that first `this.attach_connection()` fails (`this.connection == null`), `attach_connection()` schedules the 30-second retry timer, which later opens the connection and emits `this.state_changed()`, but nothing listens to `this.state_changed()` on Linux to initialize osquery, send startup tables/packages, or start `PackageMonitor`.
+- ✔️ In `agent/Application.vala` (`command_line()`, `#if LINUX`), `OSQuery.Initialize`, `this.osquery.send_startup()`, and `PackageMonitor` only run inside `if (this.connection != null)` immediately after the first `this.attach_connection()` call.
+- ✔️ When that first `this.attach_connection()` fails (`this.connection == null`), `attach_connection()` schedules the 30-second retry timer (`connection_check_id`) and returns, so startup inventory and `PackageMonitor` are never run once the retry connects.
+
+---
+
+## Ruled out
+
+- 🚫 Adding a `GLib.Thread` on Linux (`osquery-init` / `state_changed` thread refactor) — rejected by user as an unnecessary threading change.
 
 ---
 
 ## Proposed fix
 
-### `agent/Application.vala` — trigger Linux inventory and `PackageMonitor` on `state_changed`
+### `agent/Application.vala` — wait on a timeout with debug logging until connection is ready
 
-- 🔷 Connect `this.state_changed` in the `#if LINUX` registered branch before `this.attach_connection()`, matching the Windows `#else` pattern (`GLib.Thread` for `OSQuery.Initialize`, then `GLib.Idle.add` for `this.osquery.send_startup()` and `PackageMonitor`), guarded by a local `osquery_starting` flag and `this.monitor == null` so reconnects refresh inventory without creating duplicate `PackageMonitor` instances.
+- 🔷 In `command_line()` (`#if LINUX`), after `this.attach_connection()`:
+  - If `this.connection != null && !Application.connection_down`, run `OSQuery.Initialize`, `this.osquery.send_startup()`, and `PackageMonitor` immediately as before.
+  - Otherwise, log `GLib.debug("waiting for connection");` and start a `GLib.Timeout.add_seconds(5, ...)` timer that logs `GLib.debug("waiting for connection");` while `this.connection == null || Application.connection_down`, and once ready runs `OSQuery.Initialize`, `this.osquery.send_startup()`, and `PackageMonitor`, then returns `false`.
+- 💩 Interval choice: `5` seconds checks shortly after the 30-second `attach_connection()` retry succeeds without log spam (`5`s / `10`s / `30`s are easy to adjust if preferred).
 
-#### Remove
+#### Remove (`agent/Application.vala`)
 
 ```vala
 #if LINUX
@@ -61,39 +67,33 @@
 #else
 ```
 
-#### Replace with
+#### Replace with (`agent/Application.vala`)
 
 ```vala
 #if LINUX
 			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				var osquery_starting = false;
-				this.state_changed.connect(() => {
-					if (this.connection == null || Application.connection_down || osquery_starting) {
-						return;
-					}
-					osquery_starting = true;
-					new GLib.Thread<int>("osquery-init", () => {
-						var code = new OSQuery.Initialize(this).run();
-						GLib.Idle.add(() => {
-							osquery_starting = false;
-							if (code == 0 && this.connection != null && !Application.connection_down) {
-								this.osquery.send_startup();
-								if (this.monitor == null &&
-									this.os_version.package_manager() !=
-										Argus.Shared.OSQuery.PackageManager.UNKNOWN) {
-									this.monitor = new PackageMonitor(this);
-									this.monitor.start();
-								} else if (this.monitor != null) {
-									this.monitor.send_pending();
-								}
-							}
-							return false;
-						});
-						return 0;
-					});
-				});
 				this.attach_connection();
+				if (this.connection != null && !Application.connection_down) {
+					new OSQuery.Initialize(this).start();
+					this.osquery.send_startup();
+					this.monitor = new PackageMonitor(this);
+					this.monitor.start();
+				}
+				if (this.connection == null || Application.connection_down) {
+					GLib.debug("waiting for connection");
+					GLib.Timeout.add_seconds(5, () => {
+						if (this.connection == null || Application.connection_down) {
+							GLib.debug("waiting for connection");
+							return true;
+						}
+						new OSQuery.Initialize(this).start();
+						this.osquery.send_startup();
+						this.monitor = new PackageMonitor(this);
+						this.monitor.start();
+						return false;
+					});
+				}
 			}
 #else
 ```
@@ -104,10 +104,9 @@
 
 - ✔️ Inspected `/var/log/argusrm/agent.log`, `/var/log/argusrm/server.log`, and `~/.cache/argusrm/controller.log`.
 - ✔️ Proved `DebPackages` serialization and `OSQuery.sync` work in `/tmp/argus-pkg-probe.vala`.
-- ✔️ Reproduced failure and verified fix in `/tmp/argus-startup-race-probe.vala`.
-
-- ✔️ Applied replacement in `agent/Application.vala`; `ninja -C build agent/argusrm-agent agent/argusrm-agent-gtk` succeeded and `meson test -C build` passed (6/6).
+- 🚫 Threading + `state_changed` approach rejected by user; reverted `agent/Application.vala` to pre-edit state and replaced proposal with `GLib.Timeout.add_seconds` + `GLib.debug("waiting for connection")`.
+- ✔️ Applied approved `GLib.Timeout.add_seconds(5, ...)` edit in `agent/Application.vala`; `ninja -C build agent/argusrm-agent agent/argusrm-agent-gtk` succeeded and `meson test -C build` passed (6/6).
 
 ## Next
 
-- ⏳ 🔷 Install the rebuilt agent (`sudo ninja -C build install`) and restart `argusrm-agent` to verify live `deb_packages` sync on this host.
+- ⏳ 🔷 Install the rebuilt agent (`sudo ninja -C build install`) and restart `argusrm-agent` to verify live sync on this host.

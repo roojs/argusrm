@@ -1,6 +1,6 @@
 # Machines tab detail pane and per-machine data tabs
 
-**Status:** ✔️ Phase 1 and Phase 2 implemented (`Users`, `Interfaces`, `CPUs` RPCs + stores + tabs + `Tab.Base` formats; compiled & 6/6 tests pass, awaiting live UI check); ⏳ Phase 3 (General) proposed — awaiting approval
+**Status:** ✔️ Phase 1, Phase 2, Phase 3 RPCs, and Phase 4 General tab implemented (`Users`, `Interfaces`, `CPUs`, `SystemInfo.list(agent_id, join)`, `OsVersion.list`, `OsReleases.list`, `MachineGeneral`, `Machine.General`; compiled, valadoc & 6/6 tests pass, awaiting live UI check) — see [2026-11-14-machine-general-store.md](2026-11-14-machine-general-store.md)
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, `docs/rpc-commands.md`
 
@@ -218,16 +218,13 @@
 - hidden `processor_type` — **Type** (`text`, 110px). Raw SMBIOS code (`3`).
 - hidden `cpu_status` — **Status** (`number`, 80px). Raw SMBIOS code (`65`).
 
-### Phase 3 — **General** tab (RPCs here; store & UI split out)
+### Phase 3 — **General** tab RPCs (store & UI split out) ✔️
 
 - 🔷 Vertical dump of the machine row from **three subqueries** matching the three tables `SystemInfo` joins (`system_info`, `os_version`, `os_releases`), with each subquery going onto an expander entry.
 - 🔷 Use plain `.list` RPCs (no `read` RPCs, no `logged_in_users` coalesce, no enriched joins, and no `agent` table).
 - 🔷 Reuse the existing `controller/resources/columns/system_info.csv` for field labels and data types/formats (no extra resource CSV files).
 - ℹ️ The `Store.Base` CSV interface, `Store.KeyValue`, `Store.MachineGeneral`, `Tab.Asset.Machine.General`, `Detail.vala`, and `.vertical-list` CSS are broken out into [2026-11-14-machine-general-store.md](2026-11-14-machine-general-store.md) for separate review.
-- 💩 Three plain `list` RPCs (returning `Gee.ArrayList` of 0 or 1 row for `agent_id > 0`):
-  - 💩 `SystemInfo.list(agent_id, false)` — plain `system_info` row (`WHERE agent_id = ...`).
-  - 💩 `OsVersion.list(agent_id)` — plain `os_version` row (`WHERE agent_id = ... AND deleted_dt = 0`).
-  - 💩 `OsReleases.list(agent_id)` — plain `os_releases` row matched by `JOIN os_version` for `agent_id`.
+- ✔️ Three plain `list` RPCs implemented (`SystemInfo.list(agent_id, join)`, `OsVersion.list(agent_id)`, `OsReleases.list(agent_id)`) and registered in `server/Application.vala`, `controller/Application.vala`, `docs/rpc-commands.md`, and `server/tests/packages.vala`.
 
 ---
 
@@ -650,6 +647,4 @@ In `command_line()`, directly after `Argus.Shared.OSQuery.SystemInfo.rpc_registe
 
 ## Next
 
-- ⏳ 🔷 Verify Phase 1 and Phase 2 split pane and per-machine tabs in the running `argusrm-controller` UI.
-- ⏳ 🔷 Review and approve Phase 3 RPCs above (`#### 1`–`#### 4`).
-- ⏳ 🔷 Design and review `Store.Base` CSV interface, `Store.KeyValue`, `Store.MachineGeneral`, and `Machine.General` in [2026-11-14-machine-general-store.md](2026-11-14-machine-general-store.md).
+- ⏳ 🔷 Verify Phase 1–3 and the **General** tab in the running `argusrm-server` / `argusrm-controller` UI (see [2026-11-14-machine-general-store.md](2026-11-14-machine-general-store.md)).

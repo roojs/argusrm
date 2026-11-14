@@ -50,6 +50,9 @@ namespace Argus.Shared.OSQuery
 			}
 			var object_class = (GLib.ObjectClass) this.get_type().class_ref();
 			foreach (var prop in object_class.list_properties()) {
+				if ((prop.flags & GLib.ParamFlags.WRITABLE) == 0) {
+					continue;
+				}
 				switch (prop.name) {
 					case "id":
 					case "agent-id":

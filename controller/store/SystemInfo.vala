@@ -123,7 +123,7 @@ namespace Argus.Controller.Store
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
 				method = "SystemInfo.list",
-				args = OLLMrpc.args("b", true)
+				args = OLLMrpc.args("ib", 0, true)
 			}, (obj, res) => {
 				if (epoch != this.epoch) {
 					return;

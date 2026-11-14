@@ -1,0 +1,56 @@
+Indent  |  Column header  |  Database name [JSON]  |  Visible  |  Width in pixels  |  Format  |  Sort  |  Source
+
+0,System info,hostname,ON,0,expander,off,system_info
+1,Hostname,hostname,ON,0,text,off,system_info
+1,Local hostname,local-hostname,ON,0,text,off,system_info
+1,Computer name,computer-name,ON,0,text,off,system_info
+1,UUID,uuid,ON,0,text,off,system_info
+1,Hardware vendor,hardware-vendor,ON,0,text,off,system_info
+1,Hardware model,hardware-model,ON,0,text,off,system_info
+1,Hardware version,hardware-version,ON,0,text,off,system_info
+1,Hardware serial,hardware-serial,ON,0,text,off,system_info
+1,Board vendor,board-vendor,ON,0,text,off,system_info
+1,Board model,board-model,ON,0,text,off,system_info
+1,Board version,board-version,ON,0,text,off,system_info
+1,Board serial,board-serial,ON,0,text,off,system_info
+1,Physical memory,physical-memory,ON,0,bytes,off,system_info
+1,CPU brand,cpu-brand,ON,0,text,off,system_info
+1,CPU type,cpu-type,ON,0,text,off,system_info
+1,CPU subtype,cpu-subtype,ON,0,text,off,system_info
+1,CPU physical cores,cpu-physical-cores,ON,0,number,off,system_info
+1,CPU logical cores,cpu-logical-cores,ON,0,number,off,system_info
+1,CPU microcode,cpu-microcode,ON,0,text,off,system_info
+1,Added,added-dt,ON,0,date,off,system_info
+1,Updated,updated-dt,ON,0,date,off,system_info
+
+0,OS version,name,ON,0,expander,off,os_version
+1,Name,name,ON,0,text,off,os_version
+1,Version,version,ON,0,text,off,os_version
+1,Major,major,ON,0,number,off,os_version
+1,Minor,minor,ON,0,number,off,os_version
+1,Patch,patch,ON,0,number,off,os_version
+1,Build,build,ON,0,text,off,os_version
+1,Platform,platform,ON,0,text,off,os_version
+1,Platform like,platform-like,ON,0,text,off,os_version
+1,Codename,codename,ON,0,text,off,os_version
+1,Arch,arch,ON,0,text,off,os_version
+1,Package updated,pkgs-updated,ON,0,date,off,os_version
+1,S/W status,pkgs-status,ON,0,status,off,os_version
+1,Reboot required,reboot-required,ON,0,number,off,os_version
+1,Added,added-dt,ON,0,date,off,os_version
+1,Updated,updated-dt,ON,0,date,off,os_version
+
+0,OS release,name,ON,0,expander,off,os_releases
+1,Release name,name,ON,0,text,off,os_releases
+1,Short ID,short-id,ON,0,text,off,os_releases
+1,Distro,distro,ON,0,text,off,os_releases
+1,Platform,platform,ON,0,text,off,os_releases
+1,Family,family,ON,0,text,off,os_releases
+1,Version,version,ON,0,text,off,os_releases
+1,Major,major,ON,0,number,off,os_releases
+1,Minor,minor,ON,0,number,off,os_releases
+1,Codename,codename,ON,0,text,off,os_releases
+1,Released,released,ON,0,text,off,os_releases
+1,End of life,eol,ON,0,text,off,os_releases
+1,LTS,is-lts,ON,0,number,off,os_releases
+1,Updated,updated,ON,0,date,off,os_releases

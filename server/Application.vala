@@ -352,6 +352,7 @@ namespace Argus.Server
 			}
 			Registration.rpc_register();
 			Argus.Shared.Agent.rpc_register();
+			Argus.Shared.OsReleases.rpc_register();
 			Daemon.rpc_register();
 			OSQuery.rpc_register();
 			Command.rpc_register();
@@ -367,6 +368,8 @@ namespace Argus.Server
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
 			OLLMrpc.Request.register("SystemInfo", new Argus.Shared.OSQuery.SystemInfo());
+			OLLMrpc.Request.register("OsVersion", new Argus.Shared.OSQuery.OsVersion());
+			OLLMrpc.Request.register("OsReleases", new Argus.Shared.OsReleases());
 			OLLMrpc.Request.register("CpuInfo", new Argus.Shared.OSQuery.CpuInfo());
 			OLLMrpc.Request.register("LoggedInUsers", new Argus.Shared.OSQuery.LoggedInUsers());
 			OLLMrpc.Request.register("InterfaceAddresses", new Argus.Shared.OSQuery.InterfaceAddresses());

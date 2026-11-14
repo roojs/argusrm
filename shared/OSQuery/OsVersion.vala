@@ -41,6 +41,8 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class OsVersion : Row
 	{
+		private static SQ.Database db;
+
 		/**
 		 * Store one agent's ''os_version'' row.
 		 *
@@ -102,6 +104,7 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			OsVersion.db = db;
 			string errmsg;
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS os_version (
@@ -132,11 +135,56 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * Register this row with the bin codec.
+		 * Register this row and ''OsVersion.list''.
 		 */
 		public static void rpc_register()
 		{
 			OLLMrpc.Bin.register("OsVersion", typeof(OsVersion));
+			OLLMrpc.Request.add_class(
+				"OsVersion", typeof(OsVersion),
+				"list", "i"
+			);
+		}
+
+		/**
+		 * Stored ''os_version'' row for one agent.
+		 *
+		 * A controller calls this. An ''agent_id'' less than one returns
+		 * an empty list. A row whose ''deleted_dt'' is set is absent. A
+		 * caller that is not a controller is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param agent_id selected machine agent id
+		 */
+		public void list(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<OsVersion>();
+			if (agent_id > 0) {
+				var query = new SQ.Query<OsVersion>(OsVersion.db, "os_version");
+				var columns = string.joinv(", ",
+					query.getColsExcept({ "pkgs-status" }, "os_version."));
+				query.selectQuery(@"
+					SELECT
+						$(columns),
+						CASE
+							WHEN os_version.pkgs_updated = 0 THEN -1
+							ELSE os_version.pkgs_status
+						END as pkgs_status
+					FROM
+						os_version
+					WHERE
+						os_version.agent_id = $(agent_id)
+					AND
+						os_version.deleted_dt = 0
+					", rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
 		}
 
 		public string name { get; set; default = ""; }
@@ -161,6 +209,29 @@ namespace Argus.Shared.OSQuery
 		 * ''1'' when they are. ''0'' when an update is waiting.
 		 */
 		public int pkgs_status { get; set; default = 0; }
+		/**
+		 * Status text for {@link pkgs_status}.
+		 *
+		 * Derived from {@link pkgs_updated} and {@link pkgs_status}.
+		 * Not stored or sent on the wire.
+		 */
+		public string tooltip_pkgs_status {
+			owned get {
+				if (this.pkgs_updated == 0) {
+					return "";
+				}
+				switch (this.pkgs_status) {
+					case 0:
+						return "Package updates waiting";
+
+					case 1:
+						return "Packages up to date";
+
+					default:
+						return "";
+				}
+			}
+		}
 		/**
 		 * A system restart is waiting on this host.
 		 *

@@ -40,12 +40,14 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Adw.ToggleGroup group;
 		private Adw.ViewStack pages;
 		private Gtk.Box bar;
+		private Adw.Toggle general_toggle;
 		private Adw.Toggle users_toggle;
 		private Adw.Toggle debian_toggle;
 		private Adw.Toggle rpm_toggle;
 		private Adw.Toggle windows_toggle;
 		private Adw.Toggle interfaces_toggle;
 		private Adw.Toggle cpus_toggle;
+		private General general;
 		private LoggedInUsers users;
 		private DebPackages debian;
 		private RpmPackages rpm;
@@ -55,6 +57,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private int current_agent_id = 0;
 		private Argus.Shared.OSQuery.PackageManager current_pm = Argus.Shared.OSQuery.PackageManager.UNKNOWN;
 		private bool has_pm = false;
+		private bool general_loaded = false;
 		private bool users_loaded = false;
 		private bool debian_loaded = false;
 		private bool rpm_loaded = false;
@@ -82,6 +85,29 @@ namespace Argus.Controller.Tab.Asset.Machine
 				hexpand = true
 			};
 			this.group.add_css_class("both");
+			this.general = new General(window);
+			this.pages.add_titled_with_icon(
+				this.general, "general", "General", "dialog-information-symbolic");
+			var general_spin = new Adw.Spinner() {
+				visible = false,
+				halign = Gtk.Align.END,
+				valign = Gtk.Align.CENTER
+			};
+			var general_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
+			general_row.append(new Gtk.Image.from_icon_name("dialog-information-symbolic"));
+			general_row.append(new Gtk.Label("General"));
+			this.general_toggle = new Adw.Toggle() {
+				name = "general",
+				child = new Gtk.CenterBox() {
+					center_widget = general_row,
+					end_widget = general_spin,
+					hexpand = true
+				}
+			};
+			this.general.bind_property("refreshing", general_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
 			this.users = new LoggedInUsers(window);
 			this.pages.add_titled_with_icon(
 				this.users, "users", "Users", "system-users-symbolic");
@@ -230,6 +256,14 @@ namespace Argus.Controller.Tab.Asset.Machine
 					return;
 				}
 				switch (name) {
+					case "general":
+						if (this.general_loaded) {
+							break;
+						}
+						this.general_loaded = true;
+						this.general.store.load.begin(this.current_agent_id);
+						break;
+
 					case "users":
 						if (this.users_loaded) {
 							break;
@@ -299,6 +333,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		public void clear()
 		{
 			this.current_agent_id = 0;
+			this.general_loaded = false;
 			this.users_loaded = false;
 			this.debian_loaded = false;
 			this.rpm_loaded = false;
@@ -321,6 +356,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 				return;
 			}
 			this.current_agent_id = 0;
+			this.general_loaded = false;
 			this.users_loaded = false;
 			this.debian_loaded = false;
 			this.rpm_loaded = false;
@@ -343,6 +379,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 					}
 					this.group.remove(toggle);
 				}
+				this.group.add(this.general_toggle);
 				this.group.add(this.users_toggle);
 				switch (pm) {
 					case Argus.Shared.OSQuery.PackageManager.APT:
@@ -365,8 +402,9 @@ namespace Argus.Controller.Tab.Asset.Machine
 				}
 				this.group.add(this.interfaces_toggle);
 				this.group.add(this.cpus_toggle);
-				var target = "users";
+				var target = "general";
 				switch (previous) {
+					case "general":
 					case "users":
 					case "interfaces":
 					case "cpus":
@@ -387,12 +425,20 @@ namespace Argus.Controller.Tab.Asset.Machine
 				this.group.active_name = target;
 			}
 			this.current_agent_id = agent_id;
-			var active = "users";
+			var active = "general";
 			if (this.group.active_name != null) {
 				active = this.group.active_name;
 			}
 			this.pages.visible_child_name = active;
 			switch (active) {
+				case "general":
+					if (this.general_loaded) {
+						break;
+					}
+					this.general_loaded = true;
+					this.general.store.load.begin(agent_id);
+					break;
+
 				case "users":
 					if (this.users_loaded) {
 						break;

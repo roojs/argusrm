@@ -42,8 +42,8 @@
 ## Proposed fix
 
 - 🔷 Update `shared/OSQuery/PackageUpdates.vala` (`sync()`) to write `pkgs_updated = now` and `pkgs_status = (seen.size == 0 ? 1 : 0)` onto matching `os_version` rows (`deleted_dt = 0`).
-- 🔷 Extend `shared/OSQuery/SystemInfo.vala` (`list(true)` + properties) with `os_eol`, `os_latest`, `pkgs_updated`, `pkgs_updates`, and `pkgs_status` (`-1` when `pkgs_updated == 0` or no `os_version` row, `0` when `package_updates` has rows, `1` when checked with zero pending updates).
-- 🔷 Update `controller/tab/Base.vala` (`column_factory`, `case "status":`) to wrap the centered `.status-dot` in a full-cell `Gtk.Box` and set `tooltip_text` on the cell (`os-status`: `"End of life (...)"` / `"Update available (...)"` / `"Up to date (EOL ...)"`; `pkgs-status`: `"N package update(s) available"` / `"Packages up to date"`; `null` when `-1`).
+- 🔷 Extend `shared/OSQuery/SystemInfo.vala` (`list(true)` + properties) with `os_eol`, `os_latest`, `pkgs_updated`, `pkgs_updates`, and `pkgs_status` (`-1` when `pkgs_updated == 0` or no `os_version` row, `0` when `package_updates` has rows, `1` when checked with zero pending updates), plus derived `tooltip_os_status` and `tooltip_pkgs_status` properties (`owned get`, omitted on the wire and in `AgentInfo.compare` via `GLib.ParamFlags.WRITABLE`).
+- 🔷 Update `controller/tab/Base.vala` (`column_factory`, `case "status":`) generically to wrap the centered `.status-dot` in a full-cell `Gtk.Box` and set `cell.tooltip_text` from the row's `tooltip-<name>` string property when present (`null` when empty/absent).
 - 🔷 Update `controller/filter/SystemInfo.vala` to handle `"S/W needs update"` (`row.pkgs_status == 0`).
 - 💩 Call `this.send_pending()` after `this.application.osquery.send_packages()` in `agent/linux/PackageMonitor.vala` (`apt()` / `rpm()`).
 - 🔷 Update `docs/rpc-commands.md` for the new `SystemInfo.list` fields and `server/tests/packages.vala` to test `PackageUpdates.sync` -> `os_version` and `SystemInfo.list(true)`.
@@ -180,28 +180,79 @@
 		 * Not stored on ''system_info''.
 		 */
 		public int pkgs_updates { get; set; default = 0; }
+		/**
+		 * Mouseover text for {@link os_status} in the Machines grid.
+		 *
+		 * Derived from {@link os_status}, {@link os_eol}, and
+		 * {@link os_latest}. Not stored or sent on the wire.
+		 */
+		public string tooltip_os_status {
+			owned get {
+				switch (this.os_status) {
+					case 0:
+						return "End of life (" + this.os_eol + ")";
+
+					case 2:
+						return "Update available (" + this.os_latest + ")";
+
+					case 1:
+						if (this.os_eol != "") {
+							return "Up to date (EOL " + this.os_eol + ")";
+						}
+						return "Up to date";
+
+					default:
+						return "";
+				}
+			}
+		}
+		/**
+		 * Mouseover text for {@link pkgs_status} in the Machines grid.
+		 *
+		 * Derived from {@link pkgs_status} and {@link pkgs_updates}.
+		 * Not stored or sent on the wire.
+		 */
+		public string tooltip_pkgs_status {
+			owned get {
+				switch (this.pkgs_status) {
+					case 0:
+						if (this.pkgs_updates == 1) {
+							return "1 package update available";
+						}
+						return this.pkgs_updates.to_string() + " package updates available";
+
+					case 1:
+						return "Packages up to date";
+
+					default:
+						return "";
+				}
+			}
+		}
 ```
 
-### 3. `controller/tab/Base.vala` — status cell wrapper and tooltips
+### 3. `controller/tab/Base.vala`, `shared/OSQuery/Row.vala`, and `shared/OSQuery/AgentInfo.vala` — generic `tooltip-<name>` lookup on `status` cells
 
-**Why:** hovering anywhere in a `status` cell shows what state the dot represents.
+**Why:** keep `Tab.Base` completely generic with no column-specific logic, while allowing any `status` column to supply a `tooltip-<name>` derived string property on its row model (skipped by wire serialization and snapshot comparison).
 
-**Where:** `column_factory` docblock, `setup`, and `bind` (`case "status":`) in `controller/tab/Base.vala`.
+**Where:** `column_factory` docblock, `setup`, and `bind` (`case "status":`) in `controller/tab/Base.vala`, `Row.bin_write_prop`, and `AgentInfo.compare`.
 
-#### Remove
+#### `controller/tab/Base.vala` — Remove
 
 ```vala
 		 *  * ''status'' and ''tick'' are an image.
 ```
 
-#### Replace with
+#### `controller/tab/Base.vala` — Replace with
 
 ```vala
-		 *  * ''status'' is a centered circle with a mouseover tooltip.
+		 *  * ''status'' is a centered circle. If the row has a
+		 *    ''tooltip-<name>'' string property, it is used as the
+		 *    mouseover tooltip.
 		 *  * ''tick'' is an image.
 ```
 
-#### Remove
+#### `controller/tab/Base.vala` — Remove
 
 ```vala
 					case "status":
@@ -214,7 +265,7 @@
 						break;
 ```
 
-#### Replace with
+#### `controller/tab/Base.vala` — Replace with
 
 ```vala
 					case "status":
@@ -234,7 +285,7 @@
 						break;
 ```
 
-#### Remove
+#### `controller/tab/Base.vala` — Remove
 
 ```vala
 					case "status":
@@ -266,7 +317,7 @@
 						break;
 ```
 
-#### Replace with
+#### `controller/tab/Base.vala` — Replace with
 
 ```vala
 					case "status":
@@ -296,80 +347,16 @@
 							default:
 								break;
 						}
-						var tip = (string?) null;
-						switch (name) {
-							case "os-status":
-								switch (flag) {
-									case 0:
-										var eol_text = "";
-										var eol_prop = row.get_class().find_property("os-eol");
-										if (eol_prop != null && eol_prop.value_type == GLib.Type.STRING) {
-											var eol_val = GLib.Value(GLib.Type.STRING);
-											row.get_property("os-eol", ref eol_val);
-											eol_text = eol_val.get_string() != null ? eol_val.get_string() : "";
-										}
-										tip = eol_text != "" ? "End of life (" + eol_text + ")" : "End of life";
-										break;
-
-									case 2:
-										var latest_text = "";
-										var latest_prop = row.get_class().find_property("os-latest");
-										if (latest_prop != null && latest_prop.value_type == GLib.Type.STRING) {
-											var latest_val = GLib.Value(GLib.Type.STRING);
-											row.get_property("os-latest", ref latest_val);
-											latest_text = latest_val.get_string() != null ? latest_val.get_string() : "";
-										}
-										tip = latest_text != "" ? "Update available (" + latest_text + ")" : "Update available";
-										break;
-
-									case 1:
-										var ok_eol = "";
-										var ok_eol_prop = row.get_class().find_property("os-eol");
-										if (ok_eol_prop != null && ok_eol_prop.value_type == GLib.Type.STRING) {
-											var ok_eol_val = GLib.Value(GLib.Type.STRING);
-											row.get_property("os-eol", ref ok_eol_val);
-											ok_eol = ok_eol_val.get_string() != null ? ok_eol_val.get_string() : "";
-										}
-										tip = ok_eol != "" ? "Up to date (EOL " + ok_eol + ")" : "Up to date";
-										break;
-
-									default:
-										break;
-								}
-								break;
-
-							case "pkgs-status":
-								switch (flag) {
-									case 0:
-										var pending = 0;
-										var pending_prop = row.get_class().find_property("pkgs-updates");
-										if (pending_prop != null && pending_prop.value_type == GLib.Type.INT) {
-											var pending_val = GLib.Value(GLib.Type.INT);
-											row.get_property("pkgs-updates", ref pending_val);
-											pending = pending_val.get_int();
-										}
-										tip = "Package updates available";
-										if (pending == 1) {
-											tip = "1 package update available";
-										}
-										if (pending > 1) {
-											tip = pending.to_string() + " package updates available";
-										}
-										break;
-
-									case 1:
-										tip = "Packages up to date";
-										break;
-
-									default:
-										break;
-								}
-								break;
-
-							default:
-								break;
+						cell.tooltip_text = null;
+						var tip_prop = row.get_class().find_property("tooltip-" + name);
+						if (tip_prop != null && tip_prop.value_type == GLib.Type.STRING) {
+							var tip_val = GLib.Value(GLib.Type.STRING);
+							row.get_property("tooltip-" + name, ref tip_val);
+							var tip = tip_val.get_string();
+							if (tip != null && tip != "") {
+								cell.tooltip_text = tip;
+							}
 						}
-						cell.tooltip_text = tip;
 						break;
 ```
 
@@ -536,6 +523,7 @@
 - ✔️ 2026-11-14: Reproduced in `/tmp/argus-status-probe.vala`: `Ubuntu 25.04` is past EOL (`2026-01-15 < 2026-11-14`), `PackageUpdates.sync` left `os_version.pkgs_updated` / `pkgs_status` at `0`, `SystemInfo` lacked `pkgs-status` / `pkgs-updated` / `os-eol` / `os-latest` / `pkgs-updates`, and `Base.column_factory` set no tooltips on `status` dots.
 - ✔️ 2026-11-14: Verified the `PackageUpdates.sync` `os_version` update and `SystemInfo.list(true)` SQL in `/tmp/argus-status-probe.vala`.
 - ✔️ 2026-11-14: Applied ### 1–### 6 (`shared/OSQuery/PackageUpdates.vala`, `shared/OSQuery/SystemInfo.vala`, `controller/tab/Base.vala`, `controller/filter/SystemInfo.vala`, `agent/linux/PackageMonitor.vala`, `docs/rpc-commands.md`, `server/tests/packages.vala`) and removed `/tmp/argus-status-probe*`.
+- ✔️ 2026-11-14: Moved tooltip formatting out of `controller/tab/Base.vala` into `SystemInfo.tooltip_os_status` / `tooltip_pkgs_status` (avoiding ternary string ownership and redundant empty-date/empty-count fallbacks), made `Base.column_factory` look up `tooltip-<name>` generically, and skipped non-writable derived properties in `Row.bin_write_prop` and `AgentInfo.compare`.
 - ✔️ 2026-11-14: `ninja -C build` and `meson test -C build` (6/6) passed.
 
 ## Next

@@ -189,3 +189,33 @@ toggle-group > toggle:checked.keyboard-activating {
 	color: @theme_selected_fg_color;
 }
 
+.vertical-list {
+	background-color: var(--view-bg-color);
+}
+
+.vertical-list-expander > title {
+	padding: 8px 12px;
+	font-weight: 600;
+	border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.vertical-list-rows {
+	background-color: transparent;
+}
+
+.vertical-list-rows > row {
+	padding: 0;
+}
+
+.vertical-list-rows > row:nth-child(even) {
+	background-color: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.vertical-list-row {
+	padding: 6px 16px 6px 28px;
+}
+
+.vertical-list-key {
+	min-width: 140px;
+}
+

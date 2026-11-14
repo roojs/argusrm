@@ -152,6 +152,9 @@ namespace Argus.Shared.OSQuery
 		public override void bin_write_prop(
 			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop) throws GLib.Error
 		{
+			if ((prop.flags & GLib.ParamFlags.WRITABLE) == 0) {
+				return;
+			}
 			switch (prop.name) {
 				// Database identity assigned by the server.
 				case "id":

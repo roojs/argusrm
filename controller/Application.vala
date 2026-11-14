@@ -118,6 +118,8 @@ namespace Argus.Controller
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
 			Argus.Shared.OSQuery.SystemInfo.rpc_register();
+			Argus.Shared.OSQuery.OsVersion.rpc_register();
+			Argus.Shared.OsReleases.rpc_register();
 			Argus.Shared.OSQuery.CpuInfo.rpc_register();
 			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
 			Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
