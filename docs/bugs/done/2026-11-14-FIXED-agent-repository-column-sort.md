@@ -1,6 +1,6 @@
 # Agent and Repository column sorting (migrate to Base)
 
-**Status:** ⏳ applied — `ninja -C build controller/argusrm-controller` OK; manual sort/remove checks pending
+**Status:** ✅ closed 2026-11-14. Agents and Repositories on `Base.column_grid`; build OK; sort, column menu, and Remove verified in UI.
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md` (**Edit syntax contract**, **Code proposals — one place, not two**), [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md)
 
@@ -955,13 +955,14 @@ namespace Argus.Controller.Tab
 
 ## Attempts
 
-- ℹ️ Split from [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md) (sections 7–8) on 2026-11-13.
+- ℹ️ Split from [2026-11-11-FIXED-column-sort.md](2026-11-11-FIXED-column-sort.md) (sections 7–8) on 2026-11-13.
 - ℹ️ 2026-11-14: added verbatim **### 6–8** hunks (guide **Edit syntax contract**).
 - ℹ️ 2026-11-14: applied **### 1–8**; §7 row-menu guard uses `picked == this.grid` (not `view`).
+- ℹ️ 2026-11-14: archived to `docs/bugs/done/2026-11-14-FIXED-agent-repository-column-sort.md`.
 
 ## Next
 
-- 🔷 ⏳ Sort Agents and Repositories headers; reverse sort.
-- 🔷 ⏳ Sort, tick an agent, sort again, Remove — removed row matches tick.
-- 🔷 ⏳ Column menu show/hide; Registered column default off.
-- 🔷 ⏳ Row right-click → Remove; header/empty right-click → column menu.
+- ✅ Sort Agents and Repositories headers; reverse sort.
+- ✅ Sort, tick an agent, sort again, Remove — removed row matches tick.
+- ✅ Column menu show/hide; Registered column default off.
+- ✅ Row right-click → Remove; header/empty right-click → column menu.

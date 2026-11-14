@@ -53,23 +53,27 @@
 
 ---
 
+## Assumption
+
+- 🔷 Managed **Linux agents** include **LXC guests on SysV init** (no systemd inside the guest). See `docs/setup.md` (SysV agent service in container). Design phase 1 for that path first; systemd/logind hosts are optional extras.
+
 ## Plan
 
 Startup unchanged (`Execute.send_startup()`). New agent monitor(s) debounce like `PackageMonitor` (~60s) and call existing sync (`LoggedInUsers.send()` on Linux, `sync_table` on Windows; `OSQuery.sync("Users")` when built).
 
 🚫 **Phase 1 must not watch `/var/log/auth.log` or an unfiltered auth journal.** Volume (SSH failures, `sudo`, cron PAM) would constantly arm resync. Auth belongs in phase 3 with server-side filters (`docs/plans/1.1-implementation.md`), not as the driver for table refresh.
 
-ℹ️ Linux **read** path for `logged_in_users` is `agent/OSQuery/LoggedInUsers.vala` (utmp or cgroup fallback; see [done/2026-11-14-FIXED-logged-in-users-empty-linux.md](done/2026-11-14-FIXED-logged-in-users-empty-linux.md)). Phase 1 **triggers** are separate: low-volume session/account signals, not D-Bus row population in `Execute`.
+ℹ️ Linux **read** path is `agent/OSQuery/LoggedInUsers.vala`: osquery `logged_in_users` (**utmp** — normal in LXC/SysV), then cgroup `session-*.scope` fallback only on **systemd** hosts without utmp ([done/2026-11-14-FIXED-logged-in-users-empty-linux.md](done/2026-11-14-FIXED-logged-in-users-empty-linux.md)). Phase 1 **triggers** must match the read path per host class, not logind-only.
 
 ### Phase 1 — session and local accounts
 
 | Piece | Linux | Windows |
 |-------|-------|---------|
 | Class | New `UserSessionMonitor` (or split Linux/Win32 like `PackageMonitor`) | same |
-| Sessions → `logged_in_users` | **Preferred:** `org.freedesktop.login1` — `SessionNew`, `SessionRemoved` | `Win32.EvtSubscribe` Security: `4624`, `4634`, `4647` |
-| | **Legacy optional:** `GLib.FileMonitor` on `/run/utmp` only if path exists | |
-| logind vs SSH | ✔️ Typical **interactive SSH** (`UsePAM yes`, `pam_systemd` in PAM session stack, default on Ubuntu/Debian/Fedora): sshd registers a logind session → `SessionNew` / `SessionRemoved` fire; same sessions the Linux cgroup fallback in `LoggedInUsers.send()` uses (`session-*.scope`). | |
-| | ℹ️ **May not** register (no signal, table may stay stale until next login elsewhere): hosts without logind, sshd with `UsePAM no`, PAM stacks without `pam_systemd`, or one-off `ssh host cmd` / automation that never opens a session scope. Not fixed by watching `/var/log/auth.log` in phase 1. | |
+| Sessions → `logged_in_users` | **LXC / SysV (required):** `GLib.FileMonitor` on live **utmp** — try `/var/run/utmp`, `/run/utmp`, `/var/adm/utmp` (first present). SSH/console login/logout updates utmp → debounced `LoggedInUsers.send()`. | `Win32.EvtSubscribe` Security: `4624`, `4634`, `4647` |
+| | **systemd host (optional):** if system D-Bus has `org.freedesktop.login1`, also (or instead) `SessionNew` / `SessionRemoved`. | |
+| | 🚫 No logind inside typical LXC SysV guest — do not rely on it there. Cgroup fallback in `send()` does not apply without systemd slices. | |
+| logind vs SSH (systemd only) | ℹ️ On systemd desktops/servers, interactive SSH with `pam_systemd` can use logind signals; **not** the LXC SysV baseline. | |
 | Local accounts → `users` | `GLib.FileMonitor` on `/etc/passwd`, `/etc/group` | Security: `4720`, `4726`, `4738` (if `users` in cut) |
 | Action | Debounce → `LoggedInUsers.send()` / `sync_table("logged_in_users", …)` | same |
 | | Debounce → `OSQuery.sync("Users")` (and `Groups` / `UserGroups` if in cut) | same |
@@ -81,7 +85,7 @@ Startup unchanged (`Execute.send_startup()`). New agent monitor(s) debounce like
 | # | Question | A (recommended) | B |
 |---|----------|-----------------|---|
 | 1 | Phase 1 tables | `logged_in_users` only | + `users` (± `groups`, `user_groups`) |
-| 2 | Linux session trigger | logind `SessionNew` / `SessionRemoved` | utmp file monitor where present only (no logind) |
+| 2 | Linux session trigger | **utmp** `FileMonitor` + optional logind if present | utmp only (never logind) |
 | 4 | Windows Security IDs | logon/logoff first | include account IDs in same debouncer |
 
 ### Phase 2 — slow-changing host state
