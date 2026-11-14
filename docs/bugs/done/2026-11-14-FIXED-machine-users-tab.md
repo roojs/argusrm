@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-14. Users/Groups split tab, sync, list RPCs, filters, and live UI verified on this host.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md), [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md), [2026-11-13-log-monitoring.md](../2026-11-13-log-monitoring.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md), [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md), [2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md)
 
 ---
 
@@ -61,5 +61,5 @@
 
 ## Next
 
-- ℹ️ Periodic `users` / `groups` refresh after startup remains [2026-11-13-log-monitoring.md](../2026-11-13-log-monitoring.md).
+- ℹ️ Periodic `users` / `groups` refresh after startup remains [2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md).
 - ℹ️ Optional: `event.osquery` notification to invalidate other machine tabs ([2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)); Users tab intentionally uncached.

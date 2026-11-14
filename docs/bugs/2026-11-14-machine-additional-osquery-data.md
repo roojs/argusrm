@@ -2,7 +2,7 @@
 
 **Status:** ⏳ opened — scope the first table; no implementation yet
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [done/2026-11-14-FIXED-machine-cpu-in-general.md](done/2026-11-14-FIXED-machine-cpu-in-general.md), [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [done/2026-11-14-FIXED-machine-cpu-in-general.md](done/2026-11-14-FIXED-machine-cpu-in-general.md), [done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md)
 
 ---
 
@@ -31,7 +31,7 @@
 
 ℹ️ [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md) §6 listed `users` — now shipped ([2026-11-14-FIXED-machine-users-tab.md](done/2026-11-14-FIXED-machine-users-tab.md)). Remaining candidates are the rows above.
 
-ℹ️ Live session refresh stays in [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md), not this bug.
+ℹ️ Live session refresh is [done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md), not this bug.
 
 ---
 

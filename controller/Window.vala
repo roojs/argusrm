@@ -35,7 +35,7 @@ namespace Argus.Controller
 	 * The open server's row is ''Deregister and disconnect''.
 	 * Holding it for two seconds closes this window and returns
 	 * to the startup check.
-	 * ''Agent or Controller'' is on the Agents page.
+	 * ''Agent or Controller'' is on the Agent / Controllers page.
 	 * It opens {@link Dialog.Pairing}.
 	 *
 	 * == Example ==

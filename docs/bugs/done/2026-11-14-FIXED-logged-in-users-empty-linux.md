@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-14. `agent/OSQuery/LoggedInUsers.vala`, `Execute.vala`, and `meson.build` verified fixed.
 
-**Pointer:** `docs/bug-fix-process.md`, `agent/OSQuery/Execute.vala`, `agent/OSQuery/Package.vala`, `agent/OSQuery/DebPackages.vala`, `shared/OSQuery/LoggedInUsers.vala`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md), [2026-11-13-log-monitoring.md](../2026-11-13-log-monitoring.md)
+**Pointer:** `docs/bug-fix-process.md`, `agent/OSQuery/Execute.vala`, `agent/OSQuery/Package.vala`, `agent/OSQuery/DebPackages.vala`, `shared/OSQuery/LoggedInUsers.vala`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md), [2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md)
 
 ---
 

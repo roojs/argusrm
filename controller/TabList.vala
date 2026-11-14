@@ -56,7 +56,7 @@ namespace Argus.Controller
 		 */
 		public string[] titles = {
 			"Dashboard",
-			"Agents",
+			"Agent / Controllers",
 			"Assets",
 			"Tasks",
 			"Monitoring",

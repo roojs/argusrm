@@ -138,7 +138,7 @@
 ### 6. Not collected yet
 
 - ℹ️ `users` (local OS accounts), `uptime`, storage/mounts, listening ports/processes, power state (`docs/plans/5.8-assets-page.md`, `docs/plans/1.1-implementation.md`).
-- ℹ️ Startup + log monitoring refresh (`logged_in_users`, logins, system/security events) is tracked separately in `docs/bugs/2026-11-13-log-monitoring.md`.
+- ℹ️ Startup + log monitoring refresh (`logged_in_users`, logins, system/security events) is tracked separately in `docs/bugs/done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md` and `docs/bugs/2026-11-14-log-monitoring-phases-2-3.md`.
 
 ---
 
