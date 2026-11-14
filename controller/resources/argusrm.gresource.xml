@@ -14,6 +14,8 @@
     <file>columns/programs.csv</file>
     <file>columns/programs_machine.csv</file>
     <file>columns/task_targets.csv</file>
+    <file>columns/agent.csv</file>
+    <file>columns/repository.csv</file>
   </gresource>
   <gresource prefix="/argusrm/icons">
     <file alias="scalable/apps/emblem-debian-symbolic.svg">icons/emblem-debian-symbolic.svg</file>

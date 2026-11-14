@@ -1,0 +1,4 @@
+Column header | Database name [JSON] | Visible | Width | Format | Sort
+
+Name,display-name,ON,0,text,ON
+URL,url,ON,0,dim-text,ON

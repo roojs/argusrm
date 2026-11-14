@@ -2,7 +2,7 @@
 
 **Status:** ⏳ opened — scope the first table; no implementation yet
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [2026-11-14-machine-cpu-in-general.md](2026-11-14-machine-cpu-in-general.md), [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [done/2026-11-14-FIXED-machine-cpu-in-general.md](done/2026-11-14-FIXED-machine-cpu-in-general.md), [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md)
 
 ---
 
@@ -40,7 +40,7 @@
 ### Slice 1 (suggested): `uptime`
 
 - 🔷 Add `shared/OSQuery/Uptime.vala` (`Row`), `init_db`, `list(agent_id)`, agent startup `sync_table("uptime", "Uptime")`, server `rpc_register`, `docs/rpc-commands.md`.
-- 🔷 Show on **General** (`machine_general.csv` section + `MachineGeneral.load`) or a small **Uptime** row under OS version — match [2026-11-14-machine-cpu-in-general.md](2026-11-14-machine-cpu-in-general.md) placement style.
+- 🔷 Show on **General** (`machine_general.csv` section + `MachineGeneral.load`) or a small **Uptime** row under OS version — match [done/2026-11-14-FIXED-machine-cpu-in-general.md](done/2026-11-14-FIXED-machine-cpu-in-general.md) placement style.
 - 💩 Fields: at minimum boot time / elapsed seconds; format as human-readable duration in the controller.
 
 ### Later slices (separate bugs or follow-ups)
@@ -63,4 +63,4 @@
 
 - 🚫 Do not fold this into [5.8](../plans/5.8-assets-page.md) as a new plan chapter; keep work here until closed.
 - 🚫 Do not sync high-cardinality tables without an agreed UI and refresh story.
-- 🚫 Do not duplicate `cpu_info` work — that is [2026-11-14-machine-cpu-in-general.md](2026-11-14-machine-cpu-in-general.md).
+- 🚫 Do not duplicate `cpu_info` work — that is [done/2026-11-14-FIXED-machine-cpu-in-general.md](done/2026-11-14-FIXED-machine-cpu-in-general.md).

@@ -42,6 +42,18 @@ namespace Argus.Shared.SQT
 		public string key { get; set; default = ""; }
 
 		/**
+		 * ''name'' when set, otherwise ''url''.
+		 */
+		public string display_name {
+			owned get {
+				if (this.name != "") {
+					return this.name;
+				}
+				return this.url;
+			}
+		}
+
+		/**
 		 * Register the wire name ''Argus.ScriptRepository''.
 		 */
 		public static void rpc_register()

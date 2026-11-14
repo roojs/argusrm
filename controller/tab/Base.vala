@@ -262,7 +262,11 @@ namespace Argus.Controller.Tab
 		/**
 		 * Factory for one column format.
 		 *
-		 *  * ''text'', ''date'', ''elapsed'', and ''cidr'' are labels.
+		 *  * ''text'', ''dim-text'', ''date'', ''elapsed'', and ''cidr'' are labels.
+		 *  * ''dim-text'' is muted body text.
+		 *  * ''controller-kind'' is ''display-kind'' text; ''argus-this-controller'' when this window owns the row.
+		 *  * ''recent-created'' / ''recent-last-connected'' bind ''display-created'' / ''display-last''.
+		 *  * ''tick-registered'' / ''tick-connected'' are ticks with live ''status'' / ''connected'' bindings.
 		 *  * ''elapsed'' shows relative time since a unix timestamp, with
 		 *    the local date and time in the tooltip.
 		 *  * ''cidr'' appends the prefix length from ''mask'' to ''address''.
@@ -285,8 +289,9 @@ namespace Argus.Controller.Tab
 		 * A column whose database name is on the row fills its cell. Other columns stay empty.
 		 *
 		 * @param name JSON name. A hyphen is an underscore.
-		 * @param format text, number, bytes, mhz, date, elapsed, cidr,
-		 *   status, tick, bin, or remove
+		 * @param format text, dim-text, controller-kind, recent-created,
+		 *   recent-last-connected, tick-registered, tick-connected, number,
+		 *   bytes, mhz, date, elapsed, cidr, status, tick, bin, or remove
 		 * @param header_column true for the row header
 		 * @return the factory that sets up each cell
 		 */
@@ -318,6 +323,8 @@ namespace Argus.Controller.Tab
 						break;
 
 					case "tick":
+					case "tick-registered":
+					case "tick-connected":
 						item.child = new Gtk.Image() {
 							halign = Gtk.Align.CENTER,
 							hexpand = true
@@ -344,12 +351,24 @@ namespace Argus.Controller.Tab
 						};
 						break;
 
+					case "controller-kind":
+					case "recent-created":
+					case "recent-last-connected":
 					case "date":
 					case "elapsed":
 					case "cidr":
 						item.child = new Gtk.Label("") {
 							xalign = 0,
 							hexpand = true,
+							attributes = header_column ? attrs : null
+						};
+						break;
+
+					case "dim-text":
+						item.child = new Gtk.Label("") {
+							xalign = 0,
+							hexpand = true,
+							css_classes = { "dim-label" },
 							attributes = header_column ? attrs : null
 						};
 						break;
@@ -372,17 +391,43 @@ namespace Argus.Controller.Tab
 				}
 				item.child.set_data("argus-grid-row", item);
 			});
+			factory.unbind.connect((obj) => {
+				var item = (Gtk.ListItem) obj;
+				if (item.child == null) {
+					return;
+				}
+				var binding = item.child.get_data<GLib.Binding>("argus-column-binding");
+				if (binding != null) {
+					binding.unbind();
+				}
+				item.child.set_data<GLib.Binding>("argus-column-binding", null);
+				if (item.child is Gtk.Label) {
+					((Gtk.Label) item.child).remove_css_class("argus-this-controller");
+				}
+			});
 			factory.bind.connect((obj) => {
 				var item = (Gtk.ListItem) obj;
 				var row = (GLib.Object) item.item;
+				if (item.child == null) {
+					return;
+				}
+				var prior = item.child.get_data<GLib.Binding>("argus-column-binding");
+				if (prior != null) {
+					prior.unbind();
+				}
+				item.child.set_data<GLib.Binding>("argus-column-binding", null);
 				item.child.remove_css_class("dim-label");
 				var dim_prop = row.get_class().find_property("dimmed");
-				if (dim_prop != null && dim_prop.value_type == GLib.Type.BOOLEAN) {
+				if (format != "dim-text" && dim_prop != null &&
+					dim_prop.value_type == GLib.Type.BOOLEAN) {
 					var dim_val = GLib.Value(GLib.Type.BOOLEAN);
 					row.get_property("dimmed", ref dim_val);
 					if (dim_val.get_boolean()) {
 						item.child.add_css_class("dim-label");
 					}
+				}
+				if (format == "dim-text") {
+					item.child.add_css_class("dim-label");
 				}
 				var lookup = name;
 				if (format == "remove") {
@@ -450,6 +495,38 @@ namespace Argus.Controller.Tab
 								cell.tooltip_text = tip;
 							}
 						}
+						break;
+
+					case "controller-kind":
+						((Gtk.Label) item.child).label = shown;
+						((Gtk.Label) item.child).remove_css_class(
+							"argus-this-controller");
+						var mine = this.grid.get_data<string>(
+							"argus-controller-fingerprint");
+						if (mine == null || mine == "") {
+							break;
+						}
+						var fp_val = GLib.Value(GLib.Type.STRING);
+						row.get_property("fingerprint", ref fp_val);
+						if (fp_val.get_string() != mine) {
+							break;
+						}
+						((Gtk.Label) item.child).add_css_class(
+							"argus-this-controller");
+						break;
+
+					case "recent-created":
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								"display-created", item.child, "label",
+								GLib.BindingFlags.SYNC_CREATE));
+						break;
+
+					case "recent-last-connected":
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								"display-last", item.child, "label",
+								GLib.BindingFlags.SYNC_CREATE));
 						break;
 
 					case "date":
@@ -592,6 +669,37 @@ namespace Argus.Controller.Tab
 						if (valid) {
 							((Gtk.Label) item.child).label = shown + "/" + prefix.to_string();
 						}
+						break;
+
+					case "tick-registered":
+						var registered_tick = (Gtk.Image) item.child;
+						var registered_on = false;
+						if (prop.value_type == GLib.Type.INT) {
+							registered_on = value.get_int() == 1;
+						}
+						if (prop.value_type == GLib.Type.INT64) {
+							registered_on = value.get_int64() == 1;
+						}
+						registered_tick.icon_name = registered_on ?
+							"object-select-symbolic" : null;
+						registered_tick.visible = registered_on;
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								"status", item.child, "visible",
+								GLib.BindingFlags.SYNC_CREATE));
+						break;
+
+					case "tick-connected":
+						var connected_tick = (Gtk.Image) item.child;
+						var connected_on = prop.value_type == GLib.Type.BOOLEAN &&
+							value.get_boolean();
+						connected_tick.icon_name = connected_on ?
+							"object-select-symbolic" : null;
+						connected_tick.visible = connected_on;
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								"connected", item.child, "visible",
+								GLib.BindingFlags.SYNC_CREATE));
 						break;
 
 					case "tick":

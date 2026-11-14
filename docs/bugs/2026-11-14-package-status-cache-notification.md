@@ -9,7 +9,7 @@
 ## Problem
 
 - 🔷 When package status or installed package data updates on the server (e.g. `PackageUpdates`, `DebPackages`, `RpmPackages`, `Programs` via `OSQuery.sync`), the server must notify the controller frontend so it clears its cached package state and refreshes visible views.
-- 🔷 Logged-in users (`Users` tab / `LoggedInUsers`) should **not** be cached in `Machine.Detail`: refresh `Users` every time the user switches to that tab, while the other tabs (`General`, package tabs, `Interfaces`) keep caching until invalidated by server notifications. CPU inventory loads with **General** via `Store.MachineGeneral` ([2026-11-14-machine-cpu-in-general.md](2026-11-14-machine-cpu-in-general.md)).
+- 🔷 Logged-in users (`Users` tab / `LoggedInUsers`) should **not** be cached in `Machine.Detail`: refresh `Users` every time the user switches to that tab, while the other tabs (`General`, package tabs, `Interfaces`) keep caching until invalidated by server notifications. CPU inventory loads with **General** via `Store.MachineGeneral` ([done/2026-11-14-FIXED-machine-cpu-in-general.md](done/2026-11-14-FIXED-machine-cpu-in-general.md)).
 - 🔷 Currently, the frontend holds cached per-machine tab flags (`users_loaded`, `general_loaded`, `debian_loaded`, etc.) and in-memory store lists with no server push notification to invalidate or reload them when an agent reports new data.
 
 ---
