@@ -126,7 +126,7 @@
 - ✔️ **Feasibility of reusing existing package stores and tabs (`controller/store/`, `controller/tab/Asset/`):**
   - ✔️ `Store.DebPackages`, `Store.RpmPackages`, and `Store.Programs` are directly reusable as-is (`load(int agent_id)` already calls `*.list(agent_id, 0)`). Note: their `if (this.busy) return;` guard should be checked if switching machines rapidly while a previous load is in flight.
   - ℹ️ Reusing `Tab.Asset.DebPackages`, `RpmPackages`, and `Programs` widget classes is feasible (parameterize `table` CSV and `agent_id`, skip `map -> load(0)`, and hide `Versions differ` / `spread` in `DebPackages` when `agent_id > 0`), **but not essential**:
-    - `RpmPackages` and `Programs` tabs are ~99 lines each, and Software tabs will later add Software-specific filters, bulk update, sign-off, and machine drill-down (`5.9.2`, `5.9.3`, `5.5`).
+    - `RpmPackages` and `Programs` tabs are ~99 lines each, and Software tabs will later add Software-specific filters, bulk update, sign-off, and machine drill-down (`docs/bugs/`, `5.5`).
     - Thin per-machine tabs in `controller/tab/Asset/Machine/` reusing `Tab.Base` (`column_grid`) and the existing `Store.*` classes keep Software and Machine detail cleanly separated.
 
 ### 5. Other per-machine tables in DB (scripts and tasks)
@@ -180,7 +180,7 @@
 
 - 🔷 Reuse `Tab.Base` (`column_grid` + column CSVs) inside `controller/tab/Asset/Machine/` for the remaining many-row osquery tables.
 - 🔷 **Approved tab order in `Machine/Detail.vala`:** **Users**, **Debian packages** / **RPM packages** / **Windows programs**, **Interfaces**, **CPUs**.
-- ℹ️ Column visibility legend (matching [5.8](../../plans/5.8-assets-page.md) and [5.9](../../plans/5.9-assets-software.md)):
+- ℹ️ Column visibility legend (matching [5.8](../../plans/5.8-assets-page.md) and [5.9](../../plans/done/5.9-DONE-assets-software.md)):
   - ✅ starts visible (`ON` in CSV).
   - hidden starts off (`off` in CSV), and can be turned on from the header menu.
 

@@ -23,7 +23,7 @@
   - Unwrapping `Gtk.SingleSelection` / `Gtk.MultiSelection` / `Gtk.SortListModel` / `Gtk.FilterListModel` down to the underlying store yields `Row`, `find_property()` resolves `min-version` / `max-size` / `installed`, and `grid.sort_by_column(...)` sets `column.sorter` and sorts `Gtk.SortListModel` numerically and alphabetically.
 - ℹ️ `Gtk.ColumnView.sorter` is the view's own `Gtk.ColumnViewSorter`. A header click changes it only when that column's `sorter` is set. The rows move only when a `Gtk.SortListModel` uses that sorter.
 - ℹ️ The column menu gesture in `Base.column_menu` listens for the secondary button. A left click on a header is not that gesture.
-- ℹ️ `os-updated` and `os-status` exist on `Argus.Shared.OSQuery.SystemInfo`; `pkgs-updated` and `pkgs-status` are not on the row class yet and await [5.10](../../plans/5.10-data-enrichment.md).
+- ℹ️ `os-updated` and `os-status` exist on `Argus.Shared.OSQuery.SystemInfo`; `pkgs-updated` and `pkgs-status` are not on the row class yet and await [5.10](../../plans/done/5.10-DONE-data-enrichment.md).
 
 ## Root cause
 
@@ -40,7 +40,7 @@
 - 💩 OS status and S/W status start `off`. Every other column in the four asset CSVs starts `ON`.
 - 💩 Text and versions sort as text, A–Z, ignoring case. `1.10` stays before `1.9`. An address sorts as text.
 - 💩 An `int`, `int64`, or `bool` property sorts by its underlying value (`bytes` by byte count, `remove` by `installed`).
-- ℹ️ `os-updated` and `pkgs-updated` are `ON`. `os-updated` is filled from `os_releases`; `pkgs-updated` awaits [5.10](../../plans/5.10-data-enrichment.md).
+- ℹ️ `os-updated` and `pkgs-updated` are `ON`. `os-updated` is filled from `os_releases`; `pkgs-updated` awaits [5.10](../../plans/done/5.10-DONE-data-enrichment.md).
 - 🔷 The row filter stays under the sort. A filtered grid sorts the rows that are showing.
 - ℹ️ Agents and Repositories column sorting split to [2026-11-13-agent-repository-column-sort.md](../2026-11-13-agent-repository-column-sort.md).
 - 🚫 A sort of the store itself.

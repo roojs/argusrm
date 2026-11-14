@@ -22,8 +22,8 @@ namespace Argus.Controller.Store
 	 * Key-value rows for the per-machine General detail tab.
 	 *
 	 * A {@link GLib.ListModel} of {@link KeyValue}. {@link load} fetches
-	 * ''SystemInfo.list'', ''OsVersion.list'', and ''OsReleases.list''
-	 * for one ''agent_id'' and replaces {@link items} from
+	 * ''SystemInfo.list'', ''OsVersion.list'', ''OsReleases.list'', and
+	 * ''CpuInfo.list'' for one ''agent_id'' and replaces {@link items} from
 	 * ''machine_general.csv''.
 	 *
 	 * == Example ==
@@ -119,9 +119,9 @@ namespace Argus.Controller.Store
 		}
 
 		/**
-		 * Fetch ''SystemInfo.list'', ''OsVersion.list'', and
-		 * ''OsReleases.list'' for ''agent_id'' and replace {@link items}
-		 * using ''machine_general.csv''.
+		 * Fetch ''SystemInfo.list'', ''OsVersion.list'',
+		 * ''OsReleases.list'', and ''CpuInfo.list'' for ''agent_id'' and
+		 * replace {@link items} using ''machine_general.csv''.
 		 *
 		 * @param agent_id selected machine agent id
 		 */
@@ -149,8 +149,70 @@ namespace Argus.Controller.Store
 				"os_releases", "OsReleases.list", OLLMrpc.args("i", agent_id))) {
 				return;
 			}
+			if (!yield this.load_cpu_section(agent_id)) {
+				return;
+			}
 			this.items = this.built;
 			this.busy = false;
+		}
+
+		/**
+		 * Call ''CpuInfo.list'' and append one expander block per
+		 * processor onto {@link built}.
+		 *
+		 * @param agent_id selected machine agent id
+		 * @return false when superseded or failed
+		 */
+		private async bool load_cpu_section(int agent_id)
+		{
+			var epoch = this.epoch;
+			OLLMrpc.Response response;
+			try {
+				response = yield this.app.rpc.call(new OLLMrpc.Request() {
+					method = "CpuInfo.list",
+					args = OLLMrpc.args("i", agent_id)
+				});
+			} catch (GLib.Error e) {
+				if (epoch == this.epoch) {
+					this.busy = false;
+					this.failed("Could not load CpuInfo.list", e.message);
+				}
+				return false;
+			}
+			if (epoch != this.epoch) {
+				return false;
+			}
+			if (response.error != null) {
+				this.busy = false;
+				this.failed("Could not load CpuInfo.list", response.error.message);
+				return false;
+			}
+			if (!response.retval.type().is_a(typeof(Gee.ArrayList))) {
+				return true;
+			}
+			var rows = (Gee.ArrayList<GLib.Object>) response.retval.get_object();
+			if (rows.size == 0) {
+				return true;
+			}
+			for (var i = 0; i < rows.size; i++) {
+				var row = rows.get(i);
+				var title = "CPU";
+				if (rows.size > 1) {
+					title = @"CPU $(i + 1)";
+				}
+				this.built.add(new KeyValue() {
+					key = title,
+					expander = true,
+					expanded = true
+				});
+				foreach (var col in this.cols) {
+					if (!col.visible || col.source != "cpu_info") {
+						continue;
+					}
+					this.built.add(col.display_value(row));
+				}
+			}
+			return true;
 		}
 
 		/**

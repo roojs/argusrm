@@ -61,8 +61,8 @@ namespace Argus.Controller.Store
 		public int width { get; set; default = -1; }
 
 		/**
-		 * Display format (''text'', ''number'', ''bytes'', ''date'',
-		 * ''status'', ''expander'', etc.).
+		 * Display format (''text'', ''number'', ''bytes'', ''mhz'',
+		 * ''date'', ''status'', ''expander'', etc.).
 		 */
 		public string format { get; set; default = "text"; }
 
@@ -137,6 +137,19 @@ namespace Argus.Controller.Store
 					var full = when.format("%Y-%m-%d %H:%M:%S");
 					if (full != null) {
 						ret.tooltip = full;
+					}
+					return ret;
+
+				case "mhz":
+					var mhz = (int64) 0;
+					if (prop.value_type == GLib.Type.INT64) {
+						mhz = value.get_int64();
+					}
+					if (prop.value_type == GLib.Type.INT) {
+						mhz = (int64) value.get_int();
+					}
+					if (mhz > 0) {
+						ret.val = mhz.to_string("%'" + int64.FORMAT) + " MHz";
 					}
 					return ret;
 
