@@ -1,6 +1,6 @@
 # Machines tab detail pane and per-machine data tabs
 
-**Status:** ✔️ Phase 1, Phase 2, Phase 3 RPCs, and Phase 4 General tab implemented (`Users`, `Interfaces`, `CPUs`, `SystemInfo.list(agent_id, join)`, `OsVersion.list`, `OsReleases.list`, `MachineGeneral`, `Machine.General`; compiled, valadoc & 6/6 tests pass, awaiting live UI check) — see [2026-11-14-machine-general-store.md](2026-11-14-machine-general-store.md)
+**Status:** ✅ closed 2026-11-14. Phase 1, Phase 2, Phase 3 RPCs, and Phase 4 General tab verified fixed (`Users`, `Interfaces`, `CPUs`, `SystemInfo.list(agent_id, join)`, `OsVersion.list`, `OsReleases.list`, `MachineGeneral`, `Machine.General`) — see [2026-11-14-FIXED-machine-general-store.md](2026-11-14-FIXED-machine-general-store.md).
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, `docs/rpc-commands.md`
 
@@ -180,7 +180,7 @@
 
 - 🔷 Reuse `Tab.Base` (`column_grid` + column CSVs) inside `controller/tab/Asset/Machine/` for the remaining many-row osquery tables.
 - 🔷 **Approved tab order in `Machine/Detail.vala`:** **Users**, **Debian packages** / **RPM packages** / **Windows programs**, **Interfaces**, **CPUs**.
-- ℹ️ Column visibility legend (matching [5.8](../plans/5.8-assets-page.md) and [5.9](../plans/5.9-assets-software.md)):
+- ℹ️ Column visibility legend (matching [5.8](../../plans/5.8-assets-page.md) and [5.9](../../plans/5.9-assets-software.md)):
   - ✅ starts visible (`ON` in CSV).
   - hidden starts off (`off` in CSV), and can be turned on from the header menu.
 
@@ -223,7 +223,7 @@
 - 🔷 Vertical dump of the machine row from **three subqueries** matching the three tables `SystemInfo` joins (`system_info`, `os_version`, `os_releases`), with each subquery going onto an expander entry.
 - 🔷 Use plain `.list` RPCs (no `read` RPCs, no `logged_in_users` coalesce, no enriched joins, and no `agent` table).
 - 🔷 Reuse the existing `controller/resources/columns/system_info.csv` for field labels and data types/formats (no extra resource CSV files).
-- ℹ️ The `Store.Base` CSV interface, `Store.KeyValue`, `Store.MachineGeneral`, `Tab.Asset.Machine.General`, `Detail.vala`, and `.vertical-list` CSS are broken out into [2026-11-14-machine-general-store.md](2026-11-14-machine-general-store.md) for separate review.
+- ℹ️ The `Store.Base` CSV interface, `Store.KeyValue`, `Store.MachineGeneral`, `Tab.Asset.Machine.General`, `Detail.vala`, and `.vertical-list` CSS are broken out into [2026-11-14-FIXED-machine-general-store.md](2026-11-14-FIXED-machine-general-store.md).
 - ✔️ Three plain `list` RPCs implemented (`SystemInfo.list(agent_id, join)`, `OsVersion.list(agent_id)`, `OsReleases.list(agent_id)`) and registered in `server/Application.vala`, `controller/Application.vala`, `docs/rpc-commands.md`, and `server/tests/packages.vala`.
 
 ---
@@ -647,4 +647,4 @@ In `command_line()`, directly after `Argus.Shared.OSQuery.SystemInfo.rpc_registe
 
 ## Next
 
-- ⏳ 🔷 Verify Phase 1–3 and the **General** tab in the running `argusrm-server` / `argusrm-controller` UI (see [2026-11-14-machine-general-store.md](2026-11-14-machine-general-store.md)).
+- ✅ Closed 2026-11-14. Phase 1–3 and the **General** tab verified in the running controller UI (see [2026-11-14-FIXED-machine-general-store.md](2026-11-14-FIXED-machine-general-store.md)).

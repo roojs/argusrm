@@ -1,8 +1,8 @@
 # Agent and Repository column sorting (migrate to Base)
 
-**Status:** ⏳ split from [2026-11-11-column-sort.md](2026-11-11-column-sort.md); open points to confirm before applying
+**Status:** ⏳ split from [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md); open points to confirm before applying
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/bugs/2026-11-11-column-sort.md`
+**Pointer:** `docs/bug-fix-process.md`, [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md)
 
 ---
 
@@ -69,7 +69,7 @@ URL,url,ON,0,text,ON
 
 ## Attempts
 
-- ℹ️ Split out from `docs/bugs/2026-11-11-column-sort.md` (sections 7–8) on 2026-11-13 so the four asset grids (`Machines`, `Debian`, `RPM`, `Windows`) can close separately.
+- ℹ️ Split out from [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md) (sections 7–8) on 2026-11-13 so the four asset grids (`Machines`, `Debian`, `RPM`, `Windows`) can close separately.
 
 ## Next
 

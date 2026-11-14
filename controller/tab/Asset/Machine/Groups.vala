@@ -19,50 +19,66 @@
 namespace Argus.Controller.Tab.Asset.Machine
 {
 	/**
-	 * Per-machine logged-in users grid in {@link Detail}.
+	 * Per-machine groups list in {@link Users}.
 	 *
-	 * {@link Argus.Controller.Tab.Base.column_menu} reads
-	 * ''logged_in_users_machine.csv''.
-	 * {@link Argus.Controller.Store.LoggedInUsers} loads
-	 * ''LoggedInUsers.list'' for the selected ''agent_id''. An empty
-	 * grid shows a spinner over it while that call is in flight.
-	 * {@link refreshing} is true when rows are already shown and a later
-	 * call is in flight.
+	 * {@link Argus.Controller.Tab.Base.column_menu} reads ''groups.csv''.
+	 * {@link Argus.Controller.Store.Groups} loads ''Groups.list''.
+	 * Selection drives the users filter. {@link clear_selection} is the
+	 * Clear control.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var tab = new Argus.Controller.Tab.Asset.Machine.LoggedInUsers(window);
-	 * tab.load(1);
+	 * var groups = new Argus.Controller.Tab.Asset.Machine.Groups(window);
+	 * groups.load(1);
 	 * }}}
 	 */
-	public class LoggedInUsers : Argus.Controller.Tab.Base
+	public class Groups : Argus.Controller.Tab.Base
 	{
-		private Argus.Controller.Store.LoggedInUsers store;
-
 		/**
-		 * True while a later list is in flight and rows are already
-		 * shown.
+		 * Backing store for this list.
+		 */
+		public Argus.Controller.Store.Groups store;
+		/**
+		 * True while a later list is in flight and rows are already shown.
 		 */
 		public bool refreshing { get; private set; default = false; }
 
 		/**
-		 * Build the per-machine logged-in users grid.
+		 * Selected group name changed. Empty when cleared.
+		 *
+		 * @param group_name selected ''groupname'', or empty
+		 */
+		public signal void group_selected(string group_name);
+
+		/**
+		 * Build the per-machine groups list.
 		 *
 		 * @param window the window this page belongs to
 		 */
-		public LoggedInUsers(Argus.Controller.Window window)
+		public Groups(Argus.Controller.Window window)
 		{
 			Object(
 				orientation: Gtk.Orientation.VERTICAL,
 				spacing: 0,
-				table: "logged_in_users_machine",
-				expand_column: "user"
+				table: "groups",
+				expand_column: "groupname"
 			);
 			this.hexpand = true;
 			this.vexpand = true;
-			this.store = new Argus.Controller.Store.LoggedInUsers(window.app);
+			this.store = new Argus.Controller.Store.Groups(window.app);
 			this.column_grid(this.store);
+			var selection = (Gtk.SingleSelection) this.grid.model;
+			selection.autoselect = false;
+			selection.can_unselect = true;
+			selection.selection_changed.connect((position, n_items) => {
+				var row = selection.selected_item as Argus.Shared.OSQuery.Groups;
+				if (row == null) {
+					this.group_selected("");
+					return;
+				}
+				this.group_selected(row.groupname);
+			});
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
@@ -71,8 +87,8 @@ namespace Argus.Controller.Tab.Asset.Machine
 			var spinner = new Adw.Spinner() {
 				halign = Gtk.Align.CENTER,
 				valign = Gtk.Align.CENTER,
-				width_request = 48,
-				height_request = 48,
+				width_request = 32,
+				height_request = 32,
 				visible = false
 			};
 			spinner.add_css_class("package-wait");
@@ -94,12 +110,23 @@ namespace Argus.Controller.Tab.Asset.Machine
 		}
 
 		/**
-		 * Load logged-in users for ''agent_id''.
+		 * Clear the current group selection.
+		 */
+		public void clear_selection()
+		{
+			var selection = (Gtk.SingleSelection) this.grid.model;
+			selection.unselect_all();
+			this.group_selected("");
+		}
+
+		/**
+		 * Load groups for ''agent_id''.
 		 *
 		 * @param agent_id selected machine agent id
 		 */
 		public void load(int agent_id)
 		{
+			this.clear_selection();
 			this.store.load(agent_id);
 		}
 	}

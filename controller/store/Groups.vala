@@ -19,26 +19,26 @@
 namespace Argus.Controller.Store
 {
 	/**
-	 * ''logged_in_users'' rows for one agent on the open server.
+	 * ''groups'' rows for one agent on the open server.
 	 *
-	 * A {@link GLib.ListModel} of
-	 * {@link Argus.Shared.OSQuery.LoggedInUsers}. {@link items} is the
-	 * backing list. {@link load} talks to ''LoggedInUsers.list''. A
-	 * newer {@link load} drops a reply that is still waiting. An empty
-	 * list is omitted on the wire, so an unset return is no rows.
+	 * A {@link GLib.ListModel} of {@link Argus.Shared.OSQuery.Groups}.
+	 * {@link items} is the backing list. {@link load} calls
+	 * ''Groups.list''. A newer {@link load} drops a reply that is still
+	 * waiting. An empty list is omitted on the wire, so an unset return
+	 * is no rows.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var store = new Argus.Controller.Store.LoggedInUsers(app);
+	 * var store = new Argus.Controller.Store.Groups(app);
 	 * store.load(1);
 	 * }}}
 	 */
-	public class LoggedInUsers : GLib.Object, GLib.ListModel
+	public class Groups : GLib.Object, GLib.ListModel
 	{
 		public Application app;
-		private Gee.ArrayList<Argus.Shared.OSQuery.LoggedInUsers> items_store {
-			get; set; default = new Gee.ArrayList<Argus.Shared.OSQuery.LoggedInUsers>();
+		private Gee.ArrayList<Argus.Shared.OSQuery.Groups> items_store {
+			get; set; default = new Gee.ArrayList<Argus.Shared.OSQuery.Groups>();
 		}
 		private int epoch = 0;
 		private int loaded_agent = -1;
@@ -46,7 +46,7 @@ namespace Argus.Controller.Store
 		/**
 		 * Rows from the last list reply. This list is the model.
 		 */
-		public Gee.ArrayList<Argus.Shared.OSQuery.LoggedInUsers> items {
+		public Gee.ArrayList<Argus.Shared.OSQuery.Groups> items {
 			get {
 				return this.items_store;
 			}
@@ -76,7 +76,7 @@ namespace Argus.Controller.Store
 		/**
 		 * @param app the controller process
 		 */
-		public LoggedInUsers(Application app)
+		public Groups(Application app)
 		{
 			Object();
 			this.app = app;
@@ -87,7 +87,7 @@ namespace Argus.Controller.Store
 		 */
 		public GLib.Type get_item_type()
 		{
-			return typeof(Argus.Shared.OSQuery.LoggedInUsers);
+			return typeof(Argus.Shared.OSQuery.Groups);
 		}
 
 		/**
@@ -113,8 +113,7 @@ namespace Argus.Controller.Store
 		}
 
 		/**
-		 * Fetch ''LoggedInUsers.list'' for ''agent_id'' and apply it to
-		 * {@link items}.
+		 * Fetch ''Groups.list'' for ''agent_id'' and apply it to {@link items}.
 		 *
 		 * @param agent_id selected machine agent id
 		 */
@@ -125,13 +124,13 @@ namespace Argus.Controller.Store
 			}
 			this.busy = true;
 			if (agent_id != this.loaded_agent && this.items_store.size > 0) {
-				this.items = new Gee.ArrayList<Argus.Shared.OSQuery.LoggedInUsers>();
+				this.items = new Gee.ArrayList<Argus.Shared.OSQuery.Groups>();
 			}
 			this.loaded_agent = agent_id;
 			this.epoch++;
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "LoggedInUsers.list",
+				method = "Groups.list",
 				args = OLLMrpc.args("i", agent_id)
 			}, (obj, res) => {
 				if (epoch != this.epoch) {
@@ -142,17 +141,17 @@ namespace Argus.Controller.Store
 					response = this.app.rpc.call.end(res);
 				} catch (GLib.Error e) {
 					this.busy = false;
-					this.failed("Could not list logged-in users", e.message);
+					this.failed("Could not list groups", e.message);
 					return;
 				}
 				if (response.error != null) {
 					this.busy = false;
-					this.failed("Could not list logged-in users", response.error.message);
+					this.failed("Could not list groups", response.error.message);
 					return;
 				}
-				var listed = new Gee.ArrayList<Argus.Shared.OSQuery.LoggedInUsers>();
+				var listed = new Gee.ArrayList<Argus.Shared.OSQuery.Groups>();
 				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
-					listed = (Gee.ArrayList<Argus.Shared.OSQuery.LoggedInUsers>) response.retval.get_object();
+					listed = (Gee.ArrayList<Argus.Shared.OSQuery.Groups>) response.retval.get_object();
 				}
 				this.items = listed;
 				this.busy = false;

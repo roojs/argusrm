@@ -21,7 +21,7 @@
  *
  * {@link Detail} switches per-machine tabs below
  * {@link Argus.Controller.Tab.Asset.SystemInfo}. Per-machine tabs load
- * {@link General}, {@link LoggedInUsers}, {@link DebPackages},
+ * {@link General}, {@link Users}, {@link Groups}, {@link DebPackages},
  * {@link RpmPackages}, {@link Programs}, {@link InterfaceAddresses},
  * and {@link CpuInfo} for the selected machine's ''agent_id''.
  *

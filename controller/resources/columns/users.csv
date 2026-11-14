@@ -1,0 +1,14 @@
+Column header | Database name [JSON] | Visible | Width | Format | Sort
+
+User,username,ON,160,text,ON
+Logged in,logged-in-users-time,ON,80,tick,ON
+UID,uid,ON,80,number,ON
+Primary group,gid-groupname,ON,120,text,ON
+Description,description,ON,180,text,ON
+Home,directory,ON,160,text,ON
+Shell,shell,ON,120,text,ON
+Added,added-dt,ON,100,date,ON
+Modified,updated-dt,ON,100,date,ON
+GID,gid,off,80,number,ON
+Groups,groups-groupnames,off,200,text,ON
+UUID,uuid,off,220,text,ON

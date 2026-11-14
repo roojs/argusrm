@@ -1,8 +1,8 @@
 # MachineGeneral store, ColumnSchema, and General tab
 
-**Status:** ✔️ implemented (`machine_general.csv`, `ColumnSchema`, `Store.Base`, `KeyValue`, `MachineGeneral`, `OsVersion.tooltip_pkgs_status`, `Machine.General`, `Machine.Detail`, `.vertical-list` CSS; compiled, valadoc & 6/6 tests pass, awaiting live UI check)
+**Status:** ✅ closed 2026-11-14. `machine_general.csv`, `ColumnSchema`, `Store.Base`, `KeyValue`, `MachineGeneral`, `OsVersion.tooltip_pkgs_status`, `Machine.General`, `Machine.Detail`, and `.vertical-list` CSS verified fixed.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, `docs/coding-standards.md`, [2026-11-13-machines-detail-pane.md](2026-11-13-machines-detail-pane.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, `docs/coding-standards.md`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md)
 
 ---
 
@@ -20,4 +20,4 @@
 
 ## Next
 
-- ⏳ 🔷 Verify the **General** tab and expanders in the running `argusrm-server` / `argusrm-controller` UI.
+- ✅ Closed 2026-11-14. Verified **General** tab and expanders in the running controller UI.

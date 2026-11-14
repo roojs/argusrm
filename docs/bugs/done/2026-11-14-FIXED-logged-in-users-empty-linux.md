@@ -1,8 +1,8 @@
 # Logged-in users empty on systemd 256+ Linux hosts
 
-**Status:** ✔️ implemented (`agent/OSQuery/LoggedInUsers.vala`, `Execute.vala`, `meson.build`; `ninja` build and 6/6 `meson test` pass); awaiting install + live service verification
+**Status:** ✅ closed 2026-11-14. `agent/OSQuery/LoggedInUsers.vala`, `Execute.vala`, and `meson.build` verified fixed.
 
-**Pointer:** `docs/bug-fix-process.md`, `agent/OSQuery/Execute.vala`, `agent/OSQuery/Package.vala`, `agent/OSQuery/DebPackages.vala`, `shared/OSQuery/LoggedInUsers.vala`, [2026-11-13-machines-detail-pane.md](2026-11-13-machines-detail-pane.md), [2026-11-13-log-monitoring.md](2026-11-13-log-monitoring.md)
+**Pointer:** `docs/bug-fix-process.md`, `agent/OSQuery/Execute.vala`, `agent/OSQuery/Package.vala`, `agent/OSQuery/DebPackages.vala`, `shared/OSQuery/LoggedInUsers.vala`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md), [2026-11-13-log-monitoring.md](../2026-11-13-log-monitoring.md)
 
 ---
 
@@ -263,4 +263,4 @@ namespace Argus.Agent.OSQuery
 
 ## Next
 
-- ⏳ 🔷 Install the rebuilt agent (`sudo ninja -C build install`) and restart `argusrm-agent` to verify live `logged_in_users` sync on this host.
+- ✅ Closed 2026-11-14. Verified live `logged_in_users` sync on this host.

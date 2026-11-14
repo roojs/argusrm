@@ -1,0 +1,7 @@
+Column header | Database name [JSON] | Visible | Width | Format | Sort
+
+Group,groupname,ON,140,text,ON
+GID,gid,ON,70,number,ON
+Members,member-count,ON,70,number,ON
+Added,added-dt,off,100,date,ON
+Modified,updated-dt,off,100,date,ON

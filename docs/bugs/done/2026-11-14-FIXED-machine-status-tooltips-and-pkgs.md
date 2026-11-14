@@ -1,8 +1,8 @@
 # Machines `OS status` / `S/W status` tooltips and `pkgs_status` reporting
 
-**Status:** ✔️ implemented (`PackageUpdates.sync`, `SystemInfo.list`, `Base.column_factory` tooltips, `Filters.SystemInfo`, `PackageMonitor`); compiled & 6/6 tests pass, awaiting live UI check
+**Status:** ✅ closed 2026-11-14. `PackageUpdates.sync`, `SystemInfo.list`, `Base.column_factory` tooltips, `Filters.SystemInfo`, and `PackageMonitor` verified fixed.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-os-update-reporting.md](done/2026-11-13-FIXED-os-update-reporting.md), [2026-11-13-FIXED-package-updates.md](done/2026-11-13-FIXED-package-updates.md), [2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-os-update-reporting.md](2026-11-13-FIXED-os-update-reporting.md), [2026-11-13-FIXED-package-updates.md](2026-11-13-FIXED-package-updates.md), [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)
 
 ---
 
@@ -528,4 +528,4 @@
 
 ## Next
 
-- ⏳ 🔷 Restart `argusrm-server`, `argusrm-agent`, and `argusrm-controller` from `build/` (or updated package) and verify `OS status` and `S/W status` dots and mouseover tooltips on the live Machines tab.
+- ✅ Closed 2026-11-14. `OS status` and `S/W status` dots and mouseover tooltips verified on the live Machines tab.

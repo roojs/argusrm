@@ -372,6 +372,9 @@ namespace Argus.Server
 			OLLMrpc.Request.register("OsReleases", new Argus.Shared.OsReleases());
 			OLLMrpc.Request.register("CpuInfo", new Argus.Shared.OSQuery.CpuInfo());
 			OLLMrpc.Request.register("LoggedInUsers", new Argus.Shared.OSQuery.LoggedInUsers());
+			OLLMrpc.Request.register("Users", new Argus.Shared.OSQuery.Users());
+			OLLMrpc.Request.register("Groups", new Argus.Shared.OSQuery.Groups());
+			OLLMrpc.Request.register("UserGroups", new Argus.Shared.OSQuery.UserGroups());
 			OLLMrpc.Request.register("InterfaceAddresses", new Argus.Shared.OSQuery.InterfaceAddresses());
 			OLLMrpc.Request.register("DebPackages", new Argus.Shared.OSQuery.DebPackages());
 			OLLMrpc.Request.register("RpmPackages", new Argus.Shared.OSQuery.RpmPackages());
