@@ -19,7 +19,7 @@
 | Topic | Decision |
 | --- | --- |
 | `uptime` | Osquery **`uptime`** is **one row per host** (`total_seconds`, `days`, `hours`, …). Ship on **General**, human-readable duration + optional detail fields. |
-| Storage | **Dedicated Storage tab** in machine detail — osquery **`mounts`** (and optional **`disk_info`** later). Each mount row shows **used space with a bar** (e.g. `Gtk.ProgressBar` / `Adw.LevelBar`), plus path, type, size/free labels. Startup sync; not on General. |
+| Storage | **Dedicated Storage tab** — startup sync of osquery **`mounts`**. Per mount: **total size**, **used**, **free space left** (bytes, human-readable), and a **%‑full bar**. Goal is “will this disk run out?” — same mental model as **`df -h`**, not raw block counters in the UI. |
 | Processes / ports | **Separate bug** — live watch while tab visible, not startup sync. |
 | “Power state” | **Not** osquery power for v1. Show **agent connection** (`connected`, `last_connected` from `agent`) on machine **General** so offline machines read clearly when inventory is stale (today that tick lives on the **Agents** grid only). |
 | Other candidates | Still out of scope here: `routes`, `interface_details` ([machines-detail-pane](done/2026-11-13-FIXED-machines-detail-pane.md) §3). |
@@ -59,7 +59,10 @@
 
 - 🔷 Add `shared/OSQuery/Mounts.vala` (`Row`), `init_db`, `Mounts.list(agent_id)`, agent startup `sync_table("mounts", "Mounts")`, server `rpc_register`, `docs/rpc-commands.md`.
 - 🔷 New machine detail tab **`controller/tab/Asset/Machine/Storage.vala`** (name TBD: **Storage** / **Disks**) in `Machine/Detail.vala` toggle order — after **Interfaces** or **General**, product call.
-- 🔷 **UI:** custom list, not a plain `Tab.Base` grid — one row per mount with mount point (row title), type/device, human-readable **total / used / free**, and a **horizontal usage bar** (`fraction = 1 - blocks_free/blocks` or `blocks_available` — pick one and document). Sort by path or by % full.
+- 🔷 **UI:** custom list, not a plain `Tab.Base` grid — one row per mount: mount point (title), filesystem type (and device if useful), **Total**, **Used**, **Free**, bar for **how full** it is. No `blocks_*` labels in the controller.
+- 🔷 **Numbers (match `df -h`):** `total_bytes = blocks * blocks_size`; `free_bytes = blocks_available * blocks_size`; `used_bytes = total_bytes - free_bytes`; bar `fraction = used_bytes / total_bytes` (guard `total_bytes == 0`). Tooltip may note snapshot time when agent was last connected.
+- 🔷 Sort default: **% full descending** (fullest mounts first — what matters for “running out”); optional sort by path.
+- 💩 Low-space affordance (e.g. bar turns warning colour when under 10% free or under a fixed GiB) — nice for v1 if cheap.
 - 💩 Filter: hide noisy ephemeral mounts (`tmpfs`, `snap`, loop/docker) behind a toggle defaulting sensibly per OS.
 - 💩 Optional v2: periodic resync (daily?) like [2026-11-14-log-monitoring-phases-2-3.md](2026-11-14-log-monitoring-phases-2-3.md) phase 2 — v1 startup-only is enough to ship the tab.
 - 🚫 Do not cram storage into `machine_general.csv`.
