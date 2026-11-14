@@ -54,3 +54,11 @@ Indent  |  Column header  |  Database name [JSON]  |  Visible  |  Width in pixel
 1,End of life,eol,ON,0,text,off,os_releases
 1,LTS,is-lts,ON,0,number,off,os_releases
 1,Updated,updated,ON,0,date,off,os_releases
+
+1,Model,model,ON,0,text,off,cpu_info
+1,Cores,number-of-cores,ON,0,number,off,cpu_info
+1,Logical,logical-processors,ON,0,number,off,cpu_info
+1,Current MHz,current-clock-speed,ON,0,mhz,off,cpu_info
+1,Max MHz,max-clock-speed,ON,0,mhz,off,cpu_info
+1,Manufacturer,manufacturer,ON,0,text,off,cpu_info
+1,Socket,socket-designation,ON,0,text,off,cpu_info

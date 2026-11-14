@@ -170,7 +170,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments `i`: `agent_id`.
 - Reply `retval` `o`: an array of `CpuInfo` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `device_id`. An `agent_id` less than one returns an empty array.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/CpuInfo.vala`. `Store.CpuInfo` calls it.
+- ℹ️ The method is `shared/OSQuery/CpuInfo.vala`. `Store.MachineGeneral` calls it for the per-machine **General** tab (one key-value block per processor).
 
 ### `LoggedInUsers.list`
 
@@ -216,7 +216,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `DebPackages` rows. A host whose `agent_id` is not in `agent` is left out.
 - When `since` is zero, the reply fills `update_since` from `package_updates` (`0` when no update is waiting). When `agent_id` and `since` are zero, the reply also fills `arch`, `section`, `priority`, `source`, `maintainer`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are the minimum and maximum of `version`, a hyphen, and `revision`. An empty revision leaves the trailing hyphen.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/DebPackages.vala`. `Store.DebPackages` calls it. The columns are `columns/deb_packages.csv`. [5.9](plans/5.9-assets-software.md).
+- ℹ️ The method is `shared/OSQuery/DebPackages.vala`. `Store.DebPackages` calls it. The columns are `columns/deb_packages.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
 ### `RpmPackages.list`
 
@@ -226,7 +226,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `RpmPackages` rows. A host whose `agent_id` is not in `agent` is left out.
 - When `since` is zero, the reply fills `update_since` from `package_updates` (`0` when no update is waiting). When `agent_id` and `since` are zero, the reply also fills `arch`, `package_group`, `source`, `vendor`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are the minimum and maximum of `epoch`, a colon, `version`, a hyphen, and `release`.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/RpmPackages.vala`. `Store.RpmPackages` calls it. The columns are `columns/rpm_packages.csv`. [5.9](plans/5.9-assets-software.md).
+- ℹ️ The method is `shared/OSQuery/RpmPackages.vala`. `Store.RpmPackages` calls it. The columns are `columns/rpm_packages.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
 ### `Programs.list`
 
@@ -236,7 +236,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `Programs` rows. A host whose `agent_id` is not in `agent` is left out.
 - When `agent_id` and `since` are zero, the reply fills `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `min_version`, `max_version`, `installed`, and `uninstall_count`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/5.9-assets-software.md).
+- ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
 ---
 

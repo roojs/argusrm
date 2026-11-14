@@ -857,7 +857,7 @@ Recommends: avahi
 `os_version` is the operating system on the agent. Assets shows the name and version on the machine list.
 
 - 💩 `os_updated`, `os_status`, and `reboot_required` are not osquery columns. [5.11](done/5.11-REJECTED-os-update.md) fills them. `os_status` is whether the OS version is current. The server writes it once a week. `reboot_required` is a Windows restart waiting.
-- 🔷 `pkgs_updated` and `pkgs_status` are not osquery columns. [5.10](5.10-data-enrichment.md) fills them. `pkgs_updated` is the last time that host checked its installed packages. `pkgs_status` is whether those packages have an update waiting.
+- 🔷 `pkgs_updated` and `pkgs_status` are not osquery columns. [5.10](../plans/done/5.10-DONE-data-enrichment.md) fills them. `pkgs_updated` is the last time that host checked its installed packages. `pkgs_status` is whether those packages have an update waiting.
 
 ```
 id                    INTEGER
@@ -891,7 +891,7 @@ deleted_dt            INTEGER
 `os_version` is the operating system on the agent. Assets shows the name and version on the machine list.
 
 - 🔷 `reboot_required` is not an osquery column. [5.11](done/5.11-REJECTED-os-update.md) added the column for a Windows restart waiting.
-- 🔷 `pkgs_updated` and `pkgs_status` are not osquery columns. [5.10](5.10-data-enrichment.md) fills them. `pkgs_updated` is the last time that host checked its installed packages. `pkgs_status` is whether those packages have an update waiting.
+- 🔷 `pkgs_updated` and `pkgs_status` are not osquery columns. [5.10](../plans/done/5.10-DONE-data-enrichment.md) fills them. `pkgs_updated` is the last time that host checked its installed packages. `pkgs_status` is whether those packages have an update waiting.
 
 ```
 id                    INTEGER

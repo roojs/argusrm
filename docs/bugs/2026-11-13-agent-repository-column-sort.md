@@ -1,46 +1,52 @@
 # Agent and Repository column sorting (migrate to Base)
 
-**Status:** ⏳ split from [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md); open points to confirm before applying
+**Status:** ⏳ root cause confirmed; apply hunks incomplete — see **Proposed fix**
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md` (**Edit syntax contract**, **Code proposals — one place, not two**), [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md)
 
 ---
 
 ## Problem
 
-- 🔷 A left click on a column header on the **Agents** (`controller/tab/Agent.vala`) and **Repositories** (`controller/tab/Repository.vala`) grids sorts that column, and the next click reverses the order.
-- 🔷 Both grids use `Argus.Controller.Tab.Base` (`column_grid`) and column CSV files (`agent.csv`, `repository.csv`) rather than hardcoding column sorters per grid.
-- 🔷 On **Agents**, Remove reads `this.grid.model` (`Gtk.MultiSelection` over `Gtk.SortListModel`) so a sorted row is the row that was ticked, rather than indexing `this.store` directly.
+- 🔷 A left click on a column header on **Agents** (`controller/tab/Agent.vala`) and **Repositories** (`controller/tab/Repository.vala`) sorts that column; the next click reverses the order.
+- 🔷 Both grids use `Argus.Controller.Tab.Base` (`column_grid`) and column CSV files (`agent.csv`, `repository.csv`), not per-column sorters in each tab.
+- 🔷 On **Agents**, Remove must read `this.grid.model` (`Gtk.MultiSelection` over `Gtk.SortListModel`) so the removed row is the ticked row after a sort.
 
 ## Evidence
 
-- ✔️ `controller/tab/Agent.vala` and `controller/tab/Repository.vala` build their `Gtk.ColumnViewColumn` instances manually with `resizable` (and `expand = true`) and never set `column.sorter`, nor wrap `this.store` in a `Gtk.SortListModel`.
-- ✔️ `controller/tab/Agent.vala:479-490` walks `this.store` by index `0 .. count` and calls `this.selection.is_selected((uint) i)`. Those indexes match only while the selection model's order is the store's order.
-- ✔️ `controller/tab/Base.vala` (`column_menu`) attaches a `Gtk.GestureClick` (`button = Gdk.BUTTON_SECONDARY`, `propagation_phase = Gtk.PropagationPhase.CAPTURE`) directly to `this.grid`, which currently claims every right-click on the grid (headers and data rows). On `Agent`, right-clicking a data row must still open the row `Remove` menu.
+- ✔️ `Agent.vala` and `Repository.vala` build columns manually; no `column.sorter`, no `Gtk.SortListModel`.
+- ✔️ `Agent.vala:480-485` indexes `this.store` while `this.selection` tracks store order, not sorted view order.
+- ✔️ `Base.column_menu()` already denies the header menu when the pick hits `argus-grid-row` (`Base.vala:150-158`). `Agent` still tags `argus-agent-row` until it uses `column_grid`.
 
 ## Root cause
 
-- ✔️ Neither `Agent` nor `Repository` uses `Base.column_grid` / `Base.column_menu`, and `Base` does not yet separate header right-clicks from data-row right-clicks or support `Agent`/`Repository`-specific cell formatting (`recent-date`, `tick`, `argus-this-controller` highlight, `Repository` empty-name fallback and `dim-label`).
+- ✔️ `Agent` and `Repository` do not call `column_grid`.
+- ✔️ `Base.column_factory()` lacks `recent-date`, `dim-text`, Kind highlight, and live `notify` refresh for in-place agent row updates.
 
 ## Proposed fix
 
-- 🔷 Migrate `Agent` and `Repository` to `Argus.Controller.Tab.Base` (`column_grid`) with `agent.csv` and `repository.csv`.
-- 🔷 Remove in `Agent` reads `this.grid.model` (`Gtk.MultiSelection`) instead of `this.store`:
+Edits are **Remove** / **Replace with** / **Add** from the tree. Verify surrounding lines before applying.
 
-```vala
-				var selection = (Gtk.MultiSelection) this.grid.model;
-				var count = (int) selection.get_n_items();
-				for (var i = 0; i < count; i++) {
-					if (!selection.is_selected((uint) i)) {
-						continue;
-					}
-					var row = selection.get_item((uint) i) as Argus.Shared.Agent;
+- 🔷 Migrate tabs on the same pattern as `controller/tab/Tasks.vala` and `controller/tab/Asset/SystemInfo.vala` (`Base`, `table`, `expand_column`, `column_grid`).
+- 🔷 Header vs row right-click: keep `Base.column_menu()`; row menu uses `argus-grid-row`.
+- 🔷 Formats: `recent-date`, `dim-text`, `tick` with `notify` on the bound property; Kind uses `argus-controller-fingerprint` on the grid.
+- 🔷 Repository: `display_name` on `ScriptRepository`; `(Gtk.SingleSelection) this.grid.model` with `autoselect = false`, `can_unselect = true`.
+- 🚫 Per-column `column.sorter` in `Agent.vala` / `Repository.vala`.
+
+- 💩 ⏳ **Agent / Repository constructor migration** and **`Base.column_factory` extensions** need full **Remove** + **Replace with** regions (no `…` in fences) before apply — same standard as `docs/plans/done/5.10-DONE-data-enrichment.md` **Why / Where / Depends on** per `###`. Until those hunks are written, only the **Add** sections below are mechanical.
+
+### 1. `controller/resources/columns/agent.csv` — new column file
+
+**Why:** `column_menu` reads `table` + CSV; sort flags live in the file like asset grids.
+
+**Where:** new file under `controller/resources/columns/`.
+
+**Depends on:** none.
+
+#### Add — new file `controller/resources/columns/agent.csv`
+
 ```
-
-- 💩 `controller/resources/columns/agent.csv` (and add to `controller/resources/argusrm.gresource.xml`):
-
-```
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 Hostname,display-name,ON,0,text,ON
 Address,ip,ON,0,text,ON
@@ -52,27 +58,132 @@ Connected,connected,ON,90,tick,ON
 Last connected,last-connected,ON,0,recent-date,ON
 ```
 
-- 💩 `controller/resources/columns/repository.csv` (and add to `controller/resources/argusrm.gresource.xml`):
+### 2. `controller/resources/columns/repository.csv` — new column file
+
+**Why:** Repository grid uses the same Base column path.
+
+**Where:** new file under `controller/resources/columns/`.
+
+**Depends on:** none.
+
+#### Add — new file `controller/resources/columns/repository.csv`
 
 ```
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+Column header | Database name [JSON] | Visible | Width | Format | Sort
 
-Name,name,ON,0,text,ON
-URL,url,ON,0,text,ON
+Name,display-name,ON,0,text,ON
+URL,url,ON,0,dim-text,ON
 ```
 
-- 💩 Open points to confirm before writing the exact code hunks:
-  - 💩 Restrict `Base.column_menu()`'s secondary-click capture to header / empty grid space (skipping tagged data-row widgets, e.g. `argus-grid-row` / `argus-agent-row`, also tracked in `docs/bugs/2026-11-13-machines-package-update.md` and `docs/plans/7.2-tasks-ui-and-signing.md`) so right-clicking a row on `Agent` still opens `Remove`.
-  - 💩 Decide how `Base.column_factory()` handles `Agent`'s `recent-date` (`%H:%M` today, `%Y-%m-%d` otherwise), `tick` (`status == 1` / `connected` bool), live updates when `Store.Agent.load()` mutates `status`, `last_connected`, and `connected` in place without `items_changed`, and the `"argus-this-controller"` CSS highlight on `Kind`.
-  - 💩 `Repository`: `ScriptRepository.display_name` (or fallback to `url` when `name == ""`), `"dim-label"` on `URL`, and `autoselect = false` / `can_unselect = true` on `(Gtk.SingleSelection) this.grid.model`.
-- 🚫 Hardcoding `column.sorter` column-by-column in `Agent.vala` and `Repository.vala`.
+### 3. `controller/resources/argusrm.gresource.xml` — register column CSVs
+
+**Why:** bundled columns must be in the gresource.
+
+**Where:** inside `<gresource>`, with the other `columns/*.csv` entries.
+
+**Depends on:** ### 1, ### 2.
+
+#### Add — after existing `columns/task_targets.csv` entry
+
+```xml
+    <file>columns/agent.csv</file>
+    <file>columns/repository.csv</file>
+```
+
+### 4. `shared/SQT/ScriptRepository.vala` — `display_name`
+
+**Why:** Name column sorts and shows `url` when `name` is empty.
+
+**Where:** after the `key` property.
+
+**Depends on:** none.
+
+#### Add — after `public string key { get; set; default = ""; }`
+
+```vala
+		/**
+		 * ''name'' when set, otherwise ''url''.
+		 */
+		public string display_name {
+			owned get {
+				if (this.name != "") {
+					return this.name;
+				}
+				return this.url;
+			}
+		}
+```
+
+### 5. `controller/tab/Agent.vala` — `remove_rows.activate`: selection over sorted model
+
+**Why:** after `column_grid`, selection indices follow the sorted view, not the store.
+
+**Where:** `remove_rows.activate.connect` body, the loop that collects `names` and `ids`.
+
+**Depends on:** Agent tab uses `column_grid(this.store, true)` (🔷 💩 ⏳ ctor hunks not written yet).
+
+#### Remove
+
+```vala
+				var count = (int) this.store.get_n_items();
+				for (var i = 0; i < count; i++) {
+					if (!this.selection.is_selected((uint) i)) {
+						continue;
+					}
+					var row = this.store.get_item((uint) i) as Argus.Shared.Agent;
+```
+
+#### Replace with
+
+```vala
+				var selection = (Gtk.MultiSelection) this.grid.model;
+				var count = (int) selection.get_n_items();
+				for (var i = 0; i < count; i++) {
+					if (!selection.is_selected((uint) i)) {
+						continue;
+					}
+					var row = selection.get_item((uint) i) as Argus.Shared.Agent;
+```
+
+### 6. `controller/tab/Base.vala` — `column_factory` formats
+
+**Why:** CSV references `recent-date` and `dim-text`; agent cells refresh without `items_changed`.
+
+**Where:** `column_factory` setup/bind/unbind; docblock on `column_factory`.
+
+**Depends on:** ### 1.
+
+- 💩 ⏳ **🔷** Write one canonical **Remove** + **Replace with** (or ordered chunks) for `column_factory` here before product edits — no summary bullets in place of fences.
+
+### 7. `controller/tab/Agent.vala` — migrate constructor to `Base`
+
+**Why:** sorting, column menu, and `argus-grid-row` tagging come from `column_grid`.
+
+**Where:** class declaration; constructor grid setup (replace manual factories/columns/view).
+
+**Depends on:** ### 1, ### 6.
+
+- ℹ️ Precedent: `controller/tab/Tasks.vala` (`Object(table: …)`, `column_grid`, row gestures on `this.grid`).
+- 💩 ⏳ **🔷** Full ctor **Remove** + **Replace with** still owed (large region — follow **guide-to-writing-plans.md** *Large replacement*).
+
+### 8. `controller/tab/Repository.vala` — migrate constructor to `Base`
+
+**Why:** same as Agents.
+
+**Where:** class declaration; constructor grid setup; then `SingleSelection` flags on `this.grid.model`.
+
+**Depends on:** ### 2, ### 3, ### 4, ### 6.
+
+- ℹ️ Precedent: `Tasks.vala` lines that set `autoselect` / `can_unselect` after `column_grid`.
+- 💩 ⏳ **🔷** Full ctor **Remove** + **Replace with** still owed.
 
 ## Attempts
 
-- ℹ️ Split out from [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md) (sections 7–8) on 2026-11-13 so the four asset grids (`Machines`, `Debian`, `RPM`, `Windows`) can close separately.
+- ℹ️ Split from [2026-11-11-FIXED-column-sort.md](done/2026-11-11-FIXED-column-sort.md) (sections 7–8) on 2026-11-13.
+- ℹ️ 2026-11-14: first proposal draft used invalid fences (`…`, prose **Replace**/**With**); revised to match **guide-to-writing-plans.md**.
 
 ## Next
 
-- ⏳ 🔷 Confirm the open points above for `Base.column_menu` row-click pass-through, `Agent` formatting/live binding, and `Repository` formatting.
-- ⏳ 💩 Write verbatim `Remove` / `Replace with` / `Add` code proposals once confirmed.
-- ⏳ 🔷 Sort, then remove a ticked agent. The removed row is the one that was ticked.
+- 🔷 ⏳ Finish **### 6–8** verbatim hunks, then apply 1–8; `ninja -C build controller/argusrm-controller`.
+- 🔷 ⏳ Sort, tick an agent, sort again, Remove — removed row matches tick.
+- 🔷 ⏳ Row right-click → Remove; header/empty right-click → column menu.

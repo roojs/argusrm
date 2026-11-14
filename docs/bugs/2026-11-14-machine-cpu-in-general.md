@@ -1,6 +1,6 @@
 # Machine detail: fold CPU inventory into General, drop CPUs tab
 
-**Status:** ⏳ opened — design approved in conversation; implementation not started
+**Status:** ✔️ applied 2026-11-14 — CPUs tab removed; `MachineGeneral` loads `CpuInfo.list`; awaiting live UI verification
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md)
 
@@ -72,21 +72,291 @@
 
 ---
 
-## Proposed fix (sketch — review before apply)
+## Proposed fix (verbatim — review before apply)
 
-1. **`machine_general.csv`:** add `cpu_info` `Source` section at the bottom; field list per design above.
-2. **`MachineGeneral.vala`:** `yield` `CpuInfo.list` for `agent_id`; add `load_cpu_section` (or extend `load_section`) to loop **all** rows and append `ColumnSchema.display_value` for each.
-3. **`General.vala`:** no layout change expected if store emits the right `KeyValue` sequence (existing expander + indent rendering).
-4. **`Detail.vala`:** remove CPUs tab and related state; **General** load already runs on first General visit — ensure `MachineGeneral.load` includes CPU RPC in that path.
-5. **Cleanup:** drop unused `CpuInfo` tab from meson/gresource if the grid tab is deleted; keep `cpu_info_machine.csv` only if still referenced (else remove from gresource).
-6. **Build / smoke:** open machine detail → **General** shows CPU block(s) at bottom; multi-socket test agent (or DB fixture) shows multiple blocks; **CPUs** tab gone.
+### Apply order
+
+1. `ColumnSchema.vala` — add `mhz` format for General key-value rows.
+2. `machine_general.csv` — append `cpu_info` field rows.
+3. `MachineGeneral.vala` — `CpuInfo.list` + `load_cpu_section` (one expander per processor).
+4. `Detail.vala` — remove **CPUs** tab.
+5. Remove `CpuInfo` tab/store + `cpu_info_machine.csv`; update meson, gresource, `namespace.vala`.
+6. `docs/rpc-commands.md` + [2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md) (drop `cpus_loaded` references).
+7. Build / smoke.
 
 ---
 
-## Open questions
+### 1. `controller/store/ColumnSchema.vala` — `mhz` format
 
-- 💩 Single expander **CPU** with flat children vs one expander per socket when `rows.size > 1`.
-- 💩 Whether to hide redundant `system_info` CPU summary fields once `cpu_info` is always shown at the bottom.
+`Tab.Base` already formats megahertz for grids; General uses `ColumnSchema.display_value` only.
+
+#### Add (inside `switch (this.format)`, before `case "status":`)
+
+```vala
+				case "mhz":
+					var mhz = (int64) 0;
+					if (prop.value_type == GLib.Type.INT64) {
+						mhz = value.get_int64();
+					}
+					if (prop.value_type == GLib.Type.INT) {
+						mhz = (int64) value.get_int();
+					}
+					if (mhz > 0) {
+						ret.val = mhz.to_string("%'" + int64.FORMAT) + " MHz";
+					}
+					return ret;
+```
+
+#### Update class docstring `format` list
+
+Mention `mhz` alongside `bytes`, `date`, `status`, `expander`.
+
+---
+
+### 2. `controller/resources/columns/machine_general.csv` — append after OS release rows
+
+Field rows only (`Source` = `cpu_info`). Code emits the expander title per processor; do not add an `expander` row here.
+
+```
+1,Model,model,ON,0,text,off,cpu_info
+1,Cores,number-of-cores,ON,0,number,off,cpu_info
+1,Logical,logical-processors,ON,0,number,off,cpu_info
+1,Current MHz,current-clock-speed,ON,0,mhz,off,cpu_info
+1,Max MHz,max-clock-speed,ON,0,mhz,off,cpu_info
+1,Manufacturer,manufacturer,ON,0,text,off,cpu_info
+1,Socket,socket-designation,ON,0,text,off,cpu_info
+```
+
+---
+
+### 3. `controller/store/MachineGeneral.vala`
+
+#### Update class docstring
+
+- `load` fetches `SystemInfo.list`, `OsVersion.list`, `OsReleases.list`, and **`CpuInfo.list`**.
+
+#### Add to `load()` after `os_releases` section (before `this.items = this.built`)
+
+```vala
+			if (!yield this.load_cpu_section(agent_id)) {
+				return;
+			}
+```
+
+#### Add method
+
+```vala
+		/**
+		 * Call ''CpuInfo.list'' and append one expander block per
+		 * processor onto {@link built}.
+		 *
+		 * @param agent_id selected machine agent id
+		 * @return false when superseded or failed
+		 */
+		private async bool load_cpu_section(int agent_id)
+		{
+			var epoch = this.epoch;
+			OLLMrpc.Response response;
+			try {
+				response = yield this.app.rpc.call(new OLLMrpc.Request() {
+					method = "CpuInfo.list",
+					args = OLLMrpc.args("i", agent_id)
+				});
+			} catch (GLib.Error e) {
+				if (epoch == this.epoch) {
+					this.busy = false;
+					this.failed("Could not load CpuInfo.list", e.message);
+				}
+				return false;
+			}
+			if (epoch != this.epoch) {
+				return false;
+			}
+			if (response.error != null) {
+				this.busy = false;
+				this.failed("Could not load CpuInfo.list", response.error.message);
+				return false;
+			}
+			if (!response.retval.type().is_a(typeof(Gee.ArrayList))) {
+				return true;
+			}
+			var rows = (Gee.ArrayList<GLib.Object>) response.retval.get_object();
+			if (rows.size == 0) {
+				return true;
+			}
+			for (var i = 0; i < rows.size; i++) {
+				var row = rows.get(i);
+				var title = "CPU";
+				if (rows.size > 1) {
+					title = @"CPU $(i + 1)";
+				}
+				this.built.add(new KeyValue() {
+					key = title,
+					expander = true,
+					expanded = true
+				});
+				foreach (var col in this.cols) {
+					if (!col.visible || col.source != "cpu_info") {
+						continue;
+					}
+					this.built.add(col.display_value(row));
+				}
+			}
+			return true;
+		}
+```
+
+`General.vala` — **no code change** (existing expander + indent rendering).
+
+---
+
+### 4. `controller/tab/Asset/Machine/Detail.vala` — drop **CPUs** tab
+
+#### Update class docstring
+
+Remove `{@link CpuInfo}` from the tab list.
+
+#### Remove fields
+
+```vala
+		private Adw.Toggle cpus_toggle;
+```
+
+```vala
+		private CpuInfo cpus;
+```
+
+```vala
+		private bool cpus_loaded = false;
+```
+
+#### Remove constructor block (CPUs page + toggle + spinner bind)
+
+From `this.cpus = new CpuInfo(window);` through `this.cpus.bind_property("refreshing", cpus_spin, "visible", GLib.BindingFlags.SYNC_CREATE);` (lines ~225–247 in current tree).
+
+#### Remove (`notify["active-name"]` switch)
+
+```vala
+					case "cpus":
+						if (this.cpus_loaded) {
+							break;
+						}
+						this.cpus_loaded = true;
+						this.cpus.load(this.current_agent_id);
+						break;
+```
+
+#### Remove (`clear()` and `show_machine()` reset blocks)
+
+Every `this.cpus_loaded = false;` line.
+
+#### Remove (`show_machine()`, toggle group rebuild)
+
+```vala
+				this.group.add(this.cpus_toggle);
+```
+
+#### Remove (`show_machine()`, `previous` switch case)
+
+```vala
+					case "cpus":
+```
+
+#### Remove (`show_machine()`, active-tab switch)
+
+```vala
+				case "cpus":
+					if (this.cpus_loaded) {
+						break;
+					}
+					this.cpus_loaded = true;
+					this.cpus.load(agent_id);
+					break;
+```
+
+---
+
+### 5. Remove files
+
+- `controller/tab/Asset/Machine/CpuInfo.vala`
+- `controller/store/CpuInfo.vala`
+- `controller/resources/columns/cpu_info_machine.csv`
+
+---
+
+### 6. Build lists and gresource
+
+#### `controller/meson.build` — Remove
+
+```vala
+	'store/CpuInfo.vala',
+```
+
+```vala
+	'tab/Asset/Machine/CpuInfo.vala',
+```
+
+#### `docs/meson.build` — Remove
+
+```vala
+  '../controller/store/CpuInfo.vala',
+```
+
+```vala
+  '../controller/tab/Asset/Machine/CpuInfo.vala',
+```
+
+#### `controller/resources/argusrm.gresource.xml` — Remove
+
+```xml
+    <file>columns/cpu_info_machine.csv</file>
+```
+
+#### `controller/tab/Asset/Machine/namespace.vala` — Replace doc list
+
+Remove `and {@link CpuInfo}` from the namespace doc comment.
+
+---
+
+### 7. `docs/rpc-commands.md`
+
+#### Replace (`CpuInfo.list` caller note)
+
+```markdown
+- ℹ️ The method is `shared/OSQuery/CpuInfo.vala`. `Store.CpuInfo` calls it.
+```
+
+With:
+
+```markdown
+- ℹ️ The method is `shared/OSQuery/CpuInfo.vala`. `Store.MachineGeneral` calls it for the per-machine **General** tab (one key-value block per processor).
+```
+
+---
+
+### 8. Related doc touch-up
+
+#### [2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md)
+
+- Problem bullet: drop **CPUs** from the cached-tab list (`General` + package tabs + `Interfaces` only).
+- Evidence §2: remove `cpus_loaded` from the boolean list and from notification invalidation sketch (`general_loaded` covers CPU inventory after this change).
+- Evidence §3: remove `CpuInfo.vala` from the store cache list (or note only sync/RPC remains on server).
+
+---
+
+### 9. Verification
+
+- `meson compile -C build`, `meson test -C build`.
+- Controller: select a machine → **General** scrolls to **CPU** expander(s) at the bottom with model/cores/MHz.
+- Multi-socket fixture: `CpuInfo.list` returns `size > 1` → **CPU 1**, **CPU 2**, … expanders each with the same field set.
+- Detail bar has no **CPUs** toggle; `general_loaded` still gates repeat `MachineGeneral.load`.
+
+---
+
+## Resolved decisions (was open questions)
+
+- ✔️ **Multi-CPU layout:** one **Gtk.Expander** per `CpuInfo.list` row — title **CPU** when `rows.size == 1`, else **CPU 1**, **CPU 2**, … (ordered by `device_id`).
+- ✔️ **`system_info` CPU summary:** keep existing **System info** `cpu-brand` / cores fields for now; dedupe in a follow-up if redundant.
 
 ---
 

@@ -54,7 +54,7 @@
 ### Other untracked files
 
 - ✔️ `agent/linux/UpdatesAvailable.vala` and `agent/Win32/UpdatesAvailable.vala` are not the package monitor. They were removed. `docs/plans/5.11-os-update.md` stays.
-- ✔️ The plans stay. `docs/plans/4.0-data-types.md`, `5.8-assets-page.md`, `5.9.1-assets-software-data.md`, `5.10-data-enrichment.md`, `5.11-os-update.md`, and `7.0-tasks.md` were not rolled back.
+- ✔️ The plans stay. `docs/plans/4.0-data-types.md`, `5.8-assets-page.md`, `5.9.1-assets-software-data.md`, `../plans/done/5.10-DONE-data-enrichment.md`, `5.11-os-update.md`, and `7.0-tasks.md` were not rolled back.
 
 ## Root cause
 

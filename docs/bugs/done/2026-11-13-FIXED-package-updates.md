@@ -8,7 +8,7 @@
 
 ## Problem
 
-- 🔷 The previous design for listing packages that need updating added an `update_available` column directly onto `deb_packages` and `rpm_packages` (in tree from [5.10](../../plans/5.10-data-enrichment.md) Phase 1) and proposed two custom RPCs (`DebPackages.send_pending` and `RpmPackages.send_pending`) doing bulk SQL `UPDATE` statements with `IN` / `NOT IN` lists.
+- 🔷 The previous design for listing packages that need updating added an `update_available` column directly onto `deb_packages` and `rpm_packages` (in tree from [5.10](../../plans/done/5.10-DONE-data-enrichment.md) Phase 1) and proposed two custom RPCs (`DebPackages.send_pending` and `RpmPackages.send_pending`) doing bulk SQL `UPDATE` statements with `IN` / `NOT IN` lists.
 - 🔷 That approach mutates installed-package inventory rows for pending-update state, duplicates handlers across `DebPackages` and `RpmPackages`, and does not record when an update first became pending.
 - 🔷 Instead, pending package updates should be stored in a dedicated `package_updates` table modeled as a fake osquery row class (`PackageUpdates`) with `id`, `agent_id`, `name`, and `since`.
 - 🔷 The agent sends `PackageUpdates` rows through the existing `OSQuery.sync` RPC.
@@ -24,7 +24,7 @@
 - ✔️ `shared/OSQuery/AgentInfo.vala` skips `update-available` in `compare()` so full `OSQuery.sync` package snapshots do not overwrite it.
 - ✔️ `server/OSQuery.vala` already dispatches `OSQuery.sync` for any registered `Argus.Shared.OSQuery.Row` subclass via `OLLMrpc.Bin.alias_to_gtype`.
 - ✔️ `libocsqlite`'s `SQ.Query<T>` (`insert`, `selectWhere`, `selectQuery`, `deleteId`) maps only columns present in the SQLite table schema (`PRAGMA table_info`), so `PackageUpdates : Row` can store `id`, `agent_id`, `name`, `since` without adding `added_dt`/`updated_dt`/`deleted_dt` columns to `package_updates`, and removing `update_available` from `DebPackages`/`RpmPackages` leaves any existing database column harmlessly ignored.
-- ✔️ `agent/linux/UpdatesAvailable.vala` and `agent/Win32/UpdatesAvailable.vala` are already in the tree from [5.10](../../plans/5.10-data-enrichment.md) Phase 2.
+- ✔️ `agent/linux/UpdatesAvailable.vala` and `agent/Win32/UpdatesAvailable.vala` are already in the tree from [5.10](../../plans/done/5.10-DONE-data-enrichment.md) Phase 2.
 - ℹ️ [5.10.1-REJECTED-package-updates.md](../../plans/done/5.10.1-REJECTED-package-updates.md) was archived as rejected.
 
 ## Root cause
@@ -820,7 +820,7 @@ namespace Argus.Shared.OSQuery
 
 `deb_packages` is one installed package from osquery.
 
-- 🔷 `update_available` is not an osquery column. [5.10](5.10-data-enrichment.md) fills it.
+- 🔷 `update_available` is not an osquery column. [5.10](../plans/done/5.10-DONE-data-enrichment.md) fills it.
 
 ```
 id                    INTEGER
@@ -845,7 +845,7 @@ deleted_dt            INTEGER
 
 `rpm_packages` is one installed package from osquery.
 
-- 🔷 `update_available` is not an osquery column. [5.10](5.10-data-enrichment.md) fills it.
+- 🔷 `update_available` is not an osquery column. [5.10](../plans/done/5.10-DONE-data-enrichment.md) fills it.
 - ℹ️ `install_time` is the osquery column.
 
 ```
