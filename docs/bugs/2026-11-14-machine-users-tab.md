@@ -2056,4 +2056,5 @@ namespace Argus.Controller.Tab.Asset.Machine
 
 - ✔️ Applied approved fences; `meson compile -C build` and `meson test -C build` (6/6) pass.
 - ✔️ Added `Users`/`Groups`/`UserGroups.rpc_register()` to `server/OSQuery.rpc_register()`.
-- ⏳ 🔷 Reinstall/restart server (and agent so sync aliases land), then verify Users/Groups list on a live machine.
+- ✔️ Empty grids after successful sync: agent log shows `users` 69 / `groups` 102 / `user_groups` 95 sent at 12:59:58; controller called `Users.list`/`Groups.list` at 12:59:42 (before sync) and `users_loaded` cached the empty reply. Dropped `users_loaded` so the Users tab reloads whenever it becomes active (same as [package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md)).
+- ⏳ 🔷 Reinstall/restart controller (server already has data after agent sync), open Users again and verify rows.

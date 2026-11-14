@@ -58,7 +58,6 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Argus.Shared.OSQuery.PackageManager current_pm = Argus.Shared.OSQuery.PackageManager.UNKNOWN;
 		private bool has_pm = false;
 		private bool general_loaded = false;
-		private bool users_loaded = false;
 		private bool debian_loaded = false;
 		private bool rpm_loaded = false;
 		private bool windows_loaded = false;
@@ -265,10 +264,6 @@ namespace Argus.Controller.Tab.Asset.Machine
 						break;
 
 					case "users":
-						if (this.users_loaded) {
-							break;
-						}
-						this.users_loaded = true;
 						this.users.load(this.current_agent_id);
 						break;
 
@@ -334,7 +329,6 @@ namespace Argus.Controller.Tab.Asset.Machine
 		{
 			this.current_agent_id = 0;
 			this.general_loaded = false;
-			this.users_loaded = false;
 			this.debian_loaded = false;
 			this.rpm_loaded = false;
 			this.windows_loaded = false;
@@ -357,7 +351,6 @@ namespace Argus.Controller.Tab.Asset.Machine
 			}
 			this.current_agent_id = 0;
 			this.general_loaded = false;
-			this.users_loaded = false;
 			this.debian_loaded = false;
 			this.rpm_loaded = false;
 			this.windows_loaded = false;
@@ -440,10 +433,6 @@ namespace Argus.Controller.Tab.Asset.Machine
 					break;
 
 				case "users":
-					if (this.users_loaded) {
-						break;
-					}
-					this.users_loaded = true;
 					this.users.load(agent_id);
 					break;
 
