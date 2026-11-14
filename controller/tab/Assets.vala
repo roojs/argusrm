@@ -75,8 +75,8 @@ namespace Argus.Controller.Tab
 				hexpand = true,
 				margin_start = 12,
 				margin_end = 12,
-				margin_top = 12,
-				margin_bottom = 6
+				margin_top = 6,
+				margin_bottom = 4
 			});
 			this.append(pages);
 		}

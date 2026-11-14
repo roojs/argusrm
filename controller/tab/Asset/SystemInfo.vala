@@ -53,7 +53,8 @@ namespace Argus.Controller.Tab.Asset
 			Object(
 				orientation: Gtk.Orientation.VERTICAL,
 				spacing: 0,
-				table: "system_info"
+				table: "system_info",
+				expand_column: "cpu-brand"
 			);
 			this.window = window;
 			this.hexpand = true;

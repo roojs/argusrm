@@ -1,0 +1,8 @@
+Column header | Database name [JSON] | Visible | Width | Format | Sort
+
+User,user,ON,160,text,ON
+TTY,tty,ON,110,text,ON
+Host,host,ON,160,text,ON
+Logged in,time,ON,100,elapsed,ON
+Type,ctype,ON,100,text,ON
+PID,pid,off,80,number,ON

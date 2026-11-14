@@ -58,7 +58,8 @@ namespace Argus.Controller.Tab.Asset
 			Object(
 				orientation: Gtk.Orientation.VERTICAL,
 				spacing: 0,
-				table: "deb_packages"
+				table: "deb_packages",
+				expand_column: "name"
 			);
 			this.hexpand = true;
 			this.vexpand = true;
@@ -76,7 +77,7 @@ namespace Argus.Controller.Tab.Asset
 			this.map.connect(() => {
 				this.store.load(0);
 			});
-			var spinner = new Gtk.Spinner() {
+			var spinner = new Adw.Spinner() {
 				halign = Gtk.Align.CENTER,
 				valign = Gtk.Align.CENTER,
 				width_request = 48,
@@ -95,9 +96,7 @@ namespace Argus.Controller.Tab.Asset
 			};
 			overlay.add_overlay(spinner);
 			this.store.notify["busy"].connect(() => {
-				var waiting = this.store.busy && this.store.get_n_items() == 0;
-				spinner.visible = waiting;
-				spinner.spinning = waiting;
+				spinner.visible = this.store.busy && this.store.get_n_items() == 0;
 				this.refreshing = this.store.busy && this.store.get_n_items() > 0;
 			});
 			var section_rows = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);

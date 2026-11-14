@@ -431,13 +431,33 @@ namespace Argus.Agent
 #if LINUX
 			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+				var osquery_starting = false;
+				this.state_changed.connect(() => {
+					if (this.connection == null || Application.connection_down || osquery_starting) {
+						return;
+					}
+					osquery_starting = true;
+					new GLib.Thread<int>("osquery-init", () => {
+						var code = new OSQuery.Initialize(this).run();
+						GLib.Idle.add(() => {
+							osquery_starting = false;
+							if (code == 0 && this.connection != null && !Application.connection_down) {
+								this.osquery.send_startup();
+								if (this.monitor == null &&
+									this.os_version.package_manager() !=
+										Argus.Shared.OSQuery.PackageManager.UNKNOWN) {
+									this.monitor = new PackageMonitor(this);
+									this.monitor.start();
+								} else if (this.monitor != null) {
+									this.monitor.send_pending();
+								}
+							}
+							return false;
+						});
+						return 0;
+					});
+				});
 				this.attach_connection();
-				if (this.connection != null) {
-					new OSQuery.Initialize(this).start();
-					this.osquery.send_startup();
-					this.monitor = new PackageMonitor(this);
-					this.monitor.start();
-				}
 			}
 #else
 			var cert = GLib.Path.build_filename(

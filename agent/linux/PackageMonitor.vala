@@ -203,6 +203,7 @@ namespace Argus.Agent
 						return true;
 					}
 					this.application.osquery.send_packages();
+					this.send_pending();
 					foreach (var fd in fds) {
 						Posix.close(fd);
 					}
@@ -293,6 +294,7 @@ namespace Argus.Agent
 						return true;
 					}
 					this.application.osquery.send_packages();
+					this.send_pending();
 					foreach (var held in fds) {
 						Posix.close(held);
 					}

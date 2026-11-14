@@ -1,4 +1,4 @@
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 Machine,agent-id-hostname,ON,160,text,ON
 Task,display-task,ON,260,text,ON

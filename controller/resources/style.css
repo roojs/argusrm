@@ -72,7 +72,7 @@ row.hold-disconnect.holding image {
 	background-color: color-mix(in srgb, currentColor 30%, var(--window-bg-color));
 }
 
-spinner.package-wait {
+.package-wait {
 	min-width: 48px;
 	min-height: 48px;
 }
@@ -174,5 +174,18 @@ popover.menu.column-menu checkbutton check:dir(rtl) {
 	padding: 6px 12px;
 	background-color: color-mix(in srgb, currentColor 8%, var(--window-bg-color));
 	border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+viewswitcher > button.toggle:checked,
+viewswitcher > button.toggle:checked:hover,
+viewswitcher > button.toggle:checked:active,
+viewswitcher > button.toggle:checked.keyboard-activating,
+toggle-group > toggle:checked,
+toggle-group > toggle:checked:hover,
+toggle-group > toggle:checked:active,
+toggle-group > toggle:checked.keyboard-activating {
+	background-color: @theme_selected_bg_color;
+	background-image: none;
+	color: @theme_selected_fg_color;
 }
 

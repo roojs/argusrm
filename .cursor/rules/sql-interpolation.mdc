@@ -1,0 +1,34 @@
+---
+description: Use temporary variables and Vala string interpolation (@"") for SQL instead of .printf().
+alwaysApply: true
+---
+
+# SQL string interpolation
+
+Build multi-line SQL queries with Vala string templates (`@" ... $(var) ... "`), computing any conditional clauses in temporary variables beforehand.
+
+Do not append `.printf(...)` to SQL strings unless there is a compelling reason (such as a `printf` format specifier that interpolation cannot express).
+
+```vala
+// Wrong. Trailing .printf() hides what each placeholder maps to.
+query.selectQuery("""
+	SELECT
+		%s
+	WHERE
+		%s
+	""".printf(columns, agent_id > 0 ?
+		"system_info.agent_id = %d".printf(agent_id) :
+		"system_info.agent_id IN (SELECT id FROM agent)"), rows);
+
+// Right. Temporary variable (using `if` instead of a string ternary) + inline Vala interpolation.
+var where = "system_info.agent_id = " + agent_id.to_string();
+if (agent_id < 1) {
+	where = "system_info.agent_id IN (SELECT id FROM agent)";
+}
+query.selectQuery(@"
+	SELECT
+		$(columns)
+	WHERE
+		$(where)
+	", rows);
+```
