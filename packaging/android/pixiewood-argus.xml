@@ -30,7 +30,7 @@
         target="foreground"
         type="avd"
         path="src://android/icon-foreground.xml"/>
-      <color target="background">#3584e4</color>
+      <color target="background">#ffffff</color>
     </icon>
   </style>
   <dependencies>

@@ -71,7 +71,6 @@ endif
 sources = files(
 	'namespace.vala',
 	'About.vala',
-	'Application.vala',
 	'Command.vala',
 	'Connection.vala',
 	'dialog/Bootstrap.vala',
@@ -123,11 +122,15 @@ sources = files(
 )
 if host_machine.system() == 'android'
 	sources += files(
+		'android/Application.vala',
 		'android/Window.vala',
 		'android/android-gio-tls.c',
 	)
 else
-	sources += files('Window.vala')
+	sources += files(
+		'Application.vala',
+		'Window.vala',
+	)
 endif
 if host_machine.system() == 'windows'
 	win_mod = import('windows')
@@ -142,7 +145,7 @@ if host_machine.system() == 'android'
 		sources,
 		controller_resources,
 		controller_icon_resources,
-		files('main.vala'),
+		files('android/main.vala'),
 		dependencies: deps,
 		c_args: controller_c_args,
 		vala_args: controller_vala_args,

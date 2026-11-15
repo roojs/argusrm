@@ -180,8 +180,18 @@ namespace Argus.Controller.Tab
 						this.window.app.running_window = false;
 						this.window.leaving = true;
 						this.window.app.rpc.disconnect();
+#if ANDROID
+						var host = new Adw.ApplicationWindow(this.window.app) {
+							title = "Argus Remote Manager " + Argus.VERSION
+						};
+						host.set_default_size(420, 720);
+						host.present();
+						this.window.close();
+						new Dialog.Bootstrap(this.window.app, "choose").present(host);
+#else
 						this.window.close();
 						new Dialog.Bootstrap(this.window.app, "choose").present(null);
+#endif
 					});
 					var hold = new Gtk.EventControllerLegacy();
 					hold.event.connect((event) => {

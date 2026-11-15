@@ -14,6 +14,7 @@ if [ ! -f "$src" ]; then
 fi
 
 export PIXIEWOOD_MANIFEST="${PIXIEWOOD_MANIFEST:-$ARGUS_ROOT/packaging/android/pixiewood-argus.xml}"
+export PIXIEWOOD_USE_PIXIE="${PIXIEWOOD_USE_PIXIE:-1}"
 
 runner="$(mktemp -p "$ARGUS_ROOT/scripts/android" argus-pixiewood-build.XXXXXX.sh)"
 trap 'rm -f "$runner"' EXIT

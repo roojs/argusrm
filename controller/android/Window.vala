@@ -34,7 +34,7 @@ namespace Argus.Controller
 	 * window.present();
 	 * }}}
 	 */
-	public class Window : Adw.Window
+	public class Window : Adw.ApplicationWindow
 	{
 		public Application app;
 		public Connection connection { get; set; default = new Connection(); }
@@ -74,6 +74,7 @@ namespace Argus.Controller
 			Connection connection,
 			Argus.Shared.Registration.Data issued
 		) {
+			Object(application: app);
 			this.app = app;
 			this.connection = connection;
 			this.issued = issued;

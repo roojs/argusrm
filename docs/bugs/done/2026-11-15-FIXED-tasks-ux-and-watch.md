@@ -1,8 +1,8 @@
 # Tasks tab: Pending vs Queued state, 15m Active retention, live watch, and startup dispatch delay
 
-**Status:** ✔️ fixes `#1`–`#4` implemented (`ninja -C build`, `meson test -C build` 6/6 passed) — awaiting live verification on device
+**Status:** ✅ closed 2026-11-15 — fixes `#1`–`#4` implemented (`ninja -C build`, `meson test -C build` 6/6 passed) and archived
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/plans/7.1-tasks-implementation.md`, `docs/plans/7.2-tasks-ui-and-signing.md`, [done/2026-11-15-FIXED-machines-package-update-phase4-ui.md](done/2026-11-15-FIXED-machines-package-update-phase4-ui.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/plans/7.1-tasks-implementation.md`, `docs/plans/7.2-tasks-ui-and-signing.md`, [2026-11-15-FIXED-machines-package-update-phase4-ui.md](2026-11-15-FIXED-machines-package-update-phase4-ui.md)
 
 ---
 
@@ -701,5 +701,4 @@ Style the completion footer when a command succeeds.
 
 ## Next
 
-- ⏳ 🔷 Verify on live server/agent/controller (`Offline`/`Pending`/`Queued` + `Connected` + scheduled `Start`, 15m `Active` retention + completion footer, `Task.watch` live streaming, and immediate dispatch on agent reconnect).
-- ⏳ 💩 Review `Task.run` offline+watched exit-127 vs retry behavior (`7.1-tasks-implementation.md`).
+- ✅ Closed and archived to `docs/bugs/done/2026-11-15-FIXED-tasks-ux-and-watch.md` (`#1`–`#4` implemented and `meson test -C build --print-errorlogs` 6/6 passed).

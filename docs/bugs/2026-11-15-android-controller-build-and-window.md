@@ -31,6 +31,10 @@
   - `controller/dialog/Bootstrap.vala` wraps all `Secret` keyring lookups (`check()`, line 242) and stores (`finish_registration()`, line 623) in `#if LINUX`, then immediately fails `check()` at line 278 (`if (this.credentials.size < 1)`) with `"The saved server has no certificate."` on non-Linux systems. It also shows `"Log in to local machine"` even though `exe_root()` is Linux-only (`pkexec` / `/proc/self/exe`).
   - `shared/Registration/Data.vala` `clear_saved_login()` only clears `Secret` under `#if LINUX` and edits `connections.json`.
   - `shared/RegisterWindow.vala` already handles `#if ANDROID` (`this.browse.label` via `PairBrowse.java`).
+- ✔️ **Emulator launch crash (`adb logcat` on `emulator-5554`, 2026-11-15 11:06):**
+  - `org.roojs.argus` initialized `GTlsBackendOpenssl` (`_g_io_module_get_default: Found default implementation openssl (GTlsBackendOpenssl)`), then aborted on `GTK Thread` inside `adw_dialog_present` -> `gtk_window_present` -> `gdk_toplevel_present`:
+  - `JNI DETECTED ERROR IN APPLICATION: jfieldID long org.gtk.android.ToplevelActivity.nativeIdentifier not valid for an object of class org.roojs.argus.ArgusApplication`
+  - Cause: `controller/Application.vala` subclasses `GLib.Application` with `HANDLES_COMMAND_LINE` and calls `bootstrap.present(null)` from `command_line()` during `RuntimeApplication.onCreate()` before `ToplevelActivity.onCreate()` calls `GdkContext._set_latest_activity(this)` and `GdkContext.activate()`, and without a parent `Adw.ApplicationWindow`.
 - ✔️ **Android packaging & CI (`packaging/android/`, `shared/android/`, `.github/workflows/`):**
   - `packaging/android/pixiewood-argus.xml` still targets `argus-agent` (`org.roojs.argus`, `"Argus RM Agent"`) and lacks `<sqlite3/>` in `<dependencies>`.
   - `shared/android/ArgusApplication.java` binds native library `"argus-agent"` instead of `"argus-controller"`.
@@ -42,7 +46,7 @@
 ## Root cause
 
 1. ✔️ **No Android window shell (`controller/Window.vala`, `controller/TabList.vala`):** Desktop `Window` uses a persistent `Adw.NavigationSplitView` without a slide-out drawer or hamburger toggle, and `TabList` auto-selects row 0 without handling re-activation of the current row.
-2. ✔️ **Missing Android platform wiring in controller (`controller/Application.vala`, `controller/meson.build`, `controller/main.vala`):** `Application` rejects launches without `DISPLAY`/`WAYLAND_DISPLAY`, `controller/meson.build` omits `-D ANDROID` and `gioopenssl`, and nothing initializes `g_io_openssl_load(NULL)` or sets the Adwaita icon theme on Android.
+2. ✔️ **Missing Android platform wiring in controller (`controller/Application.vala`, `controller/meson.build`, `controller/main.vala`):** `Application` subclasses `GLib.Application` with `HANDLES_COMMAND_LINE` and presents `Bootstrap` (`Adw.Dialog`) with `parent = null` inside `command_line()` before `ToplevelActivity` runs `GdkContext.activate()`, `controller/meson.build` omits `-D ANDROID` and `gioopenssl`, and nothing initializes `g_io_openssl_load(NULL)` or sets the Adwaita icon theme on Android.
 3. ✔️ **No credential persistence outside `libsecret` (`controller/dialog/Bootstrap.vala`, `shared/Registration/Data.vala`):** Android builds compile without `libsecret`, leaving `Bootstrap` unable to save or reload server certificates across restarts and offering a Linux-only local login button.
 4. ✔️ **Stale Android packaging for agent (`packaging/android/`, `shared/android/`, `.github/workflows/`):** Pixiewood manifest, Java `System.loadLibrary`, asset staging, and GitHub workflows still target `argus-agent` rather than `argus-controller`.
 
@@ -411,9 +415,313 @@ Emit `chosen` when tapping an already-selected row so the slide-out drawer hides
 
 ---
 
-### 2. `controller/Application.vala` & `controller/main.vala` & `controller/android/android-gio-tls.c` — Android launch and TLS init
+### 2. `controller/android/Application.vala`, `controller/android/main.vala`, `controller/android/Window.vala`, `controller/dialog/Bootstrap.vala`, `controller/tab/Settings.vala`, `controller/android/android-gio-tls.c` — Android launch, host window, and TLS init
 
-- 🔷 Skip the `DISPLAY` / `WAYLAND_DISPLAY` check on `#if ANDROID`, set `Gtk.Settings.get_default().gtk_icon_theme_name = "Adwaita"`, and register static `gioopenssl` (`g_io_openssl_load(NULL)`) before `app.run(args)` so `OLLMrpc.Client` TLS works on Android.
+- 🔷 Keep desktop `controller/Application.vala` and `controller/main.vala` free of `#if ANDROID` by adding `controller/android/Application.vala` (`Adw.Application` with `GLib.ApplicationFlags.DEFAULT_FLAGS`) and `controller/android/main.vala`.
+- 🔷 Handle `this.activate` (invoked by `ToplevelActivity.onCreate()` -> `GdkContext.activate()`) in `controller/android/Application.vala` to register RPC types, configure CSS/icons (`gtk_icon_theme_name = "Adwaita"`), present a host `Adw.ApplicationWindow`, and present `Dialog.Bootstrap` over that host window.
+- 🔷 Make `controller/android/Window.vala` subclass `Adw.ApplicationWindow` (`Object(application: app)`) so `Bootstrap.use()` and `Settings` always keep a valid `ToplevelActivity` window on screen, closing the temporary bootstrap host window once `Window` is presented.
+- 🔷 Generate `android/icon-foreground.xml` from `argusrm.svg` (replacing the solid blue `#3584e4` placeholder that rendered as a solid blue circle in the launcher icon and Android splash screen) and set `<color target="background">#ffffff</color>` in `packaging/android/pixiewood-argus.xml`.
+- 🔷 Populate the `Adw.ApplicationWindow` host behind `Dialog.Bootstrap` in `controller/android/Application.vala` with the application logo, title, and spinner so the backdrop above the bottom sheet is not blank.
+
+#### Add — `controller/android/android-gio-tls.h` and `controller/android/android-gio-tls.c` (new files)
+
+Initialize the static OpenSSL GIO TLS module on Android before creating `GLib.TlsFileDatabase` or `OLLMrpc.Client`.
+
+```c
+#ifndef ARGUS_CONTROLLER_ANDROID_GIO_TLS_H
+#define ARGUS_CONTROLLER_ANDROID_GIO_TLS_H
+
+#include <glib.h>
+
+gboolean argus_controller_configure_android_gio_tls_modules (void);
+
+#endif
+```
+
+```c
+#include "android-gio-tls.h"
+
+#include <gio/gio.h>
+#include <string.h>
+
+/* Static glib-networking OpenSSL backend. */
+extern void g_io_openssl_load (gpointer module);
+
+gboolean
+argus_controller_configure_android_gio_tls_modules (void)
+{
+	GTlsBackend *backend;
+	const char *type_name;
+
+	g_io_openssl_load (NULL);
+	backend = g_tls_backend_get_default ();
+	if (backend == NULL) {
+		g_warning ("GIO TLS backend unavailable after g_io_openssl_load(NULL)");
+		return FALSE;
+	}
+	type_name = G_OBJECT_TYPE_NAME (backend);
+	if (type_name == NULL || strcmp (type_name, "GDummyTlsBackend") == 0) {
+		g_warning ("GIO TLS backend is dummy after g_io_openssl_load(NULL)");
+		return FALSE;
+	}
+	return TRUE;
+}
+```
+
+#### Add — `controller/android/main.vala` (new file)
+
+Android entry point initializing static `gioopenssl` before starting `Application`.
+
+```vala
+/*
+ * Copyright (C) 2026 Alan Knowles <alan@roojs.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+[CCode (cheader_filename = "android-gio-tls.h")]
+private extern bool argus_controller_configure_android_gio_tls_modules();
+
+namespace Argus.Controller
+{
+	int main(string[] args)
+	{
+		argus_controller_configure_android_gio_tls_modules();
+		var app = new Application();
+		return app.run(args);
+	}
+}
+```
+
+#### Add — `controller/android/Application.vala` (new file)
+
+Android `Adw.Application` entry implementing the same `Argus.Controller.Application` surface and launching `Dialog.Bootstrap` over a host `Adw.ApplicationWindow` on `activate`.
+
+```vala
+/*
+ * Copyright (C) 2026 Alan Knowles <alan@roojs.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+namespace Argus.Controller
+{
+	/**
+	 * Android controller application.
+	 *
+	 * Same public surface as desktop {@link Application} so shared
+	 * tabs and dialogs compile unchanged. Waits for Android
+	 * {@link GLib.Application.activate} from ''ToplevelActivity'',
+	 * configures the Adwaita icon theme and CSS, presents a host
+	 * {@link Adw.ApplicationWindow}, and opens {@link Dialog.Bootstrap}.
+	 *
+	 * == Example ==
+	 *
+	 * {{{
+	 * var app = new Argus.Controller.Application();
+	 * return app.run(args);
+	 * }}}
+	 */
+	public class Application : Adw.Application
+	{
+		public static string agent = "";
+		public static string command = "";
+		public OLLMrpc.Client rpc { get; set; }
+		/**
+		 * Main window opened after a connection answers.
+		 */
+		public Window window { get; set; }
+		/**
+		 * True while {@link Window} is on screen.
+		 */
+		public bool running_window = false;
+		private static GLib.FileStream? debug_log_file;
+		private static bool debug_log_in_progress;
+
+		/**
+		 * Create the Android controller application and wire activate.
+		 */
+		public Application()
+		{
+			Object(
+				application_id: "org.roojs.ArgusController",
+				flags: GLib.ApplicationFlags.DEFAULT_FLAGS
+			);
+			GLib.Log.set_default_handler((dom, lvl, msg) => {
+				if (debug_log_in_progress) {
+					return;
+				}
+				var timestamp = (new GLib.DateTime.now_local()).format("%H:%M:%S.%f");
+				var shown_domain = dom == null ? "" : dom;
+				if ((lvl & GLib.LogLevelFlags.LEVEL_CRITICAL) != 0) {
+					GLib.stderr.printf("%s: %s : %s : %s\n",
+						timestamp, lvl.to_string(), shown_domain, msg);
+				}
+				debug_log_in_progress = true;
+				if (debug_log_file == null) {
+					var log_dir = GLib.Path.build_filename(
+						GLib.Environment.get_user_cache_dir(), "argusrm");
+					var log_file_path = GLib.Path.build_filename(log_dir, "controller.log");
+					if (!GLib.FileUtils.test(log_dir, GLib.FileTest.IS_DIR)) {
+						GLib.DirUtils.create_with_parents(log_dir, 0755);
+					}
+					debug_log_file = GLib.FileStream.open(log_file_path, "w");
+				}
+				if (debug_log_file != null) {
+					debug_log_file.puts(timestamp + ": " + lvl.to_string() + " : " + msg + "\n");
+					debug_log_file.flush();
+				}
+				debug_log_in_progress = false;
+			});
+			this.activate.connect(() => {
+				OLLMrpc.rpc_register();
+				Argus.Shared.Agent.rpc_register();
+				Argus.Shared.OSQuery.SystemInfo.rpc_register();
+				Argus.Shared.OSQuery.OsVersion.rpc_register();
+				Argus.Shared.OsReleases.rpc_register();
+				Argus.Shared.OSQuery.CpuInfo.rpc_register();
+				Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
+				Argus.Shared.OSQuery.Users.rpc_register();
+				Argus.Shared.OSQuery.Groups.rpc_register();
+				Argus.Shared.OSQuery.UserGroups.rpc_register();
+				Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
+				Argus.Shared.OSQuery.DebPackages.rpc_register();
+				Argus.Shared.OSQuery.RpmPackages.rpc_register();
+				Argus.Shared.OSQuery.Programs.rpc_register();
+				Argus.Shared.Registration.Data.rpc_register();
+				Argus.Shared.SQT.Task.rpc_register();
+				Argus.Shared.SQT.TaskTarget.rpc_register();
+				Argus.Shared.SQT.Script.rpc_register();
+				Argus.Shared.SQT.ScriptRepository.rpc_register();
+				Argus.Controller.Command.rpc_register();
+				Gtk.Settings.get_default().gtk_icon_theme_name = "Adwaita";
+				var screen = Gdk.Display.get_default();
+				if (screen != null) {
+					var css = new Gtk.CssProvider();
+					css.load_from_resource("/argusrm/style.css");
+					Gtk.StyleContext.add_provider_for_display(
+						screen, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+					Gtk.IconTheme.get_for_display(screen).add_resource_path("/argusrm/icons");
+				}
+				Gtk.Window.set_default_icon_name("org.roojs.ArgusController");
+				var host = new Adw.ApplicationWindow(this) {
+					title = "Argus Remote Manager " + Argus.VERSION
+				};
+				host.set_default_size(420, 720);
+				host.present();
+				var bootstrap = new Dialog.Bootstrap(this);
+				bootstrap.present(host);
+			});
+		}
+	}
+}
+```
+
+#### Remove — `controller/android/Window.vala` (class and constructor)
+
+```vala
+	public class Window : Adw.Window
+```
+
+```vala
+		public Window(
+			Application app,
+			Connection connection,
+			Argus.Shared.Registration.Data issued
+		) {
+			this.app = app;
+```
+
+#### Replace with
+
+```vala
+	public class Window : Adw.ApplicationWindow
+```
+
+```vala
+		public Window(
+			Application app,
+			Connection connection,
+			Argus.Shared.Registration.Data issued
+		) {
+			Object(application: app);
+			this.app = app;
+```
+
+#### Remove — `controller/dialog/Bootstrap.vala` (`use`)
+
+```vala
+				window.present();
+				this.close();
+				if (replace) {
+					previous.close();
+				}
+```
+
+#### Replace with
+
+```vala
+				window.present();
+				this.close();
+				if (replace) {
+					previous.close();
+				}
+#if ANDROID
+				foreach (var win in app.get_windows()) {
+					if (win != window && win != previous) {
+						win.close();
+					}
+				}
+#endif
+```
+
+#### Remove — `controller/tab/Settings.vala` (`animation.done`)
+
+```vala
+						this.window.close();
+						new Dialog.Bootstrap(this.window.app, "choose").present(null);
+```
+
+#### Replace with
+
+```vala
+#if ANDROID
+						var host = new Adw.ApplicationWindow(this.window.app) {
+							title = "Argus Remote Manager " + Argus.VERSION
+						};
+						host.set_default_size(420, 720);
+						host.present();
+						this.window.close();
+						new Dialog.Bootstrap(this.window.app, "choose").present(host);
+#else
+						this.window.close();
+						new Dialog.Bootstrap(this.window.app, "choose").present(null);
+#endif
+```
 
 #### Add — `controller/android/android-gio-tls.h` and `controller/android/android-gio-tls.c` (new files)
 
@@ -476,13 +784,13 @@ namespace Argus.Controller
 #### Replace with
 
 ```vala
-namespace Argus.Controller
-{
 #if ANDROID
-	[CCode (cheader_filename = "android-gio-tls.h")]
-	private extern bool argus_controller_configure_android_gio_tls_modules();
+[CCode (cheader_filename = "android-gio-tls.h")]
+private extern bool argus_controller_configure_android_gio_tls_modules();
 #endif
 
+namespace Argus.Controller
+{
 	int main(string[] args)
 	{
 #if ANDROID
@@ -1405,7 +1713,12 @@ jobs:
 - ✔️ Inspected `controller/Window.vala`, `controller/TabList.vala`, `controller/Application.vala`, `controller/dialog/Bootstrap.vala`, `controller/meson.build`, `meson.build`, `shared/Registration/Data.vala`, `shared/android/ArgusApplication.java`, `shared/android/PairBrowse.java`, `packaging/android/build-apk.sh`, `packaging/android/pixiewood-argus.xml`, `.github/workflows/x-android.yml`, `.github/workflows/release-android.yml`, and sibling `OLLMchat` Android build scripts (`v1.4.12`).
 - ✔️ Added `controller/android/Window.vala` (`Adw.OverlaySplitView` starting open with top-left `open-menu-symbolic` toggle in `content_header`, hiding drawer on selection), `controller/android/android-gio-tls.h`, `controller/android/android-gio-tls.c`, and `packaging/android/icons/manifest`.
 - ✔️ Updated `controller/TabList.vala`, `controller/main.vala`, `controller/Application.vala`, `controller/dialog/Bootstrap.vala`, `shared/Registration/Data.vala`, `meson.build`, `controller/meson.build`, `shared/android/ArgusApplication.java`, `packaging/android/pixiewood-argus.xml`, `packaging/android/build-apk.sh`, `.github/workflows/x-android.yml`, and `.github/workflows/release-android.yml`.
-- ✔️ Verified `ninja -C build`, `meson test -C build --print-errorlogs` (6/6), temporary `docs/valadoc`, and `valac -C -D ANDROID` across `shared/` + `controller/` + `controller/android/Window.vala`.
+- ✔️ Defaulted `PIXIEWOOD_USE_PIXIE=1` in `packaging/android/build-apk.sh`, moved `argus_controller_configure_android_gio_tls_modules` extern to file scope in `controller/main.vala`, and updated `.gitignore` for staged/local Android build directories.
+- ✔️ Built `.pixiewood/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk` (21M) using the 25 published Pixie packages; verified `lib/arm64-v8a/libargus-controller.so`, `assets/share/ssl/certs/ca-certificates.crt`, `assets/share/mime/mime.cache`, and `assets/share/icons/Adwaita/symbolic/actions/open-menu-symbolic.svg`.
+- ✔️ Separated Android entrypoints into `controller/android/Application.vala` (`Adw.Application`) and `controller/android/main.vala` (keeping desktop `controller/Application.vala` and `controller/main.vala` untouched).
+- ✔️ Generated `android/icon-foreground.xml` from `argusrm.svg` (replacing the solid `#3584e4` placeholder that caused the launcher/splash blue circle), set `#ffffff` icon background in `packaging/android/pixiewood-argus.xml`, and added logo + title + spinner to the bootstrap host `Adw.ApplicationWindow` in `controller/android/Application.vala`.
+- ✔️ Freed space on `emulator-5554` (cleared Google app caches, uninstalled `com.google.android.apps.docs.editors.docs` and YouTube updates), installed `app-arm64-v8a-debug.apk`, and verified launch, adaptive launcher icon, TLS backend (`GTlsBackendOpenssl`), logo/spinner backdrop, and `Argus Remote Manager` bootstrap sheet on `emulator-5554`.
+- ✔️ Fixed `controller/dialog/Bootstrap.vala` under `#if ANDROID` so cancelling `RegisterWindow`, registration errors, connection errors, and `deregister_local()` all stay on `"Connect a remote machine"` rather than showing `"Log in to local machine"` or `"Log in to register"`.
 
 ---
 

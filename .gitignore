@@ -2,3 +2,17 @@ build/
 build-*/
 dist-windows/
 .gdb_history
+.android-sdk
+.android-tools
+.pixiewood
+subprojects/
+scripts/android/
+vendor/
+android/pixiewood-wraps/
+android/pixiewood-extra.cross
+android/pixie-gtk.pins
+android/pixie-webkit.pins
+android/local-build.local.env
+android/local-build.env
+.buildconfig
+artifacts/
