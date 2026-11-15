@@ -221,9 +221,31 @@ namespace Argus.Controller.Tab.Asset
 				has_arrow = false
 			};
 			row_menu.set_parent(this.grid);
+			var task_store = new Argus.Controller.Store.TaskTarget(window.app);
+			task_store.failed.connect((heading, message) => {
+				toasts.add_toast(new Adw.Toast(heading + ": " + message));
+			});
+			task_store.submitted.connect((count) => {
+				var label = count == 1 ?
+					"Task created and running — view it in the Tasks tab" :
+					count.to_string() + " tasks created and running — view them in the Tasks tab";
+				toasts.add_toast(new Adw.Toast(label));
+			});
 			var row_actions = new GLib.SimpleActionGroup();
 			var update_action = new GLib.SimpleAction("update", null);
+			update_action.activate.connect(() => {
+				task_store.run_script("linux", "apt", "update",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT));
+				task_store.run_script("linux", "dnf", "update",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF));
+			});
 			var upgrade_action = new GLib.SimpleAction("upgrade", null);
+			upgrade_action.activate.connect(() => {
+				task_store.run_script("linux", "apt", "upgrade",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT));
+				task_store.run_script("linux", "dnf", "upgrade",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF));
+			});
 			row_actions.add_action(update_action);
 			row_actions.add_action(upgrade_action);
 			this.grid.insert_action_group("row", row_actions);
@@ -231,44 +253,8 @@ namespace Argus.Controller.Tab.Asset
 				button = Gdk.BUTTON_SECONDARY
 			};
 			row_click.pressed.connect((n_press, x, y) => {
-				var picked = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
-				while (picked != null && picked != this.grid &&
-					picked.get_data<Gtk.ListItem>("argus-grid-row") == null) {
-					picked = picked.parent;
-				}
-				if (picked == null || picked == this.grid) {
-					row_click.set_state(Gtk.EventSequenceState.DENIED);
-					return;
-				}
-				var row_item = picked.get_data<Gtk.ListItem>("argus-grid-row");
-				if (row_item == null || row_item.item == null) {
-					return;
-				}
-				if (!selection.is_selected(row_item.position)) {
-					selection.select_item(row_item.position, true);
-				}
-				var has_linux = false;
-				var total = selection.get_n_items();
-				for (var i = (uint) 0; i < total; i++) {
-					if (!selection.is_selected(i)) {
-						continue;
-					}
-					var row = selection.get_item(i) as Argus.Shared.OSQuery.SystemInfo;
-					if (row == null) {
-						continue;
-					}
-					switch (row.package_manager()) {
-						case Argus.Shared.OSQuery.PackageManager.APT:
-						case Argus.Shared.OSQuery.PackageManager.DNF:
-							has_linux = true;
-							break;
-
-						default:
-							continue;
-					}
-					break;
-				}
-				if (!has_linux) {
+				if (this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT).size == 0 &&
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF).size == 0) {
 					row_click.set_state(Gtk.EventSequenceState.DENIED);
 					return;
 				}
@@ -287,6 +273,30 @@ namespace Argus.Controller.Tab.Asset
 			});
 			this.append(bar);
 			this.append(toasts);
+		}
+
+		/**
+		 * Collect ''agent.id'' values for selected machines matching ''pm''.
+		 *
+		 * @param pm package manager family to match
+		 * @return selected agent ids
+		 */
+		private Gee.ArrayList<int32> selected_agents(Argus.Shared.OSQuery.PackageManager pm)
+		{
+			var ids = new Gee.ArrayList<int32>();
+			var selection = (Gtk.MultiSelection) this.grid.model;
+			var total = selection.get_n_items();
+			for (var i = (uint) 0; i < total; i++) {
+				if (!selection.is_selected(i)) {
+					continue;
+				}
+				var row = selection.get_item(i) as Argus.Shared.OSQuery.SystemInfo;
+				if (row == null || row.package_manager() != pm) {
+					continue;
+				}
+				ids.add((int32) row.agent_id);
+			}
+			return ids;
 		}
 	}
 }

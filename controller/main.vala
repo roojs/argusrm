@@ -18,8 +18,16 @@
 
 namespace Argus.Controller
 {
+#if ANDROID
+	[CCode (cheader_filename = "android-gio-tls.h")]
+	private extern bool argus_controller_configure_android_gio_tls_modules();
+#endif
+
 	int main(string[] args)
 	{
+#if ANDROID
+		argus_controller_configure_android_gio_tls_modules();
+#endif
 		var app = new Application();
 		return app.run(args);
 	}

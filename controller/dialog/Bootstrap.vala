@@ -193,9 +193,14 @@ namespace Argus.Controller.Dialog
 			var path = GLib.Path.build_filename(
 				GLib.Environment.get_user_config_dir(), "argusrm", "connections.json");
 			if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
+#if ANDROID
+				this.page("Argus Remote Manager", "",
+					{ "Connect a remote machine" }, { "remote" });
+#else
 				this.page("Argus Remote Manager", "",
 					{ "Log in to local machine", "Connect a remote machine" },
 					{ "register", "remote" });
+#endif
 				return;
 			}
 			var text = "";
@@ -234,9 +239,14 @@ namespace Argus.Controller.Dialog
 				this.connections.add((Connection) obj);
 			}
 			if (this.connections.size < 1 || this.adding) {
+#if ANDROID
+				this.page("Argus Remote Manager", "",
+					{ "Connect a remote machine" }, { "remote" });
+#else
 				this.page("Argus Remote Manager", "",
 					{ "Log in to local machine", "Connect a remote machine" },
 					{ "register", "remote" });
+#endif
 				return;
 			}
 #if LINUX
@@ -264,6 +274,27 @@ namespace Argus.Controller.Dialog
 					continue;
 				}
 				try {
+					var parsed = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), secret)
+						as Argus.Shared.Registration.Data;
+					if (parsed == null || parsed.private_key == "" || parsed.client_certificate == "") {
+						continue;
+					}
+					this.credentials.set(connection.name, parsed);
+				} catch (GLib.Error e) {
+					continue;
+				}
+			}
+#elif ANDROID
+			var cred_dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_config_dir(), "argusrm", "credentials");
+			foreach (var connection in this.connections) {
+				var cred_path = GLib.Path.build_filename(cred_dir, connection.name + ".json");
+				if (!GLib.FileUtils.test(cred_path, GLib.FileTest.EXISTS)) {
+					continue;
+				}
+				var secret = "";
+				try {
+					GLib.FileUtils.get_contents(cred_path, out secret);
 					var parsed = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), secret)
 						as Argus.Shared.Registration.Data;
 					if (parsed == null || parsed.private_key == "" || parsed.client_certificate == "") {
@@ -684,6 +715,27 @@ namespace Argus.Controller.Dialog
 					{ "Retry", "Log in to register" }, { "retry", "register" });
 				return;
 			}
+#elif ANDROID
+			var cred_dir = GLib.Path.build_filename(dir, "credentials");
+			if (GLib.DirUtils.create_with_parents(cred_dir, 0700) != 0) {
+				this.page("Could not register", "Could not create the credentials directory",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+				return;
+			}
+			var secret = new Argus.Shared.Registration.Data() {
+				private_key = data.private_key,
+				client_certificate = data.client_certificate,
+				ca_certificate = data.ca_certificate
+			};
+			var cred_path = GLib.Path.build_filename(cred_dir, data.name + ".json");
+			try {
+				GLib.FileUtils.set_contents(cred_path, Json.gobject_to_data(secret, null));
+				GLib.FileUtils.chmod(cred_path, 0600);
+			} catch (GLib.Error e) {
+				this.page("Could not register", e.message,
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+				return;
+			}
 #endif
 			this.credentials.set(data.name, data);
 			if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
@@ -753,9 +805,15 @@ namespace Argus.Controller.Dialog
 		 */
 		private void connect_remote()
 		{
+#if ANDROID
+			var data_dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_config_dir(), "argusrm", "certs");
+#else
+			var data_dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argusrm");
+#endif
 			var window = new Argus.Shared.RegisterWindow() {
-				data_dir = GLib.Path.build_filename(
-					GLib.Environment.get_user_data_dir(), "argusrm"),
+				data_dir = data_dir,
 				is_controller = true,
 				username = GLib.Environment.get_user_name(),
 				hostname = GLib.Environment.get_host_name()

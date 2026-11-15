@@ -25,7 +25,15 @@ if host_machine.system() == 'android'
 	# libocsqlite/meson.build compiles a typelib only when this is found.
 	g_ir_compiler = disabler()
 	valac_exe = find_program('valac')
+	if not dependency('gioopenssl', required: false).found()
+		subproject('glib-networking')
+	endif
 	gee_vapi_dir = meson.project_source_root() / 'subprojects' / 'libgee-0.20.8' / 'gee'
+	gee_dep = dependency('gee-0.8')
+	if gee_dep.type_name() == 'pkgconfig'
+		gee_vapi_dir = gee_dep.get_variable(pkgconfig: 'prefix') / 'share' / 'vala' / 'vapi'
+		add_project_arguments(['--vapidir', gee_vapi_dir], language: 'vala')
+	endif
 	if not fs.exists(meson.project_source_root() / 'vendor' / 'libocrpc' / 'meson.build')
 		error('Android builds require vendor/libocrpc staged from the pinned OLLMchat revision')
 	endif

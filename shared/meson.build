@@ -41,7 +41,7 @@ shared_sqt_sources = files(
 	'SQT/Task.vala',
 	'SQT/TaskTarget.vala',
 	'SQT/Script.vala',
-	'SQT/ScriptAgent.vala',
+	'SQT/ScriptPerm.vala',
 	'SQT/ScriptRepository.vala',
 )
 shared_sources = files(

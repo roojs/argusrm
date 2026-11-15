@@ -1,6 +1,7 @@
 Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 Machine,agent-id-hostname,ON,160,text,ON
+Connected,agent-id-connected,ON,84,tick-connected,ON
 Task,display-task,ON,260,text,ON
 Task name,task-id-name,off,180,text,ON
 Command,task-id-command,off,280,text,ON

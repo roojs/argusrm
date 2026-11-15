@@ -1,0 +1,26 @@
+# Tab-separated: dest_under_Adwaita	source_theme	source_relpath
+symbolic/actions/open-menu-symbolic.svg	Adwaita	symbolic/actions/open-menu-symbolic.svg
+symbolic/actions/list-add-symbolic.svg	Adwaita	symbolic/actions/list-add-symbolic.svg
+symbolic/actions/help-about-symbolic.svg	Adwaita	symbolic/actions/help-about-symbolic.svg
+symbolic/actions/view-refresh-symbolic.svg	Adwaita	symbolic/actions/view-refresh-symbolic.svg
+symbolic/actions/edit-copy-symbolic.svg	Adwaita	symbolic/actions/edit-copy-symbolic.svg
+symbolic/actions/edit-clear-symbolic.svg	Adwaita	symbolic/actions/edit-clear-symbolic.svg
+symbolic/actions/edit-find-symbolic.svg	Adwaita	symbolic/actions/edit-find-symbolic.svg
+symbolic/actions/object-select-symbolic.svg	Adwaita	symbolic/actions/object-select-symbolic.svg
+symbolic/actions/system-log-out-symbolic.svg	Adwaita	symbolic/actions/system-log-out-symbolic.svg
+symbolic/actions/view-reveal-symbolic.svg	Adwaita	symbolic/actions/view-reveal-symbolic.svg
+symbolic/actions/view-conceal-symbolic.svg	Adwaita	symbolic/actions/view-conceal-symbolic.svg
+symbolic/actions/go-next-symbolic.svg	Adwaita	symbolic/actions/go-next-symbolic.svg
+symbolic/actions/go-previous-symbolic.svg	Adwaita	symbolic/actions/go-previous-symbolic.svg
+symbolic/categories/preferences-system-symbolic.svg	Adwaita	symbolic/categories/preferences-system-symbolic.svg
+symbolic/legacy/system-users-symbolic.svg	Adwaita	symbolic/legacy/system-users-symbolic.svg
+symbolic/devices/computer-symbolic.svg	Adwaita	symbolic/devices/computer-symbolic.svg
+symbolic/devices/network-wired-symbolic.svg	Adwaita	symbolic/devices/network-wired-symbolic.svg
+symbolic/mimetypes/package-x-generic-symbolic.svg	Adwaita	symbolic/mimetypes/package-x-generic-symbolic.svg
+symbolic/places/folder-symbolic.svg	Adwaita	symbolic/places/folder-symbolic.svg
+symbolic/status/network-transmit-symbolic.svg	Adwaita	symbolic/status/network-transmit-symbolic.svg
+symbolic/places/user-trash-symbolic.svg	Adwaita	symbolic/places/user-trash-symbolic.svg
+symbolic/status/dialog-information-symbolic.svg	Adwaita	symbolic/status/dialog-information-symbolic.svg
+symbolic/ui/pan-down-symbolic.svg	Adwaita	symbolic/ui/pan-down-symbolic.svg
+symbolic/ui/pan-up-symbolic.svg	Adwaita	symbolic/ui/pan-up-symbolic.svg
+symbolic/ui/window-close-symbolic.svg	Adwaita	symbolic/ui/window-close-symbolic.svg

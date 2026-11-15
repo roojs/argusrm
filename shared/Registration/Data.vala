@@ -159,6 +159,13 @@ namespace Argus.Shared.Registration
 			attrs.insert("service", "argusrm");
 			attrs.insert("name", this.name);
 			Secret.password_clearv_sync(schema, attrs, null);
+#elif ANDROID
+			var cred_path = GLib.Path.build_filename(
+				GLib.Environment.get_user_config_dir(), "argusrm", "credentials",
+				this.name + ".json");
+			if (GLib.FileUtils.test(cred_path, GLib.FileTest.EXISTS)) {
+				GLib.FileUtils.remove(cred_path);
+			}
 #endif
 			var path = GLib.Path.build_filename(
 				GLib.Environment.get_user_config_dir(), "argusrm", "connections.json");

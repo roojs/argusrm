@@ -64,7 +64,7 @@
 - 🔷 Sort default: **% full descending** (fullest mounts first — what matters for “running out”); optional sort by path.
 - 💩 Low-space affordance (e.g. bar turns warning colour when under 10% free or under a fixed GiB) — nice for v1 if cheap.
 - 💩 Filter: hide noisy ephemeral mounts (`tmpfs`, `snap`, loop/docker) behind a toggle defaulting sensibly per OS.
-- 💩 Optional v2: periodic resync (daily?) like [2026-11-14-log-monitoring-phases-2-3.md](2026-11-14-log-monitoring-phases-2-3.md) phase 2 — v1 startup-only is enough to ship the tab.
+- 💩 Optional v2: periodic resync (daily?) like [2.3-future-monitoring.md](../plans/2.3-future-monitoring.md) — v1 startup-only is enough to ship the tab.
 - 🚫 Do not cram storage into `machine_general.csv`.
 
 ### Slice 1c: agent connection on General

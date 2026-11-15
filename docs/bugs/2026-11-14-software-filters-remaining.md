@@ -45,7 +45,7 @@
 1. **RPM / Windows bars** — mirror Debian patterns where they apply (search + platform-specific facets); write bar spec in this bug before code if fields differ from Debian.
 2. **Needs updating** — visible column and/or bar toggle on Debian and RPM; wire `Filters.*.match` to `update_since`.
 3. **Secondary packages** — Debian-only filter rule (source/namesake); do not suffix-heuristic hide `-dev` (per old plan LLM notes).
-4. **Bin click** — depends on task UI / signing; link [2026-11-13-machines-package-update.md](2026-11-13-machines-package-update.md) when Remove exists.
+4. **Bin click** — depends on task UI / signing; link [done/2026-11-15-FIXED-machines-package-update-phase4-ui.md](done/2026-11-15-FIXED-machines-package-update-phase4-ui.md) when Remove exists.
 
 ---
 

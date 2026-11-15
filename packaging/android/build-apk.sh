@@ -45,6 +45,39 @@ install_argus_java() {
   cp -a "$browse_src" "$dest_dir/PairBrowse.java"
 }
 
+install_argus_icons() {
+  local manifest="$ROOT_DIR/packaging/android/icons/manifest"
+  local assets_icons="$ROOT_DIR/.pixiewood/android/app/src/main/assets/share/icons/Adwaita"
+  local dest_relpath source_theme source_relpath src dest_file line
+
+  if [ ! -f "$manifest" ]; then
+    echo "Argus Android icon manifest missing: $manifest" >&2
+    exit 1
+  fi
+  rm -rf "$assets_icons"
+  mkdir -p "$assets_icons"
+  if [ -f /usr/share/icons/Adwaita/index.theme ]; then
+    cp -a /usr/share/icons/Adwaita/index.theme "$assets_icons/index.theme"
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    [ -z "$line" ] && continue
+    dest_relpath="${line%%$'\t'*}"
+    line="${line#*$'\t'}"
+    source_theme="${line%%$'\t'*}"
+    source_relpath="${line#*$'\t'}"
+    src="/usr/share/icons/$source_theme/$source_relpath"
+    if [ ! -f "$src" ]; then
+      echo "Icon source missing: $src" >&2
+      exit 1
+    fi
+    dest_file="$assets_icons/$dest_relpath"
+    mkdir -p "$(dirname "$dest_file")"
+    cp -rL "$src" "$dest_file"
+  done < "$manifest"
+}
+
 patch_argus_manifest() {
   local manifest="$ROOT_DIR/.pixiewood/android/app/src/main/AndroidManifest.xml"
 
@@ -53,6 +86,15 @@ patch_argus_manifest() {
     exit 1
   fi
   sed -i 's/android:name="org.gtk.android.RuntimeApplication"/android:name="org.roojs.argus.ArgusApplication"/' "$manifest"
+  if ! grep -q 'android.permission.ACCESS_NETWORK_STATE' "$manifest"; then
+    sed -i '/android.permission.INTERNET/a\  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>' "$manifest"
+  fi
+  if ! grep -q 'android.permission.CHANGE_WIFI_MULTICAST_STATE' "$manifest"; then
+    sed -i '/android.permission.INTERNET/a\  <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>' "$manifest"
+  fi
+  if grep -q 'android:launchMode="standard"' "$manifest"; then
+    sed -i 's/android:launchMode="standard"/android:launchMode="singleTask"/' "$manifest"
+  fi
 }
 
 # Same order as OLLMchat run_pixiewood_build. generate's org/gtk/android
@@ -65,11 +107,24 @@ run_argus_pixiewood_build() {
   maybe_reconfigure_pixiewood_build "$MESON_FOR_ANDROID" "${PIXIEWOOD_CONFIGURE_OPTIONS[@]}"
 
   rm -rf "$ROOT_DIR/.pixiewood/android/app/src/main/jniLibs"
+  if [ "$PIXIEWOOD_USE_PIXIE" = 1 ]; then
+    local base clone
+    base="$(dirname "$PIXIEWOOD_BUILD_DIR")"
+    clone="$base/pixie-pkg/scripts/stage-runtime.sh"
+    if [ ! -x "$clone" ]; then
+      echo "pixie-pkg stage-runtime missing: $clone" >&2
+      exit 1
+    fi
+    "$clone" "$PIXIEWOOD_PIXIE" "$base/root"
+  fi
   sync_pixiewood_ini_manifest
   run_pixiewood generate
   patch_pixiewood_gradle_native_libs
   run_pixiewood build --skip-gradle
   materialize_pixiewood_jni_libs
+  install_ca_certificates_to_assets
+  install_argus_icons
+  install_shared_mime_to_assets
   install_argus_java
   patch_argus_manifest
   run_pixiewood_gradle_assemble

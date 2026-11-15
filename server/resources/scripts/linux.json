@@ -1,0 +1,30 @@
+[
+  {
+    "platform": "linux",
+    "app": "apt",
+    "action": "update",
+    "allow_all": true,
+    "body": "#!/bin/sh\nset -e\nDEBIAN_FRONTEND=noninteractive apt-get update\n"
+  },
+  {
+    "platform": "linux",
+    "app": "apt",
+    "action": "upgrade",
+    "allow_all": true,
+    "body": "#!/bin/sh\nset -e\nDEBIAN_FRONTEND=noninteractive apt-get update\nDEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold -y upgrade\n"
+  },
+  {
+    "platform": "linux",
+    "app": "dnf",
+    "action": "update",
+    "allow_all": true,
+    "body": "#!/bin/sh\nset -e\ndnf -y makecache --refresh\n"
+  },
+  {
+    "platform": "linux",
+    "app": "dnf",
+    "action": "upgrade",
+    "allow_all": true,
+    "body": "#!/bin/sh\nset -e\ndnf -y upgrade\n"
+  }
+]

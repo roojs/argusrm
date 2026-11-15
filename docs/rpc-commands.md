@@ -304,6 +304,11 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 💩 Action `connected` is a known certificate joining. Action `disconnected` is that socket stopping.
 - ℹ️ The agent page reloads on either action.
 
+### `event.task`
+
+- 🔷 Broadcast when a task is queued, started, or ended.
+- 🔷 Action `queued`, `started`, or `ended`.
+
 ### `agent.removed`
 
 - 🔷 Client notification on the machine `Agent.remove` is deleting.
@@ -394,5 +399,5 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 Controller calls for the script library and tasks. Defined in [7.1](plans/7.1-tasks-implementation.md).
 
 - `ScriptRepository.clone` `o`, `pull` `i`, `remove` `i`, `list` — in the tree. Clone uses libgit2 (`Ggit`). The row is written after the checkout succeeds.
-- `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `enable` `ii`, `disable` `ii`, `agents` `i`
-- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `watch` `i`, `approve` `ib`, `duplicate` `i`, `targets` `i`
+- `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `search` `sss` (`platform`, `app`, `action` -> `o` array), `enable` `ii`, `disable` `ii`, `agents` `i`
+- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `watch` `i`, `approve` `ib`, `submit` `ovb` (`task`, `ai` `agent_ids`, `watch` -> `o` targets), `duplicate` `i`, `targets` `i`, `all_targets` (no args -> `o` joined targets), `logs` `i` (`target_id` -> `as` `[stdout, stderr, stdin]`)

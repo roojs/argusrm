@@ -74,8 +74,11 @@ namespace Argus.Server.SQT
 				"target", "iv",
 				"watch", "i",
 				"approve", "ib",
+				"submit", "ovb",
 				"duplicate", "i",
-				"targets", "i"
+				"targets", "i",
+				"all_targets", "",
+				"logs", "i"
 			);
 		}
 
@@ -101,18 +104,16 @@ namespace Argus.Server.SQT
 				return;
 			}
 			if (row.script_id > 0) {
-				var scripts = new Gee.ArrayList<Argus.Shared.SQT.Script>();
-				var binds = new Gee.HashMap<string, int>();
-				binds.set("id", (int) row.script_id);
-				Argus.Shared.SQT.Script.query(this.app.db).selectWhere(
-					"WHERE id = $id AND filetype = 'script'", binds, null, scripts);
-				if (scripts.size == 0) {
+				var script = row.script();
+				if (script.id < 1 || (script.filetype != "script" && script.filetype != "inline")) {
 					request.reply(new OLLMrpc.Response() {
 						error = new OLLMrpc.Error.INVALID_REQUEST("unknown script")
 					});
 					return;
 				}
 			}
+			row.created_by = Argus.Shared.Agent.user(request).id;
+			row.approved_by = 0;
 			row.id = 0;
 			row.completed = 0;
 			row.is_draft = true;
@@ -150,13 +151,8 @@ namespace Argus.Server.SQT
 				return;
 			}
 			if (row.script_id > 0) {
-				var scripts = new Gee.ArrayList<Argus.Shared.SQT.Script>();
-				var script_binds = new Gee.HashMap<string, int>();
-				script_binds.set("id", (int) row.script_id);
-				Argus.Shared.SQT.Script.query(this.app.db).selectWhere(
-					"WHERE id = $id AND filetype = 'script'",
-					script_binds, null, scripts);
-				if (scripts.size == 0) {
+				var script = row.script();
+				if (script.id < 1 || (script.filetype != "script" && script.filetype != "inline")) {
 					request.reply(new OLLMrpc.Response() {
 						error = new OLLMrpc.Error.INVALID_REQUEST("unknown script")
 					});
@@ -253,16 +249,18 @@ namespace Argus.Server.SQT
 				existing_agents.set((int) row.agent_id, row);
 			}
 			var allowed = new Gee.HashMap<int, bool>();
-			if (tasks.get(0).script_id > 0) {
-				var enabled = new Gee.ArrayList<Argus.Shared.SQT.ScriptAgent>();
+			var needs_perm = tasks.get(0).script_id > 0 && !tasks.get(0).script().allow_all;
+			if (needs_perm) {
+				var enabled = new Gee.ArrayList<Argus.Shared.SQT.ScriptPerm>();
 				var enabled_binds = new Gee.HashMap<string, int>();
 				enabled_binds.set("script_id", (int) tasks.get(0).script_id);
-				Argus.Shared.SQT.ScriptAgent.query(this.app.db).selectWhere(
+				Argus.Shared.SQT.ScriptPerm.query(this.app.db).selectWhere(
 					"WHERE script_id = $script_id", enabled_binds, null, enabled);
-				foreach (var script_agent in enabled) {
-					allowed.set((int) script_agent.agent_id, true);
+				foreach (var perm in enabled) {
+					allowed.set((int) perm.agent_id, true);
 				}
-			} else {
+			}
+			if (!needs_perm) {
 				var agents = new Gee.ArrayList<Argus.Shared.Agent>();
 				Argus.Shared.Agent.query(this.app.db).select("WHERE status = 1", agents);
 				foreach (var agent in agents) {
@@ -329,7 +327,11 @@ namespace Argus.Server.SQT
 				});
 				return;
 			}
-			if (tasks.get(0).scheduled <= new GLib.DateTime.now_utc().to_unix()) {
+			var now = new GLib.DateTime.now_utc().to_unix();
+			if (tasks.get(0).scheduled < 1) {
+				tasks.get(0).scheduled = now;
+			}
+			if (tasks.get(0).scheduled < now) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("task schedule has passed")
 				});
@@ -348,6 +350,7 @@ namespace Argus.Server.SQT
 				return;
 			}
 			tasks.get(0).is_draft = !approved;
+			tasks.get(0).approved_by = approved ? Argus.Shared.Agent.user(request).id : 0;
 			Argus.Shared.SQT.Task.query(this.app.db).updateById(tasks.get(0));
 			if (!approved) {
 				foreach (var row in rows) {
@@ -387,7 +390,7 @@ namespace Argus.Server.SQT
 			}
 			rows.get(0).is_watched = true;
 			Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(rows.get(0));
-			Argus.Server.Command.watch(target_id, request.connection);
+			Argus.Server.Command.watch(target_id, request.connection, rows.get(0).identifier);
 			this.app.db.backupDB();
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows.get(0)),
@@ -462,6 +465,240 @@ namespace Argus.Server.SQT
 				"WHERE task_id = $task_id", binds, null, rows);
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Create, target, optionally watch, and approve a task atomically.
+		 *
+		 * @param request inbound RPC from the controller
+		 * @param row task values (with optional signing fields)
+		 * @param agent_ids variant containing an ''ai'' array of agent ids
+		 * @param watch true to stream target output to this connection
+		 */
+		public void submit(
+			OLLMrpc.Request request,
+			Argus.Shared.SQT.Task row,
+			GLib.Variant agent_ids,
+			bool watch
+		) {
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			if (row.script_id < 0 || (!row.is_script && row.script_id > 0) ||
+				(row.script_id == 0 && row.command == "") ||
+				!agent_ids.is_of_type(new GLib.VariantType("ai")) ||
+				agent_ids.n_children() < 1) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("invalid task")
+				});
+				return;
+			}
+			var needs_perm = false;
+			if (row.script_id > 0) {
+				var script = row.script();
+				if (script.id < 1 || (script.filetype != "script" && script.filetype != "inline")) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INVALID_REQUEST("unknown script")
+					});
+					return;
+				}
+				needs_perm = !script.allow_all;
+			}
+			var allowed = new Gee.HashMap<int, bool>();
+			if (needs_perm) {
+				var enabled = new Gee.ArrayList<Argus.Shared.SQT.ScriptPerm>();
+				var enabled_binds = new Gee.HashMap<string, int>();
+				enabled_binds.set("script_id", (int) row.script_id);
+				Argus.Shared.SQT.ScriptPerm.query(this.app.db).selectWhere(
+					"WHERE script_id = $script_id", enabled_binds, null, enabled);
+				foreach (var perm in enabled) {
+					allowed.set((int) perm.agent_id, true);
+				}
+			}
+			if (!needs_perm) {
+				var agents = new Gee.ArrayList<Argus.Shared.Agent>();
+				Argus.Shared.Agent.query(this.app.db).select("WHERE status = 1", agents);
+				foreach (var agent in agents) {
+					allowed.set((int) agent.id, true);
+				}
+			}
+			for (var i = 0; i < agent_ids.n_children(); i++) {
+				var agent_id = agent_ids.get_child_value(i).get_int32();
+				if (allowed.has_key(agent_id)) {
+					continue;
+				}
+				var message = needs_perm ?
+					"script is not enabled on agent " + agent_id.to_string() :
+					"unknown agent " + agent_id.to_string();
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST(message)
+				});
+				return;
+			}
+			var caller_id = Argus.Shared.Agent.user(request).id;
+			var now = new GLib.DateTime.now_utc().to_unix();
+			row.id = 0;
+			row.completed = 0;
+			row.is_template = false;
+			row.is_draft = false;
+			row.created_by = caller_id;
+			row.approved_by = caller_id;
+			if (row.scheduled < 1) {
+				row.scheduled = now;
+			}
+			/* Hook for 6.0-security-issues controller_sig verification */
+			Argus.Shared.SQT.Task.query(this.app.db).insert(row);
+			var created_targets = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			var seen = new Gee.HashMap<int, bool>();
+			for (var i = 0; i < agent_ids.n_children(); i++) {
+				var agent_id = agent_ids.get_child_value(i).get_int32();
+				if (seen.has_key(agent_id)) {
+					continue;
+				}
+				seen.set(agent_id, true);
+				var target = new Argus.Shared.SQT.TaskTarget() {
+					task_id = row.id,
+					agent_id = agent_id,
+					is_watched = watch
+				};
+				Argus.Shared.SQT.TaskTarget.query(this.app.db).insert(target);
+				if (watch) {
+					Argus.Server.Command.watch((int) target.id, request.connection);
+				}
+				created_targets.add(target);
+			}
+			this.app.db.backupDB();
+			this.app.broadcast(new OLLMrpc.Notification() {
+				method = "event.task",
+				action = "queued"
+			});
+			this.app.scheduler.reschedule();
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", created_targets),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * List all task targets joined with task and agent display fields.
+		 *
+		 * @param request inbound RPC from the controller
+		 */
+		public void all_targets(OLLMrpc.Request request)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			var query = Argus.Shared.SQT.TaskTarget.query(this.app.db);
+			var columns = string.joinv(", ", query.getColsExcept(null, "task_target."));
+			query.selectQuery(@"
+				SELECT
+					$(columns),
+					COALESCE(task.name, '') as task_id_name,
+					COALESCE(task.command, '') as task_id_command,
+					COALESCE(task.is_draft, 0) as task_id_is_draft,
+					COALESCE(task.scheduled, 0) as task_id_scheduled,
+					COALESCE(NULLIF(agent.hostname, ''),
+						COALESCE(agent.requester, '')) as agent_id_hostname
+				FROM
+					task_target
+				LEFT JOIN
+					task
+				ON
+					task.id = task_target.task_id
+				LEFT JOIN
+					agent
+				ON
+					agent.id = task_target.agent_id
+				ORDER BY
+					task_target.id DESC
+			", rows);
+			var live = new Gee.HashMap<int, bool>();
+			if (this.app != null && this.app.ssl_listen != null) {
+				foreach (var connection in this.app.ssl_listen.connections) {
+					if (!connection.running || connection.user.id < 1) {
+						continue;
+					}
+					live.set((int) connection.user.id, true);
+				}
+			}
+			foreach (var row in rows) {
+				row.agent_id_connected = live.has_key((int) row.agent_id);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Read saved stdout, stderr, and stdin logs for one target.
+		 *
+		 * @param request inbound RPC from the controller
+		 * @param target_id ''task_target.id''
+		 */
+		public void logs(OLLMrpc.Request request, int target_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			var binds = new Gee.HashMap<string, int>();
+			binds.set("id", target_id);
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).selectWhere(
+				"WHERE id = $id", binds, null, rows);
+			if (rows.size == 0) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown target")
+				});
+				return;
+			}
+			var row = rows.get(0);
+			string[] result = { "", "", "" };
+			if (row.identifier < 1) {
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("as", result),
+					msg = "ok"
+				});
+				return;
+			}
+			var dir = row.log_dir;
+			if (dir == "" && row.started > 0) {
+				var when = new GLib.DateTime.from_unix_local(row.started);
+				if (when != null) {
+					dir = GLib.Path.build_filename(
+						Argus.LOG_DIR, "commands",
+						when.format("%Y"), when.format("%m"), when.format("%d"));
+				}
+			}
+			if (dir == "") {
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("as", result),
+					msg = "ok"
+				});
+				return;
+			}
+			string[] exts = { ".stdout", ".stderr", ".stdin" };
+			for (var i = 0; i < 3; i++) {
+				var path = GLib.Path.build_filename(dir,
+					row.agent_id.to_string() + "-" +
+					row.identifier.to_string() + exts[i]);
+				if (!GLib.FileUtils.test(path, GLib.FileTest.IS_REGULAR)) {
+					continue;
+				}
+				var body = "";
+				try {
+					GLib.FileUtils.get_contents(path, out body);
+				} catch (GLib.Error e) {
+					body = "";
+				}
+				result[i] = body;
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("as", result),
 				msg = "ok"
 			});
 		}
@@ -542,6 +779,10 @@ namespace Argus.Server.SQT
 				busy_agents.set((int) target.agent_id, true);
 				target.started = now;
 				target.identifier = order.identifier;
+				if (Argus.Server.Command.logs != null &&
+					Argus.Server.Command.logs.has_key(order.identifier)) {
+					target.log_dir = Argus.Server.Command.logs.get(order.identifier);
+				}
 				Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
 				started = true;
 				GLib.debug("task %d target %s started %d",
@@ -549,6 +790,18 @@ namespace Argus.Server.SQT
 			}
 			if (rescheduled || started) {
 				this.app.db.backupDB();
+			}
+			if (rescheduled && !started) {
+				this.app.broadcast(new OLLMrpc.Notification() {
+					method = "event.task",
+					action = "queued"
+				});
+			}
+			if (started) {
+				this.app.broadcast(new OLLMrpc.Notification() {
+					method = "event.task",
+					action = "started"
+				});
 			}
 		}
 
@@ -580,6 +833,11 @@ namespace Argus.Server.SQT
 			Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(rows.get(0));
 			this.complete_task((int) rows.get(0).task_id, now);
 			this.app.db.backupDB();
+			this.app.broadcast(new OLLMrpc.Notification() {
+				method = "event.task",
+				action = "ended"
+			});
+			this.app.scheduler.reschedule();
 		}
 
 		/**
@@ -602,20 +860,23 @@ namespace Argus.Server.SQT
 				}
 				return task.command;
 			}
-			var rows = new Gee.ArrayList<Argus.Shared.SQT.Script>();
-			var binds = new Gee.HashMap<string, int>();
-			binds.set("id", (int) task.script_id);
-			Argus.Shared.SQT.Script.query(this.app.db).selectWhere(
-				"WHERE id = $id", binds, null, rows);
-			if (rows.size == 0) {
+			var script = task.script();
+			if (script.id < 1) {
 				error = "unknown script";
 				return null;
 			}
+			if (script.filetype == "inline") {
+				if (script.body == "") {
+					error = "invalid script";
+					return null;
+				}
+				return script.body;
+			}
 			var root = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "scripts");
-			if (rows.get(0).script_repository_id > 0) {
+			if (script.script_repository_id > 0) {
 				var repositories = new Gee.ArrayList<Argus.Shared.SQT.ScriptRepository>();
 				var repository_binds = new Gee.HashMap<string, int>();
-				repository_binds.set("id", (int) rows.get(0).script_repository_id);
+				repository_binds.set("id", (int) script.script_repository_id);
 				Argus.Shared.SQT.ScriptRepository.query(this.app.db).selectWhere(
 					"WHERE id = $id", repository_binds, null, repositories);
 				if (repositories.size == 0) {
@@ -625,7 +886,7 @@ namespace Argus.Server.SQT
 				root = GLib.Path.build_filename(
 					Argus.SERVER_DATA_DIR, "git", repositories.get(0).name);
 			}
-			var full_path = GLib.Path.build_filename(root, rows.get(0).path);
+			var full_path = GLib.Path.build_filename(root, script.path);
 			if (GLib.FileUtils.test(full_path, GLib.FileTest.IS_SYMLINK)) {
 				error = "invalid path";
 				return null;

@@ -698,7 +698,7 @@ namespace Argus.Controller.Tab
 						connected_tick.visible = connected_on;
 						item.child.set_data("argus-column-binding",
 							((GLib.Object) row).bind_property(
-								"connected", item.child, "visible",
+								lookup, item.child, "visible",
 								GLib.BindingFlags.SYNC_CREATE));
 						break;
 

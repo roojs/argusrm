@@ -1,4 +1,3 @@
-# Not called from release.yml. The Android agent sends no inventory.
 name: X - Android APK build
 
 on:
@@ -21,21 +20,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: roojs/OLLMchat
-          ref: v1.4.9
+          ref: v1.4.12
           path: OLLMchat
 
       - name: Install Android build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential ca-certificates curl git glslc \
-            gir1.2-appstream libadwaita-1-dev libglib-object-introspection-perl \
+            adwaita-icon-theme build-essential ca-certificates curl git glslc \
+            gir1.2-appstream jq libadwaita-1-dev libglib-object-introspection-perl \
             libglib-perl libglib2.0-dev-bin libgtk-4-dev libipc-run-perl \
             libjson-perl libset-scalar-perl libxml-libxml-perl \
             libxml-libxslt-perl libtext-template-perl libxml2-utils \
-            libjson-glib-dev libsoup-3.0-dev \
+            libjson-glib-dev libsoup-3.0-dev libsqlite3-dev \
             meson nasm ninja-build openjdk-17-jdk pkg-config python3 \
-            sassc unzip valac
+            sassc shared-mime-info unzip valac
 
       - name: Stage pinned Android tooling and libraries
         working-directory: argusrm
@@ -44,6 +43,8 @@ jobs:
           cp -a ../OLLMchat/scripts/android/. scripts/android/
           cp -a ../OLLMchat/android/pixiewood-wraps android/
           cp -a ../OLLMchat/android/pixiewood-extra.cross android/
+          cp -a ../OLLMchat/android/pixie-gtk.pins android/
+          cp -a ../OLLMchat/android/pixie-webkit.pins android/
           cp -a ../OLLMchat/android/local-build.local.env android/
           cp -a ../OLLMchat/libocrpc vendor/
           cp -a ../OLLMchat/libocsqlite vendor/
@@ -53,6 +54,7 @@ jobs:
       - name: Prepare and configure Pixiewood
         working-directory: argusrm
         env:
+          PIXIEWOOD_USE_PIXIE: "1"
           PIXIEWOOD_MANIFEST: ${{ github.workspace }}/argusrm/packaging/android/pixiewood-argus.xml
         run: |
           PIXIEWOOD_PHASE=setup scripts/android/build-pixiewood-apk.sh
@@ -61,6 +63,7 @@ jobs:
       - name: Build APK
         working-directory: argusrm
         env:
+          PIXIEWOOD_USE_PIXIE: "1"
           PIXIEWOOD_MANIFEST: ${{ github.workspace }}/argusrm/packaging/android/pixiewood-argus.xml
         run: bash packaging/android/build-apk.sh
 
@@ -69,10 +72,10 @@ jobs:
         run: |
           set -euo pipefail
           source=.pixiewood/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
-          unzip -l "$source" | grep -q 'lib/arm64-v8a/libargus-agent.so'
+          unzip -l "$source" | grep -q 'lib/arm64-v8a/libargus-controller.so'
           mkdir -p artifacts
           version="$(bash scripts/release/changelog.sh packaging-version)"
-          cp "$source" "artifacts/ArgusAgent-${version}-android-arm64-debug.apk"
+          cp "$source" "artifacts/ArgusController-${version}-android-arm64-debug.apk"
 
       - uses: actions/upload-artifact@v4
         with:

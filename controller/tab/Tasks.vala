@@ -39,8 +39,12 @@ namespace Argus.Controller.Tab
 		 * Controller window this page belongs to.
 		 */
 		public Argus.Controller.Window window;
-		private GLib.ListStore store;
+		private Argus.Controller.Store.TaskTarget store;
 		private Argus.Controller.Filters.Tasks filter;
+		private int64 watched_id = 0;
+		private int watched_identifier = 0;
+		private int64 watched_ended = 0;
+		private uint expiry_timer = 0;
 
 		/**
 		 * Build the filter bar, task target grid, and terminal log pane.
@@ -58,7 +62,7 @@ namespace Argus.Controller.Tab
 			this.window = window;
 			this.hexpand = true;
 			this.vexpand = true;
-			this.store = new GLib.ListStore(typeof(Argus.Shared.SQT.TaskTarget));
+			this.store = new Argus.Controller.Store.TaskTarget(window.app);
 			this.filter = new Argus.Controller.Filters.Tasks();
 			var text_columns = new Gee.ArrayList<string>();
 			var visible = new Gee.ArrayList<string>();
@@ -277,6 +281,7 @@ namespace Argus.Controller.Tab
 			};
 			term_view.buffer.create_tag("stderr", "foreground", "#ff7b72", null);
 			term_view.buffer.create_tag("stdin", "foreground", "#79c0ff", null);
+			term_view.buffer.create_tag("status-ok", "foreground", "#3fb950", null);
 			var term_scroll = new Gtk.ScrolledWindow() {
 				child = term_view,
 				hscrollbar_policy = Gtk.PolicyType.AUTOMATIC,
@@ -322,15 +327,115 @@ namespace Argus.Controller.Tab
 				hexpand = true,
 				vexpand = true
 			};
+			var toasts = new Adw.ToastOverlay() {
+				child = paned,
+				hexpand = true,
+				vexpand = true
+			};
+			this.store.bind_property("busy", spinner, "visible", GLib.BindingFlags.SYNC_CREATE);
+			refresh.clicked.connect(() => {
+				this.store.load();
+			});
+			this.store.failed.connect((heading, message) => {
+				toasts.add_toast(new Adw.Toast(heading + ": " + message));
+			});
+			this.store.logs_loaded.connect((target_id, stdout_text, stderr_text, stdin_text) => {
+				if ((int64) target_id != this.watched_id) {
+					return;
+				}
+				term_view.buffer.text = "";
+				Gtk.TextIter end;
+				if (stdin_text != "") {
+					term_view.buffer.get_end_iter(out end);
+					term_view.buffer.insert_with_tags_by_name(ref end, stdin_text, -1, "stdin");
+				}
+				if (stdout_text != "") {
+					term_view.buffer.get_end_iter(out end);
+					term_view.buffer.insert(ref end, stdout_text, -1);
+				}
+				if (stderr_text != "") {
+					term_view.buffer.get_end_iter(out end);
+					term_view.buffer.insert_with_tags_by_name(ref end, stderr_text, -1, "stderr");
+				}
+				foreach (var item in this.store.items) {
+					if (item.id != this.watched_id || (item.ended == 0 && !item.is_cancelled)) {
+						continue;
+					}
+					var prefix = "";
+					if (term_view.buffer.get_char_count() > 0) {
+						term_view.buffer.get_end_iter(out end);
+						var tail = end;
+						tail.backward_char();
+						prefix = tail.get_char() == '\n' ? "\n" : "\n\n";
+					}
+					if (item.is_cancelled) {
+						term_view.buffer.get_end_iter(out end);
+						term_view.buffer.insert_with_tags_by_name(
+							ref end, prefix + "Command cancelled\n", -1, "stderr");
+						break;
+					}
+					if (item.success == 0) {
+						term_view.buffer.get_end_iter(out end);
+						term_view.buffer.insert_with_tags_by_name(
+							ref end, prefix + "Command succeeded (exit 0)\n", -1, "status-ok");
+						break;
+					}
+					term_view.buffer.get_end_iter(out end);
+					term_view.buffer.insert_with_tags_by_name(
+						ref end,
+						prefix + "Command failed (exit " + item.success.to_string() + ")\n",
+						-1, "stderr");
+					break;
+				}
+			});
+			this.store.items_changed.connect((position, removed, added) => {
+				if (this.watched_id < 1) {
+					return;
+				}
+				foreach (var item in this.store.items) {
+					if (item.id != this.watched_id) {
+						continue;
+					}
+					this.watched_identifier = item.identifier;
+					var exit_text = item.display_exit != "" ? " · exit " + item.display_exit : "";
+					term_meta.label = item.display_state + exit_text;
+					if (item.ended > 0 && this.watched_ended == 0) {
+						this.watched_ended = item.ended;
+						this.store.fetch_logs((int) this.watched_id);
+					}
+					break;
+				}
+				var total = selection.get_n_items();
+				for (var i = (uint) 0; i < total; i++) {
+					var shown = selection.get_item(i) as Argus.Shared.SQT.TaskTarget;
+					if (shown == null || shown.id != this.watched_id) {
+						continue;
+					}
+					selection.select_item(i, true);
+					break;
+				}
+			});
 			selection.selection_changed.connect((position, n_items) => {
+				if (this.store.busy) {
+					return;
+				}
 				var row = selection.selected_item as Argus.Shared.SQT.TaskTarget;
 				if (row == null) {
+					this.watched_id = 0;
+					this.watched_identifier = 0;
+					this.watched_ended = 0;
 					term_box.visible = false;
 					term_title.label = "";
 					term_meta.label = "";
 					term_view.buffer.text = "";
 					return;
 				}
+				if (row.id == this.watched_id) {
+					return;
+				}
+				this.watched_id = row.id;
+				this.watched_identifier = row.identifier;
+				this.watched_ended = row.ended;
 				if (!term_box.visible) {
 					term_box.visible = true;
 					paned.position = paned.get_height() / 2;
@@ -341,9 +446,69 @@ namespace Argus.Controller.Tab
 				var exit_text = row.display_exit != "" ? " · exit " + row.display_exit : "";
 				term_meta.label = row.display_state + exit_text;
 				term_view.buffer.text = "";
+				this.store.fetch_logs((int) row.id);
+				if (row.ended == 0 && !row.is_cancelled) {
+					this.store.watch((int) row.id);
+				}
+			});
+			this.window.app.rpc.notification.connect((notification) => {
+				switch (notification.method) {
+					case "event.task":
+					case "event.agent":
+						this.store.load();
+						break;
+
+					case "controller.stdout":
+						if (this.watched_identifier < 1 || notification.args.size < 2 ||
+							notification.args.get(0).get_int() != this.watched_identifier) {
+							break;
+						}
+						Gtk.TextIter out_end;
+						term_view.buffer.get_end_iter(out out_end);
+						term_view.buffer.insert(
+							ref out_end, notification.args.get(1).get_string(), -1);
+						break;
+
+					case "controller.stderr":
+						if (this.watched_identifier < 1 || notification.args.size < 2 ||
+							notification.args.get(0).get_int() != this.watched_identifier) {
+							break;
+						}
+						Gtk.TextIter err_end;
+						term_view.buffer.get_end_iter(out err_end);
+						term_view.buffer.insert_with_tags_by_name(
+							ref err_end, notification.args.get(1).get_string(), -1, "stderr");
+						break;
+
+					case "controller.ended":
+						if (this.watched_identifier < 1 || notification.args.size < 1 ||
+							notification.args.get(0).get_int() != this.watched_identifier) {
+							break;
+						}
+						this.store.load();
+						break;
+
+					default:
+						break;
+				}
+			});
+			this.map.connect(() => {
+				this.store.load();
+				if (this.expiry_timer == 0) {
+					this.expiry_timer = GLib.Timeout.add_seconds(60, () => {
+						this.filter.changed(Gtk.FilterChange.DIFFERENT);
+						return true;
+					});
+				}
+			});
+			this.unmap.connect(() => {
+				if (this.expiry_timer != 0) {
+					GLib.Source.remove(this.expiry_timer);
+					this.expiry_timer = 0;
+				}
 			});
 			this.append(bar);
-			this.append(paned);
+			this.append(toasts);
 		}
 	}
 }

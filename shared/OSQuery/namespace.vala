@@ -30,4 +30,22 @@ namespace Argus.Shared.OSQuery
 		PackageUpdates.init_db(db);
 	}
 
+	/**
+	 * Register all osquery RPC handlers with ''OLLMrpc''.
+	 */
+	public static void register()
+	{
+		OLLMrpc.Request.register("SystemInfo", new SystemInfo());
+		OLLMrpc.Request.register("OsVersion", new OsVersion());
+		OLLMrpc.Request.register("CpuInfo", new CpuInfo());
+		OLLMrpc.Request.register("LoggedInUsers", new LoggedInUsers());
+		OLLMrpc.Request.register("Users", new Users());
+		OLLMrpc.Request.register("Groups", new Groups());
+		OLLMrpc.Request.register("UserGroups", new UserGroups());
+		OLLMrpc.Request.register("InterfaceAddresses", new InterfaceAddresses());
+		OLLMrpc.Request.register("DebPackages", new DebPackages());
+		OLLMrpc.Request.register("RpmPackages", new RpmPackages());
+		OLLMrpc.Request.register("Programs", new Programs());
+	}
+
 }

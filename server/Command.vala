@@ -97,7 +97,7 @@ namespace Argus.Server
 		 * {@link run} sets it from the day the command starts.
 		 * Stdin, stdout, and stderr append in that directory.
 		 */
-		private static Gee.HashMap<int, string> logs;
+		internal static Gee.HashMap<int, string> logs;
 
 		/**
 		 * Controller connection for each watched target, keyed by target id.
@@ -139,17 +139,28 @@ namespace Argus.Server
 		 *
 		 * Output for a later dispatch goes to this connection when it is
 		 * still up. {@link Argus.Shared.SQT.TaskTarget.is_watched} is the
-		 * flag that this stream was asked for.
+		 * flag that this stream was asked for. When ''identifier'' is
+		 * already running, also register the live output route now.
 		 *
 		 * @param target_id ''task_target.id''
 		 * @param connection controller that asked to watch
+		 * @param identifier active ''Command.identifier'', or ''0'' if not started
 		 */
-		public static void watch(int target_id, OLLMrpc.Transport.Connection connection)
-		{
+		public static void watch(
+			int target_id,
+			OLLMrpc.Transport.Connection connection,
+			int identifier = 0
+		) {
 			if (Command.tasks == null) {
 				Command.tasks = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
 			}
 			Command.tasks.set(target_id, connection);
+			if (identifier > 0) {
+				if (Command.controllers == null) {
+					Command.controllers = new Gee.HashMap<int, OLLMrpc.Transport.Connection>();
+				}
+				Command.controllers.set(identifier, connection);
+			}
 		}
 
 		/**

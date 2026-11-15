@@ -1,2 +1,4 @@
 build/
 build-*/
+dist-windows/
+.gdb_history

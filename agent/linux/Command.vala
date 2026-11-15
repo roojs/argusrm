@@ -107,6 +107,10 @@ namespace Argus.Agent
 		 * Stderr of {@link child}.
 		 */
 		private GLib.InputStream stderr_pipe;
+		private bool stdout_done = false;
+		private bool stderr_done = false;
+		private bool child_done = false;
+		private int exit_code = 1;
 
 		/**
 		 * Spawn this command and watch stdout and stderr.
@@ -136,6 +140,11 @@ namespace Argus.Agent
 				child = launcher.spawnv(argv);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
+				this.report("Command.stderr", e.message + "\n");
+				this.stdout_done = true;
+				this.stderr_done = true;
+				this.child_done = true;
+				this.finish(127);
 				return;
 			}
 			this.child = child;
@@ -179,10 +188,12 @@ namespace Argus.Agent
 			stdout_ch.add_watch(
 				GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR,
 				(channel, condition) => {
-					if ((condition & GLib.IOCondition.IN) != 0) {
+					if ((condition & (GLib.IOCondition.IN | GLib.IOCondition.HUP)) != 0) {
 						this.read_channel(channel, "Command.stdout");
 					}
 					if ((condition & (GLib.IOCondition.HUP | GLib.IOCondition.ERR)) != 0) {
+						this.stdout_done = true;
+						this.finish(this.exit_code);
 						return false;
 					}
 					return true;
@@ -190,10 +201,12 @@ namespace Argus.Agent
 			stderr_ch.add_watch(
 				GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR,
 				(channel, condition) => {
-					if ((condition & GLib.IOCondition.IN) != 0) {
+					if ((condition & (GLib.IOCondition.IN | GLib.IOCondition.HUP)) != 0) {
 						this.read_channel(channel, "Command.stderr");
 					}
 					if ((condition & (GLib.IOCondition.HUP | GLib.IOCondition.ERR)) != 0) {
+						this.stderr_done = true;
+						this.finish(this.exit_code);
 						return false;
 					}
 					return true;
@@ -210,15 +223,32 @@ namespace Argus.Agent
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
 				}
-				try {
-					this.connection.call(new OLLMrpc.Request() {
-						method = "Command.ended",
-						args = OLLMrpc.args("ii", this.identifier, code)
-					});
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-				}
+				this.exit_code = code;
+				this.child_done = true;
+				this.finish(code);
 			});
+		}
+
+		/**
+		 * Send ''Command.ended'' once child exit and both output pipes finish.
+		 *
+		 * @param code process exit code
+		 */
+		private void finish(int code)
+		{
+			if (!this.child_done || !this.stdout_done || !this.stderr_done) {
+				return;
+			}
+			Command.send_lock.lock();
+			try {
+				this.connection.call(new OLLMrpc.Request() {
+					method = "Command.ended",
+					args = OLLMrpc.args("ii", this.identifier, code)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			Command.send_lock.unlock();
 		}
 
 		/**

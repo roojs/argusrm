@@ -87,13 +87,14 @@ namespace Argus.Server.SQT
 		public static new void rpc_register()
 		{
 			Argus.Shared.SQT.Script.rpc_register();
-			Argus.Shared.SQT.ScriptAgent.rpc_register();
+			Argus.Shared.SQT.ScriptPerm.rpc_register();
 			OLLMrpc.Request.add_class(
 				"Script", typeof(Script),
 				"create", "ss",
 				"update", "is",
 				"read", "i",
 				"list", "i",
+				"search", "sss",
 				"enable", "ii",
 				"disable", "ii",
 				"agents", "i"
@@ -230,6 +231,18 @@ namespace Argus.Server.SQT
 				});
 				return;
 			}
+			var now = (int) new GLib.DateTime.now_utc().to_unix();
+			if (rows.get(0).filetype == "inline") {
+				rows.get(0).body = body;
+				rows.get(0).updated_dt = now;
+				Argus.Shared.SQT.Script.query(this.app.db).updateById(rows.get(0));
+				this.app.db.backupDB();
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("o", rows.get(0)),
+					msg = "ok"
+				});
+				return;
+			}
 			var scripts_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "scripts");
 			var full_path = GLib.Path.build_filename(scripts_dir, rows.get(0).path);
 			if (GLib.FileUtils.test(full_path, GLib.FileTest.IS_SYMLINK)) {
@@ -273,6 +286,8 @@ namespace Argus.Server.SQT
 				});
 				return;
 			}
+			rows.get(0).updated_dt = now;
+			Argus.Shared.SQT.Script.query(this.app.db).updateById(rows.get(0));
 			this.app.db.backupDB();
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows.get(0)),
@@ -298,6 +313,13 @@ namespace Argus.Server.SQT
 			if (rows.size == 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("unknown script")
+				});
+				return;
+			}
+			if (rows.get(0).filetype == "inline") {
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("s", rows.get(0).body),
+					msg = "ok"
 				});
 				return;
 			}
@@ -364,6 +386,165 @@ namespace Argus.Server.SQT
 		}
 
 		/**
+		 * Search executable scripts by ''platform'', ''app'', and ''action''.
+		 *
+		 * Empty filters match any value. Results order repository 0
+		 * scripts first, then cloned repository rows.
+		 *
+		 * @param request inbound RPC from the controller
+		 * @param platform target OS family, or empty
+		 * @param app target tool, or empty
+		 * @param action target action, or empty
+		 */
+		public void search(OLLMrpc.Request request, string platform, string app, string action)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var clauses = "deleted_dt = 0 AND filetype IN ('script', 'inline')";
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			if (platform != "") {
+				clauses += " AND platform = $platform";
+				text_binds.set("platform", platform);
+			}
+			if (app != "") {
+				clauses += " AND app = $app";
+				text_binds.set("app", app);
+			}
+			if (action != "") {
+				clauses += " AND action = $action";
+				text_binds.set("action", action);
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.Script>();
+			Argus.Shared.SQT.Script.query(this.app.db).selectWhere(
+				"WHERE " + clauses + " ORDER BY script_repository_id ASC, id ASC",
+				int_binds, text_binds, rows);
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Import missing default scripts from bundled JSON catalogs.
+		 */
+		public void import_defaults()
+		{
+			var changed = false;
+			try {
+				var catalog = (string) GLib.resources_lookup_data(
+					"/argusrm/scripts/linux.json", GLib.ResourceLookupFlags.NONE).get_data();
+				if (this.import_json(catalog, 0)) {
+					changed = true;
+				}
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			/*
+			try {
+				var windows = (string) GLib.resources_lookup_data(
+					"/argusrm/scripts/windows.json", GLib.ResourceLookupFlags.NONE).get_data();
+				if (this.import_json(windows, 0)) {
+					changed = true;
+				}
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			*/
+			if (changed) {
+				this.app.db.backupDB();
+			}
+		}
+
+		/**
+		 * Parse a JSON array of script definitions and import missing rows.
+		 *
+		 * @param json JSON array text of script objects
+		 * @param script_repository_id repository id, or 0 for defaults
+		 * @return true when at least one row was inserted or updated
+		 */
+		public bool import_json(string json, int64 script_repository_id = 0)
+		{
+			var parser = new Json.Parser();
+			try {
+				parser.load_from_data(json);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return false;
+			}
+			var root = parser.get_root();
+			if (root == null || root.get_node_type() != Json.NodeType.ARRAY) {
+				return false;
+			}
+			var changed = false;
+			var list = root.get_array();
+			var count = list.get_length();
+			for (var i = 0; i < (int) count; i++) {
+				var element = list.get_element(i);
+				if (element.get_node_type() != Json.NodeType.OBJECT) {
+					continue;
+				}
+				var obj = Json.gobject_deserialize(typeof(Argus.Shared.SQT.Script), element);
+				if (obj == null) {
+					continue;
+				}
+				if (this.import_script((Argus.Shared.SQT.Script) obj, script_repository_id)) {
+					changed = true;
+				}
+			}
+			return changed;
+		}
+
+		/**
+		 * Import one inline script into ''script'' if no matching
+		 * ''(script_repository_id, platform, app, action)'' row exists.
+		 *
+		 * @param entry script metadata and body
+		 * @param script_repository_id repository id, or 0 for defaults
+		 * @return true when inserted or updated
+		 */
+		public bool import_script(Argus.Shared.SQT.Script entry, int64 script_repository_id = 0)
+		{
+			if (entry.platform == "" || entry.app == "" ||
+				entry.action == "" || entry.body == "") {
+				return false;
+			}
+			var existing = new Gee.ArrayList<Argus.Shared.SQT.Script>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			int_binds.set("script_repository_id", (int) script_repository_id);
+			text_binds.set("platform", entry.platform);
+			text_binds.set("app", entry.app);
+			text_binds.set("action", entry.action);
+			Argus.Shared.SQT.Script.query(this.db).selectWhere(
+				"WHERE script_repository_id = $script_repository_id " +
+					"AND platform = $platform AND app = $app AND action = $action " +
+					"AND deleted_dt = 0",
+				int_binds, text_binds, existing);
+			var now = (int) new GLib.DateTime.now_utc().to_unix();
+			if (existing.size > 0) {
+				if (entry.updated_dt > 0 && entry.updated_dt > existing.get(0).updated_dt) {
+					existing.get(0).body = entry.body;
+					existing.get(0).allow_all = entry.allow_all;
+					existing.get(0).updated_dt = entry.updated_dt;
+					Argus.Shared.SQT.Script.query(this.db).updateById(existing.get(0));
+					return true;
+				}
+				return false;
+			}
+			entry.id = 0;
+			entry.script_repository_id = script_repository_id;
+			entry.path = "";
+			entry.filetype = "inline";
+			entry.added_dt = now;
+			entry.updated_dt = entry.updated_dt > 0 ? entry.updated_dt : now;
+			entry.deleted_dt = 0;
+			Argus.Shared.SQT.Script.query(this.db).insert(entry);
+			return true;
+		}
+
+		/**
 		 * Enable a script on one machine.
 		 *
 		 * @param request inbound RPC from the controller
@@ -379,7 +560,8 @@ namespace Argus.Server.SQT
 			var script_binds = new Gee.HashMap<string, int>();
 			script_binds.set("id", script_id);
 			Argus.Shared.SQT.Script.query(this.app.db).selectWhere(
-				"WHERE id = $id AND filetype = 'script'", script_binds, null, scripts);
+				"WHERE id = $id AND filetype IN ('script', 'inline')",
+				script_binds, null, scripts);
 
 			var machine_rows = new Gee.ArrayList<Argus.Shared.Agent>();
 			var agent_binds = new Gee.HashMap<string, int>();
@@ -393,20 +575,20 @@ namespace Argus.Server.SQT
 				});
 				return;
 			}
-			var rows = new Gee.ArrayList<Argus.Shared.SQT.ScriptAgent>();
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.ScriptPerm>();
 			var binds = new Gee.HashMap<string, int>();
 			binds.set("script_id", script_id);
 			binds.set("agent_id", agent_id);
-			Argus.Shared.SQT.ScriptAgent.query(this.app.db).selectWhere(
+			Argus.Shared.SQT.ScriptPerm.query(this.app.db).selectWhere(
 				"WHERE script_id = $script_id AND agent_id = $agent_id",
 				binds, null, rows);
 
 			if (rows.size == 0) {
-				var row = new Argus.Shared.SQT.ScriptAgent() {
+				var row = new Argus.Shared.SQT.ScriptPerm() {
 					script_id = script_id,
 					agent_id = agent_id
 				};
-				Argus.Shared.SQT.ScriptAgent.query(this.app.db).insert(row);
+				Argus.Shared.SQT.ScriptPerm.query(this.app.db).insert(row);
 				rows.add(row);
 				this.app.db.backupDB();
 			}
@@ -431,7 +613,7 @@ namespace Argus.Server.SQT
 			var binds = new Gee.HashMap<string, int>();
 			binds.set("script_id", script_id);
 			binds.set("agent_id", agent_id);
-			Argus.Shared.SQT.ScriptAgent.query(this.app.db).deleteWhere("WHERE script_id = $script_id AND agent_id = $agent_id",
+			Argus.Shared.SQT.ScriptPerm.query(this.app.db).deleteWhere("WHERE script_id = $script_id AND agent_id = $agent_id",
 				binds, null);
 
 			this.app.db.backupDB();
@@ -451,10 +633,10 @@ namespace Argus.Server.SQT
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
 			}
-			var rows = new Gee.ArrayList<Argus.Shared.SQT.ScriptAgent>();
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.ScriptPerm>();
 			var binds = new Gee.HashMap<string, int>();
 			binds.set("script_id", script_id);
-			Argus.Shared.SQT.ScriptAgent.query(this.app.db).selectWhere("WHERE script_id = $script_id", binds, null, rows);
+			Argus.Shared.SQT.ScriptPerm.query(this.app.db).selectWhere("WHERE script_id = $script_id", binds, null, rows);
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),
 				msg = "ok"
@@ -472,7 +654,9 @@ namespace Argus.Server.SQT
 			binds.set("script_repository_id", (int) this.script_repository_id);
 			var old_scripts = new Gee.ArrayList<Argus.Shared.SQT.Script>();
 			var query = Argus.Shared.SQT.Script.query(this.db);
-			query.selectWhere("WHERE script_repository_id = $script_repository_id", binds, null, old_scripts);
+			query.selectWhere(
+				"WHERE script_repository_id = $script_repository_id AND filetype != 'inline'",
+				binds, null, old_scripts);
 			var old_paths = new Gee.HashMap<string, Argus.Shared.SQT.Script>();
 			foreach (var old_script in old_scripts) {
 				old_paths.set(old_script.path, old_script);

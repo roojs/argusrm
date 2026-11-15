@@ -23,8 +23,8 @@
 - ✔️ `server/OSQuery.vala` (`sync()`) writes the incoming snapshot (`model.sync(this.app.db, connection.user.id, rows)`), calls `this.app.db.backupDB()`, triggers `this.app.os_update.check.begin()` for `"OsVersion"`, and replies `"ok"`.
 - 🚫 `server/OSQuery.vala` never calls `this.app.broadcast(...)` after `PackageUpdates`, `DebPackages`, `RpmPackages`, `Programs`, `OsVersion`, or `LoggedInUsers` syncs.
 - ✔️ `server/Application.vala` (`broadcast(OLLMrpc.Notification)`) already broadcasts `event.agent` (`server/Net/SslListen.vala`, `server/Net/SslConnection.vala`) and `event.pair` (`server/Agent.vala`) to connected clients; `agent/Application.vala` ignores unrecognized notification methods.
-- ℹ️ `agent/linux/PackageMonitor.vala` already posts `DebPackages` / `RpmPackages` on lock-free dpkg/rpm changes and `PackageUpdates` via `send_pending()` on startup and every 12 hours (plus post-upgrade rescans planned in [2026-11-13-machines-package-update.md](2026-11-13-machines-package-update.md)); `agent/Win32/PackageMonitor.vala` posts `Programs` on `MsiInstaller` events.
-- ℹ️ `LoggedInUsers` can update after startup via [done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md); `SystemInfo`, `CpuInfo`, and `InterfaceAddresses` still startup-only until [2026-11-14-log-monitoring-phases-2-3.md](2026-11-14-log-monitoring-phases-2-3.md) phase 2.
+- ℹ️ `agent/linux/PackageMonitor.vala` already posts `DebPackages` / `RpmPackages` on lock-free dpkg/rpm changes and `PackageUpdates` via `send_pending()` on startup and every 12 hours (see [done/2026-11-13-FIXED-machines-package-update.md](done/2026-11-13-FIXED-machines-package-update.md)); `agent/Win32/PackageMonitor.vala` posts `Programs` on `MsiInstaller` events.
+- ℹ️ `LoggedInUsers` can update after startup via [done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md); `SystemInfo`, `CpuInfo`, and `InterfaceAddresses` remain startup-only (`OsVersion` / `InterfaceAddresses` / `SystemInfo` periodic sync is deferred to [2.3-future-monitoring.md](../plans/2.3-future-monitoring.md)).
 
 ### 2. Machine detail pane caches per-tab load state (`controller/tab/Asset/Machine/Detail.vala`)
 
@@ -52,7 +52,7 @@
 
 ### 1. Server broadcast notification on `OSQuery.sync` (`server/OSQuery.vala`, `docs/rpc-commands.md`)
 
-- 💩 Broadcast a notification from `server/OSQuery.vala` (`sync()`) after `model.sync(...)` succeeds for tables that update dynamically (at minimum `PackageUpdates`, `DebPackages`, `RpmPackages`, `Programs`, `LoggedInUsers`, and — once phase 2 lands — `OsVersion` / `InterfaceAddresses`; see [2026-11-14-log-monitoring-phases-2-3.md](2026-11-14-log-monitoring-phases-2-3.md)):
+- 💩 Broadcast a notification from `server/OSQuery.vala` (`sync()`) after `model.sync(...)` succeeds for tables that update dynamically (at minimum `PackageUpdates`, `DebPackages`, `RpmPackages`, `Programs`, `LoggedInUsers`, and — if [2.3-future-monitoring.md](../plans/2.3-future-monitoring.md) lands later — `OsVersion` / `InterfaceAddresses` / `SystemInfo`):
   - 💩 Option A: single `event.osquery` notification with `action = name` (e.g. `"PackageUpdates"`, `"DebPackages"`, `"RpmPackages"`, `"Programs"`, `"LoggedInUsers"`) and `args = OLLMrpc.args("i", (int) connection.user.id)` (or `"is"` with `agent_id` and `name`) so the controller knows both **which table** and **which `agent_id`** changed.
   - 💩 Option B: dedicated `event.packages` (for `PackageUpdates` / `DebPackages` / `RpmPackages` / `Programs`) alongside `event.agent` / `event.task`.
 - 💩 Also consider whether `OSQuery.sync` should only broadcast when rows actually changed (or always on `PackageUpdates` / package syncs) to avoid redundant controller reloads during agent startup bursts.

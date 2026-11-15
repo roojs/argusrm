@@ -81,6 +81,7 @@ namespace Argus.Controller
 			this.vexpand = true;
 			var list = new Gtk.ListBox() {
 				selection_mode = Gtk.SelectionMode.SINGLE,
+				activate_on_single_click = true,
 				css_classes = { "navigation-sidebar" },
 				vexpand = true,
 				hexpand = true
@@ -110,6 +111,7 @@ namespace Argus.Controller
 			overlay.child = scroll;
 			var settings_list = new Gtk.ListBox() {
 				selection_mode = Gtk.SelectionMode.SINGLE,
+				activate_on_single_click = true,
 				css_classes = { "navigation-sidebar" },
 				hexpand = true
 			};
@@ -149,6 +151,16 @@ namespace Argus.Controller
 				}
 				list.unselect_all();
 				this.chosen("settings", "Settings");
+			});
+			list.row_activated.connect((row) => {
+				if (row == list.get_selected_row()) {
+					this.chosen(row.name, ((Gtk.Label) row.child).label);
+				}
+			});
+			settings_list.row_activated.connect((row) => {
+				if (row == settings_list.get_selected_row()) {
+					this.chosen("settings", "Settings");
+				}
 			});
 			settings_bar.map.connect(() => {
 				GLib.Idle.add(() => {

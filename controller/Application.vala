@@ -163,13 +163,18 @@ namespace Argus.Controller
 				return 1;
 			}
 			if (give_certificate == "" && deregister_name == "") {
+#if !ANDROID
 				var display = GLib.Environment.get_variable("DISPLAY");
 				var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
 				if ((display == null || display == "") && (wayland == null || wayland == "")) {
 					command_line.printerr("Run argusrm-controller-cli on the server.\n");
 					return 1;
 				}
+#endif
 				Adw.init();
+#if ANDROID
+				Gtk.Settings.get_default().gtk_icon_theme_name = "Adwaita";
+#endif
 				var screen = Gdk.Display.get_default();
 				if (screen != null) {
 					var css = new Gtk.CssProvider();
