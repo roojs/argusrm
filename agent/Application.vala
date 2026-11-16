@@ -99,6 +99,13 @@ namespace Argus.Agent
 		internal PackageMonitor monitor;
 
 		/**
+		 * Logged-in users and local account watch.
+		 *
+		 * Started after the startup snapshot.
+		 */
+		internal UserMonitor user_monitor;
+
+		/**
 		 * True when {@link connection} is down.
 		 *
 		 * Set when {@link open_connection} fails, or when
@@ -311,6 +318,9 @@ namespace Argus.Agent
 			Argus.Shared.OSQuery.SystemInfo.rpc_register();
 			Argus.Shared.OSQuery.CpuInfo.rpc_register();
 			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
+			Argus.Shared.OSQuery.Users.rpc_register();
+			Argus.Shared.OSQuery.Groups.rpc_register();
+			Argus.Shared.OSQuery.UserGroups.rpc_register();
 			Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
 			Argus.Shared.OSQuery.OsVersion.rpc_register();
 			Argus.Shared.OSQuery.DebPackages.rpc_register();
@@ -432,11 +442,29 @@ namespace Argus.Agent
 			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				this.attach_connection();
-				if (this.connection != null) {
+				if (this.connection != null && !Application.connection_down) {
 					new OSQuery.Initialize(this).start();
 					this.osquery.send_startup();
 					this.monitor = new PackageMonitor(this);
 					this.monitor.start();
+					this.user_monitor = new UserMonitor(this);
+					this.user_monitor.start();
+				}
+				if (this.connection == null || Application.connection_down) {
+					GLib.debug("waiting for connection");
+					GLib.Timeout.add_seconds(5, () => {
+						if (this.connection == null || Application.connection_down) {
+							GLib.debug("waiting for connection");
+							return true;
+						}
+						new OSQuery.Initialize(this).start();
+						this.osquery.send_startup();
+						this.monitor = new PackageMonitor(this);
+						this.monitor.start();
+						this.user_monitor = new UserMonitor(this);
+						this.user_monitor.start();
+						return false;
+					});
 				}
 			}
 #else
@@ -492,6 +520,8 @@ namespace Argus.Agent
 								this.osquery.send_startup();
 								this.monitor = new PackageMonitor(this);
 								this.monitor.start();
+								this.user_monitor = new UserMonitor(this);
+								this.user_monitor.start();
 							}
 							return false;
 						});

@@ -21,7 +21,7 @@
  *
  * {@link Task} is the activity. {@link TaskTarget} is one machine it
  * runs on. {@link Script} is a file under ''scripts/'' or a clone.
- * {@link ScriptAgent} enables a script on a machine.
+ * {@link ScriptPerm} permits a script on a machine.
  * {@link ScriptRepository} is a git clone under ''git/''.
  *
  * == Example ==
@@ -44,7 +44,7 @@ namespace Argus.Shared.SQT
 		Task.init_db(db);
 		TaskTarget.init_db(db);
 		Script.init_db(db);
-		ScriptAgent.init_db(db);
+		ScriptPerm.init_db(db);
 		ScriptRepository.init_db(db);
 	}
 }

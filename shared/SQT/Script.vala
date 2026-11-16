@@ -32,12 +32,44 @@ namespace Argus.Shared.SQT
 	 * Argus.Shared.SQT.Script.query(db).select("", rows);
 	 * }}}
 	 */
-	public class Script : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable
+	public class Script : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable, Json.Serializable
 	{
 		public int64 id { get; set; default = 0; }
 		public int64 script_repository_id { get; set; default = 0; }
 		public string path { get; set; default = ""; }
 		public string filetype { get; set; default = ""; }
+		/**
+		 * Target OS family, e.g. ''linux'' or ''windows''.
+		 */
+		public string platform { get; set; default = ""; }
+		/**
+		 * Target tool or subsystem, e.g. ''apt'' or ''dnf''.
+		 */
+		public string app { get; set; default = ""; }
+		/**
+		 * Action verb, e.g. ''update'' or ''upgrade''.
+		 */
+		public string action { get; set; default = ""; }
+		/**
+		 * Script body stored in the database when {@link filetype} is ''inline''.
+		 */
+		public string body { get; set; default = ""; }
+		/**
+		 * True when any active agent may run this script without a {@link ScriptPerm} row.
+		 */
+		public bool allow_all { get; set; default = false; }
+		/**
+		 * Unix time this row was inserted.
+		 */
+		public int added_dt { get; set; default = 0; }
+		/**
+		 * Unix time this row was last updated.
+		 */
+		public int updated_dt { get; set; default = 0; }
+		/**
+		 * Unix time this row was soft-deleted, or ''0'' when active.
+		 */
+		public int deleted_dt { get; set; default = 0; }
 
 		/**
 		 * Register the wire name ''Argus.Script''.
@@ -71,13 +103,33 @@ namespace Argus.Shared.SQT
 					id                    INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					script_repository_id  INTEGER NOT NULL DEFAULT 0,
 					path                  TEXT NOT NULL DEFAULT '',
-					filetype              TEXT NOT NULL DEFAULT ''
+					filetype              TEXT NOT NULL DEFAULT '',
+					platform              TEXT NOT NULL DEFAULT '',
+					app                   TEXT NOT NULL DEFAULT '',
+					action                TEXT NOT NULL DEFAULT '',
+					body                  TEXT NOT NULL DEFAULT '',
+					allow_all             INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
 				GLib.warning("script create failed: %s", db.db.errmsg());
 			}
 			Argus.Shared.init_db_audit(db, "script");
+			db.db.exec(
+				"ALTER TABLE script ADD COLUMN platform TEXT NOT NULL DEFAULT '';",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script ADD COLUMN app TEXT NOT NULL DEFAULT '';",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script ADD COLUMN action TEXT NOT NULL DEFAULT '';",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script ADD COLUMN body TEXT NOT NULL DEFAULT '';",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE script ADD COLUMN allow_all INTEGER NOT NULL DEFAULT 0;",
+				null, out errmsg);
 		}
 	}
 }

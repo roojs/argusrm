@@ -34,6 +34,8 @@ namespace Argus.Shared.SQT
 	 */
 	public class Task : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable
 	{
+		private static SQ.Database db;
+
 		/**
 		 * Row id in ''task''.
 		 */
@@ -124,12 +126,35 @@ namespace Argus.Shared.SQT
 		}
 
 		/**
+		 * Library script for {@link script_id}, or an empty {@link Script}
+		 * (''id == 0'') when unset or not found.
+		 *
+		 * @return matching {@link Script} row
+		 */
+		public Script script()
+		{
+			if (this.script_id < 1 || Task.db == null) {
+				return new Script();
+			}
+			var rows = new Gee.ArrayList<Script>();
+			var binds = new Gee.HashMap<string, int>();
+			binds.set("id", (int) this.script_id);
+			Script.query(Task.db).selectWhere(
+				"WHERE id = $id AND deleted_dt = 0", binds, null, rows);
+			if (rows.size == 0) {
+				return new Script();
+			}
+			return rows.get(0);
+		}
+
+		/**
 		 * Create ''task''.
 		 *
 		 * @param db Argus database
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			Task.db = db;
 			var errmsg = "";
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS task (

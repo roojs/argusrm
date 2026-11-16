@@ -227,6 +227,83 @@ namespace Argus.Server
 				GLib.printerr("fail change rows\n");
 				return 1;
 			}
+			Argus.Shared.OsReleases.init_db(db);
+			Argus.Shared.OsReleases.query(db).insert(new Argus.Shared.OsReleases() {
+				short_id = "ubuntu24.04",
+				distro = "ubuntu",
+				platform = "ubuntu",
+				name = "Ubuntu 24.04 LTS",
+				version = "24.04",
+				major = 24,
+				minor = 4,
+				released = "2024-04-25",
+				eol = "2034-04-25",
+				updated = 1763000000
+			});
+			Argus.Shared.OsReleases.query(db).insert(new Argus.Shared.OsReleases() {
+				short_id = "ubuntu25.04",
+				distro = "ubuntu",
+				platform = "ubuntu",
+				name = "Ubuntu 25.04",
+				version = "25.04",
+				major = 25,
+				minor = 4,
+				released = "2025-04-17",
+				eol = "2026-01-15",
+				updated = 1763000000
+			});
+			var sys_first = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			sys_first.add(new Argus.Shared.OSQuery.SystemInfo() {
+				hostname = "host-a"
+			});
+			var sys_second = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			sys_second.add(new Argus.Shared.OSQuery.SystemInfo() {
+				hostname = "host-b"
+			});
+			new Argus.Shared.OSQuery.SystemInfo().sync(db, first, sys_first);
+			new Argus.Shared.OSQuery.SystemInfo().sync(db, second, sys_second);
+			var os_first = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			os_first.add(new Argus.Shared.OSQuery.OsVersion() {
+				name = "Ubuntu",
+				version = "25.04",
+				major = 25,
+				minor = 4,
+				platform = "ubuntu",
+				platform_like = "debian"
+			});
+			var os_second = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			os_second.add(new Argus.Shared.OSQuery.OsVersion() {
+				name = "Ubuntu",
+				version = "24.04",
+				major = 24,
+				minor = 4,
+				platform = "ubuntu",
+				platform_like = "debian"
+			});
+			new Argus.Shared.OSQuery.OsVersion().sync(db, first, os_first);
+			new Argus.Shared.OSQuery.OsVersion().sync(db, second, os_second);
+			var pending_first = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			pending_first.add(new Argus.Shared.OSQuery.PackageUpdates() {
+				name = "bash"
+			});
+			if (!new Argus.Shared.OSQuery.PackageUpdates().sync(db, first, pending_first)) {
+				GLib.printerr("fail sync package_updates first\n");
+				return 1;
+			}
+			if (!new Argus.Shared.OSQuery.PackageUpdates().sync(db, second,
+				new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>())) {
+				GLib.printerr("fail sync package_updates second\n");
+				return 1;
+			}
+			var ov_rows = new Gee.ArrayList<Argus.Shared.OSQuery.OsVersion>();
+			new SQ.Query<Argus.Shared.OSQuery.OsVersion>(db, "os_version").select(
+				"ORDER BY agent_id", ov_rows);
+			if (ov_rows.size != 2 || ov_rows.get(0).pkgs_updated == 0 ||
+				ov_rows.get(0).pkgs_status != 0 || ov_rows.get(1).pkgs_updated == 0 ||
+				ov_rows.get(1).pkgs_status != 1) {
+				GLib.printerr("fail os_version pkgs_status sync\n");
+				return 1;
+			}
 			var request = new OLLMrpc.Request();
 			request.connection = new OLLMrpc.Transport.Connection();
 			new Argus.Shared.OSQuery.DebPackages().list(request, 0, 0);
@@ -234,6 +311,89 @@ namespace Argus.Server
 			new Argus.Shared.OSQuery.DebPackages().list(request, (int) first, core_added - 1);
 			new Argus.Shared.OSQuery.RpmPackages().list(request, 0, 0);
 			new Argus.Shared.OSQuery.Programs().list(request, 0, 0);
+			new Argus.Shared.OSQuery.CpuInfo().list(request, (int) first);
+			new Argus.Shared.OSQuery.LoggedInUsers().list(request, (int) first);
+			var users_q = new SQ.Query<Argus.Shared.OSQuery.Users>(db, "users");
+			if (users_q.insert(new Argus.Shared.OSQuery.Users() {
+				agent_id = first,
+				uid = 1000,
+				gid = 1000,
+				username = "alan",
+				directory = "/home/alan",
+				shell = "/bin/bash"
+			}) < 1) {
+				GLib.printerr("fail insert users\n");
+				return 1;
+			}
+			var groups_q = new SQ.Query<Argus.Shared.OSQuery.Groups>(db, "groups");
+			if (groups_q.insert(new Argus.Shared.OSQuery.Groups() {
+				agent_id = first,
+				gid = 1000,
+				groupname = "alan"
+			}) < 1) {
+				GLib.printerr("fail insert groups\n");
+				return 1;
+			}
+			var ug_q = new SQ.Query<Argus.Shared.OSQuery.UserGroups>(db, "user_groups");
+			if (ug_q.insert(new Argus.Shared.OSQuery.UserGroups() {
+				agent_id = first,
+				uid = 1000,
+				gid = 1000
+			}) < 1) {
+				GLib.printerr("fail insert user_groups\n");
+				return 1;
+			}
+			var li_q = new SQ.Query<Argus.Shared.OSQuery.LoggedInUsers>(db, "logged_in_users");
+			if (li_q.insert(new Argus.Shared.OSQuery.LoggedInUsers() {
+				agent_id = first,
+				user = "alan",
+				time = 1763000000
+			}) < 1) {
+				GLib.printerr("fail insert logged_in_users for users join\n");
+				return 1;
+			}
+			new Argus.Shared.OSQuery.Users().list(request, (int) first);
+			new Argus.Shared.OSQuery.Groups().list(request, (int) first);
+			new Argus.Shared.OSQuery.InterfaceAddresses().list(request, (int) first);
+			new Argus.Shared.OSQuery.SystemInfo().list(request, 0, true);
+			new Argus.Shared.OSQuery.SystemInfo().list(request, (int) first, false);
+			new Argus.Shared.OSQuery.OsVersion().list(request, (int) first);
+			new Argus.Shared.OsReleases().list(request, (int) first);
+			Argus.Shared.OSQuery.SystemInfo.rpc_register();
+			Argus.Shared.OSQuery.OsVersion.rpc_register();
+			Argus.Shared.OsReleases.rpc_register();
+			try {
+				var mem_out = new GLib.MemoryOutputStream.resizable();
+				var data_out = new GLib.DataOutputStream(mem_out);
+				new OLLMrpc.Bin.Stream(null, data_out).write(new Argus.Shared.OSQuery.SystemInfo() {
+					id = 99,
+					agent_id = first,
+					hostname = "host-a",
+					os_status = 0,
+					os_eol = "2026-01-15",
+					os_latest = "25.04",
+					pkgs_updated = 1763000000,
+					pkgs_status = 0,
+					pkgs_updates = 1
+				});
+				data_out.close();
+				var bytes = mem_out.steal_as_bytes();
+				var mem_in = new GLib.MemoryInputStream.from_bytes(bytes);
+				var parsed = new OLLMrpc.Bin.Stream(new GLib.DataInputStream(mem_in), null).parse()
+					as Argus.Shared.OSQuery.SystemInfo;
+				if (parsed == null || parsed.agent_id != first || parsed.id != 0 ||
+					parsed.os_status != 0 || parsed.os_eol != "2026-01-15" ||
+					parsed.os_latest != "25.04" || parsed.pkgs_updated != 1763000000 ||
+					parsed.pkgs_status != 0 || parsed.pkgs_updates != 1 ||
+					parsed.tooltip_os_status != "End of life (2026-01-15)" ||
+					parsed.tooltip_pkgs_status != "1 package update available") {
+					GLib.printerr("fail system_info bin agent_id round-trip\n");
+					return 1;
+				}
+			} catch (GLib.Error e) {
+				GLib.printerr("fail system_info bin round-trip: %s\n", e.message);
+				return 1;
+			}
 			GLib.print("ok package lists\n");
 			return 0;
 		}

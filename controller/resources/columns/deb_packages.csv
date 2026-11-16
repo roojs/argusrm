@@ -1,4 +1,4 @@
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 Name,name,ON,180,text,ON
 Arch,arch,ON,90,text,ON

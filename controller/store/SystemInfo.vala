@@ -62,6 +62,11 @@ namespace Argus.Controller.Store
 		}
 
 		/**
+		 * True while ''SystemInfo.list'' is in flight.
+		 */
+		public bool busy { get; private set; default = false; }
+
+		/**
 		 * The list call failed.
 		 *
 		 * @param heading short title for the notice
@@ -119,11 +124,12 @@ namespace Argus.Controller.Store
 		 */
 		public void load()
 		{
+			this.busy = true;
 			this.epoch++;
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
 				method = "SystemInfo.list",
-				args = OLLMrpc.args("b", true)
+				args = OLLMrpc.args("ib", 0, true)
 			}, (obj, res) => {
 				if (epoch != this.epoch) {
 					return;
@@ -132,10 +138,12 @@ namespace Argus.Controller.Store
 				try {
 					response = this.app.rpc.call.end(res);
 				} catch (GLib.Error e) {
+					this.busy = false;
 					this.failed("Could not list machines", e.message);
 					return;
 				}
 				if (response.error != null) {
+					this.busy = false;
 					this.failed("Could not list machines", response.error.message);
 					return;
 				}
@@ -144,6 +152,7 @@ namespace Argus.Controller.Store
 					listed = (Gee.ArrayList<Argus.Shared.OSQuery.SystemInfo>) response.retval.get_object();
 				}
 				this.items = listed;
+				this.busy = false;
 			});
 		}
 	}

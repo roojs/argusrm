@@ -32,9 +32,25 @@ controller_vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'sqlite3',
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
 ]
+controller_c_args = ocsqlite_c_args
 # Android passes gee-0.8.vapi as a source via dependency('gee-0.8').
 # --pkg=gee-0.8 looks for a host package and fails in the Pixiewood build.
-if host_machine.system() != 'android'
+if host_machine.system() == 'android'
+	if not meson.version().version_compare('>=1.8.0')
+		error('Android requires Meson >= 1.8.0 for android_exe_type')
+	endif
+	gioopenssl_dep = dependency('gioopenssl')
+	if gioopenssl_dep.type_name() == 'pkgconfig'
+		gioopenssl_dep = dependency('gioopenssl', static: true)
+	endif
+	deps += gioopenssl_dep
+	controller_vala_args += [
+		'-D', 'ANDROID',
+		'--vapidir', meson.project_source_root() / 'vendor' / 'vapi',
+		'--pkg', 'gioopenssl',
+	]
+	controller_c_args += ['-I' + meson.current_source_dir() / 'android']
+else
 	controller_vala_args += ['--pkg', 'gee-0.8']
 endif
 if host_machine.system() == 'linux'
@@ -55,29 +71,43 @@ endif
 sources = files(
 	'namespace.vala',
 	'About.vala',
-	'Application.vala',
 	'Command.vala',
 	'Connection.vala',
 	'dialog/Bootstrap.vala',
 	'dialog/Pairing.vala',
 	'dialog/Repository.vala',
+	'widget/HoldButton.vala',
+	'store/ColumnSchema.vala',
+	'store/Base.vala',
+	'store/KeyValue.vala',
 	'store/Agent.vala',
 	'store/SystemInfo.vala',
+	'store/Users.vala',
+	'store/Groups.vala',
+	'store/InterfaceAddresses.vala',
 	'store/DebPackages.vala',
 	'store/RpmPackages.vala',
 	'store/Programs.vala',
 	'store/Repository.vala',
+	'store/MachineGeneral.vala',
+	'store/TaskTarget.vala',
 	'filter/namespace.vala',
 	'filter/SystemInfo.vala',
 	'filter/DebPackages.vala',
+	'filter/Users.vala',
+	'filter/Groups.vala',
 	'filter/Tasks.vala',
 	'tab/Agent.vala',
 	'tab/Assets.vala',
 	'tab/Asset/namespace.vala',
 	'tab/Asset/Machine/namespace.vala',
+	'tab/Asset/Machine/General.vala',
+	'tab/Asset/Machine/Users.vala',
+	'tab/Asset/Machine/Groups.vala',
 	'tab/Asset/Machine/DebPackages.vala',
 	'tab/Asset/Machine/RpmPackages.vala',
 	'tab/Asset/Machine/Programs.vala',
+	'tab/Asset/Machine/InterfaceAddresses.vala',
 	'tab/Asset/Machine/Detail.vala',
 	'tab/Asset/SystemInfo.vala',
 	'tab/Asset/Software.vala',
@@ -90,8 +120,19 @@ sources = files(
 	'tab/Settings.vala',
 	'tab/Tasks.vala',
 	'TabList.vala',
-	'Window.vala',
 )
+if host_machine.system() == 'android'
+	sources += files(
+		'android/Application.vala',
+		'android/Window.vala',
+		'android/android-gio-tls.c',
+	)
+else
+	sources += files(
+		'Application.vala',
+		'Window.vala',
+	)
+endif
 if host_machine.system() == 'windows'
 	win_mod = import('windows')
 	sources += win_mod.compile_resources(
@@ -105,12 +146,13 @@ if host_machine.system() == 'android'
 		sources,
 		controller_resources,
 		controller_icon_resources,
-		files('main.vala'),
+		files('android/main.vala'),
 		dependencies: deps,
-		c_args: ocsqlite_c_args,
+		c_args: controller_c_args,
 		vala_args: controller_vala_args,
 		android_exe_type: 'application',
 		install: true,
+		install_dir: get_option('libdir'),
 	)
 else
 	executable(
@@ -120,7 +162,7 @@ else
 		controller_icon_resources,
 		files('main.vala'),
 		dependencies: deps,
-		c_args: ocsqlite_c_args,
+		c_args: controller_c_args,
 		vala_args: controller_vala_args,
 		install: true,
 	)

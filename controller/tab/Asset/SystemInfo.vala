@@ -50,38 +50,19 @@ namespace Argus.Controller.Tab.Asset
 		 */
 		public SystemInfo(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "system_info"
-			);
+			base("system_info", "cpu-brand");
 			this.window = window;
-			this.hexpand = true;
-			this.vexpand = true;
 			this.store = new Argus.Controller.Store.SystemInfo(window.app);
 			this.filter = new Argus.Controller.Filters.SystemInfo();
-			var text = (string) GLib.resources_lookup_data("/argusrm/columns/system_info.csv",
-				GLib.ResourceLookupFlags.NONE).get_data();
-
 			var text_columns = new Gee.ArrayList<string>();
 			var visible = new Gee.ArrayList<string>();
-			var headings = true;
-			foreach (var line in text.split("\n")) {
-				if (line.strip() == "") {
+			foreach (var col in this.read_columns(this.table)) {
+				if (col.format != "text") {
 					continue;
 				}
-				if (headings) {
-					headings = false;
-					continue;
-				}
-				var parts = line.strip().split(",");
-				var name = parts[1].strip();
-				if (parts[4].strip() != "text") {
-					continue;
-				}
-				text_columns.add(name);
-				if (parts[2].strip() == "ON") {
-					visible.add(name);
+				text_columns.add(col.name);
+				if (col.visible) {
+					visible.add(col.name);
 				}
 			}
 			this.filter.visible_text = visible;
@@ -176,11 +157,39 @@ namespace Argus.Controller.Tab.Asset
 				css_classes = { "machines-filter" },
 				hexpand = true
 			};
+#if ANDROID
+			bar.spacing = 6;
+			var search_toggle = new Gtk.ToggleButton() {
+				icon_name = "system-search-symbolic",
+				tooltip_text = "Search"
+			};
+			var search_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				css_classes = { "machines-filter" },
+				hexpand = true,
+				visible = false
+			};
+			search_bar.append(search);
+			search_toggle.toggled.connect(() => {
+				search_bar.visible = search_toggle.active;
+				if (search_toggle.active) {
+					search.grab_focus();
+				}
+			});
+			bar.append(search_toggle);
+			bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+				hexpand = true
+			});
+			bar.append(new Gtk.Label("OS"));
+			bar.append(os_drop);
+			bar.append(new Gtk.Label("Status"));
+			bar.append(status_drop);
+#else
 			bar.append(search);
 			bar.append(new Gtk.Label("OS type"));
 			bar.append(os_drop);
 			bar.append(new Gtk.Label("Status"));
 			bar.append(status_drop);
+#endif
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
@@ -194,38 +203,53 @@ namespace Argus.Controller.Tab.Asset
 				hexpand = true,
 				vexpand = true
 			};
+#if ANDROID
+			var paned = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				hexpand = true,
+				vexpand = true
+			};
+			var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL) {
+				visible = false
+			};
+			paned.append(this.overlay);
+			paned.append(sep);
+			paned.append(detail);
+#else
 			var paned = new Gtk.Paned(Gtk.Orientation.VERTICAL) {
-				start_child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
+				start_child = this.overlay,
 				end_child = detail,
 				resize_start_child = true,
 				resize_end_child = true,
 				hexpand = true,
 				vexpand = true
 			};
+#endif
 			var selection = (Gtk.MultiSelection) this.grid.model;
 			selection.selection_changed.connect((position, n_items) => {
 				var selected = selection.get_selection();
 				if (selected.get_size() != 1) {
 					detail.visible = false;
+#if ANDROID
+					sep.visible = false;
+					this.overlay.height_request = -1;
+					this.overlay.vexpand = true;
+#endif
 					detail.clear();
 					return;
 				}
 				if (!detail.visible) {
 					detail.visible = true;
+#if ANDROID
+					sep.visible = true;
+					this.overlay.vexpand = false;
+					this.overlay.height_request = 160;
+#else
 					paned.position = paned.get_height() / 2;
+#endif
 				}
 				detail.show_machine(
 					(Argus.Shared.OSQuery.SystemInfo) selection.get_item(selected.get_minimum()));
 			});
-			var toasts = new Adw.ToastOverlay() {
-				child = paned,
-				hexpand = true,
-				vexpand = true
-			};
 			var row_model = new GLib.Menu();
 			row_model.append("Update", "row.update");
 			row_model.append("Upgrade", "row.upgrade");
@@ -233,9 +257,31 @@ namespace Argus.Controller.Tab.Asset
 				has_arrow = false
 			};
 			row_menu.set_parent(this.grid);
+			var task_store = new Argus.Controller.Store.TaskTarget(window.app);
+			task_store.failed.connect((heading, message) => {
+				this.toasts.add_toast(new Adw.Toast(heading + ": " + message));
+			});
+			task_store.submitted.connect((count) => {
+				var label = count == 1 ?
+					"Task created and running — view it in the Tasks tab" :
+					count.to_string() + " tasks created and running — view them in the Tasks tab";
+				this.toasts.add_toast(new Adw.Toast(label));
+			});
 			var row_actions = new GLib.SimpleActionGroup();
 			var update_action = new GLib.SimpleAction("update", null);
+			update_action.activate.connect(() => {
+				task_store.run_script("linux", "apt", "update",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT));
+				task_store.run_script("linux", "dnf", "update",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF));
+			});
 			var upgrade_action = new GLib.SimpleAction("upgrade", null);
+			upgrade_action.activate.connect(() => {
+				task_store.run_script("linux", "apt", "upgrade",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT));
+				task_store.run_script("linux", "dnf", "upgrade",
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF));
+			});
 			row_actions.add_action(update_action);
 			row_actions.add_action(upgrade_action);
 			this.grid.insert_action_group("row", row_actions);
@@ -243,44 +289,8 @@ namespace Argus.Controller.Tab.Asset
 				button = Gdk.BUTTON_SECONDARY
 			};
 			row_click.pressed.connect((n_press, x, y) => {
-				var picked = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
-				while (picked != null && picked != this.grid &&
-					picked.get_data<Gtk.ListItem>("argus-grid-row") == null) {
-					picked = picked.parent;
-				}
-				if (picked == null || picked == this.grid) {
-					row_click.set_state(Gtk.EventSequenceState.DENIED);
-					return;
-				}
-				var row_item = picked.get_data<Gtk.ListItem>("argus-grid-row");
-				if (row_item == null || row_item.item == null) {
-					return;
-				}
-				if (!selection.is_selected(row_item.position)) {
-					selection.select_item(row_item.position, true);
-				}
-				var has_linux = false;
-				var total = selection.get_n_items();
-				for (var i = (uint) 0; i < total; i++) {
-					if (!selection.is_selected(i)) {
-						continue;
-					}
-					var row = selection.get_item(i) as Argus.Shared.OSQuery.SystemInfo;
-					if (row == null) {
-						continue;
-					}
-					switch (row.package_manager()) {
-						case Argus.Shared.OSQuery.PackageManager.APT:
-						case Argus.Shared.OSQuery.PackageManager.DNF:
-							has_linux = true;
-							break;
-
-						default:
-							continue;
-					}
-					break;
-				}
-				if (!has_linux) {
+				if (this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT).size == 0 &&
+					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF).size == 0) {
 					row_click.set_state(Gtk.EventSequenceState.DENIED);
 					return;
 				}
@@ -297,8 +307,35 @@ namespace Argus.Controller.Tab.Asset
 			this.destroy.connect(() => {
 				row_menu.unparent();
 			});
-			this.append(bar);
-			this.append(toasts);
+			this.content.append(bar);
+#if ANDROID
+			this.content.append(search_bar);
+#endif
+			this.content.append(paned);
+		}
+
+		/**
+		 * Collect ''agent.id'' values for selected machines matching ''pm''.
+		 *
+		 * @param pm package manager family to match
+		 * @return selected agent ids
+		 */
+		private Gee.ArrayList<int32> selected_agents(Argus.Shared.OSQuery.PackageManager pm)
+		{
+			var ids = new Gee.ArrayList<int32>();
+			var selection = (Gtk.MultiSelection) this.grid.model;
+			var total = selection.get_n_items();
+			for (var i = (uint) 0; i < total; i++) {
+				if (!selection.is_selected(i)) {
+					continue;
+				}
+				var row = selection.get_item(i) as Argus.Shared.OSQuery.SystemInfo;
+				if (row == null || row.package_manager() != pm) {
+					continue;
+				}
+				ids.add((int32) row.agent_id);
+			}
+			return ids;
 		}
 	}
 }

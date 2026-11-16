@@ -199,10 +199,37 @@ namespace Argus.Server.Net
 					rpc.start();
 					this.connections.add(rpc);
 					if (known) {
+						var now = new GLib.DateTime.now_utc().to_unix();
+						var pending = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+						var pending_binds = new Gee.HashMap<string, int>();
+						pending_binds.set("agent_id", (int) rpc.user.id);
+						Argus.Shared.SQT.TaskTarget.query(this.app.db).selectWhere(
+							"WHERE agent_id = $agent_id AND started = 0 " +
+								"AND ended = 0 AND is_cancelled = 0 AND scheduled > 0",
+							pending_binds, null, pending);
+						var changed = false;
+						foreach (var target in pending) {
+							var tasks = new Gee.ArrayList<Argus.Shared.SQT.Task>();
+							var tbinds = new Gee.HashMap<string, int>();
+							tbinds.set("id", (int) target.task_id);
+							Argus.Shared.SQT.Task.query(this.app.db).selectWhere(
+								"WHERE id = $id AND is_template = 0 AND is_draft = 0",
+								tbinds, null, tasks);
+							if (tasks.size == 0 || tasks.get(0).scheduled > now) {
+								continue;
+							}
+							target.scheduled = 0;
+							Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
+							changed = true;
+						}
+						if (changed) {
+							this.app.db.backupDB();
+						}
 						this.app.broadcast(new OLLMrpc.Notification() {
 							method = "event.agent",
 							action = "connected"
 						});
+						this.app.scheduler.reschedule();
 					}
 				});
 				return true;

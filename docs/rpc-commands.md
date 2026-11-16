@@ -127,7 +127,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - A row left out of a standard table snapshot gets `deleted_dt`. For `PackageUpdates`, existing names keep their `since` time, new names are inserted, and names left out are deleted.
 - The machine tables are posted even when the array is empty. After the first package send, an empty package query is not posted. An empty `PackageUpdates` list is posted when `UpdatesAvailable.check` succeeds with no updates.
 - The row objects are `Argus.Shared.OSQuery`. The property name is the column name.
-- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`, `PackageUpdates`.
+- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `Users`, `Groups`, `UserGroups`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`, `PackageUpdates`.
 - Reply `msg`: `ok`. An unknown name, a name that is not a row class, or a row the apply rejects is an error.
 - ℹ️ `Execute.send_startup` posts the machine tables, then `Execute.send_packages`. A later package change posts `Execute.send_packages` again. `Initialize` installs `osqueryi` and does not query.
 
@@ -135,15 +135,78 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments `b`: true includes that host's `os_version` and the distinct logged-in users on the row. false is `system_info` only.
-- Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info` and whose `agent_id` is still in `agent`.
+- Arguments `ib`: `agent_id` and `join`. When `agent_id` is greater than zero, only that host is returned. `join` true includes that host's `os_version` and the distinct logged-in users on the row; false is `system_info` only.
+- Reply `retval` `o`: an array of `SystemInfo` rows. One row per host that has sent `system_info` (and whose `agent_id` is still in `agent` when `agent_id` is zero).
 - `os_version` and `logged_in_users` in that reply are included only when their `agent_id` is in `agent`.
 - Startup deletes `system_info` rows whose `agent_id` is not in `agent`.
-- With the flag, the row also carries `logged-in-users`, `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, `arch`, `os_updated`, `os_status`, and `reboot_required`. `os_updated` and `os_status` come from `os_releases` (`1` up to date, `2` update available, `0` EOL, `-1` unchecked or unmatched). `logged-in-users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)`. A host with no `os_version` row, or no session, stays in the list and those fields are empty.
+- With `join` true, the row also carries `logged-in-users`, `operating_system` (`name` and `version`), `major`, `minor`, `patch`, `build`, `platform`, `platform_like`, `codename`, `arch`, `os_updated`, `os_status`, `os_eol`, `os_latest`, `pkgs_updated`, `pkgs_status`, `pkgs_updates`, and `reboot_required`. `os_updated`, `os_status`, `os_eol`, and `os_latest` come from `os_releases` (`1` up to date, `2` update available, `0` EOL, `-1` unchecked or unmatched). `pkgs_updated`, `pkgs_status`, and `pkgs_updates` come from `os_version` and `package_updates` (`1` up to date, `0` updates available, `-1` unchecked or unsupported). `logged-in-users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)`. A host with no `os_version` row, or no session, stays in the list and those fields are empty.
 - `logged-in-users` is not a column of `system_info`. The list reads rows already stored. It does not ask the agent.
 - `major`, `minor`, and `patch` are text here, so a missing row stays blank. They are not columns of `system_info`.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls it. [5.8](plans/5.8-assets-page.md).
+- ℹ️ The method is `shared/OSQuery/SystemInfo.vala`. `Store.SystemInfo` calls `SystemInfo.list(0, true)` and `Store.MachineGeneral` calls `SystemInfo.list(agent_id, false)`. [5.8](plans/5.8-assets-page.md).
+
+### `OsVersion.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `OsVersion` rows (`deleted_dt = 0`) for that `agent_id`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/OsVersion.vala`. `Store.MachineGeneral` calls it.
+
+### `OsReleases.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array containing zero or one `OsReleases` row matching that host's `os_version` (`platform`, `major`, `minor`, with `os_version.deleted_dt = 0`). An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OsReleases.vala`. `Store.MachineGeneral` calls it.
+
+### `CpuInfo.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `CpuInfo` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `device_id`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/CpuInfo.vala`. `Store.MachineGeneral` calls it for the per-machine **General** tab (one key-value block per processor).
+
+### `LoggedInUsers.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `LoggedInUsers` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `time DESC, user`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/LoggedInUsers.vala`. Used by `SystemInfo.list` and `Users.list` joins; no dedicated controller tab after the Users change.
+
+### `Users.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `Users` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `uid, username`. Stored columns are the osquery `users` fields plus audit timestamps. Joined (not stored): `gid_groupname` (primary `groups.groupname`), `logged_in_users_time` (`MAX` of live `logged_in_users.time` for that username), `groups_groupnames` (`GROUP_CONCAT` of member `groups.groupname` via live `user_groups`). An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Users.vala`. `Store.Users` calls it. The columns are `columns/users.csv`.
+
+### `Groups.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `Groups` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `gid, groupname`. Stored columns are the osquery `groups` fields plus audit timestamps. Derived (not stored): `member_count` (`COUNT(DISTINCT user_groups.uid)` for live memberships of live users); `users_uid_ge_1000_member_count` (same join, counting only members with `uid >= 1000` and `uid != 65534`). An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Groups.vala`. `Store.Groups` calls it. The columns are `columns/groups.csv`.
+
+### `InterfaceAddresses.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `InterfaceAddresses` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `interface, address`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/InterfaceAddresses.vala`. `Store.InterfaceAddresses` calls it.
 
 ### `DebPackages.list`
 
@@ -153,7 +216,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `DebPackages` rows. A host whose `agent_id` is not in `agent` is left out.
 - When `since` is zero, the reply fills `update_since` from `package_updates` (`0` when no update is waiting). When `agent_id` and `since` are zero, the reply also fills `arch`, `section`, `priority`, `source`, `maintainer`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are the minimum and maximum of `version`, a hyphen, and `revision`. An empty revision leaves the trailing hyphen.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/DebPackages.vala`. `Store.DebPackages` calls it. The columns are `columns/deb_packages.csv`. [5.9](plans/5.9-assets-software.md).
+- ℹ️ The method is `shared/OSQuery/DebPackages.vala`. `Store.DebPackages` calls it. The columns are `columns/deb_packages.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
 ### `RpmPackages.list`
 
@@ -163,7 +226,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `RpmPackages` rows. A host whose `agent_id` is not in `agent` is left out.
 - When `since` is zero, the reply fills `update_since` from `package_updates` (`0` when no update is waiting). When `agent_id` and `since` are zero, the reply also fills `arch`, `package_group`, `source`, `vendor`, `min_version`, `max_version`, `max_size`, and `installed`. Those are not stored columns. `min_version` and `max_version` are the minimum and maximum of `epoch`, a colon, `version`, a hyphen, and `release`.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/RpmPackages.vala`. `Store.RpmPackages` calls it. The columns are `columns/rpm_packages.csv`. [5.9](plans/5.9-assets-software.md).
+- ℹ️ The method is `shared/OSQuery/RpmPackages.vala`. `Store.RpmPackages` calls it. The columns are `columns/rpm_packages.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
 ### `Programs.list`
 
@@ -173,7 +236,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `Programs` rows. A host whose `agent_id` is not in `agent` is left out.
 - When `agent_id` and `since` are zero, the reply fills `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `min_version`, `max_version`, `installed`, and `uninstall_count`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
 - A caller that is not a controller is `controller only`.
-- ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/5.9-assets-software.md).
+- ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
 ---
 
@@ -240,6 +303,11 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 🔷 Broadcast. The app socket sends it.
 - 💩 Action `connected` is a known certificate joining. Action `disconnected` is that socket stopping.
 - ℹ️ The agent page reloads on either action.
+
+### `event.task`
+
+- 🔷 Broadcast when a task is queued, started, or ended.
+- 🔷 Action `queued`, `started`, or `ended`.
 
 ### `agent.removed`
 
@@ -331,5 +399,5 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 Controller calls for the script library and tasks. Defined in [7.1](plans/7.1-tasks-implementation.md).
 
 - `ScriptRepository.clone` `o`, `pull` `i`, `remove` `i`, `list` — in the tree. Clone uses libgit2 (`Ggit`). The row is written after the checkout succeeds.
-- `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `enable` `ii`, `disable` `ii`, `agents` `i`
-- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `watch` `i`, `approve` `ib`, `duplicate` `i`, `targets` `i`
+- `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `search` `sss` (`platform`, `app`, `action` -> `o` array), `enable` `ii`, `disable` `ii`, `agents` `i`
+- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `watch` `i`, `approve` `ib`, `submit` `ovb` (`task`, `ai` `agent_ids`, `watch` -> `o` targets), `duplicate` `i`, `targets` `i`, `all_targets` (no args -> `o` joined targets), `logs` `i` (`target_id` -> `as` `[stdout, stderr, stdin]`)

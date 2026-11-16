@@ -1,4 +1,4 @@
-Column header  |  Database name [JSON]  |  ON or off  |  Width in pixels  |  Format  |  Sort
+Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 Logged in users,logged-in-users,ON,160,text,ON
 Hostname,hostname,ON,160,text,ON

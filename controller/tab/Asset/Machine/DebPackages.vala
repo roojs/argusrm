@@ -40,25 +40,13 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Argus.Controller.Store.DebPackages store;
 
 		/**
-		 * True while a later list is in flight and rows are already
-		 * shown.
-		 */
-		public bool refreshing { get; private set; default = false; }
-
-		/**
 		 * Build the per-machine Debian package grid.
 		 *
 		 * @param window the window this page belongs to
 		 */
 		public DebPackages(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "deb_packages_machine"
-			);
-			this.hexpand = true;
-			this.vexpand = true;
+			base("deb_packages_machine", "name");
 			this.store = new Argus.Controller.Store.DebPackages(window.app);
 			this.column_grid(this.store);
 			this.store.failed.connect((heading, message) => {
@@ -66,31 +54,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
-			var spinner = new Gtk.Spinner() {
-				halign = Gtk.Align.CENTER,
-				valign = Gtk.Align.CENTER,
-				width_request = 48,
-				height_request = 48,
-				visible = false
-			};
-			spinner.add_css_class("package-wait");
-			var overlay = new Gtk.Overlay() {
-				child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
-				hexpand = true,
-				vexpand = true
-			};
-			overlay.add_overlay(spinner);
-			this.store.notify["busy"].connect(() => {
-				var waiting = this.store.busy && this.store.get_n_items() == 0;
-				spinner.visible = waiting;
-				spinner.spinning = waiting;
-				this.refreshing = this.store.busy && this.store.get_n_items() > 0;
-			});
-			this.append(overlay);
+			this.content.append(this.overlay);
 		}
 
 		/**

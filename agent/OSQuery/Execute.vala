@@ -161,7 +161,15 @@ namespace Argus.Agent.OSQuery
 			var code = 0;
 			code += this.sync_table("system_info", "SystemInfo");
 			code += this.sync_table("cpu_info", "CpuInfo");
+#if LINUX
+			// deal with buggy logged in users in osquery
+			code += new LoggedInUsers().send(this.application);
+#else
 			code += this.sync_table("logged_in_users", "LoggedInUsers");
+#endif
+			code += this.sync_table("users", "Users");
+			code += this.sync_table("groups", "Groups");
+			code += this.sync_table("user_groups", "UserGroups");
 			code += this.sync_table("interface_addresses", "InterfaceAddresses");
 			code += this.sync_table("os_version", "OsVersion");
 			code += this.send_packages();
@@ -175,7 +183,7 @@ namespace Argus.Agent.OSQuery
 		 * @param class_name registered row name
 		 * @return zero, or an {@link OLLMrpc.RpcErrorCode} value
 		 */
-		private int sync_table(string table, string class_name)
+		internal int sync_table(string table, string class_name)
 		{
 			var rows = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
 			var row_type = OLLMrpc.Bin.alias_to_gtype.get(class_name);

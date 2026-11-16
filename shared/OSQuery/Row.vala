@@ -152,10 +152,12 @@ namespace Argus.Shared.OSQuery
 		public override void bin_write_prop(
 			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop) throws GLib.Error
 		{
+			if ((prop.flags & GLib.ParamFlags.WRITABLE) == 0) {
+				return;
+			}
 			switch (prop.name) {
 				// Database identity assigned by the server.
 				case "id":
-				case "agent-id":
 				// Server-assigned timestamp on PackageUpdates.
 				case "since":
 					return;
@@ -200,7 +202,7 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * Ignore database identity supplied over the wire.
+		 * Ignore database row identity supplied over the wire.
 		 */
 		public override void bin_read_prop(
 			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop, uint8 type_byte) throws GLib.Error
@@ -208,10 +210,6 @@ namespace Argus.Shared.OSQuery
 			this.bin_default_read_prop(ctx, prop, type_byte);
 			if (prop.name == "id") {
 				this.id = 0;
-				return;
-			}
-			if (prop.name == "agent-id") {
-				this.agent_id = 0;
 			}
 		}
 

@@ -23,6 +23,8 @@ namespace Argus.Shared.OSQuery
 	 */
 	public class LoggedInUsers : Row
 	{
+		private static SQ.Database db;
+
 		public override bool sync(SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows)
 		{
 			return this.sync_rows<LoggedInUsers>(db, agent_id, rows, "logged_in_users", { "pid" });
@@ -39,6 +41,7 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			LoggedInUsers.db = db;
 			string errmsg;
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS logged_in_users (
@@ -59,11 +62,52 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * Register this row with the bin codec.
+		 * Register this row and ''LoggedInUsers.list''.
 		 */
 		public static void rpc_register()
 		{
 			OLLMrpc.Bin.register("LoggedInUsers", typeof(LoggedInUsers));
+			OLLMrpc.Request.add_class(
+				"LoggedInUsers", typeof(LoggedInUsers),
+				"list", "i"
+			);
+		}
+
+		/**
+		 * Stored ''logged_in_users'' rows for one agent.
+		 *
+		 * A controller calls this. An ''agent_id'' less than one returns
+		 * an empty list. A row whose ''agent_id'' is not in ''agent'' or
+		 * whose ''deleted_dt'' is set is absent. A caller that is not a
+		 * controller is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param agent_id selected machine agent id
+		 */
+		public void list(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<LoggedInUsers>();
+			if (agent_id > 0) {
+				var query = new SQ.Query<LoggedInUsers>(LoggedInUsers.db, "logged_in_users");
+				query.select("""
+					WHERE
+						agent_id = %d
+					AND
+						deleted_dt = 0
+					AND
+						agent_id IN (SELECT id FROM agent)
+					ORDER BY
+						time DESC,
+						user
+					""".printf(agent_id), rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
 		}
 
 		public string ctype { get; set; default = ""; }

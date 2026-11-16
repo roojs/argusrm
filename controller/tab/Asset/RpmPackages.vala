@@ -40,24 +40,13 @@ namespace Argus.Controller.Tab.Asset
 		private Argus.Controller.Store.RpmPackages store;
 
 		/**
-		 * True while a later list is in flight and rows are already shown.
-		 */
-		public bool refreshing { get; private set; default = false; }
-
-		/**
 		 * Build the grid.
 		 *
 		 * @param window the window this page belongs to
 		 */
 		public RpmPackages(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "rpm_packages"
-			);
-			this.hexpand = true;
-			this.vexpand = true;
+			base("rpm_packages", "name");
 			this.store = new Argus.Controller.Store.RpmPackages(window.app);
 			this.column_grid(this.store);
 			this.store.failed.connect((heading, message) => {
@@ -68,31 +57,7 @@ namespace Argus.Controller.Tab.Asset
 			this.map.connect(() => {
 				this.store.load(0);
 			});
-			var spinner = new Gtk.Spinner() {
-				halign = Gtk.Align.CENTER,
-				valign = Gtk.Align.CENTER,
-				width_request = 48,
-				height_request = 48,
-				visible = false
-			};
-			spinner.add_css_class("package-wait");
-			var overlay = new Gtk.Overlay() {
-				child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
-				hexpand = true,
-				vexpand = true
-			};
-			overlay.add_overlay(spinner);
-			this.store.notify["busy"].connect(() => {
-				var waiting = this.store.busy && this.store.get_n_items() == 0;
-				spinner.visible = waiting;
-				spinner.spinning = waiting;
-				this.refreshing = this.store.busy && this.store.get_n_items() > 0;
-			});
-			this.append(overlay);
+			this.content.append(this.overlay);
 		}
 	}
 }

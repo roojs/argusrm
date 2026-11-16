@@ -79,7 +79,11 @@ namespace Argus.Controller.Filters
 					break;
 
 				case "Active":
-					if (row.ended > 0 || row.is_cancelled) {
+					var cutoff = new GLib.DateTime.now_utc().to_unix() - 900;
+					if (row.ended > 0 && row.ended < cutoff) {
+						return false;
+					}
+					if (row.is_cancelled && row.ended == 0) {
 						return false;
 					}
 					break;

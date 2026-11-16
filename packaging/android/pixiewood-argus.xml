@@ -4,12 +4,12 @@
   <metainfo vercalc="sem121010">
     <meta:component type="desktop-application">
       <meta:id>org.roojs.argus</meta:id>
-      <meta:name>Argus RM Agent</meta:name>
-      <meta:summary>Argus Remote Manager agent</meta:summary>
+      <meta:name>Argus RM</meta:name>
+      <meta:summary>Argus Remote Manager controller</meta:summary>
       <meta:metadata_license>CC0-1.0</meta:metadata_license>
       <meta:project_license>LGPL-3.0-or-later</meta:project_license>
       <meta:description>
-        <meta:p>Enroll this device with an Argus Remote Manager server.</meta:p>
+        <meta:p>Manage Argus Remote Manager servers, machines, software, and tasks.</meta:p>
       </meta:description>
       <meta:requires>
         <meta:internet>always</meta:internet>
@@ -30,7 +30,7 @@
         target="foreground"
         type="avd"
         path="src://android/icon-foreground.xml"/>
-      <color target="background">#3584e4</color>
+      <color target="background">#ffffff</color>
     </icon>
   </style>
   <dependencies>
@@ -42,6 +42,7 @@
       <patch>android-bugs</patch>
     </gtk>
     <libadwaita/>
+    <sqlite3/>
     <gee/>
     <json-glib/>
     <nghttp2/>
@@ -49,7 +50,7 @@
     <openssl/>
     <glib-networking/>
   </dependencies>
-  <build target="argus-agent">
+  <build target="argus-controller">
     <architectures>
       <arch>aarch64</arch>
     </architectures>

@@ -34,6 +34,7 @@ if host_machine.system() == 'linux'
 	sources += files(
 		'OSQuery/Initialize.vala',
 		'OSQuery/Execute.vala',
+		'OSQuery/LoggedInUsers.vala',
 		'OSQuery/Package.vala',
 		'OSQuery/DebPackages.vala',
 		'OSQuery/RpmPackages.vala',
@@ -42,6 +43,7 @@ if host_machine.system() == 'linux'
 		'linux/ServiceManager.vala',
 		'linux/Command.vala',
 		'linux/PackageMonitor.vala',
+		'linux/UserMonitor.vala',
 		'linux/UpdatesAvailable.vala',
 		'linux/main.vala',
 	)
@@ -73,6 +75,7 @@ if host_machine.system() == 'windows'
 		'Win32/tray/Tray.vala',
 		'Win32/Command.vala',
 		'Win32/PackageMonitor.vala',
+		'Win32/UserMonitor.vala',
 		'Win32/UpdatesAvailable.vala',
 		'Win32/main.vala',
 	)
@@ -121,6 +124,7 @@ else
 				'Download.vala',
 				'OSQuery/Initialize.vala',
 				'OSQuery/Execute.vala',
+				'OSQuery/LoggedInUsers.vala',
 				'OSQuery/Package.vala',
 				'OSQuery/DebPackages.vala',
 				'OSQuery/RpmPackages.vala',
@@ -129,6 +133,7 @@ else
 				'linux/ServiceManager.vala',
 				'linux/Command.vala',
 				'linux/PackageMonitor.vala',
+				'linux/UserMonitor.vala',
 				'linux/UpdatesAvailable.vala',
 				'linux/main.vala',
 			),

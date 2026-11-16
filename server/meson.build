@@ -1,6 +1,14 @@
 # NOTE: If you add/remove/change source files in this directory, you MUST also
 # update docs/meson.build to include the same files in the valadoc input list.
 
+gnome = import('gnome')
+server_resources = gnome.compile_resources(
+	'argus-server-resources',
+	'resources/argusrm-server.gresource.xml',
+	source_dir: 'resources',
+	c_name: 'argus_server_resources',
+)
+
 deps = [
 	dependency('glib-2.0'),
 	dependency('gobject-2.0'),
@@ -44,6 +52,7 @@ sources = files(
 	'OSQuery.vala',
 	'OsUpdate.vala',
 	'Command.vala',
+	'SQT/namespace.vala',
 	'SQT/Script.vala',
 	'SQT/ScriptRepository.vala',
 	'SQT/Scheduler.vala',
@@ -54,6 +63,7 @@ sources = files(
 executable(
 	'argusrm-server',
 	sources,
+	server_resources,
 	files('main.vala'),
 	dependencies: deps,
 	c_args: ocsqlite_c_args,

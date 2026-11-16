@@ -26,12 +26,12 @@ namespace Argus.Controller.Tab
 	 * == Example ==
 	 *
 	 * {{{
-	 * Object(table: "system_info");
-	 * this.grid = view;
-	 * this.column_menu();
+	 * base("system_info", "cpu-brand");
+	 * this.column_grid(this.store);
+	 * this.content.append(this.overlay);
 	 * }}}
 	 */
-	public abstract class Base : Gtk.Box
+	public abstract class Base : Adw.Bin, Argus.Controller.Store.Base
 	{
 		/**
 		 * File name under columns, without ''.csv''.
@@ -41,6 +41,70 @@ namespace Argus.Controller.Tab
 		 * Grid that receives the columns.
 		 */
 		public Gtk.ColumnView grid { get; set; }
+		/**
+		 * Bold the first column as a row header.
+		 */
+		public bool bold_header { get; set; default = true; }
+		/**
+		 * Database name of the column that expands to fill spare width.
+		 */
+		public string expand_column { get; set; default = ""; }
+		/**
+		 * Toast overlay wrapping {@link content}.
+		 */
+		public Adw.ToastOverlay toasts { get; private set; }
+		/**
+		 * Vertical box inside {@link toasts} where subclasses pack widgets.
+		 */
+		public Gtk.Box content { get; private set; }
+		/**
+		 * Scrolled grid overlay carrying {@link spinner}.
+		 */
+		public Gtk.Overlay overlay { get; private set; }
+		/**
+		 * Centered loading spinner over {@link grid} when empty.
+		 */
+		public Adw.Spinner spinner { get; private set; }
+		/**
+		 * True while a later list call is in flight and rows are already
+		 * shown.
+		 */
+		public bool refreshing { get; protected set; default = false; }
+
+		/**
+		 * Emitted when a hold button in a ''bin'' or ''remove'' cell is
+		 * held for the full duration.
+		 *
+		 * @param row model item bound to that grid row
+		 */
+		public signal void remove_confirmed(GLib.Object row);
+
+		/**
+		 * Build the shared vertical {@link content} container inside
+		 * {@link toasts}.
+		 *
+		 * @param table file name under columns without ''.csv''
+		 * @param expand_column database name of the expanding column
+		 */
+		protected Base(string table, string expand_column = "")
+		{
+			Object(
+				table: table,
+				expand_column: expand_column
+			);
+			this.hexpand = true;
+			this.vexpand = true;
+			this.content = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				hexpand = true,
+				vexpand = true
+			};
+			this.toasts = new Adw.ToastOverlay() {
+				child = this.content,
+				hexpand = true,
+				vexpand = true
+			};
+			this.child = this.toasts;
+		}
 
 		/**
 		 * Add this table's columns and its header menu.
@@ -61,9 +125,6 @@ namespace Argus.Controller.Tab
 		 */
 		public GLib.SimpleActionGroup column_menu()
 		{
-			var text = (string) GLib.resources_lookup_data(
-				"/argusrm/columns/" + this.table + ".csv",
-				GLib.ResourceLookupFlags.NONE).get_data();
 			var columns = new Gee.ArrayList<Gtk.ColumnViewColumn>();
 			var menu = new GLib.Menu();
 			var menu_popup = new Gtk.PopoverMenu.from_model(menu) {
@@ -73,78 +134,50 @@ namespace Argus.Controller.Tab
 			menu_popup.add_css_class("column-menu");
 			menu_popup.set_parent(this.grid);
 			var group = new GLib.SimpleActionGroup();
-			var headings = true;
 			var first = true;
 			this.insert_action_group(this.table, group);
-			foreach (var line in text.split("\n")) {
-				if (line.strip() == "") {
-					continue;
-				}
-				if (headings) {
-					headings = false;
-					continue;
-				}
-				var parts = line.strip().split(",");
-				if (parts.length < 4) {
-					continue;
-				}
-				var title = parts[0].strip();
-				var name = parts[1].strip();
-				if (title == "" || name == "") {
-					continue;
-				}
-				var starts = parts[2].strip() == "ON";
-				var format = "text";
-				if (parts.length > 4 && parts[4].strip() != "") {
-					format = parts[4].strip();
-				}
-				var header_column = first;
+			foreach (var col in this.read_columns(this.table)) {
+				var header_column = first && this.bold_header;
 				first = false;
-				var width = 0;
-				var factory = this.column_factory(name, format, header_column);
-				var column = new Gtk.ColumnViewColumn(title, factory) {
+				var factory = this.column_factory(col.name, col.format, header_column);
+				var column = new Gtk.ColumnViewColumn(col.title, factory) {
 					resizable = true,
-					visible = starts
+					visible = col.visible,
+					fixed_width = col.width,
+					expand = col.width < 1 || col.name == this.expand_column
 				};
-				if (int.try_parse(parts[3].strip(), out width) && width > 0) {
-					column.fixed_width = width;
-				}
-				if (width == 0) {
-					column.expand = true;
-				}
-				if (parts.length > 5 && parts[5].strip() == "ON") {
-					column.sorter = this.column_sorter(name, format);
+				if (col.sort) {
+					column.sorter = this.column_sorter(col.name, col.format);
 				}
 				this.grid.append_column(column);
 				columns.add(column);
 				var action = new GLib.SimpleAction.stateful(
-					name, null, new GLib.Variant.boolean(starts));
+					col.name, null, new GLib.Variant.boolean(col.visible));
 				action.change_state.connect((value) => {
-					var on = value.get_boolean();
-					var keep = true;
-					if (!on) {
-						var others = 0;
-						foreach (var other in columns) {
-							if (other == column || !other.visible) {
-								continue;
-							}
-							others++;
-						}
-						if (others < 1) {
-							keep = false;
-						}
-					}
-					if (keep) {
+					if (value.get_boolean()) {
 						action.set_state(value);
-						column.visible = on;
+						column.visible = true;
+						return;
 					}
+					var others = 0;
+					foreach (var other in columns) {
+						if (other == column || !other.visible) {
+							continue;
+						}
+						others++;
+					}
+					if (others < 1) {
+						return;
+					}
+					action.set_state(value);
+					column.visible = false;
 				});
 				group.add_action(action);
 				var item = new GLib.MenuItem(null, null);
-				item.set_attribute("custom", "s", name);
+				item.set_attribute("custom", "s", col.name);
 				menu.append_item(item);
-				var row = new Gtk.CheckButton.with_label(title) {
-					active = starts,
+				var row = new Gtk.CheckButton.with_label(col.title) {
+					active = col.visible,
 					hexpand = true,
 					halign = Gtk.Align.FILL
 				};
@@ -164,7 +197,7 @@ namespace Argus.Controller.Tab
 					tick.set_state(Gtk.EventSequenceState.CLAIMED);
 				});
 				row.add_controller(tick);
-				menu_popup.add_child(row, name);
+				menu_popup.add_child(row, col.name);
 			}
 			var open = new Gtk.GestureClick() {
 				button = Gdk.BUTTON_SECONDARY,
@@ -218,6 +251,36 @@ namespace Argus.Controller.Tab
 				show_row_separators = true
 			};
 			sorted.sorter = this.grid.sorter;
+			this.spinner = new Adw.Spinner() {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER,
+				width_request = 48,
+				height_request = 48,
+				visible = false,
+				css_classes = { "package-wait" }
+			};
+			this.overlay = new Gtk.Overlay() {
+				child = new Gtk.ScrolledWindow() {
+					child = this.grid,
+					hexpand = true,
+					vexpand = true
+				},
+				hexpand = true,
+				vexpand = true
+			};
+			this.overlay.add_overlay(this.spinner);
+			var source = model;
+			while (source is Gtk.FilterListModel) {
+				source = ((Gtk.FilterListModel) source).model;
+			}
+			((GLib.Object) source).notify["busy"].connect(() => {
+				var busy_val = GLib.Value(GLib.Type.BOOLEAN);
+				((GLib.Object) source).get_property("busy", ref busy_val);
+				var busy = busy_val.get_boolean();
+				var count = source.get_n_items();
+				this.spinner.visible = busy && count == 0;
+				this.refreshing = busy && count > 0;
+			});
 			return this.column_menu();
 		}
 
@@ -285,8 +348,16 @@ namespace Argus.Controller.Tab
 		/**
 		 * Factory for one column format.
 		 *
-		 *  * ''text'' and ''date'' are labels.
+		 *  * ''text'', ''dim-text'', ''date'', ''elapsed'', and ''cidr'' are labels.
+		 *  * ''dim-text'' is muted body text.
+		 *  * ''controller-kind'' is ''display-kind'' text; ''argus-this-controller'' when this window owns the row.
+		 *  * ''recent-created'' / ''recent-last-connected'' bind ''display-created'' / ''display-last''.
+		 *  * ''tick-registered'' / ''tick-connected'' are ticks with live ''status'' / ''connected'' bindings.
+		 *  * ''elapsed'' shows relative time since a unix timestamp, with
+		 *    the local date and time in the tooltip.
+		 *  * ''cidr'' appends the prefix length from ''mask'' to ''address''.
 		 *  * ''number'' is right aligned.
+		 *  * ''mhz'' is a megahertz count with commas and '' MHz'', right aligned.
 		 *  * ''bytes'' is a byte count, shown as a size, right aligned.
 		 *  * ''maxver'' is a label. It is red with white text when
 		 *    it differs from ''min-version'' on that row.
@@ -295,13 +366,18 @@ namespace Argus.Controller.Tab
 		 *    ''uninstallable''.
 		 *  * ''remove'' is that same bin. The count is ''installed''.
 		 *    The mouseover is the count alone.
-		 *  * ''status'' and ''tick'' are an image.
-		 *  * The row header is bold.
+		 *  * ''status'' is a centered circle. If the row has a
+		 *    ''tooltip-<name>'' string property, it is used as the
+		 *    mouseover tooltip.
+		 *  * ''tick'' is an image.
+		 *  * The row header is bold when {@link bold_header} is true.
 		 *
 		 * A column whose database name is on the row fills its cell. Other columns stay empty.
 		 *
 		 * @param name JSON name. A hyphen is an underscore.
-		 * @param format text, number, bytes, date, status, tick, bin, or remove
+		 * @param format text, dim-text, controller-kind, recent-created,
+		 *   recent-last-connected, tick-registered, tick-connected, number,
+		 *   bytes, mhz, date, elapsed, cidr, status, tick, bin, or remove
 		 * @param header_column true for the row header
 		 * @return the factory that sets up each cell
 		 */
@@ -317,15 +393,24 @@ namespace Argus.Controller.Tab
 				var item = (Gtk.ListItem) obj;
 				switch (format) {
 					case "status":
-						item.child = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+						var dot = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 							css_classes = { "status-dot" },
 							halign = Gtk.Align.CENTER,
 							valign = Gtk.Align.CENTER,
+							hexpand = true,
 							visible = false
 						};
+						var cell = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+							hexpand = true,
+							vexpand = true
+						};
+						cell.append(dot);
+						item.child = cell;
 						break;
 
 					case "tick":
+					case "tick-registered":
+					case "tick-connected":
 						item.child = new Gtk.Image() {
 							halign = Gtk.Align.CENTER,
 							hexpand = true
@@ -334,16 +419,25 @@ namespace Argus.Controller.Tab
 
 					case "bin":
 					case "remove":
-						item.child = new Gtk.Image() {
-							icon_name = "user-trash-symbolic",
+						var hold_button = new Argus.Controller.Widget.HoldButton() {
 							halign = Gtk.Align.CENTER,
-							hexpand = true,
+							valign = Gtk.Align.CENTER,
 							visible = false
 						};
+						hold_button.short_click.connect(() => {
+							this.toasts.add_toast(new Adw.Toast("Click and hold to remove"));
+						});
+						hold_button.confirmed.connect(() => {
+							if (item.item != null) {
+								this.remove_confirmed((GLib.Object) item.item);
+							}
+						});
+						item.child = hold_button;
 						break;
 
 					case "number":
 					case "bytes":
+					case "mhz":
 						item.child = new Gtk.Label("") {
 							xalign = 1,
 							hexpand = true,
@@ -351,10 +445,24 @@ namespace Argus.Controller.Tab
 						};
 						break;
 
+					case "controller-kind":
+					case "recent-created":
+					case "recent-last-connected":
 					case "date":
+					case "elapsed":
+					case "cidr":
 						item.child = new Gtk.Label("") {
 							xalign = 0,
 							hexpand = true,
+							attributes = header_column ? attrs : null
+						};
+						break;
+
+					case "dim-text":
+						item.child = new Gtk.Label("") {
+							xalign = 0,
+							hexpand = true,
+							css_classes = { "dim-label" },
 							attributes = header_column ? attrs : null
 						};
 						break;
@@ -377,17 +485,46 @@ namespace Argus.Controller.Tab
 				}
 				item.child.set_data("argus-grid-row", item);
 			});
+			factory.unbind.connect((obj) => {
+				var item = (Gtk.ListItem) obj;
+				if (item.child == null) {
+					return;
+				}
+				var binding = item.child.get_data<GLib.Binding>("argus-column-binding");
+				if (binding != null) {
+					binding.unbind();
+				}
+				item.child.set_data<GLib.Binding>("argus-column-binding", null);
+				if (item.child is Gtk.Label) {
+					((Gtk.Label) item.child).remove_css_class("argus-this-controller");
+				}
+				if (item.child is Argus.Controller.Widget.HoldButton) {
+					((Argus.Controller.Widget.HoldButton) item.child).reset();
+				}
+			});
 			factory.bind.connect((obj) => {
 				var item = (Gtk.ListItem) obj;
 				var row = (GLib.Object) item.item;
+				if (item.child == null) {
+					return;
+				}
+				var prior = item.child.get_data<GLib.Binding>("argus-column-binding");
+				if (prior != null) {
+					prior.unbind();
+				}
+				item.child.set_data<GLib.Binding>("argus-column-binding", null);
 				item.child.remove_css_class("dim-label");
 				var dim_prop = row.get_class().find_property("dimmed");
-				if (dim_prop != null && dim_prop.value_type == GLib.Type.BOOLEAN) {
+				if (format != "dim-text" && dim_prop != null &&
+					dim_prop.value_type == GLib.Type.BOOLEAN) {
 					var dim_val = GLib.Value(GLib.Type.BOOLEAN);
 					row.get_property("dimmed", ref dim_val);
 					if (dim_val.get_boolean()) {
 						item.child.add_css_class("dim-label");
 					}
+				}
+				if (format == "dim-text") {
+					item.child.add_css_class("dim-label");
 				}
 				var lookup = name;
 				if (format == "remove") {
@@ -409,6 +546,10 @@ namespace Argus.Controller.Tab
 						shown = value.get_int64().to_string();
 						break;
 
+					case GLib.Type.BOOLEAN:
+						shown = value.get_boolean() ? "1" : "0";
+						break;
+
 					default:
 						shown = value.get_string();
 						break;
@@ -419,7 +560,8 @@ namespace Argus.Controller.Tab
 						if (prop.value_type == GLib.Type.INT) {
 							flag = value.get_int();
 						}
-						var dot = (Gtk.Box) item.child;
+						var cell = (Gtk.Box) item.child;
+						var dot = (Gtk.Box) cell.get_first_child();
 						dot.remove_css_class("status-ok");
 						dot.remove_css_class("status-warn");
 						dot.remove_css_class("status-bad");
@@ -440,6 +582,48 @@ namespace Argus.Controller.Tab
 							default:
 								break;
 						}
+						cell.tooltip_text = null;
+						var tip_prop = row.get_class().find_property("tooltip-" + name);
+						if (tip_prop != null && tip_prop.value_type == GLib.Type.STRING) {
+							var tip_val = GLib.Value(GLib.Type.STRING);
+							row.get_property("tooltip-" + name, ref tip_val);
+							var tip = tip_val.get_string();
+							if (tip != null && tip != "") {
+								cell.tooltip_text = tip;
+							}
+						}
+						break;
+
+					case "controller-kind":
+						((Gtk.Label) item.child).label = shown;
+						((Gtk.Label) item.child).remove_css_class(
+							"argus-this-controller");
+						var mine = this.grid.get_data<string>(
+							"argus-controller-fingerprint");
+						if (mine == null || mine == "") {
+							break;
+						}
+						var fp_val = GLib.Value(GLib.Type.STRING);
+						row.get_property("fingerprint", ref fp_val);
+						if (fp_val.get_string() != mine) {
+							break;
+						}
+						((Gtk.Label) item.child).add_css_class(
+							"argus-this-controller");
+						break;
+
+					case "recent-created":
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								"display-created", item.child, "label",
+								GLib.BindingFlags.SYNC_CREATE));
+						break;
+
+					case "recent-last-connected":
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								"display-last", item.child, "label",
+								GLib.BindingFlags.SYNC_CREATE));
 						break;
 
 					case "date":
@@ -458,10 +642,177 @@ namespace Argus.Controller.Tab
 								date_text = formatted != null ? formatted : "";
 							}
 						}
-						((Gtk.Label) item.child).label = date_text;
+						var date_label = (Gtk.Label) item.child;
+						date_label.label = date_text;
+						date_label.tooltip_text = null;
+						if (stamp > 0) {
+							var tip_when = new GLib.DateTime.from_unix_local(stamp);
+							if (tip_when != null) {
+								date_label.tooltip_text = tip_when.format("%Y-%m-%d %H:%M:%S");
+							}
+						}
+						break;
+
+					case "elapsed":
+						var elapsed_stamp = (int64) 0;
+						if (prop.value_type == GLib.Type.INT64) {
+							elapsed_stamp = value.get_int64();
+						}
+						if (prop.value_type == GLib.Type.INT) {
+							elapsed_stamp = (int64) value.get_int();
+						}
+						var elapsed_label = (Gtk.Label) item.child;
+						if (elapsed_stamp < 1) {
+							elapsed_label.label = "";
+							elapsed_label.tooltip_text = null;
+							break;
+						}
+						var elapsed_when = new GLib.DateTime.from_unix_local(elapsed_stamp);
+						elapsed_label.tooltip_text = null;
+						if (elapsed_when != null) {
+							elapsed_label.tooltip_text = elapsed_when.format("%Y-%m-%d %H:%M:%S");
+						}
+						var diff = new GLib.DateTime.now_local().to_unix() - elapsed_stamp;
+						if (diff < 0) {
+							diff = 0;
+						}
+						if (diff < 60) {
+							elapsed_label.label = diff.to_string() + "s";
+							break;
+						}
+						if (diff < 3600) {
+							elapsed_label.label = (diff / 60).to_string() + "m";
+							break;
+						}
+						if (diff < 86400) {
+							var rem_mins = (diff % 3600) / 60;
+							elapsed_label.label = (diff / 3600).to_string() + "h";
+							if (rem_mins > 0) {
+								elapsed_label.label = elapsed_label.label + " " + rem_mins.to_string() + "m";
+							}
+							break;
+						}
+						var rem_hours = (diff % 86400) / 3600;
+						elapsed_label.label = (diff / 86400).to_string() + "d";
+						if (rem_hours > 0) {
+							elapsed_label.label = elapsed_label.label + " " + rem_hours.to_string() + "h";
+						}
+						break;
+
+					case "mhz":
+						var mhz = (int64) 0;
+						if (prop.value_type == GLib.Type.INT64) {
+							mhz = value.get_int64();
+						}
+						if (prop.value_type == GLib.Type.INT) {
+							mhz = (int64) value.get_int();
+						}
+						((Gtk.Label) item.child).label = "";
+						if (mhz > 0) {
+							((Gtk.Label) item.child).label = mhz.to_string("%'" + int64.FORMAT) + " MHz";
+						}
+						break;
+
+					case "cidr":
+						var mask_prop = row.get_class().find_property("mask");
+						if (shown == "" || mask_prop == null) {
+							((Gtk.Label) item.child).label = shown;
+							break;
+						}
+						var mask_value = GLib.Value(mask_prop.value_type);
+						row.get_property("mask", ref mask_value);
+						var mask_text = mask_value.get_string();
+						if (mask_text == null || mask_text == "") {
+							((Gtk.Label) item.child).label = shown;
+							break;
+						}
+						var mask_addr = new GLib.InetAddress.from_string(mask_text);
+						if (mask_addr == null) {
+							((Gtk.Label) item.child).label = shown;
+							break;
+						}
+						unowned uint8[] bytes = mask_addr.to_bytes();
+						var size = mask_addr.get_native_size();
+						var prefix = 0;
+						var valid = true;
+						var finished = false;
+						for (var idx = (size_t) 0; idx < size; idx++) {
+							var part = bytes[idx];
+							if (finished && part != 0) {
+								valid = false;
+								break;
+							}
+							if (part == 0xff) {
+								prefix += 8;
+								continue;
+							}
+							finished = true;
+							var bits = part;
+							for (var bit = 0; bit < 8; bit++) {
+								if ((bits & 0x80) == 0) {
+									if (bits != 0) {
+										valid = false;
+									}
+									break;
+								}
+								prefix++;
+								bits = (uint8) (bits << 1);
+							}
+							if (!valid) {
+								break;
+							}
+						}
+						((Gtk.Label) item.child).label = shown;
+						if (valid) {
+							((Gtk.Label) item.child).label = shown + "/" + prefix.to_string();
+						}
+						break;
+
+					case "tick-registered":
+						var registered_tick = (Gtk.Image) item.child;
+						var registered_on = false;
+						if (prop.value_type == GLib.Type.INT) {
+							registered_on = value.get_int() == 1;
+						}
+						if (prop.value_type == GLib.Type.INT64) {
+							registered_on = value.get_int64() == 1;
+						}
+						registered_tick.icon_name = registered_on ?
+							"object-select-symbolic" : null;
+						registered_tick.visible = registered_on;
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								"status", item.child, "visible",
+								GLib.BindingFlags.SYNC_CREATE));
+						break;
+
+					case "tick-connected":
+						var connected_tick = (Gtk.Image) item.child;
+						var connected_on = prop.value_type == GLib.Type.BOOLEAN &&
+							value.get_boolean();
+						connected_tick.icon_name = connected_on ?
+							"object-select-symbolic" : null;
+						connected_tick.visible = connected_on;
+						item.child.set_data("argus-column-binding",
+							((GLib.Object) row).bind_property(
+								lookup, item.child, "visible",
+								GLib.BindingFlags.SYNC_CREATE));
 						break;
 
 					case "tick":
+						var tick_image = (Gtk.Image) item.child;
+						var ticked = false;
+						if (prop.value_type == GLib.Type.BOOLEAN) {
+							ticked = value.get_boolean();
+						}
+						if (prop.value_type == GLib.Type.INT) {
+							ticked = value.get_int() != 0;
+						}
+						if (prop.value_type == GLib.Type.INT64) {
+							ticked = value.get_int64() != 0;
+						}
+						tick_image.icon_name = ticked ? "object-select-symbolic" : null;
+						tick_image.visible = ticked;
 						break;
 
 					case "maxver":
@@ -487,11 +838,12 @@ namespace Argus.Controller.Tab
 						if (prop.value_type == GLib.Type.INT) {
 							count = value.get_int();
 						}
-						var image = (Gtk.Image) item.child;
-						image.visible = count > 0;
-						image.tooltip_text = count.to_string();
+						var button = (Argus.Controller.Widget.HoldButton) item.child;
+						button.reset();
+						button.visible = count > 0;
+						button.tooltip_text = count.to_string();
 						if (format == "bin") {
-							image.tooltip_text = count.to_string() + " uninstallable";
+							button.tooltip_text = count.to_string() + " uninstallable";
 						}
 						break;
 

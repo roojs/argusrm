@@ -193,31 +193,51 @@ namespace Argus.Controller.Dialog
 			var path = GLib.Path.build_filename(
 				GLib.Environment.get_user_config_dir(), "argusrm", "connections.json");
 			if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
+#if ANDROID
+				this.page("Argus Remote Manager", "",
+					{ "Connect a remote machine" }, { "remote" });
+#else
 				this.page("Argus Remote Manager", "",
 					{ "Log in to local machine", "Connect a remote machine" },
 					{ "register", "remote" });
+#endif
 				return;
 			}
 			var text = "";
 			try {
 				GLib.FileUtils.get_contents(path, out text);
 			} catch (GLib.Error e) {
+#if ANDROID
+				this.page("Could not connect", "The saved connections could not be read.",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
 				this.page("Could not connect", "The saved connections could not be read.",
 					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
 				return;
 			}
 			var parser = new Json.Parser();
 			try {
 				parser.load_from_data(text);
 			} catch (GLib.Error e) {
+#if ANDROID
+				this.page("Could not connect", "The saved connections could not be read.",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
 				this.page("Could not connect", "The saved connections could not be read.",
 					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
 				return;
 			}
 			var root = parser.get_root();
 			if (root == null || root.get_node_type() != Json.NodeType.ARRAY) {
+#if ANDROID
+				this.page("Could not connect", "The saved connections could not be read.",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
 				this.page("Could not connect", "The saved connections could not be read.",
 					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
 				return;
 			}
 			var list = root.get_array();
@@ -234,9 +254,14 @@ namespace Argus.Controller.Dialog
 				this.connections.add((Connection) obj);
 			}
 			if (this.connections.size < 1 || this.adding) {
+#if ANDROID
+				this.page("Argus Remote Manager", "",
+					{ "Connect a remote machine" }, { "remote" });
+#else
 				this.page("Argus Remote Manager", "",
 					{ "Log in to local machine", "Connect a remote machine" },
 					{ "register", "remote" });
+#endif
 				return;
 			}
 #if LINUX
@@ -274,10 +299,36 @@ namespace Argus.Controller.Dialog
 					continue;
 				}
 			}
+#elif ANDROID
+			var cred_dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_config_dir(), "argusrm", "credentials");
+			foreach (var connection in this.connections) {
+				var cred_path = GLib.Path.build_filename(cred_dir, connection.name + ".json");
+				if (!GLib.FileUtils.test(cred_path, GLib.FileTest.EXISTS)) {
+					continue;
+				}
+				var secret = "";
+				try {
+					GLib.FileUtils.get_contents(cred_path, out secret);
+					var parsed = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), secret)
+						as Argus.Shared.Registration.Data;
+					if (parsed == null || parsed.private_key == "" || parsed.client_certificate == "") {
+						continue;
+					}
+					this.credentials.set(connection.name, parsed);
+				} catch (GLib.Error e) {
+					continue;
+				}
+			}
 #endif
 			if (this.credentials.size < 1) {
+#if ANDROID
+				this.page("Could not connect", "The saved server has no certificate.",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
 				this.page("Could not connect", "The saved server has no certificate.",
 					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
 				return;
 			}
 			this.arm_local_offer(ticket);
@@ -358,9 +409,15 @@ namespace Argus.Controller.Dialog
 				this.page("Choose a server", "", labels, responses);
 				return;
 			}
+#if ANDROID
+			this.page("Could not connect", "The saved server did not answer.",
+				{ "Deregister locally", "Retry", "Connect a remote machine" },
+				{ "local", "retry", "remote" });
+#else
 			this.page("Could not connect", "The saved server did not answer.",
 				{ "Deregister locally", "Retry", "Log in to register" },
 				{ "local", "retry", "register" });
+#endif
 		}
 
 		/**
@@ -684,19 +741,50 @@ namespace Argus.Controller.Dialog
 					{ "Retry", "Log in to register" }, { "retry", "register" });
 				return;
 			}
+#elif ANDROID
+			var cred_dir = GLib.Path.build_filename(dir, "credentials");
+			if (GLib.DirUtils.create_with_parents(cred_dir, 0700) != 0) {
+				this.page("Could not register", "Could not create the credentials directory",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+				return;
+			}
+			var secret = new Argus.Shared.Registration.Data() {
+				private_key = data.private_key,
+				client_certificate = data.client_certificate,
+				ca_certificate = data.ca_certificate
+			};
+			var cred_path = GLib.Path.build_filename(cred_dir, data.name + ".json");
+			try {
+				GLib.FileUtils.set_contents(cred_path, Json.gobject_to_data(secret, null));
+				GLib.FileUtils.chmod(cred_path, 0600);
+			} catch (GLib.Error e) {
+				this.page("Could not register", e.message,
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+				return;
+			}
 #endif
 			this.credentials.set(data.name, data);
 			if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
+#if ANDROID
+				this.page("Could not register", "Could not create the configuration directory",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
 				this.page("Could not register", "Could not create the configuration directory",
 					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
 				return;
 			}
 			try {
 				GLib.FileUtils.set_contents(path, json);
 				GLib.FileUtils.chmod(path, 0600);
 			} catch (GLib.Error e) {
+#if ANDROID
+				this.page("Could not register", e.message,
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
 				this.page("Could not register", e.message,
 					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
 				return;
 			}
 			this.page("Server registered", saved.name, {}, {});
@@ -741,8 +829,18 @@ namespace Argus.Controller.Dialog
 			this.connections.clear();
 			this.reached.clear();
 			this.credentials.clear();
+#if ANDROID
+			if (local_error != "") {
+				this.page("Could not deregister", local_error,
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+				return;
+			}
+			this.page("Argus Remote Manager", "",
+				{ "Connect a remote machine" }, { "remote" });
+#else
 			this.exe_root("--deregister", GLib.Environment.get_user_name(),
 				"Deregistering", local_error);
+#endif
 		}
 
 		/**
@@ -753,35 +851,61 @@ namespace Argus.Controller.Dialog
 		 */
 		private void connect_remote()
 		{
+#if ANDROID
+			var data_dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_config_dir(), "argusrm", "certs");
+#else
+			var data_dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_data_dir(), "argusrm");
+#endif
+#if ANDROID
+			var hostname = new Argus.Shared.Browse().label;
+			if (hostname == "") {
+				hostname = GLib.Environment.get_host_name();
+			}
+#else
+			var hostname = GLib.Environment.get_host_name();
+#endif
 			var window = new Argus.Shared.RegisterWindow() {
-				data_dir = GLib.Path.build_filename(
-					GLib.Environment.get_user_data_dir(), "argusrm"),
+				data_dir = data_dir,
 				is_controller = true,
 				username = GLib.Environment.get_user_name(),
-				hostname = GLib.Environment.get_host_name()
+				hostname = hostname
 			};
 			var done = false;
 			window.certificate_received.connect(() => {
 				done = true;
 				if (window.issued == null) {
+#if ANDROID
+					this.page("Could not register",
+						"The server did not return a connection.",
+						{ "Connect a remote machine" }, { "remote" });
+#else
 					this.page("Could not register",
 						"The server did not return a connection.",
 						{ "Log in to local machine", "Connect a remote machine" },
 						{ "register", "remote" });
+#endif
 					return;
 				}
 				this.finish_registration(window.issued);
+				window.close();
 			});
 			window.dialog_closed.connect(() => {
 				if (done || this.opened || !this.running) {
 					return;
 				}
+#if ANDROID
+				this.page("Argus Remote Manager", "",
+					{ "Connect a remote machine" }, { "remote" });
+#else
 				this.page("Argus Remote Manager", "",
 					{ "Log in to local machine", "Connect a remote machine" },
 					{ "register", "remote" });
+#endif
 			});
-			window.show_add();
 			window.present(this);
+			window.show_add();
 		}
 
 		/**
@@ -804,9 +928,15 @@ namespace Argus.Controller.Dialog
 			var host = this.answered.get(connection.name);
 			if (host == null || host == "") {
 				this.opened = false;
+#if ANDROID
+				this.page("Could not connect", "The saved server did not answer.",
+					{ "Deregister locally", "Retry", "Connect a remote machine" },
+					{ "local", "retry", "remote" });
+#else
 				this.page("Could not connect", "The saved server did not answer.",
 					{ "Deregister locally", "Retry", "Log in to register" },
 					{ "local", "retry", "register" });
+#endif
 				return;
 			}
 			GLib.TlsCertificate certificate;
@@ -814,7 +944,12 @@ namespace Argus.Controller.Dialog
 			try {
 				var pem = issued.client_certificate + "\n" + issued.private_key;
 				certificate = new GLib.TlsCertificate.from_pem(pem, pem.length);
+#if ANDROID
+				var dir = GLib.Path.build_filename(
+					GLib.Environment.get_user_config_dir(), "argusrm");
+#else
 				var dir = GLib.Environment.get_user_runtime_dir();
+#endif
 				if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
 					throw new GLib.FileError.FAILED(
 						"Could not create the runtime directory");
@@ -825,8 +960,13 @@ namespace Argus.Controller.Dialog
 				trust = GLib.TlsFileDatabase.@new(ca_path);
 			} catch (GLib.Error e) {
 				this.opened = false;
+#if ANDROID
+				this.page("Could not connect", e.message,
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
 				this.page("Could not connect", e.message,
 					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
 				return;
 			}
 			var rpc = new OLLMrpc.Client("", "",
@@ -848,20 +988,33 @@ namespace Argus.Controller.Dialog
 				var opened = rpc.connect.end(res);
 				if (!opened) {
 					this.opened = false;
+#if ANDROID
+					this.page("Could not connect", rpc.connect_error,
+						{ "Deregister locally", "Retry", "Connect a remote machine" },
+						{ "local", "retry", "remote" });
+#else
 					this.page("Could not connect", rpc.connect_error,
 						{ "Deregister locally", "Retry", "Log in to register" },
 						{ "local", "retry", "register" });
+#endif
 					return;
 				}
 				var app = this.app;
-				var previous = app.window;
 				var replace = app.running_window;
 				if (replace) {
 					app.rpc.disconnect();
-					previous.leaving = true;
 				}
 				/* The agent page connects notifications while the window is built. */
 				app.rpc = rpc;
+#if ANDROID
+				app.running_window = true;
+				app.window.open(connection, issued);
+				this.close();
+#else
+				var previous = app.window;
+				if (replace) {
+					previous.leaving = true;
+				}
 				var window = new Window(app, connection, issued);
 				app.running_window = true;
 				app.window = window;
@@ -870,6 +1023,7 @@ namespace Argus.Controller.Dialog
 				if (replace) {
 					previous.close();
 				}
+#endif
 			});
 		}
 	}

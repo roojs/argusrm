@@ -3,6 +3,10 @@
   <gresource prefix="/argusrm">
     <file>style.css</file>
     <file>columns/system_info.csv</file>
+    <file>columns/machine_general.csv</file>
+    <file>columns/users.csv</file>
+    <file>columns/groups.csv</file>
+    <file>columns/interface_addresses_machine.csv</file>
     <file>columns/deb_packages.csv</file>
     <file>columns/deb_packages_machine.csv</file>
     <file>columns/rpm_packages.csv</file>
@@ -10,8 +14,12 @@
     <file>columns/programs.csv</file>
     <file>columns/programs_machine.csv</file>
     <file>columns/task_targets.csv</file>
+    <file>columns/agent.csv</file>
+    <file>columns/repository.csv</file>
   </gresource>
   <gresource prefix="/argusrm/icons">
-    <file alias="scalable/actions/windows-symbolic.svg">icons/windows-symbolic.svg</file>
+    <file alias="scalable/apps/emblem-debian-symbolic.svg">icons/emblem-debian-symbolic.svg</file>
+    <file alias="scalable/apps/application-x-rpm-symbolic.svg">icons/application-x-rpm-symbolic.svg</file>
+    <file alias="scalable/apps/windows-symbolic.svg">icons/windows-symbolic.svg</file>
   </gresource>
 </gresources>

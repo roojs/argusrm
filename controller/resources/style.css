@@ -15,12 +15,25 @@ columnview > listview > row:nth-child(even):not(:selected) {
 	color: #c01c28;
 }
 
+.hold-button {
+	border-radius: 6px;
+}
+
+.hold-button.holding button {
+	background-color: #c01c28;
+	background-image: none;
+	color: #ffffff;
+}
+
+.hold-button.holding,
 .hold-disconnect.holding,
 row.hold-disconnect.holding {
 	background-color: #c01c28;
 	color: #ffffff;
 }
 
+.hold-button.holding label,
+.hold-button.holding image,
 .hold-disconnect.holding label,
 row.hold-disconnect.holding label,
 .hold-disconnect.holding image,
@@ -72,7 +85,7 @@ row.hold-disconnect.holding image {
 	background-color: color-mix(in srgb, currentColor 30%, var(--window-bg-color));
 }
 
-spinner.package-wait {
+.package-wait {
 	min-width: 48px;
 	min-height: 48px;
 }
@@ -174,5 +187,48 @@ popover.menu.column-menu checkbutton check:dir(rtl) {
 	padding: 6px 12px;
 	background-color: color-mix(in srgb, currentColor 8%, var(--window-bg-color));
 	border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+viewswitcher > button.toggle:checked,
+viewswitcher > button.toggle:checked:hover,
+viewswitcher > button.toggle:checked:active,
+viewswitcher > button.toggle:checked.keyboard-activating,
+toggle-group > toggle:checked,
+toggle-group > toggle:checked:hover,
+toggle-group > toggle:checked:active,
+toggle-group > toggle:checked.keyboard-activating {
+	background-color: @theme_selected_bg_color;
+	background-image: none;
+	color: @theme_selected_fg_color;
+}
+
+.vertical-list {
+	background-color: var(--view-bg-color);
+}
+
+.vertical-list-expander > title {
+	padding: 8px 12px;
+	font-weight: 600;
+	border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.vertical-list-rows {
+	background-color: transparent;
+}
+
+.vertical-list-rows > row {
+	padding: 0;
+}
+
+.vertical-list-rows > row:nth-child(even) {
+	background-color: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.vertical-list-row {
+	padding: 6px 16px 6px 28px;
+}
+
+.vertical-list-key {
+	min-width: 140px;
 }
 

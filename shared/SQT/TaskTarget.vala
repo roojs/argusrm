@@ -92,6 +92,13 @@ namespace Argus.Shared.SQT
 		public bool task_id_is_draft { get; set; default = false; }
 		public int64 task_id_scheduled { get; set; default = 0; }
 		public string agent_id_hostname { get; set; default = ""; }
+		/**
+		 * True while the target agent's app-socket connection is open.
+		 *
+		 * ''Task.all_targets'' sets this from live connections.
+		 * It is not a column.
+		 */
+		public bool agent_id_connected { get; set; default = false; }
 
 		/**
 		 * Update derived display labels when source properties change.
@@ -108,6 +115,17 @@ namespace Argus.Shared.SQT
 			});
 			this.notify["task-id-is-draft"].connect(() => {
 				this.notify_property("display-state");
+			});
+			this.notify["agent-id-connected"].connect(() => {
+				this.notify_property("display-state");
+			});
+			this.notify["scheduled"].connect(() => {
+				this.notify_property("display-state");
+				this.notify_property("display-started");
+			});
+			this.notify["task-id-scheduled"].connect(() => {
+				this.notify_property("display-state");
+				this.notify_property("display-started");
 			});
 			this.notify["started"].connect(() => {
 				this.notify_property("display-state");
@@ -161,20 +179,31 @@ namespace Argus.Shared.SQT
 				if (this.task_id_is_draft) {
 					return "Draft";
 				}
-				return "Queued";
+				if (!this.agent_id_connected) {
+					return "Offline";
+				}
+				var target_time = this.scheduled > this.task_id_scheduled ?
+					this.scheduled : this.task_id_scheduled;
+				if (target_time > new GLib.DateTime.now_utc().to_unix()) {
+					return "Queued";
+				}
+				return "Pending";
 			}
 		}
 
 		/**
-		 * Local time of {@link started} when today, date and time when
-		 * earlier, or empty when not yet started.
+		 * Local time of {@link started} (or scheduled time while waiting)
+		 * when today, date and time when another day, or empty if unset.
 		 */
 		public string display_started {
 			owned get {
-				if (this.started < 1) {
+				var target_time = this.started > 0 ? this.started :
+					(this.scheduled > this.task_id_scheduled ?
+						this.scheduled : this.task_id_scheduled);
+				if (target_time < 1) {
 					return "";
 				}
-				var when = new GLib.DateTime.from_unix_local(this.started);
+				var when = new GLib.DateTime.from_unix_local(target_time);
 				if (when == null) {
 					return "";
 				}

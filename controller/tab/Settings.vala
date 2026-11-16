@@ -178,10 +178,15 @@ namespace Argus.Controller.Tab
 						holding = false;
 						finished = true;
 						this.window.app.running_window = false;
-						this.window.leaving = true;
 						this.window.app.rpc.disconnect();
+#if ANDROID
+						this.window.unload();
+						new Dialog.Bootstrap(this.window.app, "choose").present(this.window);
+#else
+						this.window.leaving = true;
 						this.window.close();
 						new Dialog.Bootstrap(this.window.app, "choose").present(null);
+#endif
 					});
 					var hold = new Gtk.EventControllerLegacy();
 					hold.event.connect((event) => {

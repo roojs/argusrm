@@ -31,8 +31,10 @@ namespace Argus.Shared
 	 * Argus.Shared.OsReleases.query(db).select("ORDER BY id ASC", rows);
 	 * }}}
 	 */
-	public class OsReleases : GLib.Object, SQ.Interface
+	public class OsReleases : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable
 	{
+		private static SQ.Database db;
+
 		public int64 id { get; set; default = 0; }
 		/**
 		 * Unique ''osinfo-query'' short identifier (e.g. ''debian12'').
@@ -99,12 +101,66 @@ namespace Argus.Shared
 		}
 
 		/**
+		 * Register this row and ''OsReleases.list''.
+		 */
+		public static void rpc_register()
+		{
+			OLLMrpc.Bin.register("OsReleases", typeof(OsReleases));
+			OLLMrpc.Request.add_class(
+				"OsReleases", typeof(OsReleases),
+				"list", "i"
+			);
+		}
+
+		/**
+		 * Stored ''os_releases'' row matching one agent's ''os_version''.
+		 *
+		 * A controller calls this. An ''agent_id'' less than one returns
+		 * an empty list. A caller that is not a controller is refused.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param agent_id selected machine agent id
+		 */
+		public void list(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<OsReleases>();
+			if (agent_id > 0) {
+				var query = OsReleases.query(OsReleases.db);
+				var columns = string.joinv(", ", query.getColsExcept(null, "os_releases."));
+				query.selectQuery(@"
+					SELECT
+						$(columns)
+					FROM
+						os_releases
+					JOIN
+						os_version
+					ON
+						os_version.platform = os_releases.platform
+						AND os_version.major = os_releases.major
+						AND os_version.minor = os_releases.minor
+					WHERE
+						os_version.agent_id = $(agent_id)
+						AND os_version.deleted_dt = 0
+					LIMIT 1
+					", rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
+		}
+
+		/**
 		 * Create ''os_releases''.
 		 *
 		 * @param db Argus database
 		 */
 		public static void init_db(SQ.Database db)
 		{
+			OsReleases.db = db;
 			var errmsg = "";
 			var ddl = """
 				CREATE TABLE IF NOT EXISTS os_releases (

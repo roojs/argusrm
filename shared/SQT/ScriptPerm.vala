@@ -19,63 +19,64 @@
 namespace Argus.Shared.SQT
 {
 	/**
-	 * One ''script_agent'' row.
+	 * One ''script_perm'' row.
 	 *
-	 * A {@link Script} enabled on a machine. The wire alias is
-	 * ''Argus.ScriptAgent''.
+	 * Permits a {@link Script} on a machine when {@link Script.allow_all}
+	 * is false. The wire alias is ''Argus.ScriptPerm''.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * Argus.Shared.SQT.ScriptAgent.rpc_register();
-	 * var rows = new Gee.ArrayList<Argus.Shared.SQT.ScriptAgent>();
-	 * Argus.Shared.SQT.ScriptAgent.query(db).select("", rows);
+	 * Argus.Shared.SQT.ScriptPerm.rpc_register();
+	 * var rows = new Gee.ArrayList<Argus.Shared.SQT.ScriptPerm>();
+	 * Argus.Shared.SQT.ScriptPerm.query(db).select("", rows);
 	 * }}}
 	 */
-	public class ScriptAgent : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable
+	public class ScriptPerm : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable
 	{
 		public int64 id { get; set; default = 0; }
 		public int64 script_id { get; set; default = 0; }
 		public int64 agent_id { get; set; default = 0; }
 
 		/**
-		 * Register the wire name ''Argus.ScriptAgent''.
+		 * Register the wire name ''Argus.ScriptPerm''.
 		 */
 		public static void rpc_register()
 		{
-			OLLMrpc.Bin.register("Argus.ScriptAgent", typeof(ScriptAgent));
+			OLLMrpc.Bin.register("Argus.ScriptPerm", typeof(ScriptPerm));
 		}
 
 		/**
-		 * Rows in ''script_agent''.
+		 * Rows in ''script_perm''.
 		 *
 		 * @param db Argus database
 		 * @return the query
 		 */
-		public static SQ.Query<ScriptAgent> query(SQ.Database db)
+		public static SQ.Query<ScriptPerm> query(SQ.Database db)
 		{
-			return new SQ.Query<ScriptAgent>(db, "script_agent");
+			return new SQ.Query<ScriptPerm>(db, "script_perm");
 		}
 
 		/**
-		 * Create ''script_agent''.
+		 * Create ''script_perm'', migrating ''script_agent'' if present.
 		 *
 		 * @param db Argus database
 		 */
 		public static void init_db(SQ.Database db)
 		{
 			var errmsg = "";
+			db.db.exec("ALTER TABLE script_agent RENAME TO script_perm;", null, out errmsg);
 			var ddl = """
-				CREATE TABLE IF NOT EXISTS script_agent (
+				CREATE TABLE IF NOT EXISTS script_perm (
 					id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					script_id  INTEGER NOT NULL DEFAULT 0,
 					agent_id   INTEGER NOT NULL DEFAULT 0
 				);
 				""";
 			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("script_agent create failed: %s", db.db.errmsg());
+				GLib.warning("script_perm create failed: %s", db.db.errmsg());
 			}
-			Argus.Shared.init_db_audit(db, "script_agent");
+			Argus.Shared.init_db_audit(db, "script_perm");
 		}
 	}
 }

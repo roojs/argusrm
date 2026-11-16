@@ -26,6 +26,9 @@ shared_osquery_sources = files(
 	'OSQuery/SystemInfo.vala',
 	'OSQuery/CpuInfo.vala',
 	'OSQuery/LoggedInUsers.vala',
+	'OSQuery/Users.vala',
+	'OSQuery/Groups.vala',
+	'OSQuery/UserGroups.vala',
 	'OSQuery/InterfaceAddresses.vala',
 	'OSQuery/OsVersion.vala',
 	'OSQuery/DebPackages.vala',
@@ -38,7 +41,7 @@ shared_sqt_sources = files(
 	'SQT/Task.vala',
 	'SQT/TaskTarget.vala',
 	'SQT/Script.vala',
-	'SQT/ScriptAgent.vala',
+	'SQT/ScriptPerm.vala',
 	'SQT/ScriptRepository.vala',
 )
 shared_sources = files(

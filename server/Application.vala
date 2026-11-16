@@ -352,6 +352,7 @@ namespace Argus.Server
 			}
 			Registration.rpc_register();
 			Argus.Shared.Agent.rpc_register();
+			Argus.Shared.OsReleases.rpc_register();
 			Daemon.rpc_register();
 			OSQuery.rpc_register();
 			Command.rpc_register();
@@ -362,18 +363,15 @@ namespace Argus.Server
 			Argus.Shared.OsReleases.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
 			Argus.Shared.SQT.init_db(this.db);
+			new SQT.Script.for_rpc(this).import_defaults();
 			OLLMrpc.Request.register("Agent", new Agent.for_rpc(this));
 			OLLMrpc.Request.register("Registration", new Registration(this));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
-			OLLMrpc.Request.register("SystemInfo", new Argus.Shared.OSQuery.SystemInfo());
-			OLLMrpc.Request.register("DebPackages", new Argus.Shared.OSQuery.DebPackages());
-			OLLMrpc.Request.register("RpmPackages", new Argus.Shared.OSQuery.RpmPackages());
-			OLLMrpc.Request.register("Programs", new Argus.Shared.OSQuery.Programs());
+			Argus.Shared.OSQuery.register();
+			OLLMrpc.Request.register("OsReleases", new Argus.Shared.OsReleases());
 			OLLMrpc.Request.register("Command", new Command.for_rpc(this));
-			OLLMrpc.Request.register("ScriptRepository", new SQT.ScriptRepository.for_rpc(this));
-			OLLMrpc.Request.register("Script", new SQT.Script.for_rpc(this));
-			OLLMrpc.Request.register("Task", new SQT.Task.for_rpc(this));
+			SQT.register(this);
 			if (!(new Initialize()).fetch_osquery()) {
 				command_line.printerr("error: download store was not created\n");
 				return 1;

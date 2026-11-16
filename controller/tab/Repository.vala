@@ -33,7 +33,7 @@ namespace Argus.Controller.Tab
 	 * stack.add_named(page, "repositories");
 	 * }}}
 	 */
-	public class Repository : Gtk.Box
+	public class Repository : Argus.Controller.Tab.Base
 	{
 		public Argus.Controller.Window window;
 		private Argus.Controller.Store.Repository store;
@@ -43,8 +43,6 @@ namespace Argus.Controller.Tab
 		private Gtk.Button pull_button;
 		private Gtk.Button remove_button;
 		private Gtk.Button clone_button;
-		private Gtk.Spinner spinner;
-		private Adw.ToastOverlay toasts;
 
 		/**
 		 * Build the list, with Clone above it and pull and remove below it.
@@ -53,13 +51,11 @@ namespace Argus.Controller.Tab
 		 */
 		public Repository(Argus.Controller.Window window)
 		{
-			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
+			base("repository", "display-name");
 			this.window = window;
-			this.hexpand = true;
-			this.vexpand = true;
 			this.store = new Argus.Controller.Store.Repository(window.app);
 			this.dialog = new Argus.Controller.Dialog.Repository(this.store);
-			this.spinner = new Gtk.Spinner() {
+			var bar_spinner = new Adw.Spinner() {
 				visible = false
 			};
 			this.clone_button = new Gtk.Button.with_label("Clone") {
@@ -73,7 +69,7 @@ namespace Argus.Controller.Tab
 				margin_start = 12,
 				margin_end = 12
 			};
-			toolbar.append(this.spinner);
+			toolbar.append(bar_spinner);
 			var spacer = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				hexpand = true
 			};
@@ -97,61 +93,10 @@ namespace Argus.Controller.Tab
 			};
 			bottom.append(this.pull_button);
 			bottom.append(this.remove_button);
-			var name_factory = new Gtk.SignalListItemFactory();
-			name_factory.setup.connect((obj) => {
-				var item = (Gtk.ListItem) obj;
-				item.child = new Gtk.Label("") {
-					xalign = 0,
-					hexpand = true
-				};
-			});
-			name_factory.bind.connect((obj) => {
-				var item = (Gtk.ListItem) obj;
-				var row = (Argus.Shared.SQT.ScriptRepository) item.item;
-				var title = row.name;
-				if (title == "") {
-					title = row.url;
-				}
-				((Gtk.Label) item.child).label = title;
-			});
-			var url_factory = new Gtk.SignalListItemFactory();
-			url_factory.setup.connect((obj) => {
-				var item = (Gtk.ListItem) obj;
-				item.child = new Gtk.Label("") {
-					xalign = 0,
-					hexpand = true,
-					css_classes = { "dim-label" }
-				};
-			});
-			url_factory.bind.connect((obj) => {
-				var item = (Gtk.ListItem) obj;
-				var row = (Argus.Shared.SQT.ScriptRepository) item.item;
-				((Gtk.Label) item.child).label = row.url;
-			});
-			var name_column = new Gtk.ColumnViewColumn("Name", name_factory) {
-				expand = true,
-				resizable = true
-			};
-			var url_column = new Gtk.ColumnViewColumn("URL", url_factory) {
-				expand = true,
-				resizable = true
-			};
-			this.selection = new Gtk.SingleSelection(this.store) {
-				autoselect = false,
-				can_unselect = true
-			};
-			var view = new Gtk.ColumnView(this.selection) {
-				hexpand = true,
-				vexpand = true,
-				show_row_separators = true
-			};
-			view.append_column(name_column);
-			view.append_column(url_column);
-			var scroll = new Gtk.ScrolledWindow() {
-				child = view,
-				vexpand = true,
-				hexpand = true
-			};
+			this.column_grid(this.store);
+			this.selection = (Gtk.SingleSelection) this.grid.model;
+			this.selection.autoselect = false;
+			this.selection.can_unselect = true;
 			var empty = new Adw.StatusPage() {
 				title = "No repositories",
 				description = "Clone a git repository onto this server.",
@@ -163,20 +108,13 @@ namespace Argus.Controller.Tab
 				vexpand = true,
 				transition_type = Gtk.StackTransitionType.NONE
 			};
-			this.body.add_named(scroll, "list");
+			this.body.add_named(this.overlay, "list");
 			this.body.add_named(empty, "empty");
 			this.body.visible_child_name = "list";
-			this.toasts = new Adw.ToastOverlay() {
-				child = this.body,
-				hexpand = true,
-				vexpand = true
-			};
-			this.append(toolbar);
-			this.append(this.toasts);
-			this.append(bottom);
-			this.store.bind_property("busy", this.spinner, "spinning",
-				GLib.BindingFlags.SYNC_CREATE);
-			this.store.bind_property("busy", this.spinner, "visible",
+			this.content.append(toolbar);
+			this.content.append(this.body);
+			this.content.append(bottom);
+			this.store.bind_property("busy", bar_spinner, "visible",
 				GLib.BindingFlags.SYNC_CREATE);
 			this.store.notify["empty"].connect(() => {
 				if (this.store.empty) {
@@ -241,7 +179,7 @@ namespace Argus.Controller.Tab
 					return;
 				}
 				var id = (int) row.id;
-				var name = row.name;
+				var name = row.display_name;
 				var confirm = new Adw.AlertDialog(
 					"Remove " + name,
 					"This deletes the clone on the server.");
