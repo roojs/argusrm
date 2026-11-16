@@ -44,8 +44,6 @@ namespace Argus.Controller.Tab
 		public Argus.Controller.Window window;
 		private Argus.Controller.Store.Agent store;
 		private Gtk.Stack body;
-		private Adw.Spinner spinner;
-		private Adw.ToastOverlay toasts;
 
 		/**
 		 * Build the list. One button opens registration.
@@ -54,17 +52,10 @@ namespace Argus.Controller.Tab
 		 */
 		public Agent(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "agent",
-				expand_column: "display-name"
-			);
+			base("agent", "display-name");
 			this.window = window;
-			this.hexpand = true;
-			this.vexpand = true;
 			this.store = new Argus.Controller.Store.Agent(window.app);
-			this.spinner = new Adw.Spinner() {
+			var bar_spinner = new Adw.Spinner() {
 				visible = false
 			};
 			var removing_label = new Gtk.Label("Removing") {
@@ -189,11 +180,6 @@ namespace Argus.Controller.Tab
 				row_menu.popup();
 			});
 			this.grid.add_controller(click);
-			var scroll = new Gtk.ScrolledWindow() {
-				child = this.grid,
-				vexpand = true,
-				hexpand = true
-			};
 			var empty = new Adw.StatusPage() {
 				title = "No machines",
 				description = "Register a machine to see it here.",
@@ -205,29 +191,24 @@ namespace Argus.Controller.Tab
 				vexpand = true,
 				transition_type = Gtk.StackTransitionType.NONE
 			};
-			this.body.add_named(scroll, "list");
+			this.body.add_named(this.overlay, "list");
 			this.body.add_named(empty, "empty");
 			this.body.visible_child_name = "list";
-			this.toasts = new Adw.ToastOverlay() {
-				child = this.body,
-				hexpand = true,
-				vexpand = true
-			};
 			var toolbar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				margin_top = 12,
 				margin_bottom = 12,
 				margin_start = 12,
 				margin_end = 12
 			};
-			toolbar.append(this.spinner);
+			toolbar.append(bar_spinner);
 			toolbar.append(removing_label);
 			toolbar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				hexpand = true
 			});
 			toolbar.append(register_add);
-			this.append(toolbar);
-			this.append(this.toasts);
-			this.store.bind_property("busy", this.spinner, "visible",
+			this.content.append(toolbar);
+			this.content.append(this.body);
+			this.store.bind_property("busy", bar_spinner, "visible",
 				GLib.BindingFlags.SYNC_CREATE);
 			this.store.bind_property("busy", register_add, "sensitive",
 				GLib.BindingFlags.SYNC_CREATE | GLib.BindingFlags.INVERT_BOOLEAN);

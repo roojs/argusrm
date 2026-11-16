@@ -39,10 +39,6 @@ namespace Argus.Controller.Tab.Asset.Machine
 		 * Backing store for this list.
 		 */
 		public Argus.Controller.Store.Groups store;
-		/**
-		 * True while a later list is in flight and rows are already shown.
-		 */
-		public bool refreshing { get; private set; default = false; }
 
 		/**
 		 * Selected group name changed. Empty when cleared.
@@ -59,16 +55,8 @@ namespace Argus.Controller.Tab.Asset.Machine
 		public Groups(
 			Argus.Controller.Window window,
 			Argus.Controller.Filters.Groups filter
-		)
-		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "groups",
-				expand_column: "groupname"
-			);
-			this.hexpand = true;
-			this.vexpand = true;
+		) {
+			base("groups", "groupname");
 			this.store = new Argus.Controller.Store.Groups(window.app);
 			var rows = new Gtk.FilterListModel(this.store, filter) {
 				incremental = true
@@ -90,29 +78,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
-			var spinner = new Adw.Spinner() {
-				halign = Gtk.Align.CENTER,
-				valign = Gtk.Align.CENTER,
-				width_request = 32,
-				height_request = 32,
-				visible = false
-			};
-			spinner.add_css_class("package-wait");
-			var overlay = new Gtk.Overlay() {
-				child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
-				hexpand = true,
-				vexpand = true
-			};
-			overlay.add_overlay(spinner);
-			this.store.notify["busy"].connect(() => {
-				spinner.visible = this.store.busy && this.store.get_n_items() == 0;
-				this.refreshing = this.store.busy && this.store.get_n_items() > 0;
-			});
-			this.append(overlay);
+			this.content.append(this.overlay);
 		}
 
 		/**

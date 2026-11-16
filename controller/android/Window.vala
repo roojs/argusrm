@@ -30,7 +30,8 @@ namespace Argus.Controller
 	 * == Example ==
 	 *
 	 * {{{
-	 * var window = new Argus.Controller.Window(app, connection, issued);
+	 * var window = new Argus.Controller.Window(app);
+	 * window.open(connection, issued);
 	 * window.present();
 	 * }}}
 	 */
@@ -63,19 +64,85 @@ namespace Argus.Controller
 		private int64 next_reconnect = 0;
 
 		/**
-		 * Create the Android controller window for one server.
+		 * Create the single Android controller window with its startup backdrop.
 		 *
 		 * @param app the controller process
+		 */
+		public Window(Application app)
+		{
+			Object(application: app);
+			this.app = app;
+			this.set_default_size(420, 720);
+			this.unload();
+			this.close_request.connect(() => {
+				this.closed = true;
+				if (this.connection_check_id != 0) {
+					GLib.Source.remove(this.connection_check_id);
+					this.connection_check_id = 0;
+				}
+				if (this.leaving) {
+					return false;
+				}
+				this.app.quit();
+				return false;
+			});
+		}
+
+		/**
+		 * Show the startup backdrop and stop any active server polling.
+		 */
+		public void unload()
+		{
+			if (this.connection_check_id != 0) {
+				GLib.Source.remove(this.connection_check_id);
+				this.connection_check_id = 0;
+			}
+			this.reconnecting = false;
+			this.was_connected = true;
+			this.next_reconnect = 0;
+			this.connection = new Connection();
+			this.issued = new Argus.Shared.Registration.Data();
+			this.title = "Argus Remote Manager " + Argus.VERSION;
+			var host_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 16) {
+				margin_top = 48,
+				margin_bottom = 48,
+				margin_start = 24,
+				margin_end = 24,
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.START
+			};
+			host_box.append(new Gtk.Image() {
+				icon_name = "org.roojs.ArgusController",
+				pixel_size = 160
+			});
+			host_box.append(new Gtk.Label("Argus Remote Manager") {
+				css_classes = { "title-2" }
+			});
+			host_box.append(new Adw.Spinner() {
+				width_request = 32,
+				height_request = 32,
+				halign = Gtk.Align.CENTER
+			});
+			this.content = host_box;
+		}
+
+		/**
+		 * Load the Android controller drawer and tabs for one connected server.
+		 *
 		 * @param connection the server that answered
 		 * @param issued certificate from this process, or empty
 		 */
-		public Window(
-			Application app,
+		public void open(
 			Connection connection,
 			Argus.Shared.Registration.Data issued
 		) {
-			Object(application: app);
-			this.app = app;
+			if (this.connection_check_id != 0) {
+				GLib.Source.remove(this.connection_check_id);
+				this.connection_check_id = 0;
+			}
+			this.reconnecting = false;
+			this.was_connected = true;
+			this.next_reconnect = 0;
 			this.connection = connection;
 			this.issued = issued;
 			this.issued.name = connection.name;
@@ -87,7 +154,6 @@ namespace Argus.Controller
 				this.deregister_action.set_enabled(true);
 			});
 			this.title = "Argus RM " + Argus.VERSION;
-			this.set_default_size(420, 720);
 			var header = new Adw.HeaderBar();
 			this.title_label = new Gtk.Label("Argus RM " + Argus.VERSION) {
 				css_classes = { "title" }
@@ -212,18 +278,6 @@ namespace Argus.Controller
 				split.show_sidebar = false;
 			});
 			this.content = split;
-			this.close_request.connect(() => {
-				this.closed = true;
-				if (this.connection_check_id != 0) {
-					GLib.Source.remove(this.connection_check_id);
-					this.connection_check_id = 0;
-				}
-				if (this.leaving) {
-					return false;
-				}
-				this.app.quit();
-				return false;
-			});
 			this.connection_check_id = GLib.Timeout.add_seconds(1, this.check_connection);
 		}
 

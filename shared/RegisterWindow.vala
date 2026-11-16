@@ -73,6 +73,7 @@ namespace Argus.Shared
 		private string found = "";
 		private uint browse_id = 0;
 		private uint close_id = 0;
+		private int close_remaining = 0;
 		private uint poll_id = 0;
 		private int poll_token = 0;
 		private bool by_address = false;
@@ -488,15 +489,26 @@ namespace Argus.Shared
 					if (hit == "") {
 						return true;
 					}
+					if (hit == "none") {
+#if ANDROID
+						if (!this.by_address) {
+							this.browse.start();
+							return true;
+						}
+#endif
+						var root = this.get_root() as Gtk.Window;
+						if (root != null) {
+							this.browse.stop();
+						}
+						this.browse_id = 0;
+						this.listen_label.label = "No management server found";
+						return false;
+					}
 					var root = this.get_root() as Gtk.Window;
 					if (root != null) {
 						this.browse.stop();
 					}
 					this.browse_id = 0;
-					if (hit == "none") {
-						this.listen_label.label = "No management server found";
-						return false;
-					}
 					var nl = hit.index_of("\n");
 					if (nl <= 0 || !GLib.Uuid.string_is_valid(hit.substring(0, nl))) {
 						this.listen_label.label = "No server id";
@@ -723,15 +735,27 @@ namespace Argus.Shared
 			this.offer_box.visible = false;
 			this.address_box.visible = false;
 			this.certificate_received();
-			if (!this.registering) {
+			if (!this.registering || this.is_controller) {
 				return;
 			}
+			this.close_remaining = 10;
 			this.listen_label.label =
 				"Registration succeeded. This window will close in 10 seconds.";
-			this.close_id = GLib.Timeout.add_seconds(10, () => {
-				this.close_id = 0;
-				this.close();
-				return false;
+			this.close_id = GLib.Timeout.add_seconds(1, () => {
+				this.close_remaining--;
+				if (this.close_remaining <= 0) {
+					this.close_id = 0;
+					this.close();
+					return false;
+				}
+				var marker = this.listen_label.label.index_of("This window will close in ");
+				var prefix = marker >= 0 ?
+					this.listen_label.label.substring(0, marker) :
+					"Registration succeeded. ";
+				var unit = this.close_remaining == 1 ? " second." : " seconds.";
+				this.listen_label.label = prefix + "This window will close in " +
+					this.close_remaining.to_string() + unit;
+				return true;
 			});
 		}
 

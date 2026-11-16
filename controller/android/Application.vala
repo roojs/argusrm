@@ -24,8 +24,8 @@ namespace Argus.Controller
 	 * Same public surface as desktop {@link Application} so shared
 	 * tabs and dialogs compile unchanged. Waits for Android
 	 * {@link GLib.Application.activate} from ''ToplevelActivity'',
-	 * configures the Adwaita icon theme and CSS, presents a host
-	 * {@link Adw.ApplicationWindow}, and opens {@link Dialog.Bootstrap}.
+	 * configures the Adwaita icon theme and CSS, presents {@link Window},
+	 * and opens {@link Dialog.Bootstrap}.
 	 *
 	 * == Example ==
 	 *
@@ -72,7 +72,7 @@ namespace Argus.Controller
 				debug_log_in_progress = true;
 				if (debug_log_file == null) {
 					var log_dir = GLib.Path.build_filename(
-						GLib.Environment.get_user_cache_dir(), "argusrm");
+						GLib.Environment.get_user_config_dir(), "argusrm");
 					var log_file_path = GLib.Path.build_filename(log_dir, "controller.log");
 					if (!GLib.FileUtils.test(log_dir, GLib.FileTest.IS_DIR)) {
 						GLib.DirUtils.create_with_parents(log_dir, 0755);
@@ -116,34 +116,10 @@ namespace Argus.Controller
 					Gtk.IconTheme.get_for_display(screen).add_resource_path("/argusrm/icons");
 				}
 				Gtk.Window.set_default_icon_name("org.roojs.ArgusController");
-				var host_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 16) {
-					margin_top = 48,
-					margin_bottom = 48,
-					margin_start = 24,
-					margin_end = 24,
-					halign = Gtk.Align.CENTER,
-					valign = Gtk.Align.START
-				};
-				host_box.append(new Gtk.Image() {
-					icon_name = "org.roojs.ArgusController",
-					pixel_size = 160
-				});
-				host_box.append(new Gtk.Label("Argus Remote Manager") {
-					css_classes = { "title-2" }
-				});
-				host_box.append(new Adw.Spinner() {
-					width_request = 32,
-					height_request = 32,
-					halign = Gtk.Align.CENTER
-				});
-				var host = new Adw.ApplicationWindow(this) {
-					title = "Argus Remote Manager " + Argus.VERSION,
-					content = host_box
-				};
-				host.set_default_size(420, 720);
-				host.present();
+				this.window = new Window(this);
+				this.window.present();
 				var bootstrap = new Dialog.Bootstrap(this);
-				bootstrap.present(host);
+				bootstrap.present(this.window);
 			});
 		}
 	}

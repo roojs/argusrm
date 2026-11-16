@@ -44,25 +44,13 @@ namespace Argus.Controller.Tab.Asset
 		private bool filling = false;
 
 		/**
-		 * True while a later list is in flight and rows are already shown.
-		 */
-		public bool refreshing { get; private set; default = false; }
-
-		/**
 		 * Build the grid.
 		 *
 		 * @param window the window this page belongs to
 		 */
 		public DebPackages(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "deb_packages",
-				expand_column: "name"
-			);
-			this.hexpand = true;
-			this.vexpand = true;
+			base("deb_packages", "name");
 			this.store = new Argus.Controller.Store.DebPackages(window.app);
 			this.filter = new Argus.Controller.Filters.DebPackages();
 			var rows = new Gtk.FilterListModel(this.store, this.filter) {
@@ -76,28 +64,6 @@ namespace Argus.Controller.Tab.Asset
 			});
 			this.map.connect(() => {
 				this.store.load(0);
-			});
-			var spinner = new Adw.Spinner() {
-				halign = Gtk.Align.CENTER,
-				valign = Gtk.Align.CENTER,
-				width_request = 48,
-				height_request = 48,
-				visible = false
-			};
-			spinner.add_css_class("package-wait");
-			var overlay = new Gtk.Overlay() {
-				child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
-				hexpand = true,
-				vexpand = true
-			};
-			overlay.add_overlay(spinner);
-			this.store.notify["busy"].connect(() => {
-				spinner.visible = this.store.busy && this.store.get_n_items() == 0;
-				this.refreshing = this.store.busy && this.store.get_n_items() > 0;
 			});
 			var section_rows = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
 			var section_scroll = new Gtk.ScrolledWindow() {
@@ -136,11 +102,39 @@ namespace Argus.Controller.Tab.Asset
 				css_classes = { "machines-filter" },
 				hexpand = true
 			};
+#if ANDROID
+			bar.spacing = 6;
+			var search_toggle = new Gtk.ToggleButton() {
+				icon_name = "system-search-symbolic",
+				tooltip_text = "Search"
+			};
+			var search_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				css_classes = { "machines-filter" },
+				hexpand = true,
+				visible = false
+			};
+			search_bar.append(search);
+			search_toggle.toggled.connect(() => {
+				search_bar.visible = search_toggle.active;
+				if (search_toggle.active) {
+					search.grab_focus();
+				}
+			});
+			bar.append(search_toggle);
+			bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+				hexpand = true
+			});
+			bar.append(section_button);
+			bar.append(spread);
+			this.content.append(bar);
+			this.content.append(search_bar);
+#else
 			bar.append(search);
 			bar.append(section_button);
 			bar.append(spread);
-			this.append(bar);
-			this.append(overlay);
+			this.content.append(bar);
+#endif
+			this.content.append(this.overlay);
 		}
 
 		/**

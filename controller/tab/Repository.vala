@@ -43,8 +43,6 @@ namespace Argus.Controller.Tab
 		private Gtk.Button pull_button;
 		private Gtk.Button remove_button;
 		private Gtk.Button clone_button;
-		private Adw.Spinner spinner;
-		private Adw.ToastOverlay toasts;
 
 		/**
 		 * Build the list, with Clone above it and pull and remove below it.
@@ -53,18 +51,11 @@ namespace Argus.Controller.Tab
 		 */
 		public Repository(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "repository",
-				expand_column: "display-name"
-			);
+			base("repository", "display-name");
 			this.window = window;
-			this.hexpand = true;
-			this.vexpand = true;
 			this.store = new Argus.Controller.Store.Repository(window.app);
 			this.dialog = new Argus.Controller.Dialog.Repository(this.store);
-			this.spinner = new Adw.Spinner() {
+			var bar_spinner = new Adw.Spinner() {
 				visible = false
 			};
 			this.clone_button = new Gtk.Button.with_label("Clone") {
@@ -78,7 +69,7 @@ namespace Argus.Controller.Tab
 				margin_start = 12,
 				margin_end = 12
 			};
-			toolbar.append(this.spinner);
+			toolbar.append(bar_spinner);
 			var spacer = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				hexpand = true
 			};
@@ -106,11 +97,6 @@ namespace Argus.Controller.Tab
 			this.selection = (Gtk.SingleSelection) this.grid.model;
 			this.selection.autoselect = false;
 			this.selection.can_unselect = true;
-			var scroll = new Gtk.ScrolledWindow() {
-				child = this.grid,
-				vexpand = true,
-				hexpand = true
-			};
 			var empty = new Adw.StatusPage() {
 				title = "No repositories",
 				description = "Clone a git repository onto this server.",
@@ -122,18 +108,13 @@ namespace Argus.Controller.Tab
 				vexpand = true,
 				transition_type = Gtk.StackTransitionType.NONE
 			};
-			this.body.add_named(scroll, "list");
+			this.body.add_named(this.overlay, "list");
 			this.body.add_named(empty, "empty");
 			this.body.visible_child_name = "list";
-			this.toasts = new Adw.ToastOverlay() {
-				child = this.body,
-				hexpand = true,
-				vexpand = true
-			};
-			this.append(toolbar);
-			this.append(this.toasts);
-			this.append(bottom);
-			this.store.bind_property("busy", this.spinner, "visible",
+			this.content.append(toolbar);
+			this.content.append(this.body);
+			this.content.append(bottom);
+			this.store.bind_property("busy", bar_spinner, "visible",
 				GLib.BindingFlags.SYNC_CREATE);
 			this.store.notify["empty"].connect(() => {
 				if (this.store.empty) {

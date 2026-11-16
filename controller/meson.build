@@ -76,6 +76,7 @@ sources = files(
 	'dialog/Bootstrap.vala',
 	'dialog/Pairing.vala',
 	'dialog/Repository.vala',
+	'widget/HoldButton.vala',
 	'store/ColumnSchema.vala',
 	'store/Base.vala',
 	'store/KeyValue.vala',

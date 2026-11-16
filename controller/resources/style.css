@@ -15,12 +15,25 @@ columnview > listview > row:nth-child(even):not(:selected) {
 	color: #c01c28;
 }
 
+.hold-button {
+	border-radius: 6px;
+}
+
+.hold-button.holding button {
+	background-color: #c01c28;
+	background-image: none;
+	color: #ffffff;
+}
+
+.hold-button.holding,
 .hold-disconnect.holding,
 row.hold-disconnect.holding {
 	background-color: #c01c28;
 	color: #ffffff;
 }
 
+.hold-button.holding label,
+.hold-button.holding image,
 .hold-disconnect.holding label,
 row.hold-disconnect.holding label,
 .hold-disconnect.holding image,

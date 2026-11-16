@@ -94,9 +94,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 				valign = Gtk.Align.CENTER
 			};
 			general_row.append(new Gtk.Image.from_icon_name("dialog-information-symbolic"));
+#if !ANDROID
 			general_row.append(new Gtk.Label("General"));
+#endif
 			this.general_toggle = new Adw.Toggle() {
 				name = "general",
+				tooltip = "General",
 				child = new Gtk.CenterBox() {
 					center_widget = general_row,
 					end_widget = general_spin,
@@ -117,9 +120,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 				valign = Gtk.Align.CENTER
 			};
 			users_row.append(new Gtk.Image.from_icon_name("system-users-symbolic"));
+#if !ANDROID
 			users_row.append(new Gtk.Label("Users"));
+#endif
 			this.users_toggle = new Adw.Toggle() {
 				name = "users",
+				tooltip = "Users",
 				child = new Gtk.CenterBox() {
 					center_widget = users_row,
 					end_widget = users_spin,
@@ -140,9 +146,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 				valign = Gtk.Align.CENTER
 			};
 			debian_row.append(new Gtk.Image.from_icon_name("emblem-debian-symbolic"));
+#if !ANDROID
 			debian_row.append(new Gtk.Label("Debian packages"));
+#endif
 			this.debian_toggle = new Adw.Toggle() {
 				name = "debian",
+				tooltip = "Debian packages",
 				child = new Gtk.CenterBox() {
 					center_widget = debian_row,
 					end_widget = debian_spin,
@@ -163,9 +172,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 				valign = Gtk.Align.CENTER
 			};
 			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm-symbolic"));
+#if !ANDROID
 			rpm_row.append(new Gtk.Label("RPM packages"));
+#endif
 			this.rpm_toggle = new Adw.Toggle() {
 				name = "rpm",
+				tooltip = "RPM packages",
 				child = new Gtk.CenterBox() {
 					center_widget = rpm_row,
 					end_widget = rpm_spin,
@@ -186,9 +198,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 				valign = Gtk.Align.CENTER
 			};
 			windows_row.append(new Gtk.Image.from_icon_name("windows-symbolic"));
+#if !ANDROID
 			windows_row.append(new Gtk.Label("Windows programs"));
+#endif
 			this.windows_toggle = new Adw.Toggle() {
 				name = "windows",
+				tooltip = "Windows programs",
 				child = new Gtk.CenterBox() {
 					center_widget = windows_row,
 					end_widget = windows_spin,
@@ -209,9 +224,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 				valign = Gtk.Align.CENTER
 			};
 			interfaces_row.append(new Gtk.Image.from_icon_name("network-wired-symbolic"));
+#if !ANDROID
 			interfaces_row.append(new Gtk.Label("Interfaces"));
+#endif
 			this.interfaces_toggle = new Adw.Toggle() {
 				name = "interfaces",
+				tooltip = "Interfaces",
 				child = new Gtk.CenterBox() {
 					center_widget = interfaces_row,
 					end_widget = interfaces_spin,

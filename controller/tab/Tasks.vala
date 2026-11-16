@@ -53,15 +53,8 @@ namespace Argus.Controller.Tab
 		 */
 		public Tasks(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "task_targets",
-				expand_column: "display-task"
-			);
+			base("task_targets", "display-task");
 			this.window = window;
-			this.hexpand = true;
-			this.vexpand = true;
 			this.store = new Argus.Controller.Store.TaskTarget(window.app);
 			this.filter = new Argus.Controller.Filters.Tasks();
 			var text_columns = new Gee.ArrayList<string>();
@@ -136,6 +129,9 @@ namespace Argus.Controller.Tab
 			presets.append(preset_week);
 			presets.append(preset_month);
 			var cal_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12);
+#if ANDROID
+			cal_box.orientation = Gtk.Orientation.VERTICAL;
+#endif
 			var from_col = new Gtk.Box(Gtk.Orientation.VERTICAL, 4);
 			from_col.append(new Gtk.Label("From") { xalign = 0 });
 			from_col.append(from_cal);
@@ -225,19 +221,48 @@ namespace Argus.Controller.Tab
 				icon_name = "view-refresh-symbolic",
 				tooltip_text = "Refresh tasks"
 			};
-			var spinner = new Adw.Spinner() {
+			var bar_spinner = new Adw.Spinner() {
 				visible = false
 			};
 			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				css_classes = { "machines-filter" },
 				hexpand = true
 			};
+#if ANDROID
+			bar.spacing = 6;
+			var search_toggle = new Gtk.ToggleButton() {
+				icon_name = "system-search-symbolic",
+				tooltip_text = "Search"
+			};
+			var search_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				css_classes = { "machines-filter" },
+				hexpand = true,
+				visible = false
+			};
+			search_bar.append(search);
+			search_toggle.toggled.connect(() => {
+				search_bar.visible = search_toggle.active;
+				if (search_toggle.active) {
+					search.grab_focus();
+				}
+			});
+			bar.append(search_toggle);
+			bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+				hexpand = true
+			});
+			bar.append(new Gtk.Label("State"));
+			bar.append(state_drop);
+			bar.append(date_button);
+			bar.append(bar_spinner);
+			bar.append(refresh);
+#else
 			bar.append(search);
 			bar.append(new Gtk.Label("State"));
 			bar.append(state_drop);
 			bar.append(date_button);
-			bar.append(spinner);
+			bar.append(bar_spinner);
 			bar.append(refresh);
+#endif
 
 			var term_title = new Gtk.Label("") {
 				xalign = 0,
@@ -315,29 +340,33 @@ namespace Argus.Controller.Tab
 				selection.unselect_all();
 			});
 
+#if ANDROID
+			var paned = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				hexpand = true,
+				vexpand = true
+			};
+			var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL) {
+				visible = false
+			};
+			paned.append(this.overlay);
+			paned.append(sep);
+			paned.append(term_box);
+#else
 			var paned = new Gtk.Paned(Gtk.Orientation.VERTICAL) {
-				start_child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
+				start_child = this.overlay,
 				end_child = term_box,
 				resize_start_child = true,
 				resize_end_child = true,
 				hexpand = true,
 				vexpand = true
 			};
-			var toasts = new Adw.ToastOverlay() {
-				child = paned,
-				hexpand = true,
-				vexpand = true
-			};
-			this.store.bind_property("busy", spinner, "visible", GLib.BindingFlags.SYNC_CREATE);
+#endif
+			this.store.bind_property("busy", bar_spinner, "visible", GLib.BindingFlags.SYNC_CREATE);
 			refresh.clicked.connect(() => {
 				this.store.load();
 			});
 			this.store.failed.connect((heading, message) => {
-				toasts.add_toast(new Adw.Toast(heading + ": " + message));
+				this.toasts.add_toast(new Adw.Toast(heading + ": " + message));
 			});
 			this.store.logs_loaded.connect((target_id, stdout_text, stderr_text, stdin_text) => {
 				if ((int64) target_id != this.watched_id) {
@@ -425,6 +454,11 @@ namespace Argus.Controller.Tab
 					this.watched_identifier = 0;
 					this.watched_ended = 0;
 					term_box.visible = false;
+#if ANDROID
+					sep.visible = false;
+					this.overlay.height_request = -1;
+					this.overlay.vexpand = true;
+#endif
 					term_title.label = "";
 					term_meta.label = "";
 					term_view.buffer.text = "";
@@ -438,7 +472,13 @@ namespace Argus.Controller.Tab
 				this.watched_ended = row.ended;
 				if (!term_box.visible) {
 					term_box.visible = true;
+#if ANDROID
+					sep.visible = true;
+					this.overlay.vexpand = false;
+					this.overlay.height_request = 200;
+#else
 					paned.position = paned.get_height() / 2;
+#endif
 				}
 				var host = row.agent_id_hostname != "" ?
 					row.agent_id_hostname : "Agent " + row.agent_id.to_string();
@@ -507,8 +547,11 @@ namespace Argus.Controller.Tab
 					this.expiry_timer = 0;
 				}
 			});
-			this.append(bar);
-			this.append(toasts);
+			this.content.append(bar);
+#if ANDROID
+			this.content.append(search_bar);
+#endif
+			this.content.append(paned);
 		}
 	}
 }

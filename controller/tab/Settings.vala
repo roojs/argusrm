@@ -178,17 +178,12 @@ namespace Argus.Controller.Tab
 						holding = false;
 						finished = true;
 						this.window.app.running_window = false;
-						this.window.leaving = true;
 						this.window.app.rpc.disconnect();
 #if ANDROID
-						var host = new Adw.ApplicationWindow(this.window.app) {
-							title = "Argus Remote Manager " + Argus.VERSION
-						};
-						host.set_default_size(420, 720);
-						host.present();
-						this.window.close();
-						new Dialog.Bootstrap(this.window.app, "choose").present(host);
+						this.window.unload();
+						new Dialog.Bootstrap(this.window.app, "choose").present(this.window);
 #else
+						this.window.leaving = true;
 						this.window.close();
 						new Dialog.Bootstrap(this.window.app, "choose").present(null);
 #endif

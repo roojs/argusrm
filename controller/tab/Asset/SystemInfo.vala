@@ -50,15 +50,8 @@ namespace Argus.Controller.Tab.Asset
 		 */
 		public SystemInfo(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "system_info",
-				expand_column: "cpu-brand"
-			);
+			base("system_info", "cpu-brand");
 			this.window = window;
-			this.hexpand = true;
-			this.vexpand = true;
 			this.store = new Argus.Controller.Store.SystemInfo(window.app);
 			this.filter = new Argus.Controller.Filters.SystemInfo();
 			var text_columns = new Gee.ArrayList<string>();
@@ -164,11 +157,39 @@ namespace Argus.Controller.Tab.Asset
 				css_classes = { "machines-filter" },
 				hexpand = true
 			};
+#if ANDROID
+			bar.spacing = 6;
+			var search_toggle = new Gtk.ToggleButton() {
+				icon_name = "system-search-symbolic",
+				tooltip_text = "Search"
+			};
+			var search_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				css_classes = { "machines-filter" },
+				hexpand = true,
+				visible = false
+			};
+			search_bar.append(search);
+			search_toggle.toggled.connect(() => {
+				search_bar.visible = search_toggle.active;
+				if (search_toggle.active) {
+					search.grab_focus();
+				}
+			});
+			bar.append(search_toggle);
+			bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+				hexpand = true
+			});
+			bar.append(new Gtk.Label("OS"));
+			bar.append(os_drop);
+			bar.append(new Gtk.Label("Status"));
+			bar.append(status_drop);
+#else
 			bar.append(search);
 			bar.append(new Gtk.Label("OS type"));
 			bar.append(os_drop);
 			bar.append(new Gtk.Label("Status"));
 			bar.append(status_drop);
+#endif
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
@@ -182,38 +203,53 @@ namespace Argus.Controller.Tab.Asset
 				hexpand = true,
 				vexpand = true
 			};
+#if ANDROID
+			var paned = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				hexpand = true,
+				vexpand = true
+			};
+			var sep = new Gtk.Separator(Gtk.Orientation.HORIZONTAL) {
+				visible = false
+			};
+			paned.append(this.overlay);
+			paned.append(sep);
+			paned.append(detail);
+#else
 			var paned = new Gtk.Paned(Gtk.Orientation.VERTICAL) {
-				start_child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
+				start_child = this.overlay,
 				end_child = detail,
 				resize_start_child = true,
 				resize_end_child = true,
 				hexpand = true,
 				vexpand = true
 			};
+#endif
 			var selection = (Gtk.MultiSelection) this.grid.model;
 			selection.selection_changed.connect((position, n_items) => {
 				var selected = selection.get_selection();
 				if (selected.get_size() != 1) {
 					detail.visible = false;
+#if ANDROID
+					sep.visible = false;
+					this.overlay.height_request = -1;
+					this.overlay.vexpand = true;
+#endif
 					detail.clear();
 					return;
 				}
 				if (!detail.visible) {
 					detail.visible = true;
+#if ANDROID
+					sep.visible = true;
+					this.overlay.vexpand = false;
+					this.overlay.height_request = 160;
+#else
 					paned.position = paned.get_height() / 2;
+#endif
 				}
 				detail.show_machine(
 					(Argus.Shared.OSQuery.SystemInfo) selection.get_item(selected.get_minimum()));
 			});
-			var toasts = new Adw.ToastOverlay() {
-				child = paned,
-				hexpand = true,
-				vexpand = true
-			};
 			var row_model = new GLib.Menu();
 			row_model.append("Update", "row.update");
 			row_model.append("Upgrade", "row.upgrade");
@@ -223,13 +259,13 @@ namespace Argus.Controller.Tab.Asset
 			row_menu.set_parent(this.grid);
 			var task_store = new Argus.Controller.Store.TaskTarget(window.app);
 			task_store.failed.connect((heading, message) => {
-				toasts.add_toast(new Adw.Toast(heading + ": " + message));
+				this.toasts.add_toast(new Adw.Toast(heading + ": " + message));
 			});
 			task_store.submitted.connect((count) => {
 				var label = count == 1 ?
 					"Task created and running — view it in the Tasks tab" :
 					count.to_string() + " tasks created and running — view them in the Tasks tab";
-				toasts.add_toast(new Adw.Toast(label));
+				this.toasts.add_toast(new Adw.Toast(label));
 			});
 			var row_actions = new GLib.SimpleActionGroup();
 			var update_action = new GLib.SimpleAction("update", null);
@@ -271,8 +307,11 @@ namespace Argus.Controller.Tab.Asset
 			this.destroy.connect(() => {
 				row_menu.unparent();
 			});
-			this.append(bar);
-			this.append(toasts);
+			this.content.append(bar);
+#if ANDROID
+			this.content.append(search_bar);
+#endif
+			this.content.append(paned);
 		}
 
 		/**

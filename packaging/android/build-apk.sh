@@ -90,8 +90,14 @@ patch_argus_manifest() {
   if ! grep -q 'android.permission.ACCESS_NETWORK_STATE' "$manifest"; then
     sed -i '/android.permission.INTERNET/a\  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>' "$manifest"
   fi
+  if ! grep -q 'android.permission.ACCESS_WIFI_STATE' "$manifest"; then
+    sed -i '/android.permission.INTERNET/a\  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>' "$manifest"
+  fi
   if ! grep -q 'android.permission.CHANGE_WIFI_MULTICAST_STATE' "$manifest"; then
     sed -i '/android.permission.INTERNET/a\  <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>' "$manifest"
+  fi
+  if ! grep -q 'android.permission.NEARBY_WIFI_DEVICES' "$manifest"; then
+    sed -i '/android.permission.INTERNET/a\  <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation"/>' "$manifest"
   fi
   if grep -q 'android:launchMode="standard"' "$manifest"; then
     sed -i 's/android:launchMode="standard"/android:launchMode="singleTask"/' "$manifest"

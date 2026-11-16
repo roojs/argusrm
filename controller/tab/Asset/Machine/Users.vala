@@ -39,25 +39,13 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Groups groups;
 
 		/**
-		 * True while a later list is in flight and rows are already shown.
-		 */
-		public bool refreshing { get; private set; default = false; }
-
-		/**
 		 * Build the split groups / users page.
 		 *
 		 * @param window the window this page belongs to
 		 */
 		public Users(Argus.Controller.Window window)
 		{
-			Object(
-				orientation: Gtk.Orientation.VERTICAL,
-				spacing: 0,
-				table: "users",
-				expand_column: "username"
-			);
-			this.hexpand = true;
-			this.vexpand = true;
+			base("users", "username");
 			this.store = new Argus.Controller.Store.Users(window.app);
 			this.filter = new Argus.Controller.Filters.Users();
 			var rows = new Gtk.FilterListModel(this.store, this.filter) {
@@ -90,8 +78,37 @@ namespace Argus.Controller.Tab.Asset.Machine
 				margin_top = 8,
 				margin_bottom = 4
 			};
+#if ANDROID
+			filter_bar.spacing = 6;
+			filter_bar.margin_start = 0;
+			filter_bar.margin_end = 0;
+			filter_bar.margin_top = 0;
+			filter_bar.margin_bottom = 0;
+			var search_toggle = new Gtk.ToggleButton() {
+				icon_name = "system-search-symbolic",
+				tooltip_text = "Search"
+			};
+			var search_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				css_classes = { "machines-filter" },
+				hexpand = true,
+				visible = false
+			};
+			search_bar.append(search);
+			search_toggle.toggled.connect(() => {
+				search_bar.visible = search_toggle.active;
+				if (search_toggle.active) {
+					search.grab_focus();
+				}
+			});
+			filter_bar.append(search_toggle);
+			filter_bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+				hexpand = true
+			});
+			filter_bar.append(show_system);
+#else
 			filter_bar.append(search);
 			filter_bar.append(show_system);
+#endif
 			this.groups = new Groups(window, groups_filter);
 			this.groups.group_selected.connect((group_name) => {
 				this.filter.group_name = group_name;
@@ -111,49 +128,46 @@ namespace Argus.Controller.Tab.Asset.Machine
 				xalign = 0
 			});
 			groups_bar.append(clear);
-			var groups_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
-				width_request = 320
-			};
+			var groups_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+#if !ANDROID
+			groups_box.width_request = 320;
+#endif
 			groups_box.append(groups_bar);
 			groups_box.append(this.groups);
-			var users_spinner = new Adw.Spinner() {
-				halign = Gtk.Align.CENTER,
-				valign = Gtk.Align.CENTER,
-				width_request = 48,
-				height_request = 48,
-				visible = false
-			};
-			users_spinner.add_css_class("package-wait");
-			var users_overlay = new Gtk.Overlay() {
-				child = new Gtk.ScrolledWindow() {
-					child = this.grid,
-					hexpand = true,
-					vexpand = true
-				},
-				hexpand = true,
-				vexpand = true
-			};
-			users_overlay.add_overlay(users_spinner);
 			this.store.notify["busy"].connect(() => {
-				users_spinner.visible = this.store.busy && this.store.get_n_items() == 0;
-				this.refreshing = (this.store.busy && this.store.get_n_items() > 0) ||
-					this.groups.refreshing;
+				if (this.groups.refreshing) {
+					this.refreshing = true;
+				}
 			});
 			this.groups.notify["refreshing"].connect(() => {
 				this.refreshing = (this.store.busy && this.store.get_n_items() > 0) ||
 					this.groups.refreshing;
 			});
+#if ANDROID
+			groups_box.height_request = 160;
+			var paned = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				hexpand = true,
+				vexpand = true
+			};
+			paned.append(groups_box);
+			paned.append(new Gtk.Separator(Gtk.Orientation.HORIZONTAL));
+			paned.append(this.overlay);
+#else
 			var paned = new Gtk.Paned(Gtk.Orientation.HORIZONTAL) {
 				start_child = groups_box,
-				end_child = users_overlay,
+				end_child = this.overlay,
 				resize_start_child = false,
 				shrink_start_child = false,
 				position = 340,
 				hexpand = true,
 				vexpand = true
 			};
-			this.append(filter_bar);
-			this.append(paned);
+#endif
+			this.content.append(filter_bar);
+#if ANDROID
+			this.content.append(search_bar);
+#endif
+			this.content.append(paned);
 		}
 
 		/**

@@ -858,11 +858,19 @@ namespace Argus.Controller.Dialog
 			var data_dir = GLib.Path.build_filename(
 				GLib.Environment.get_user_data_dir(), "argusrm");
 #endif
+#if ANDROID
+			var hostname = new Argus.Shared.Browse().label;
+			if (hostname == "") {
+				hostname = GLib.Environment.get_host_name();
+			}
+#else
+			var hostname = GLib.Environment.get_host_name();
+#endif
 			var window = new Argus.Shared.RegisterWindow() {
 				data_dir = data_dir,
 				is_controller = true,
 				username = GLib.Environment.get_user_name(),
-				hostname = GLib.Environment.get_host_name()
+				hostname = hostname
 			};
 			var done = false;
 			window.certificate_received.connect(() => {
@@ -881,6 +889,7 @@ namespace Argus.Controller.Dialog
 					return;
 				}
 				this.finish_registration(window.issued);
+				window.close();
 			});
 			window.dialog_closed.connect(() => {
 				if (done || this.opened || !this.running) {
@@ -895,8 +904,8 @@ namespace Argus.Controller.Dialog
 					{ "register", "remote" });
 #endif
 			});
-			window.show_add();
 			window.present(this);
+			window.show_add();
 		}
 
 		/**
@@ -935,7 +944,12 @@ namespace Argus.Controller.Dialog
 			try {
 				var pem = issued.client_certificate + "\n" + issued.private_key;
 				certificate = new GLib.TlsCertificate.from_pem(pem, pem.length);
+#if ANDROID
+				var dir = GLib.Path.build_filename(
+					GLib.Environment.get_user_config_dir(), "argusrm");
+#else
 				var dir = GLib.Environment.get_user_runtime_dir();
+#endif
 				if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
 					throw new GLib.FileError.FAILED(
 						"Could not create the runtime directory");
@@ -986,14 +1000,21 @@ namespace Argus.Controller.Dialog
 					return;
 				}
 				var app = this.app;
-				var previous = app.window;
 				var replace = app.running_window;
 				if (replace) {
 					app.rpc.disconnect();
-					previous.leaving = true;
 				}
 				/* The agent page connects notifications while the window is built. */
 				app.rpc = rpc;
+#if ANDROID
+				app.running_window = true;
+				app.window.open(connection, issued);
+				this.close();
+#else
+				var previous = app.window;
+				if (replace) {
+					previous.leaving = true;
+				}
 				var window = new Window(app, connection, issued);
 				app.running_window = true;
 				app.window = window;
@@ -1001,12 +1022,6 @@ namespace Argus.Controller.Dialog
 				this.close();
 				if (replace) {
 					previous.close();
-				}
-#if ANDROID
-				foreach (var win in app.get_windows()) {
-					if (win != window && win != previous) {
-						win.close();
-					}
 				}
 #endif
 			});

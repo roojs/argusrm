@@ -26,12 +26,12 @@ namespace Argus.Controller.Tab
 	 * == Example ==
 	 *
 	 * {{{
-	 * Object(table: "system_info");
-	 * this.grid = view;
-	 * this.column_menu();
+	 * base("system_info", "cpu-brand");
+	 * this.column_grid(this.store);
+	 * this.content.append(this.overlay);
 	 * }}}
 	 */
-	public abstract class Base : Gtk.Box, Argus.Controller.Store.Base
+	public abstract class Base : Adw.Bin, Argus.Controller.Store.Base
 	{
 		/**
 		 * File name under columns, without ''.csv''.
@@ -49,6 +49,62 @@ namespace Argus.Controller.Tab
 		 * Database name of the column that expands to fill spare width.
 		 */
 		public string expand_column { get; set; default = ""; }
+		/**
+		 * Toast overlay wrapping {@link content}.
+		 */
+		public Adw.ToastOverlay toasts { get; private set; }
+		/**
+		 * Vertical box inside {@link toasts} where subclasses pack widgets.
+		 */
+		public Gtk.Box content { get; private set; }
+		/**
+		 * Scrolled grid overlay carrying {@link spinner}.
+		 */
+		public Gtk.Overlay overlay { get; private set; }
+		/**
+		 * Centered loading spinner over {@link grid} when empty.
+		 */
+		public Adw.Spinner spinner { get; private set; }
+		/**
+		 * True while a later list call is in flight and rows are already
+		 * shown.
+		 */
+		public bool refreshing { get; protected set; default = false; }
+
+		/**
+		 * Emitted when a hold button in a ''bin'' or ''remove'' cell is
+		 * held for the full duration.
+		 *
+		 * @param row model item bound to that grid row
+		 */
+		public signal void remove_confirmed(GLib.Object row);
+
+		/**
+		 * Build the shared vertical {@link content} container inside
+		 * {@link toasts}.
+		 *
+		 * @param table file name under columns without ''.csv''
+		 * @param expand_column database name of the expanding column
+		 */
+		protected Base(string table, string expand_column = "")
+		{
+			Object(
+				table: table,
+				expand_column: expand_column
+			);
+			this.hexpand = true;
+			this.vexpand = true;
+			this.content = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				hexpand = true,
+				vexpand = true
+			};
+			this.toasts = new Adw.ToastOverlay() {
+				child = this.content,
+				hexpand = true,
+				vexpand = true
+			};
+			this.child = this.toasts;
+		}
 
 		/**
 		 * Add this table's columns and its header menu.
@@ -195,6 +251,36 @@ namespace Argus.Controller.Tab
 				show_row_separators = true
 			};
 			sorted.sorter = this.grid.sorter;
+			this.spinner = new Adw.Spinner() {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER,
+				width_request = 48,
+				height_request = 48,
+				visible = false,
+				css_classes = { "package-wait" }
+			};
+			this.overlay = new Gtk.Overlay() {
+				child = new Gtk.ScrolledWindow() {
+					child = this.grid,
+					hexpand = true,
+					vexpand = true
+				},
+				hexpand = true,
+				vexpand = true
+			};
+			this.overlay.add_overlay(this.spinner);
+			var source = model;
+			while (source is Gtk.FilterListModel) {
+				source = ((Gtk.FilterListModel) source).model;
+			}
+			((GLib.Object) source).notify["busy"].connect(() => {
+				var busy_val = GLib.Value(GLib.Type.BOOLEAN);
+				((GLib.Object) source).get_property("busy", ref busy_val);
+				var busy = busy_val.get_boolean();
+				var count = source.get_n_items();
+				this.spinner.visible = busy && count == 0;
+				this.refreshing = busy && count > 0;
+			});
 			return this.column_menu();
 		}
 
@@ -333,12 +419,20 @@ namespace Argus.Controller.Tab
 
 					case "bin":
 					case "remove":
-						item.child = new Gtk.Image() {
-							icon_name = "user-trash-symbolic",
+						var hold_button = new Argus.Controller.Widget.HoldButton() {
 							halign = Gtk.Align.CENTER,
-							hexpand = true,
+							valign = Gtk.Align.CENTER,
 							visible = false
 						};
+						hold_button.short_click.connect(() => {
+							this.toasts.add_toast(new Adw.Toast("Click and hold to remove"));
+						});
+						hold_button.confirmed.connect(() => {
+							if (item.item != null) {
+								this.remove_confirmed((GLib.Object) item.item);
+							}
+						});
+						item.child = hold_button;
 						break;
 
 					case "number":
@@ -403,6 +497,9 @@ namespace Argus.Controller.Tab
 				item.child.set_data<GLib.Binding>("argus-column-binding", null);
 				if (item.child is Gtk.Label) {
 					((Gtk.Label) item.child).remove_css_class("argus-this-controller");
+				}
+				if (item.child is Argus.Controller.Widget.HoldButton) {
+					((Argus.Controller.Widget.HoldButton) item.child).reset();
 				}
 			});
 			factory.bind.connect((obj) => {
@@ -741,11 +838,12 @@ namespace Argus.Controller.Tab
 						if (prop.value_type == GLib.Type.INT) {
 							count = value.get_int();
 						}
-						var image = (Gtk.Image) item.child;
-						image.visible = count > 0;
-						image.tooltip_text = count.to_string();
+						var button = (Argus.Controller.Widget.HoldButton) item.child;
+						button.reset();
+						button.visible = count > 0;
+						button.tooltip_text = count.to_string();
 						if (format == "bin") {
-							image.tooltip_text = count.to_string() + " uninstallable";
+							button.tooltip_text = count.to_string() + " uninstallable";
 						}
 						break;
 

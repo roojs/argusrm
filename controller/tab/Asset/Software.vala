@@ -71,7 +71,11 @@ namespace Argus.Controller.Tab.Asset
 				valign = Gtk.Align.CENTER
 			};
 			debian_row.append(new Gtk.Image.from_icon_name("emblem-debian-symbolic"));
+#if ANDROID
+			debian_row.append(new Gtk.Label("Debian"));
+#else
 			debian_row.append(new Gtk.Label("Debian packages"));
+#endif
 			group.add(new Adw.Toggle() {
 				name = "debian",
 				child = new Gtk.CenterBox() {
@@ -93,7 +97,11 @@ namespace Argus.Controller.Tab.Asset
 				valign = Gtk.Align.CENTER
 			};
 			rpm_row.append(new Gtk.Image.from_icon_name("application-x-rpm-symbolic"));
+#if ANDROID
+			rpm_row.append(new Gtk.Label("RPM"));
+#else
 			rpm_row.append(new Gtk.Label("RPM packages"));
+#endif
 			group.add(new Adw.Toggle() {
 				name = "rpm",
 				child = new Gtk.CenterBox() {

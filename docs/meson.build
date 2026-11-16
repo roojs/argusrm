@@ -131,6 +131,7 @@ valadoc_sources += files(
   '../controller/dialog/Bootstrap.vala',
   '../controller/dialog/Pairing.vala',
   '../controller/dialog/Repository.vala',
+  '../controller/widget/HoldButton.vala',
   '../controller/store/ColumnSchema.vala',
   '../controller/store/Base.vala',
   '../controller/store/KeyValue.vala',
