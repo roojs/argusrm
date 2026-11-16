@@ -79,16 +79,16 @@ Convert interactive Windows `msiexec` uninstall strings into silent flags on the
 			if (cmd == "") {
 				return "";
 			}
-			if (GLib.Regex.match_simple("(^|\\s|\\\\)msiexec(\\.exe)?\\b", cmd,
+			if (!GLib.Regex.match_simple("(^|\\s|\\\\)msiexec(\\.exe)?\\b", cmd,
 				GLib.RegexCompileFlags.CASELESS)) {
-				cmd = new GLib.Regex("(^|\\s)/i(?=(\\{|\\s|$))",
-					GLib.RegexCompileFlags.CASELESS).replace(cmd, -1, 0, "\\1/X");
-				if (!GLib.Regex.match_simple("(^|\\s)/q", cmd,
-					GLib.RegexCompileFlags.CASELESS)) {
-					cmd = cmd + " /qn /norestart";
-				}
+				return cmd;
 			}
-			return cmd;
+			cmd = new GLib.Regex("(^|\\s)/i(?=(\\{|\\s|$))",
+				GLib.RegexCompileFlags.CASELESS).replace(cmd, -1, 0, "\\1/X");
+			if (GLib.Regex.match_simple("(^|\\s)/q", cmd, GLib.RegexCompileFlags.CASELESS)) {
+				return cmd;
+			}
+			return cmd + " /qn /norestart";
 		}
 ```
 
