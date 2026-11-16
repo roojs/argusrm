@@ -25,9 +25,9 @@ namespace Argus.Controller.Filters
 	{
 		public string search { get; set; default = ""; }
 		/**
-		 * When false, {@link Argus.Shared.OSQuery.Mounts.is_snap_mount} rows are hidden.
+		 * When false, {@link Argus.Shared.OSQuery.Mounts.is_system_mount} rows are hidden.
 		 */
-		public bool show_snap_mounts { get; set; default = false; }
+		public bool show_system_mounts { get; set; default = false; }
 
 		construct
 		{
@@ -39,7 +39,7 @@ namespace Argus.Controller.Filters
 		public override bool match(GLib.Object? item)
 		{
 			var row = (Argus.Shared.OSQuery.Mounts) item;
-			if (!this.show_snap_mounts && row.is_snap_mount()) {
+			if (!this.show_system_mounts && row.is_system_mount()) {
 				return false;
 			}
 			var query = this.search.strip().down();
@@ -57,7 +57,7 @@ namespace Argus.Controller.Filters
 
 		public override Gtk.FilterMatch get_strictness()
 		{
-			if (this.search.strip() == "" && this.show_snap_mounts) {
+			if (this.search.strip() == "" && this.show_system_mounts) {
 				return Gtk.FilterMatch.ALL;
 			}
 			return Gtk.FilterMatch.SOME;

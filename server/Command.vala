@@ -23,7 +23,8 @@ namespace Argus.Server
 	 *
 	 * The wire name is ''Argus.Command''. A task dispatch writes
 	 * ''agent.run'' on that agent's app-socket connection. {@link send}
-	 * writes a follow-up to the same connection. {@link stdout} and
+	 * writes a follow-up to the same connection. {@link stdin} is the
+	 * command line once the agent has spawned it. {@link stdout} and
 	 * {@link stderr} are the chunks the agent sends back. Stdin, stdout,
 	 * and stderr are appended under {@link Argus.LOG_DIR}, then a client
 	 * notification goes to a controller watching that target when
@@ -48,6 +49,7 @@ namespace Argus.Server
 			OLLMrpc.Request.add_class(
 				"Command", typeof(Command),
 				"send", "is",
+				"stdin", "is",
 				"stdout", "is",
 				"stderr", "is",
 				"ended", "ii"
@@ -296,6 +298,55 @@ namespace Argus.Server
 				method = "agent.send",
 				args = OLLMrpc.args("is", identifier, text)
 			});
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Append the command line and tell the controller.
+		 *
+		 * The agent sends this after the child has been spawned. The file
+		 * is the stdin name beside {@link stdout}. The controller
+		 * notification method is ''controller.stdin'' when the connection
+		 * that is watching this run is still up.
+		 *
+		 * @param request inbound RPC from the agent
+		 * @param identifier {@link Command.identifier} of the run
+		 * @param text command line that was started
+		 */
+		public void stdin(OLLMrpc.Request request, int identifier, string text)
+		{
+			if (Command.agents == null || !Command.agents.has_key(identifier)) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
+				});
+				return;
+			}
+			var caller = request.connection as Net.SslConnection;
+			if (caller == null || caller.user.id != Command.agents.get(identifier).user.id) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("unknown command")
+				});
+				return;
+			}
+			var name = Command.agents.get(identifier).user.id.to_string() + "-" + identifier.to_string() + ".stdin";
+			var path = GLib.Path.build_filename(Command.logs.get(identifier), name);
+			var stream = GLib.FileStream.open(path, "a");
+			if (stream == null) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INTERNAL_ERROR("could not store output")
+				});
+				return;
+			}
+			stream.puts(text);
+			stream.flush();
+			if (Command.controllers != null && Command.controllers.has_key(identifier) && Command.controllers.get(identifier).running) {
+				Command.controllers.get(identifier).write(new OLLMrpc.Notification() {
+					method = "controller.stdin",
+					args = OLLMrpc.args("is", identifier, text)
+				});
+			}
 			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
 			});

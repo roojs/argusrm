@@ -45,6 +45,7 @@ if host_machine.system() == 'linux'
 		'linux/PackageMonitor.vala',
 		'linux/UserMonitor.vala',
 		'linux/UpdatesAvailable.vala',
+		'linux/Apt/History.vala',
 		'linux/main.vala',
 	)
 	vala_args += [
@@ -135,6 +136,7 @@ else
 				'linux/PackageMonitor.vala',
 				'linux/UserMonitor.vala',
 				'linux/UpdatesAvailable.vala',
+				'linux/Apt/History.vala',
 				'linux/main.vala',
 			),
 			dependencies: [
@@ -205,5 +207,22 @@ else
 			install: false,
 		)
 		test('agent-command', command_test, timeout: 8, is_parallel: false)
+		apt_history_test = executable(
+			'argus-apt-history-test',
+			files('tests/apt-history.vala', 'linux/Apt/History.vala'),
+			dependencies: [
+				dependency('glib-2.0'),
+				dependency('gobject-2.0'),
+				dependency('gio-2.0'),
+				dependency('gee-0.8'),
+				shared_cli_dep,
+				ocrpc_dep,
+			],
+			vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+				'--pkg', 'gee-0.8', '--pkg', 'gio-2.0', '--pkg', 'sqlite3',
+			],
+			install: false,
+		)
+		test('apt-history', apt_history_test, timeout: 30)
 	endif
 endif

@@ -96,10 +96,7 @@ namespace Argus.Controller
 		{
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
-			Argus.Shared.SQT.Task.rpc_register();
-			Argus.Shared.SQT.TaskTarget.rpc_register();
-			Argus.Shared.SQT.Script.rpc_register();
-			Argus.Shared.SQT.ScriptRepository.rpc_register();
+			Argus.Shared.SQT.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			pin = false;
 			agents = false;

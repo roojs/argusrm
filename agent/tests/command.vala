@@ -25,6 +25,7 @@ namespace Argus.Agent
 	class App : GLib.Object
 	{
 		public OLLMrpc.Transport.TlsClient connection;
+		public static string got_in;
 		public static string got_out;
 		public static int got_end;
 		public static int ran_in_handler;
@@ -104,6 +105,7 @@ int main(string[] args)
 {
 	OLLMrpc.rpc_register();
 	Argus.Agent.Command.rpc_register();
+	Argus.Agent.App.got_in = "";
 	Argus.Agent.App.got_out = "";
 	Argus.Agent.App.got_end = 0;
 	Argus.Agent.App.ran_in_handler = 0;
@@ -197,6 +199,21 @@ int main(string[] args)
 							identifier = 1,
 							command = "printf listing"
 						})
+					});
+					bin.out_stream.flush();
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					return 1;
+				}
+				break;
+			case "Command.stdin":
+				if (req.args.size >= 2) {
+					Argus.Agent.App.got_in += req.args.get(1).get_string();
+				}
+				try {
+					bin.write(new OLLMrpc.Response() {
+						id = req.id,
+						msg = "ok"
 					});
 					bin.out_stream.flush();
 				} catch (GLib.Error e) {
@@ -324,6 +341,10 @@ int main(string[] args)
 	tls_files.remove();
 	if (Argus.Agent.App.ran_in_handler < 1) {
 		GLib.printerr("command did not run in the handler\n");
+		return 1;
+	}
+	if (Argus.Agent.App.got_in.strip() != "printf listing") {
+		GLib.printerr("stdin: %s\n", Argus.Agent.App.got_in);
 		return 1;
 	}
 	if (Argus.Agent.App.got_out.index_of("listing") < 0) {

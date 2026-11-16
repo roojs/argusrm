@@ -115,7 +115,8 @@ namespace Argus.Agent
 		/**
 		 * Spawn this command and watch stdout and stderr.
 		 *
-		 * Returns after the watches are attached. Stdout lines are
+		 * Returns after the watches are attached. The command line is
+		 * ''Command.stdin'' once the child exists. Stdout lines are
 		 * ''Command.stdout''. Stderr lines are ''Command.stderr''. Each call
 		 * is that chunk.
 		 *
@@ -165,6 +166,16 @@ namespace Argus.Agent
 			}
 			Command.running.set(this.identifier, this);
 			Command.send_lock.unlock();
+			var shown = this.command;
+			if (shown != "" && !shown.has_suffix("\n")) {
+				shown += "\n";
+			}
+			if (shown != "") {
+				GLib.Idle.add(() => {
+					this.report("Command.stdin", shown);
+					return false;
+				}, GLib.Priority.HIGH);
+			}
 			var unix_out = this.stdout_pipe as GLib.UnixInputStream;
 			var unix_err = this.stderr_pipe as GLib.UnixInputStream;
 			if (unix_out == null || unix_err == null) {

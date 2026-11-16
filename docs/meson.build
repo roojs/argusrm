@@ -75,6 +75,7 @@ valadoc_sources += files(
   '../shared/OSQuery/Programs.vala',
   '../shared/OSQuery/PackageUpdates.vala',
   '../shared/OSQuery/AptSources.vala',
+  '../shared/OSQuery/AptExplicitInstall.vala',
   '../shared/SQT/namespace.vala',
   '../shared/SQT/Task.vala',
   '../shared/SQT/TaskTarget.vala',
@@ -101,6 +102,7 @@ valadoc_sources += files(
   '../agent/linux/ServiceManager.vala',
   '../agent/linux/Command.vala',
   '../agent/linux/PackageMonitor.vala',
+  '../agent/linux/Apt/History.vala',
   '../agent/linux/UserMonitor.vala',
   '../agent/linux/UpdatesAvailable.vala',
   # server sources

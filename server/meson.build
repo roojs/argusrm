@@ -132,6 +132,24 @@ apt_url_sources_test = executable(
 	install: false,
 )
 test('apt-url-sources', apt_url_sources_test, timeout: 30)
+apt_explicit_test = executable(
+	'argus-apt-explicit-test',
+	files('tests/apt-explicit-install.vala'),
+	dependencies: [
+		dependency('glib-2.0'),
+		dependency('gobject-2.0'),
+		dependency('gio-2.0'),
+		dependency('gee-0.8'),
+		shared_server_dep,
+		ocsqlite_dep,
+	],
+	vala_args: [
+		'--pkg', 'gee-0.8', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+		'--pkg', 'ocrpc',
+	],
+	install: false,
+)
+test('apt-explicit-install', apt_explicit_test, timeout: 30)
 executable(
 	'argus-nftables-test',
 	files('tests/nftables.vala', 'Net/NFTables.vala'),

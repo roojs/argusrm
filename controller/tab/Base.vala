@@ -788,15 +788,18 @@ namespace Argus.Controller.Tab
 
 					case "tick-connected":
 						var connected_tick = (Gtk.Image) item.child;
-						var connected_on = prop.value_type == GLib.Type.BOOLEAN &&
-							value.get_boolean();
-						connected_tick.icon_name = connected_on ?
-							"object-select-symbolic" : null;
-						connected_tick.visible = connected_on;
 						item.child.set_data("argus-column-binding",
 							((GLib.Object) row).bind_property(
-								lookup, item.child, "visible",
-								GLib.BindingFlags.SYNC_CREATE));
+								lookup, connected_tick, "icon-name",
+								GLib.BindingFlags.SYNC_CREATE,
+								(binding, from_value, ref to_value) => {
+									var on = from_value.holds(typeof(bool)) &&
+										from_value.get_boolean();
+									connected_tick.icon_name = on ?
+										"object-select-symbolic" : null;
+									connected_tick.visible = on;
+									return false;
+								}));
 						break;
 
 					case "tick":

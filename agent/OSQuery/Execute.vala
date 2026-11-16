@@ -229,6 +229,9 @@ namespace Argus.Agent.OSQuery
 				case Argus.Shared.OSQuery.PackageManager.APT:
 					var code = new DebPackages().send(this.application);
 					code += this.sync_table("apt_sources", "AptSources");
+#if LINUX
+					code += new Argus.Agent.Apt.History().send(this.application);
+#endif
 					return code;
 
 				case Argus.Shared.OSQuery.PackageManager.DNF:

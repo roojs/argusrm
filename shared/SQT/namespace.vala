@@ -29,6 +29,7 @@
  * == Example ==
  *
  * {{{
+ * Argus.Shared.SQT.rpc_register();
  * Argus.Shared.SQT.init_db(db);
  * var rows = new Gee.ArrayList<Argus.Shared.SQT.Task>();
  * Argus.Shared.SQT.Task.query(db).select("", rows);
@@ -36,6 +37,18 @@
  */
 namespace Argus.Shared.SQT
 {
+	/**
+	 * Register task and script row types with the ''OLLMrpc'' bin codec.
+	 */
+	public static void rpc_register()
+	{
+		Task.rpc_register();
+		TaskTarget.rpc_register();
+		Script.rpc_register();
+		ScriptPerm.rpc_register();
+		ScriptRepository.rpc_register();
+	}
+
 	/**
 	 * Create the task and script tables.
 	 *

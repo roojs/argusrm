@@ -23,7 +23,8 @@ namespace Argus.Agent
 	 *
 	 * The wire name is ''Argus.Command''. {@link run} spawns
 	 * ''cmd.exe /c'' with the working directory and the environment, then
-	 * waits with {@link GLib.IOChannel.win32_poll}. Stdout goes out as
+	 * waits with {@link GLib.IOChannel.win32_poll}. The command line goes
+	 * out as ''Command.stdin'' once the child exists. Stdout goes out as
 	 * ''Command.stdout''. Stderr goes out as ''Command.stderr''. An empty
 	 * working directory or an empty environment inherits this process.
 	 *
@@ -130,6 +131,20 @@ namespace Argus.Agent
 					out stderr_fd);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
+				Command.send_lock.lock();
+				try {
+					connection.call(new OLLMrpc.Request() {
+						method = "Command.stderr",
+						args = OLLMrpc.args("is", this.identifier, e.message + "\n")
+					});
+					connection.call(new OLLMrpc.Request() {
+						method = "Command.ended",
+						args = OLLMrpc.args("ii", this.identifier, 127)
+					});
+				} catch (GLib.Error send_error) {
+					GLib.warning("%s", send_error.message);
+				}
+				Command.send_lock.unlock();
 				return;
 			}
 			GLib.debug("command %d pid %d", this.identifier, (int) child);
@@ -140,6 +155,25 @@ namespace Argus.Agent
 			}
 			Command.running.set(this.identifier, this);
 			Command.send_lock.unlock();
+			var shown = this.command;
+			if (shown != "" && !shown.has_suffix("\n")) {
+				shown += "\n";
+			}
+			if (shown != "") {
+				Command.send_lock.lock();
+				try {
+					var response = connection.call(new OLLMrpc.Request() {
+						method = "Command.stdin",
+						args = OLLMrpc.args("is", this.identifier, shown)
+					});
+					if (response.error != null) {
+						GLib.warning("command %d", response.error.code);
+					}
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+				Command.send_lock.unlock();
+			}
 			var stdout_channel = new GLib.IOChannel.win32_new_fd(stdout_fd);
 			var stderr_channel = new GLib.IOChannel.win32_new_fd(stderr_fd);
 			stdout_channel.set_close_on_unref(true);

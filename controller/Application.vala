@@ -117,23 +117,10 @@ namespace Argus.Controller
 		{
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
-			Argus.Shared.OSQuery.SystemInfo.rpc_register();
-			Argus.Shared.OSQuery.OsVersion.rpc_register();
+			Argus.Shared.OSQuery.rpc_register();
 			Argus.Shared.OsReleases.rpc_register();
-			Argus.Shared.OSQuery.CpuInfo.rpc_register();
-			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
-			Argus.Shared.OSQuery.Users.rpc_register();
-			Argus.Shared.OSQuery.Groups.rpc_register();
-			Argus.Shared.OSQuery.UserGroups.rpc_register();
-			Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
-			Argus.Shared.OSQuery.DebPackages.rpc_register();
-			Argus.Shared.OSQuery.RpmPackages.rpc_register();
-			Argus.Shared.OSQuery.Programs.rpc_register();
 			Argus.Shared.Registration.Data.rpc_register();
-			Argus.Shared.SQT.Task.rpc_register();
-			Argus.Shared.SQT.TaskTarget.rpc_register();
-			Argus.Shared.SQT.Script.rpc_register();
-			Argus.Shared.SQT.ScriptRepository.rpc_register();
+			Argus.Shared.SQT.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			give_certificate = "";
 			deregister_name = "";

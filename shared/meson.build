@@ -38,6 +38,7 @@ shared_osquery_sources = files(
 	'OSQuery/Programs.vala',
 	'OSQuery/PackageUpdates.vala',
 	'OSQuery/AptSources.vala',
+	'OSQuery/AptExplicitInstall.vala',
 )
 shared_sqt_sources = files(
 	'SQT/namespace.vala',

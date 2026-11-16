@@ -123,12 +123,13 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: agent calls the server.
 - 🔷 One call per table. The arguments are the table name and the array of row objects.
 - Arguments `so`: the table name, then the array.
-- Tables: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`, then one package class, plus `package_updates` on Linux (`APT` / `DNF`) from `PackageMonitor.send_pending`.
+- Tables: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`, then one package class, plus `package_updates` on Linux (`APT` / `DNF`) from `PackageMonitor.send_pending`. APT also sends `apt_explicit_install` from `Apt.History.send` on Linux.
 - The package class follows `os_version.package_manager`. APT sends `DebPackages`. DNF sends `RpmPackages`. WIN sends `Programs`. Any other value sends no package class.
 - A row left out of a standard table snapshot gets `deleted_dt`. For `PackageUpdates`, existing names keep their `since` time, new names are inserted, and names left out are deleted.
+- `AptExplicitInstall` is not a snapshot. The batch is only names whose apt history `Start-Date` is after the agent watermark. The server inserts a new `(agent_id, name)` and keeps the first `installed_dt`. A name left out of the batch stays. An empty batch is not posted.
 - The machine tables are posted even when the array is empty. After the first package send, an empty package query is not posted. An empty `PackageUpdates` list is posted when `UpdatesAvailable.check` succeeds with no updates.
 - The row objects are `Argus.Shared.OSQuery`. The property name is the column name.
-- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `Users`, `Groups`, `UserGroups`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`, `PackageUpdates`.
+- Wire aliases: `SystemInfo`, `CpuInfo`, `LoggedInUsers`, `Users`, `Groups`, `UserGroups`, `InterfaceAddresses`, `OsVersion`, `DebPackages`, `RpmPackages`, `Programs`, `PackageUpdates`, `AptSources`, `AptExplicitInstall`.
 - Reply `msg`: `ok`. An unknown name, a name that is not a row class, or a row the apply rejects is an error.
 - ℹ️ `Execute.send_startup` posts the machine tables, then `Execute.send_packages`. A later package change posts `Execute.send_packages` again. `Initialize` installs `osqueryi` and does not query.
 
@@ -364,12 +365,13 @@ The agent does not do this. The handler is `server/Command.vala`.
 
 - 🔷 Argus appends each `Command.stdout` chunk to a file.
 - 💩 Argus appends each `Command.stderr` chunk to the stderr file.
+- 💩 `Command.stdin` appends the command line to the stdin file after the agent has spawned the child.
 - 💩 `Command.send` appends its text to the stdin file.
 - 💩 `Task.run` stores `localstatedir/log/argusrm/commands/yyyy/mm/dd/` from the day the command starts. The default is `/var/log/argusrm`. Later stdin, stdout, and stderr append in that directory. The file is `{agent.id}-{identifier}` plus `.stdin`, `.stdout`, or `.stderr`. An identifier less than `1` is refused.
 - 🔷 Argus then sends a client notification on the controller that set `task_target.is_watched`, when that connection is still up. An unwatched target does not send one.
 - 🔷 A controller that initialized an install can watch that install.
 - 🔷 The type name says the controller receives it.
-- 💩 `Connection.running` is that check. The notification method is `controller.stdout` or `controller.stderr`. Arguments are `is`: identifier, then that chunk.
+- 💩 `Connection.running` is that check. The notification method is `controller.stdin`, `controller.stdout`, or `controller.stderr`. Arguments are `is`: identifier, then that chunk.
 - 💩 The agent calls `Command.ended` when the child is dead. Arguments `ii`: identifier, then the exit code. The server stores that code on the task target and writes `controller.ended`.
 
 ### `Command.run`
@@ -381,6 +383,11 @@ The agent does not do this. The handler is `server/Command.vala`.
 
 - 🔷 The controller calls this on the server. The server then sends the `send` notification to the agent that accepted that `run`.
 - 💩 Arguments `is`: identifier, then the text. The same callers as `Command.run`.
+
+### `controller.stdin`
+
+- 🔷 Notification on the controller connection that is watching the run, when that connection is still up.
+- 💩 Argus sends this after `Command.stdin`. Arguments `is`: identifier, then the command line.
 
 ### `controller.stdout`
 
@@ -402,6 +409,12 @@ The agent does not do this. The handler is `server/Command.vala`.
 ## Calls the agent sends for a run
 
 The agent sends these on the app socket from `Command.run`. They are RPC calls.
+
+### `Command.stdin`
+
+- 🔷 The agent sends this after the child has been spawned.
+- 🔷 The text is the command line, with a trailing newline. A failed spawn does not send it.
+- 💩 Arguments `is`: identifier, command line.
 
 ### `Command.stdout`
 

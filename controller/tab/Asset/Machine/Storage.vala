@@ -51,9 +51,9 @@ namespace Argus.Controller.Tab.Asset.Machine
 			search.search_changed.connect(() => {
 				this.filter.search = search.text;
 			});
-			var show_snaps = new Gtk.CheckButton.with_label("Show snap mounts");
-			show_snaps.toggled.connect(() => {
-				this.filter.show_snap_mounts = show_snaps.active;
+			var show_system = new Gtk.CheckButton.with_label("Show system mounts");
+			show_system.toggled.connect(() => {
+				this.filter.show_system_mounts = show_system.active;
 			});
 			var filter_bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				css_classes = { "machines-filter" },
@@ -88,12 +88,12 @@ namespace Argus.Controller.Tab.Asset.Machine
 			filter_bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				hexpand = true
 			});
-			filter_bar.append(show_snaps);
+			filter_bar.append(show_system);
 			this.content.append(filter_bar);
 			this.content.append(search_bar);
 #else
 			filter_bar.append(search);
-			filter_bar.append(show_snaps);
+			filter_bar.append(show_system);
 			this.content.append(filter_bar);
 #endif
 			this.content.append(this.overlay);

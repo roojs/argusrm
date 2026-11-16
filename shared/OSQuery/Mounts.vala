@@ -111,17 +111,64 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * True for snap squashfs mounts and ''/snap'' paths (filter only).
+		 * True for a virtual, loop, or snap mount.
+		 *
+		 * The Storage grid hides these until the user turns on system
+		 * mounts. A disk, a pool, and a network filesystem stay visible.
+		 * ''/dev'', ''/proc'', ''/sys'', ''/run'', and ''/snap'' are
+		 * system paths. A ''/dev/loop'' device is a system mount.
+		 *
+		 * @return true when the row is not a storage volume
 		 */
-		public bool is_snap_mount()
+		public bool is_system_mount()
 		{
-			if (this.path == "/snap" || this.path.has_prefix("/snap/")) {
+			if (this.path == "/dev" || this.path.has_prefix("/dev/")
+				|| this.path == "/proc" || this.path.has_prefix("/proc/")
+				|| this.path == "/sys" || this.path.has_prefix("/sys/")
+				|| this.path == "/run" || this.path.has_prefix("/run/")
+				|| this.path == "/snap" || this.path.has_prefix("/snap/")) {
 				return true;
 			}
-			if (this.device.has_prefix("/dev/loop") && this.ctype == "squashfs") {
+			if (this.device.has_prefix("/dev/loop")) {
 				return true;
 			}
-			return false;
+			var kind = this.ctype.down();
+			switch (kind) {
+				case "autofs":
+				case "binfmt_misc":
+				case "bpf":
+				case "cgroup":
+				case "cgroup2":
+				case "configfs":
+				case "debugfs":
+				case "devpts":
+				case "devtmpfs":
+				case "efivarfs":
+				case "fuse.gvfsd-fuse":
+				case "fuse.lxcfs":
+				case "fuse.portal":
+				case "fuse.snapfuse":
+				case "fuse.vmware-vmblock":
+				case "fusectl":
+				case "hugetlbfs":
+				case "mqueue":
+				case "nfsd":
+				case "nsfs":
+				case "overlay":
+				case "overlayfs":
+				case "proc":
+				case "pstore":
+				case "ramfs":
+				case "rpc_pipefs":
+				case "securityfs":
+				case "squashfs":
+				case "sysfs":
+				case "tmpfs":
+				case "tracefs":
+					return true;
+				default:
+					return false;
+			}
 		}
 
 		/**

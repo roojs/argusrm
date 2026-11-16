@@ -84,43 +84,12 @@ public class AptExplicitInstall : Row {
 
 #### Add — agent (`agent/linux/Apt/History.vala`)
 
-- Watermark file under the agent data dir: one unix time, “nothing after this date.”
-- Each pass reads **`history.log.*.gz`** and **`history.log`**. Skip any stanza whose **`Start-Date`** is at or before the watermark. Skip a trailing stanza that has no **`End-Date`**.
-- **`import_explicit_from_stream`** — for each new **`Commandline:`** install, collect target names and the stanza **`Start-Date`** (parsed as local time → **`installed_dt`**).
+- Watermark file under the agent data dir: one unix time, “nothing after this date.” The process keeps that value in **`cached`** and reads the file only when **`cached`** is unset.
+- Empty watermark: **`archive`** reads **`history.log.*.gz`** oldest first, then **`history.log`**.
+- A stored watermark checks **`history.log`** mtime. Not newer than the watermark: return. Newer: read only **`history.log`**.
+- **`read`** — one stream. The watermark, the name map, and the latest **`End-Date`** stay on the object. For each new **`Commandline:`** install, collect target names and the stanza **`Start-Date`** (parsed as local time → **`installed_dt`**). Tokenize after **`install`**; stop at **`=`**; skip tokens starting with **`-`**.
 - Send only those new names. After the server accepts the batch (or the batch was empty), write the watermark to the latest **`End-Date`** consumed. A failed send leaves the watermark where it was, so the same new names are tried again; the unique index drops a duplicate if a previous attempt had already landed.
-
-#### Add — parse helper (representative; agent-only)
-
-```vala
-// After "Commandline:" — find literal token "install", then collect package names
-// until a token starts with '-' or contains '='.
-void collect_explicit_names_from_commandline (string line, Gee.HashSet<string> names) {
-	if (!line.has_prefix ("Commandline:")) {
-		return;
-	}
-	var tokens = line.split (" ");
-	var in_install = false;
-	foreach (var token in tokens) {
-		var clean = token.strip ();
-		if (clean == "install") {
-			in_install = true;
-			continue;
-		}
-		if (!in_install) {
-			continue;
-		}
-		if (clean == "" || clean.has_prefix ("-")) {
-			continue;
-		}
-		if (clean.contains ("=")) {
-			break;
-		}
-		names.add (clean);
-	}
-}
-```
-
-The stream reader keeps the current stanza **`Start-Date`** and writes it onto each name from that line. If one pass sees the same name twice, the earlier **`installed_dt`** is the one sent.
+- If one pass sees the same name twice, the earlier **`installed_dt`** is the one sent.
 
 #### Draft mapping (chat prototype → Argus)
 

@@ -27,6 +27,7 @@ namespace Argus.Shared.OSQuery
 		InterfaceAddresses.init_db(db);
 		OsVersion.init_db(db);
 		DebPackages.init_db(db);
+		AptExplicitInstall.init_db(db);
 		RpmPackages.init_db(db);
 		Programs.init_db(db);
 		PackageUpdates.init_db(db);
@@ -35,7 +36,7 @@ namespace Argus.Shared.OSQuery
 	/**
 	 * Register osquery row types with the ''OLLMrpc'' bin codec.
 	 *
-	 * Agent and server call this before ''OSQuery.sync''.
+	 * Agent, server, and controller call this before ''OSQuery.sync''.
 	 */
 	public static void rpc_register()
 	{
@@ -51,6 +52,7 @@ namespace Argus.Shared.OSQuery
 		OsVersion.rpc_register();
 		DebPackages.rpc_register();
 		AptSources.rpc_register();
+		AptExplicitInstall.rpc_register();
 		RpmPackages.rpc_register();
 		Programs.rpc_register();
 		PackageUpdates.rpc_register();

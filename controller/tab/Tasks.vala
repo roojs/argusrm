@@ -498,6 +498,26 @@ namespace Argus.Controller.Tab
 						this.store.load();
 						break;
 
+					case "controller.stdin":
+						if (this.watched_identifier < 1 || notification.args.size < 2 ||
+							notification.args.get(0).get_int() != this.watched_identifier) {
+							break;
+						}
+						var command_text = notification.args.get(1).get_string();
+						if (command_text == "") {
+							break;
+						}
+						Gtk.TextIter in_start;
+						Gtk.TextIter in_end;
+						term_view.buffer.get_bounds(out in_start, out in_end);
+						if (term_view.buffer.get_text(in_start, in_end, false).has_prefix(command_text)) {
+							break;
+						}
+						term_view.buffer.get_start_iter(out in_start);
+						term_view.buffer.insert_with_tags_by_name(
+							ref in_start, command_text, -1, "stdin");
+						break;
+
 					case "controller.stdout":
 						if (this.watched_identifier < 1 || notification.args.size < 2 ||
 							notification.args.get(0).get_int() != this.watched_identifier) {
