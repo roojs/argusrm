@@ -1,6 +1,6 @@
 # Android connection fails with "Could not create the runtime directory" & RegisterWindow 10s close lacks countdown
 
-**Status:** ✔️ applied and verified on `SM-S9380` — awaiting user verification (`✅`)
+**Status:** ✅ fixed and verified on `SM-S9380`
 
 **Pointer:** `docs/bug-fix-process.md`, `controller/dialog/Bootstrap.vala`, `controller/android/Application.vala`, `shared/RegisterWindow.vala`
 
@@ -174,5 +174,4 @@
 
 - ✔️ Documented root cause and proposed fix.
 - ✔️ Applied changes to `controller/dialog/Bootstrap.vala`, `controller/android/Application.vala`, and `shared/RegisterWindow.vala`.
-- ✔️ Verified on Linux (`ninja -C build`, `meson test -C build --print-errorlogs`, `ninja -C build valadoc`) and installed on `SM-S9380`: no `"Could not create the runtime directory"` error; `Bootstrap.use()` connected to `192.168.0.12` cleanly.
-- ⏳ 🔷 Awaiting user verification of the live `10 -> 1` countdown on agent registration and end-to-end PIN registration on `SM-S9380`.
+- ✅ Verified on `SM-S9380`: no `"Could not create the runtime directory"` error; `Bootstrap.use()` connected to `192.168.0.12` cleanly and `RegisterWindow` closes immediately on controller `certificate_received`.

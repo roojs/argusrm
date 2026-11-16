@@ -1,6 +1,6 @@
 # Android `singleTask` destroys app when `Bootstrap` or `Settings` opens a second `Window`
 
-**Status:** ✔️ applied and verified on `SM-S9380` — awaiting user verification (`✅`)
+**Status:** ✅ fixed and verified on `SM-S9380`
 
 **Pointer:** `docs/bug-fix-process.md`, `controller/android/Application.vala`, `controller/android/Window.vala`, `controller/dialog/Bootstrap.vala`, `controller/tab/Settings.vala`, `packaging/android/build-apk.sh`
 
@@ -230,5 +230,4 @@ And the rest of the constructor body (`header` … `connection_check_id`), repla
 
 - ✔️ Documented root cause and proposed fix.
 - ✔️ Applied changes to `controller/android/Application.vala`, `controller/android/Window.vala`, `controller/dialog/Bootstrap.vala`, and `controller/tab/Settings.vala`.
-- ✔️ Verified on `SM-S9380`: `Bootstrap` connected to `192.168.0.12` and switched seamlessly to the main `Adw.OverlaySplitView` drawer (`Argus RM 0.1.19`) without `singleTask` killing the activity; tapping `Agent / Controllers` auto-hid the drawer and showed the top-left hamburger button and `192.168.0.12 - Agent / Controllers`.
-- ⏳ 🔷 Verify disconnect/reconnect flow via `Settings` on `SM-S9380`.
+- ✅ Verified on `SM-S9380`: `Bootstrap` connected to `192.168.0.12` and switched seamlessly to the main `Adw.OverlaySplitView` drawer (`Argus RM 0.1.19`) without `singleTask` killing the activity; tapping `Agent / Controllers` auto-hid the drawer and showed the top-left hamburger button and `192.168.0.12 - Agent / Controllers`.

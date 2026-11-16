@@ -1,6 +1,6 @@
 # Android controller build and slide-out menu primary window
 
-**Status:** ⏳ implemented; Linux build, tests, valadoc, and `-D ANDROID` Vala typecheck pass — await CI/device APK verification
+**Status:** ✅ fixed and verified on `SM-S9380` — APK build, slide-out drawer, hamburger navigation, TLS connection, and `#if ANDROID` bootstrap all working
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/plans/5.5-controller-user-interface.md`, `controller/Window.vala`, `controller/TabList.vala`, `controller/Application.vala`, `controller/dialog/Bootstrap.vala`, `controller/meson.build`, `meson.build`, `packaging/android/pixiewood-argus.xml`, `packaging/android/build-apk.sh`, `.github/workflows/x-android.yml`, `.github/workflows/release-android.yml`
 
@@ -1719,11 +1719,10 @@ jobs:
 - ✔️ Generated `android/icon-foreground.xml` from `argusrm.svg` (replacing the solid `#3584e4` placeholder that caused the launcher/splash blue circle), set `#ffffff` icon background in `packaging/android/pixiewood-argus.xml`, and added logo + title + spinner to the bootstrap host `Adw.ApplicationWindow` in `controller/android/Application.vala`.
 - ✔️ Freed space on `emulator-5554` (cleared Google app caches, uninstalled `com.google.android.apps.docs.editors.docs` and YouTube updates), installed `app-arm64-v8a-debug.apk`, and verified launch, adaptive launcher icon, TLS backend (`GTlsBackendOpenssl`), logo/spinner backdrop, and `Argus Remote Manager` bootstrap sheet on `emulator-5554`.
 - ✔️ Fixed `controller/dialog/Bootstrap.vala` under `#if ANDROID` so cancelling `RegisterWindow`, registration errors, connection errors, and `deregister_local()` all stay on `"Connect a remote machine"` rather than showing `"Log in to local machine"` or `"Log in to register"`.
+- ✅ Verified on `SM-S9380`: startup registration/bootstrap, slide-out menu drawer, top-left hamburger button across tabs, auto-hide on tab selection, and live TLS connection to `192.168.0.12`.
 
 ---
 
 ## Next
 
-- ⏳ 🔷 Run `.github/workflows/release-android.yml` (or local Pixiewood APK build) to verify the ARM64 Android APK build end-to-end.
-- ⏳ 🔷 Verify on an Android device/emulator: startup registration/bootstrap, primary slide-out menu, top-left hamburger button on every tab screen, auto-hide on tab selection, and TLS server connection.
-- ⏳ 🔷 Decide whether `.github/workflows/release.yml` should also publish the Android controller APK on tag releases.
+- ⏳ 🔷 Run `.github/workflows/release-android.yml` in CI and decide whether `.github/workflows/release.yml` should also attach the Android controller APK on tag releases.

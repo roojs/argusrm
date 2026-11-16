@@ -1,6 +1,6 @@
 # Android filter-bar spacer alignment and `Detail` tab touch reliability
 
-**Status:** ✔️ applied and verified on `SM-S9380` — awaiting user verification (`✅`)
+**Status:** ✅ fixed and verified on `SM-S9380`
 
 **Pointer:** `docs/bug-fix-process.md`, `controller/tab/Asset/SystemInfo.vala`, `controller/tab/Asset/DebPackages.vala`, `controller/tab/Asset/Machine/Users.vala`, `controller/tab/Tasks.vala`, `/home/alan/git/gtk-Knowles/docs-alan/bugs/2026-11-16-android-paned-touch-steal.md`
 
@@ -44,4 +44,4 @@
 - ✔️ Documented root cause (`GtkPaned` `TOUCH_EXTRA_AREA_WIDTH = 50` + `HANDLE_EXTRA_SIZE = 6` claiming `GDK_TOUCH_BEGIN` in `GTK_PHASE_CAPTURE`) in both `argusrm` and `/home/alan/git/gtk-Knowles/docs-alan/bugs/2026-11-16-android-paned-touch-steal.md`.
 - ✔️ Added `hexpand = true` spacers after `search_toggle` on `#if ANDROID` in `SystemInfo.vala`, `DebPackages.vala`, `Machine/Users.vala`, and `Tasks.vala`.
 - ✔️ Replaced `Gtk.Paned` with vertical `Gtk.Box` + `Gtk.Separator` on `#if ANDROID` in `SystemInfo.vala`, `Machine/Users.vala`, and `Tasks.vala`.
-- ✔️ Verified on Linux (`ninja -C build`, `meson test -C build --print-errorlogs`) and `SM-S9380`: all filter bars align flush right, and tapping `Users`, `Debian`, and `Interfaces` tabs in `Machine/Detail.vala` switches on the first tap.
+- ✅ Verified on Linux (`ninja -C build`, `meson test -C build --print-errorlogs`) and `SM-S9380`: all filter bars align flush right, and tapping `Users`, `Debian`, and `Interfaces` tabs in `Machine/Detail.vala` switches on the first tap.

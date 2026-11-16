@@ -1,6 +1,6 @@
 # Android startup crash on SM-S9380 (`pthread_create` / `PTHREAD_INHERIT_SCHED`)
 
-**Status:** ⏳ root cause confirmed and verified on device with rebuilt `libglib-2.0.so` — awaiting decision on upstream `pixiewood-pkgs` / `OLLMchat` fix vs temporary `packaging/android/build-apk.sh` override
+**Status:** ✅ fixed and verified on `SM-S9380` (upstream `pixiewood-pkgs` / `OLLMchat` `glib.wrap` update tracked separately)
 
 **Pointer:** `docs/bug-fix-process.md`, `.android-tools/gtk-android-builder/prepare/wraps/glib/pthread-restrictions.patch`, `android/pixiewood-wraps/glib/glib.wrap`, `packaging/android/build-apk.sh`
 
@@ -51,10 +51,10 @@
 - ✔️ Tested `nativePrepareMainThread()` calling `sched_setscheduler(0, SCHED_OTHER, &sp)` in `controller/android/android-gio-tls.c` — still crashed with `sched_setscheduler(1073741825, {1})`. Reverted cleanly.
 - ✔️ Tested spawning `SystemFilesystem.writeResources` + `startRuntime()` on `new Thread()` in `ArgusApplication.java` — aborted with `IllegalStateException: RuntimeApplication.startRuntime called on non-main thread`. Reverted cleanly.
 - ✔️ Cross-compiled GLib `2.90.1` (`e05063ccc6c8f222465a1080927f4c14349f3de6`) with `hack.patch` + `pthread-restrictions.patch`, packaged into `app-arm64-v8a-debug.apk`, installed on `SM-S9380`, and verified launch + GTK UI + `ArgusPair` mDNS startup.
+- ✅ User confirmed startup crash fixed on `SM-S9380` (full live PIN pairing, controller connection, and UI navigation verified).
 
 ---
 
 ## Next
 
-- ⏳ 🔷 Confirm whether to update `../OLLMchat` / `roojs/pixiewood-pkgs` directly, add a temporary `libglib-2.0.so` patch build in `packaging/android/build-apk.sh` until `pixiewood-pkgs` releases, or both.
-- ⏳ 🔷 Test full live PIN pairing and drawer navigation on `SM-S9380` against `argusrm-server`.
+- ⏳ 🔷 Publish rebuilt `glib-arm-v31-2.90.1.pixie` with `pthread-restrictions.patch` in `roojs/pixiewood-pkgs` / `../OLLMchat` when updating Pixie packages.

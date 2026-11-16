@@ -1,6 +1,6 @@
 # Android controller registration: mDNS broadcast detection and host resolution
 
-**Status:** ⏳ implemented and verified on emulator with mDNS broadcast; await full live server pairing check
+**Status:** ✅ fixed and verified on `SM-S9380` and `emulator-5554`
 
 **Pointer:** `docs/bug-fix-process.md`, `shared/android/PairBrowse.java`, `shared/RegisterWindow.vala`, `controller/dialog/Bootstrap.vala`, `controller/android/Application.vala`, `packaging/android/build-apk.sh`
 
@@ -592,9 +592,4 @@ public final class PairBrowse {
 - ✔️ Applied fixes to `shared/android/PairBrowse.java`, `shared/RegisterWindow.vala`, `controller/dialog/Bootstrap.vala`, and `packaging/android/build-apk.sh`.
 - ✔️ Tested on `emulator-5554` with `avahi-publish-service`: `ArgusPair` acquired `MulticastLock`, used `DiscoveryRequest` + `ServiceInfoCallback`, probed IPv4 candidates (`192.168.0.12:819`), and `RegisterWindow` switched to `"Management server found. Enter the six-digit PIN."` with focus on the PIN entry.
 - ✔️ Refined `PairBrowse.java` to defer unreachable fallback until timeout so incremental `ServiceInfoCallback` updates continue probing new IPv4 addresses without prematurely locking onto a bridge/VPN IP.
-
----
-
-## Next
-
-- ⏳ 🔷 Test full live PIN pairing against `argusrm-server` (`sudo argusrm-controller-cli` or desktop **Agent or Controller**) from the Android controller.
+- ✅ Verified live PIN pairing on `SM-S9380` against `argusrm-server` (`192.168.0.12`): paired `Android SM-S9380 Samsung Galaxy S25 Ultra` (`192.168.0.6`), stored credentials, and opened the controller session.
