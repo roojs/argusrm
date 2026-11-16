@@ -57,6 +57,79 @@ namespace Argus.Controller.Tab.Asset
 			this.map.connect(() => {
 				this.store.load(0);
 			});
+			var task_store = new Argus.Controller.Store.TaskTarget(window.app);
+			task_store.failed.connect((heading, message) => {
+				this.toasts.add_toast(new Adw.Toast(heading + ": " + message));
+			});
+			task_store.submitted.connect((count) => {
+				var label = count == 1 ?
+					"Task created and running — view it in the Tasks tab" :
+					count.to_string() + " tasks created and running — view them in the Tasks tab";
+				this.toasts.add_toast(new Adw.Toast(label));
+			});
+			this.remove_confirmed.connect((obj) => {
+				var row = obj as Argus.Shared.OSQuery.Programs;
+				if (row == null) {
+					return;
+				}
+				this.store.load_machines(row.name);
+			});
+			this.store.machines_loaded.connect((name, rows) => {
+				var grouped = new Gee.HashMap<string, Gee.ArrayList<int32>>();
+				var total = 0;
+				foreach (var row in rows) {
+					if (row.agent_id < 1) {
+						continue;
+					}
+					var cmd = row.silent_command();
+					if (cmd == "") {
+						continue;
+					}
+					if (!grouped.has_key(cmd)) {
+						grouped.set(cmd, new Gee.ArrayList<int32>());
+					}
+					var ids = grouped.get(cmd);
+					if (!ids.contains((int32) row.agent_id)) {
+						ids.add((int32) row.agent_id);
+						total++;
+					}
+				}
+				if (total < 1) {
+					this.toasts.add_toast(new Adw.Toast(
+						"No uninstall command found for " + name));
+					return;
+				}
+				var count_label = total == 1 ? "1 machine" : total.to_string() + " machines";
+				var confirm = new Adw.AlertDialog(
+					"Uninstall " + name,
+					"This removes " + name + " from " + count_label +
+						".\nType \"delete all\" to confirm.");
+				var entry = new Gtk.Entry() {
+					placeholder_text = "delete all"
+				};
+				confirm.set_extra_child(entry);
+				confirm.add_response("cancel", "Cancel");
+				confirm.add_response("uninstall", "Uninstall");
+				confirm.set_response_appearance(
+					"uninstall", Adw.ResponseAppearance.DESTRUCTIVE);
+				confirm.set_response_enabled("uninstall", false);
+				confirm.set_default_response("cancel");
+				confirm.set_close_response("cancel");
+				entry.changed.connect(() => {
+					confirm.set_response_enabled(
+						"uninstall", entry.text.strip() == "delete all");
+				});
+				confirm.response.connect((response) => {
+					if (response != "uninstall" || entry.text.strip() != "delete all") {
+						return;
+					}
+					foreach (var entry_cmd in grouped.entries) {
+						task_store.run_command(
+							"Uninstall " + name, entry_cmd.key, entry_cmd.value);
+					}
+				});
+				confirm.present(this);
+			});
 			this.content.append(this.overlay);
 		}
 	}

@@ -56,6 +56,7 @@ namespace Argus.Server.Apt
 		 */
 		public static void run_update(SQ.Database db)
 		{
+			Argus.Shared.OSQuery.AptSources.reconcile_apt_url(db);
 			var rows = new Gee.ArrayList<Argus.Shared.SQT.AptUrl>();
 			Argus.Shared.SQT.AptUrl.query(db).select("", rows);
 			foreach (var row in rows) {

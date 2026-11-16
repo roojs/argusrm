@@ -257,6 +257,15 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
+### `Programs.machines`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `s`: exact `programs.name`.
+- Reply `retval` `o`: an array of live `Programs` rows (`deleted_dt = 0`) for that `name` whose `agent_id` is in `agent`, ordered by `agent_id`, with `uninstall_count` set to `1` when `uninstall_string` is non-empty.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Programs.vala`.
+
 ---
 
 ## Downloads

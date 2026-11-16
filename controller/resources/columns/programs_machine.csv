@@ -9,3 +9,4 @@ Identifying number,identifying-number,off,220,text,ON
 Install location,install-location,off,200,text,ON
 Install source,install-source,off,200,text,ON
 Uninstall string,uninstall-string,off,220,text,ON
+Uninstall,uninstall-count,ON,80,bin,ON

@@ -1,259 +1,179 @@
-# Debian package catalog: integration (phase 2 — agents, install log, UI)
+# Debian package catalog: install log, attribution, controller (phase 2 product)
 
-**Status:** ⏳ opened — **proposed fix below; confirm before code**
+**Status:** ⏳ opened — Slice **E** design drafted (apt history); confirm before code
 
-**Pointer:** `docs/bug-fix-process.md`, phase 1 [2026-11-16-server-apt-repository-dependency-catalog.md](2026-11-16-server-apt-repository-dependency-catalog.md), [`shared/OSQuery/Mounts.vala`](../shared/OSQuery/Mounts.vala), [`server/OSQuery.vala`](../server/OSQuery.vala), [5.9.2.1](../plans/5.9.2.1-assets-software-filters-debian.md), [5.5](../plans/5.5-controller-user-interface.md)
+**Pointer:** `docs/bug-fix-process.md`, prerequisites [2026-11-16-FIXED-server-apt-repository-dependency-catalog.md](done/2026-11-16-FIXED-server-apt-repository-dependency-catalog.md), [2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](done/2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md), [5.9.2.1](../plans/5.9.2.1-assets-software-filters-debian.md), [5.5](../plans/5.5-controller-user-interface.md), [rpc-commands.md](../rpc-commands.md), [`agent/linux/PackageMonitor.vala`](../../agent/linux/PackageMonitor.vala)
 
 ---
 
 ## Problem
 
-- 🔷 Phase 1 fills the **repo catalog** on the server (`apt_url`, `apt_pkg`, `apt_pkg_depends`). Machines still only expose **installed** packages via osquery `deb_packages`.
-- 🔷 **Expected:**
-  - Agents sync osquery **`apt_sources`** to the server (per-agent snapshot, like `mounts`).
-  - Server adds **fleet-wide** `apt_url` rows from **all** active `apt_sources` — same repo on many machines → **one** `apt_url` row; phase 1 `CatalogRefresh` indexes that union.
-  - Later slices: install log, attribution joins, controller UI.
-- 🔷 **Actual:** no `apt_sources` table, no SQL bridge to `apt_url`, no install-log table, no RPC/UI.
-- ℹ️ User vs dependency install comes from **log**, not `deb_packages` alone.
-
----
-
-## Out of scope (this bug vs phase 1)
-
-- 🚫 Downloading `Packages` inside `OSQuery.sync` (stay in `CatalogImport`).
-- 🚫 **`apt_url_agent`** junction table — per-machine repo list is `apt_sources` joined to `apt_url` on `url_key` when needed (Slice F).
-- ℹ️ Phase 1 closed in [2026-11-16-server-apt-repository-dependency-catalog.md](2026-11-16-server-apt-repository-dependency-catalog.md).
-
----
-
-## Evidence
-
-- ℹ️ Osquery `apt_sources` columns (local `osqueryi`): `name`, `source`, `base_uri`, `release`, `version`, `maintainer`, `components`, `architectures` (space-separated list).
-- ℹ️ Mapping to `apt_url`: `release` → `suite`; `architectures` → pick **`amd64`** when present else first token else `amd64` (must match `AptUrl.fetch()` path segment).
-- ℹ️ `url_key` = `base_uri + "|" + suite + "|" + components + "|" + arch` (same string in view and `apt_url.url_key`).
-- ℹ️ Existing pattern: `Row.sync_rows` + `OSQuery.sync` in [`server/OSQuery.vala`](../server/OSQuery.vala); agent [`agent/OSQuery/Execute.vala`](../agent/OSQuery/Execute.vala) `sync_table`.
-
----
-
-## Design fork — fleet `apt_url` from SQL, not Vala upsert
-
-- 🔷 **`apt_sources`** remains normal osquery inventory (`agent_id`, soft-delete audit columns).
-- 🔷 View **`apt_sources_catalog`** is a **SQL helper only** (not a product table): DDL lives in **`AptSources`** next to the table DDL so the reconcile statement stays one obvious `INSERT … SELECT … FROM apt_sources_catalog`.
-- 🔷 **`apt_url` rows** are created in the **same server path** as a successful **`AptSources`** sync — **`sync_rows` then one `db.exec` reconcile** — so new repos exist **before** the daily **`CatalogRefresh`** / `Packages` import runs (import still daily; no download in `OSQuery.sync`).
-- 🚫 No **`apt_url_agent`**.
-- 🚫 No separate **`UrlCatalog`** module for v1 — view + reconcile SQL on **`AptSources`**.
-
----
-
-## Proposed fix (confirm before code)
-
-### Slice A — `apt_sources` inventory + catalog view DDL
-
-**Where:** `shared/OSQuery/AptSources.vala`; `server/Application.vala` calls `AptSources.init_db` **after** `SQT.init_db` (not in `OSQuery.init_db` — view references `apt_url`).
-
-- 🔷 Snapshot sync: `sync_rows` key `{ "base_uri", "release", "components", "source" }` (deb + deb-src lines dedupe at `url_key` via view, not at inventory key).
-- 🔷 **`init_db`** — table, audit index, and **`apt_sources_catalog`** view (same method; call after `SQT.init_db`).
-- 💩 Skip agent send when host package manager is not APT (Slice B).
-
-#### Add — DDL (`AptSources.init_db`)
-
-```sql
-CREATE TABLE IF NOT EXISTS apt_sources (
-	id              INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	agent_id        INTEGER NOT NULL,
-	name            TEXT NOT NULL DEFAULT '',
-	source          TEXT NOT NULL DEFAULT '',
-	base_uri        TEXT NOT NULL DEFAULT '',
-	release         TEXT NOT NULL DEFAULT '',
-	version         TEXT NOT NULL DEFAULT '',
-	maintainer      TEXT NOT NULL DEFAULT '',
-	components      TEXT NOT NULL DEFAULT '',
-	architectures   TEXT NOT NULL DEFAULT ''
-);
--- plus init_db_audit: added_dt, updated_dt, deleted_dt
-CREATE INDEX IF NOT EXISTS apt_sources_agent ON apt_sources (agent_id);
-```
-
-#### Add — view DDL (end of same `AptSources.init_db`, after `apt_url` exists)
-
-```sql
-CREATE VIEW IF NOT EXISTS apt_sources_catalog AS
--- (same body as in shared/OSQuery/AptSources.vala)
-```
-
-#### Add — `Application.vala` init order
-
-```vala
-Argus.Shared.OSQuery.init_db(this.db);
-Argus.Shared.SQT.init_db(this.db);
-Argus.Shared.OSQuery.AptSources.init_db(this.db);
-```
-
-#### Add — row class (representative)
-
-```vala
-public class AptSources : Row {
-	public override bool sync (SQ.Database db, int64 agent_id, Gee.ArrayList<AgentInfo> rows) {
-		if (!this.sync_rows<AptSources>(db, agent_id, rows, "apt_sources",
-				{ "base_uri", "release", "components", "source" })) {
-			return false;
-		}
-		AptSources.reconcile_apt_url(db);
-		return true;
-	}
-	// ... name, source, base_uri, release, version, maintainer, components, architectures
-	public static void reconcile_apt_url (SQ.Database db) { /* Slice C SQL */ }
-	public static void rpc_register () {
-		OLLMrpc.Bin.register("AptSources", typeof(AptSources));
-	}
-}
-```
-
----
-
-### Slice B — agent sends `apt_sources`
-
-**Where:** `agent/OSQuery/Execute.vala` `send_packages`; `agent/Application.vala` `rpc_register`; `server/OSQuery.vala` `rpc_register`.
-
-- 🔷 On APT hosts, after `deb_packages` sync: `sync_table("apt_sources", "AptSources")`.
-- 🚫 Do not send on DNF/Windows.
-
-#### Replace with — `Execute.vala` (`send_packages`, APT branch)
-
-```vala
-case Argus.Shared.OSQuery.PackageManager.APT:
-	var code = new DebPackages().send(this.application);
-	code += this.sync_table("apt_sources", "AptSources");
-	return code;
-```
-
-#### Add — registrations
-
-```vala
-// agent/Application.vala command_line rpc_register block
-Argus.Shared.OSQuery.AptSources.rpc_register();
-
-// server/OSQuery.vala rpc_register
-Argus.Shared.OSQuery.AptSources.rpc_register();
-```
-
----
-
-### Slice C — reconcile `apt_url` (same code as `AptSources.sync`)
-
-**Where:** `AptSources.reconcile_apt_url` in `shared/OSQuery/AptSources.vala`; called at end of **`sync()`** after `sync_rows` succeeds (server `OSQuery.sync` path — no extra hook).
-
-- 🔷 One `db.exec`: fleet union into phase 1 `apt_url` (runs on **every** successful `AptSources` sync, **before** the next daily `CatalogRefresh` import).
-- 🔷 `INSERT OR IGNORE` — does not clobber `last_synced_dt` / `packages_etag` on existing rows.
-- 🚫 Does **not** call `CatalogImport` here — daily refresh still owns `Packages` download.
-
-#### Add — SQL (`AptSources.reconcile_apt_url`)
-
-```sql
-INSERT OR IGNORE INTO apt_url (
-	url_key,
-	base_uri,
-	suite,
-	components,
-	arch
-)
-SELECT DISTINCT
-	url_key,
-	base_uri,
-	release,
-	components,
-	catalog_arch
-FROM
-	apt_sources_catalog;
-```
-
-#### Add — Vala
-
-```vala
-public static void reconcile_apt_url (SQ.Database db) {
-	db.exec("""
-		INSERT OR IGNORE INTO apt_url (
-			url_key,
-			base_uri,
-			suite,
-			components,
-			arch
-		)
-		SELECT DISTINCT
-			url_key,
-			base_uri,
-			release,
-			components,
-			catalog_arch
-		FROM
-			apt_sources_catalog;
-		""");
-}
-```
-
----
-
-### Slice D — proof test (offline)
-
-**Where:** `server/tests/apt-url-sources.vala`; `meson test apt-url-sources`.
-
-- 🔷 Temp DB: `OSQuery.init_db`, `SQT.init_db`, `AptSources.init_db`, insert one `agent`, one `apt_sources` row, call `AptSources.reconcile_apt_url`, assert one `apt_url` with expected `url_key`.
-- 🚫 No network.
-
----
-
-### Slice E — install log (major; after A–D)
-
-- ⏳ 🔷 Agent persistent cursor on dpkg or apt history; daily delta to server; new table TBD.
-- ⏳ 💩 Pick log file per derivative; `OSQuery.sync` vs dedicated RPC.
-
-*(Proposal deferred — separate sub-section when log format chosen.)*
-
----
-
-### Slice F — attribution queries (after E)
-
-- ⏳ 🔷 “Repos on this machine”: `apt_sources` ⋈ `apt_url` ON `url_key` WHERE `agent_id = ?` AND `deleted_dt = 0`.
-- ⏳ 🔷 “User vs dependency”: install-log events ⋈ `deb_packages`.
-
----
-
-### Slice G — controller / RPC (after F)
-
-- ⏳ 🔷 `AptCatalog.*` in [rpc-commands.md](../rpc-commands.md); remove preview; extra machine/package columns.
-- 🚫 Header-bar controls.
+- 🔷 Catalog + **`apt_sources`** bridge are in tree; the **product** still lacks install reasoning, queryable attribution, and Debian UI that uses the dependency graph.
+- 🔷 **Expected:** apt history hints → server **`apt_explicit_install`** → attribution joins → controller RPC/UI.
+- 🔷 **Actual:** none of E–G implemented.
 
 ---
 
 ## Suggested order
 
-1. ✔️ 🔷 Slice A — `apt_sources` table + `apt_sources_catalog` view DDL on `AptSources`.
-2. ⏳ 🔷 Slice B — agent + server RPC register; APT sends table.
-3. ⏳ 🔷 Slice C — `reconcile_apt_url` at end of `AptSources.sync`.
-4. ⏳ 🔷 Slice D — offline meson test.
-5. ⏳ Slice E — install log.
-6. ⏳ Slice F — attribution SQL.
-7. ⏳ Slice G — UI/RPC.
+1. ⏳ **Slice E** — apt history → explicit install names on server.
+2. ⏳ **Slice F** — attribution SQL (repos join; explicit vs dependency hint).
+3. ⏳ **Slice G** — controller + RPC.
+
+---
+
+### Slice E — apt history (explicit installs)
+
+#### Decisions
+
+- ✅ **Log source:** **`/var/log/apt/history.log`** and rotated **`history.log.*.gz`** under **`/var/log/apt/`** — not **`dpkg.log`**.
+- 🔷 **Agent code:** new directory **`agent/linux/Apt/`** (e.g. `History.vala`, wired from Linux `Application` / service startup beside **`PackageMonitor`**).
+- 🔷 **Semantics (v1):** one row per binary package name that appeared on an **`apt install`** (or `apt-get install`) **Commandline:** line, with the transaction **`Start-Date`** beside it. Not a full event timeline. A later install of the same name is not a second row.
+- 🔷 **Server:** per-agent rows keyed by **`name`** (matches **`deb_packages.name`**) plus **`installed_dt`**. Not a local agent SQLite **`packages`** table and not **`apt_pkg`** catalog ids.
+- 🔷 **Sync is incremental.** Unlike **`sync_rows`**, the agent sends only names whose stanza **`Start-Date`** is after the local watermark. The server inserts those names and does not tombstone rows missing from the batch. **`sync_rows`** would delete every earlier explicit install the moment the batch is a delta.
+- 🔷 **Watermark:** one unix time in the agent data dir — “nothing after this date.” It is the latest **`End-Date`** of a complete stanza already accepted (sent, or a pass with nothing new). A stanza with no **`End-Date`** yet is left for the next pass, and the watermark does not move past it. Failed send does not move the watermark.
+- 💩 **Schedule:** daily pass (aligned with package update cadence) plus optional **`FileMonitor`** on **`history.log`** with debounce like **`UserMonitor`**.
+- 🚫 Do not infer user install from **`deb_packages`** alone.
+- 🚫 **No `zcat` subprocess** in product code if **`Gio.ZlibDecompressor`** / stream read suffices.
+- 🚫 Do not call **`sync_rows`** for this table.
+
+#### Evidence — apt history line shape
+
+```text
+Start-Date: 2026-11-06  11:41:54
+Commandline: apt install libnftables-dev
+Requested-By: alan (1001)
+Install: libnftables-dev:amd64 (1.1.1-1build1)
+End-Date: 2026-11-06  11:41:57
+```
+
+- ✔️ **Date is on the stanza, not the package token.** **`Start-Date:`** is `YYYY-MM-DD`, two spaces, `HH:MM:SS`. Every package named on that **`Commandline:`** shares it. On this machine, 68/68 install commands in **`/var/log/apt/history.log`** and **`history.log.*.gz`** had a **`Start-Date`** (0 missing).
+- ℹ️ The clock is local wall time. The line has no timezone.
+- 🔷 Tokenize after **`install`**; stop at **`=`** version pins; skip tokens starting with **`-`**; skip empty tokens.
+- 💩 **`apt upgrade` / `dist-upgrade` / `autoremove`** — out of scope for v1 explicit set. Their stanzas still advance the watermark.
+- ℹ️ **`aptdaemon role='role-commit-packages'`** lines have a **`Start-Date`** and no package tokens. They do not create rows. The watermark still moves past a complete stanza.
+
+#### Add — server DDL (`AptExplicitInstall.init_db` on server, with other OSQuery tables)
+
+```sql
+CREATE TABLE IF NOT EXISTS apt_explicit_install (
+	id              INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+	agent_id        INTEGER NOT NULL,
+	name            TEXT NOT NULL DEFAULT '',
+	installed_dt    INTEGER NOT NULL DEFAULT 0
+);
+-- UNIQUE (agent_id, name). First installed_dt wins. No deleted_dt tombstone.
+CREATE UNIQUE INDEX IF NOT EXISTS apt_explicit_install_agent_name
+ON apt_explicit_install (agent_id, name);
+```
+
+#### Add — shared row (`shared/OSQuery/AptExplicitInstall.vala`)
+
+```vala
+public class AptExplicitInstall : Row {
+	public string name { get; set; default = ""; }
+	/** Unix time from the stanza Start-Date. 0 means unset. */
+	public int installed_dt { get; set; default = 0; }
+	public override bool sync (...) {
+		// Insert-only. A name already stored for this agent is left
+		// alone (first installed_dt stays). Rows not in this batch stay.
+		// Do not call sync_rows.
+	}
+}
+```
+
+#### Add — agent (`agent/linux/Apt/History.vala`)
+
+- Watermark file under the agent data dir: one unix time, “nothing after this date.”
+- Each pass reads **`history.log.*.gz`** and **`history.log`**. Skip any stanza whose **`Start-Date`** is at or before the watermark. Skip a trailing stanza that has no **`End-Date`**.
+- **`import_explicit_from_stream`** — for each new **`Commandline:`** install, collect target names and the stanza **`Start-Date`** (parsed as local time → **`installed_dt`**).
+- Send only those new names. After the server accepts the batch (or the batch was empty), write the watermark to the latest **`End-Date`** consumed. A failed send leaves the watermark where it was, so the same new names are tried again; the unique index drops a duplicate if a previous attempt had already landed.
+
+#### Add — parse helper (representative; agent-only)
+
+```vala
+// After "Commandline:" — find literal token "install", then collect package names
+// until a token starts with '-' or contains '='.
+void collect_explicit_names_from_commandline (string line, Gee.HashSet<string> names) {
+	if (!line.has_prefix ("Commandline:")) {
+		return;
+	}
+	var tokens = line.split (" ");
+	var in_install = false;
+	foreach (var token in tokens) {
+		var clean = token.strip ();
+		if (clean == "install") {
+			in_install = true;
+			continue;
+		}
+		if (!in_install) {
+			continue;
+		}
+		if (clean == "" || clean.has_prefix ("-")) {
+			continue;
+		}
+		if (clean.contains ("=")) {
+			break;
+		}
+		names.add (clean);
+	}
+}
+```
+
+The stream reader keeps the current stanza **`Start-Date`** and writes it onto each name from that line. If one pass sees the same name twice, the earlier **`installed_dt`** is the one sent.
+
+#### Draft mapping (chat prototype → Argus)
+
+| Draft idea | Argus v1 |
+|------------|----------|
+| Local **`explicit_installs(pkg_id)`** + **`packages`** table | Server **`apt_explicit_install(agent_id, name, installed_dt)`** |
+| Shared **`pkg_cache`** with catalog | **No** — names align with **`deb_packages.name`** only |
+| Agent **`Sqlite.Database`** ingest | Agent parses logs; server **insert-only** (not **`sync_rows`**) |
+| Full set every sync | Delta after the watermark date |
+| **`zcat`** pipe | **`Gio`** read of **`.gz`** |
+
+---
+
+### Slice F — attribution queries
+
+**Repos on this machine**
+
+- 🔷 `apt_sources` ⋈ `apt_url` **ON `url_key`** WHERE `agent_id = ?` AND `apt_sources.deleted_dt = 0`.
+
+**Explicit vs dependency (hint)**
+
+- 🔷 **`deb_packages`** LEFT JOIN **`apt_explicit_install`** ON `agent_id` AND `name` WHERE `deleted_dt = 0` on both sides.
+- 🔷 Installed + row in **`apt_explicit_install`** → treat as **explicit**. **`installed_dt`** is the first retained **`Start-Date`**, not the server insert time.
+- 🔷 Installed + no row → **dependency hint** (not proof — pre-agent installs and missed log lines exist).
+- 🚫 No **`apt_url_agent`**.
+
+---
+
+### Slice G — controller / RPC
+
+- 🔷 **`AptCatalog.*`** in **`docs/rpc-commands.md`** — depends closure, remove preview.
+- 🔷 Debian software UI: explicit/dependency column when Slice F queries exist.
+- 🚫 Header bar controls — page toolbar only.
+- ℹ️ **`|`** depends alternatives — phase 1 import skips clauses; preview stays conservative.
 
 ---
 
 ## Next
 
-- 💩 `⏳` User confirms Slices **A–D** (view on `AptSources`, reconcile in `sync()`, daily import unchanged).
+- 🔷 User confirms Slice **E** (table name, **`installed_dt`**, insert-only sync, date watermark) before implementation.
+- 🔷 Then land **`agent/linux/Apt/`** + server table + one offline parse test (fixture **`history.log`** snippet, no network).
 
 ---
 
 ## Attempts / changelog
 
-- ✔️ 2026-11-16: Mistaken Part A implementation (including `apt_url_agent`) **reverted** — not in tree.
-- ✔️ 2026-11-16: Proposed fix rewritten as **Slices A–G** with DDL/SQL/Vala fences per `docs/bug-fix-process.md`.
-- ✔️ 2026-11-16: View DDL on **`AptSources`**; **`reconcile_apt_url`** in **`sync()`** (before daily `CatalogRefresh`); dropped **`UrlCatalog`** from proposal.
-- ✔️ 2026-11-16: Slice A — `shared/OSQuery/AptSources.vala`; `AptSources.init_db` (table + view) after `SQT.init_db` in `server/Application.vala`.
+- ✔️ 2026-11-16: Closed bridge A–D — [done/2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](done/2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md).
+- ✔️ 2026-11-16: Slice E — **apt history** chosen; draft Vala/SQL reframed for **`agent/linux/Apt/`** + **`apt_explicit_install`** (not local agent **`packages`** / **`pkg_id`**).
+- ✔️ 2026-11-16: **`Start-Date`** is present on every install stanza in this machine’s apt history (68/68). Sync is a date watermark plus insert-only rows, not a **`sync_rows`** snapshot.
 
 ---
 
 ## LLM notes
 
-- 🚫 **Do not implement until user approves Slices A–D.**
-- 🚫 **No `apt_url_agent`.**
-- 🚫 Do not fold `Packages` download into `OSQuery.sync`.
+- 🚫 No `apt_url_agent`.
+- ℹ️ Catalog graph remains **`apt_pkg`** / **`apt_pkg_depends`**; explicit installs are **per-agent facts**, separate concern.

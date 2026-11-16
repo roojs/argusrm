@@ -25,6 +25,7 @@ namespace Argus.Controller.Store
 	 * {@link items} is the backing list. {@link load} calls
 	 * ''Task.all_targets''. {@link run_script} resolves a library script
 	 * via ''Script.search'' and submits a task via ''Task.submit''.
+	 * {@link run_command} submits a plain shell command directly.
 	 * {@link fetch_logs} and {@link watch} load saved output and enable
 	 * live streaming for one target.
 	 *
@@ -259,6 +260,65 @@ namespace Argus.Controller.Store
 						submit_reply.retval.get_object();
 					this.submitted(targets.size);
 				});
+			});
+		}
+
+		/**
+		 * Submit a plain shell command task for ''agent_ids''.
+		 *
+		 * @param name task title
+		 * @param command command line to run on each agent
+		 * @param agent_ids target ''agent.id'' values
+		 */
+		public void run_command(
+			string name,
+			string command,
+			Gee.ArrayList<int32> agent_ids
+		) {
+			if (command.strip() == "" || agent_ids.size < 1) {
+				return;
+			}
+			var now = new GLib.DateTime.now_utc().to_unix();
+			var builder = new GLib.VariantBuilder(new GLib.VariantType("ai"));
+			string[] id_text = {};
+			foreach (var id in agent_ids) {
+				builder.add_value(new GLib.Variant.int32(id));
+				id_text += id.to_string();
+			}
+			var canonical = command + "|0||" +
+				now.to_string() + "|" + string.joinv(",", id_text);
+			var task = new Argus.Shared.SQT.Task() {
+				name = name,
+				is_script = false,
+				command = command,
+				script_id = 0,
+				scheduled = now,
+				payload_hash = GLib.Checksum.compute_for_string(
+					GLib.ChecksumType.SHA256, canonical)
+			};
+			this.app.rpc.call.begin(new OLLMrpc.Request() {
+				method = "Task.submit",
+				args = OLLMrpc.args("ovb", task, builder.end(), false)
+			}, (submit_obj, submit_res) => {
+				OLLMrpc.Response submit_reply;
+				try {
+					submit_reply = this.app.rpc.call.end(submit_res);
+				} catch (GLib.Error e) {
+					this.failed("Could not queue task", e.message);
+					return;
+				}
+				if (submit_reply.error != null) {
+					this.failed("Could not queue task", submit_reply.error.message);
+					return;
+				}
+				if (submit_reply.retval.type() == GLib.Type.INVALID ||
+					!submit_reply.retval.type().is_a(typeof(Gee.ArrayList))) {
+					this.submitted(agent_ids.size);
+					return;
+				}
+				var targets = (Gee.ArrayList<Argus.Shared.SQT.TaskTarget>)
+					submit_reply.retval.get_object();
+				this.submitted(targets.size);
 			});
 		}
 

@@ -32,6 +32,32 @@ namespace Argus.Shared.OSQuery
 
 		public override string pkg_name() { return this.name + "\n" + this.identifying_number; }
 
+		/**
+		 * Silent uninstall command built from {@link uninstall_string}.
+		 *
+		 * Rewrites ''msiexec /I...'' to ''/X...'' and appends
+		 * ''/qn /norestart'' when no quiet flag is present.
+		 *
+		 * @return silent command string, or empty when unset
+		 */
+		public string silent_command()
+		{
+			var cmd = this.uninstall_string.strip();
+			if (cmd == "") {
+				return "";
+			}
+			if (!GLib.Regex.match_simple("(^|\\s|\\\\)msiexec(\\.exe)?\\b", cmd,
+				GLib.RegexCompileFlags.CASELESS)) {
+				return cmd;
+			}
+			cmd = new GLib.Regex("(^|\\s)/i(?=(\\{|\\s|$))",
+				GLib.RegexCompileFlags.CASELESS).replace(cmd, -1, 0, "\\1/X");
+			if (GLib.Regex.match_simple("(^|\\s)/q", cmd, GLib.RegexCompileFlags.CASELESS)) {
+				return cmd;
+			}
+			return cmd + " /qn /norestart";
+		}
+
 		public override string table_name() { return "programs"; }
 
 		public override string rpc_name() { return "Programs"; }
@@ -78,7 +104,8 @@ namespace Argus.Shared.OSQuery
 			OLLMrpc.Bin.register("Programs", typeof(Programs));
 			OLLMrpc.Request.add_class(
 				"Programs", typeof(Programs),
-				"list", "ii"
+				"list", "ii",
+				"machines", "s"
 			);
 		}
 
@@ -110,8 +137,6 @@ namespace Argus.Shared.OSQuery
 					WHERE
 						agent_id = %d
 					AND
-						agent_id IN (SELECT id FROM agent)
-					AND
 						(
 							added_dt > %d
 						OR
@@ -141,9 +166,10 @@ namespace Argus.Shared.OSQuery
 						agent_id = %d
 					AND
 						deleted_dt = 0
-					AND
-						agent_id IN (SELECT id FROM agent)
 					""".printf(agent_id), rows);
+				foreach (var row in rows) {
+					row.uninstall_count = row.uninstall_string != "" ? 1 : 0;
+				}
 			}
 			if (since <= 0 && agent_id <= 0) {
 				query.selectQuery("""
@@ -173,6 +199,38 @@ namespace Argus.Shared.OSQuery
 					ORDER BY
 						name
 					""", rows);
+			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("o", rows),
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * List per-machine stored rows for one program ''name''.
+		 *
+		 * A controller calls this. Rows whose ''agent_id'' is not in
+		 * ''agent'' or whose ''deleted_dt'' is set are omitted.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param name exact ''programs.name''
+		 */
+		public void machines(OLLMrpc.Request request, string name)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Programs>();
+			var query = new SQ.Query<Programs>(Programs.db, "programs");
+			var binds = new Gee.HashMap<string, string>();
+			binds.set("name", name);
+			query.selectWhere(
+				"WHERE name = $name AND deleted_dt = 0 " +
+					"AND agent_id IN (SELECT id FROM agent) " +
+					"ORDER BY agent_id",
+				null, binds, rows);
+			foreach (var row in rows) {
+				row.uninstall_count = row.uninstall_string != "" ? 1 : 0;
 			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),

@@ -121,6 +121,17 @@ apt_catalog_test = executable(
 	install: false,
 )
 test('apt-catalog', apt_catalog_test, timeout: 300)
+apt_url_sources_test = executable(
+	'argus-apt-url-sources-test',
+	sources,
+	files('tests/apt-url-sources.vala'),
+	dependencies: deps,
+	c_args: ocsqlite_c_args,
+	export_dynamic: true,
+	vala_args: server_vala_args,
+	install: false,
+)
+test('apt-url-sources', apt_url_sources_test, timeout: 30)
 executable(
 	'argus-nftables-test',
 	files('tests/nftables.vala', 'Net/NFTables.vala'),

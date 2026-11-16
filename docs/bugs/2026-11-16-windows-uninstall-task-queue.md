@@ -1,6 +1,6 @@
 # Windows uninstall: queue uninstall task on hold confirm
 
-**Status:** ⏳ Phase 1 (single-machine uninstall) and Phase 2 (bulk uninstall with `"delete all"` confirmation) proposed — awaiting approval before applying Phase 1
+**Status:** ⏳ Phase 1 and Phase 2 approved and in the tree — verify on Windows controller
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [done/2026-11-15-FIXED-windows-uninstall-hold-action.md](done/2026-11-15-FIXED-windows-uninstall-hold-action.md), [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md), [2026-11-14-software-filters-remaining.md](2026-11-14-software-filters-remaining.md), [1.0-DONE-overview.md](../plans/done/1.0-DONE-overview.md), [7.2-tasks-ui-and-signing.md](../plans/7.2-tasks-ui-and-signing.md)
 
@@ -109,6 +109,8 @@ Convert interactive Windows `msiexec` uninstall strings into silent flags on the
 
 #### Replace with — `shared/OSQuery/Programs.vala` (`list()`, `since <= 0 && agent_id > 0`)
 
+Drop the redundant `agent_id IN (SELECT id FROM agent)` when `agent_id` is already fixed (same for the `since > 0 && agent_id > 0` branch).
+
 ```vala
 			if (since <= 0 && agent_id > 0) {
 				query.select("""
@@ -116,8 +118,6 @@ Convert interactive Windows `msiexec` uninstall strings into silent flags on the
 						agent_id = %d
 					AND
 						deleted_dt = 0
-					AND
-						agent_id IN (SELECT id FROM agent)
 					""".printf(agent_id), rows);
 				foreach (var row in rows) {
 					row.uninstall_count = row.uninstall_string != "" ? 1 : 0;
@@ -522,5 +522,4 @@ Wire `remove_confirmed` -> `store.load_machines` -> `"delete all"` confirmation 
 
 ## Next
 
-- ⏳ 🔷 Review and approve **Phase 1** (`shared/OSQuery/Programs.vala`, `programs_machine.csv`, `Store.TaskTarget`, `Machine/Programs.vala`) before applying.
-- ⏳ 🔷 Review **Phase 2** (`Programs.machines`, `Store.Programs.load_machines`, `Asset/Programs.vala` `"delete all"` dialog) to implement right after Phase 1 is verified.
+- ⏳ Verify hold-to-uninstall on **Machines → Windows programs** (Phase 1) and **Software → Windows** with `"delete all"` (Phase 2) on a Windows controller against live agents.

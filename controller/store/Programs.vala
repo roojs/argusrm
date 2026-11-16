@@ -78,6 +78,17 @@ namespace Argus.Controller.Store
 		public signal void failed(string heading, string message);
 
 		/**
+		 * ''Programs.machines'' returned per-machine rows for ''name''.
+		 *
+		 * @param name exact ''programs.name''
+		 * @param rows per-machine rows matching ''name''
+		 */
+		public signal void machines_loaded(
+			string name,
+			Gee.ArrayList<Argus.Shared.OSQuery.Programs> rows
+		);
+
+		/**
 		 * @param app the controller process
 		 */
 		public Programs(Application app)
@@ -165,6 +176,40 @@ namespace Argus.Controller.Store
 				}
 				this.items = listed;
 				this.busy = false;
+			});
+		}
+
+		/**
+		 * Fetch ''Programs.machines'' for one program ''name'' without
+		 * replacing {@link items}.
+		 *
+		 * @param name exact ''programs.name''
+		 */
+		public void load_machines(string name)
+		{
+			if (name == "") {
+				return;
+			}
+			this.app.rpc.call.begin(new OLLMrpc.Request() {
+				method = "Programs.machines",
+				args = OLLMrpc.args("s", name)
+			}, (obj, res) => {
+				OLLMrpc.Response response;
+				try {
+					response = this.app.rpc.call.end(res);
+				} catch (GLib.Error e) {
+					this.failed("Could not list machines for " + name, e.message);
+					return;
+				}
+				if (response.error != null) {
+					this.failed("Could not list machines for " + name, response.error.message);
+					return;
+				}
+				var listed = new Gee.ArrayList<Argus.Shared.OSQuery.Programs>();
+				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
+					listed = (Gee.ArrayList<Argus.Shared.OSQuery.Programs>) response.retval.get_object();
+				}
+				this.machines_loaded(name, listed);
 			});
 		}
 	}

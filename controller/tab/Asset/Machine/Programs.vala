@@ -54,6 +54,31 @@ namespace Argus.Controller.Tab.Asset.Machine
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
+			var task_store = new Argus.Controller.Store.TaskTarget(window.app);
+			task_store.failed.connect((heading, message) => {
+				this.toasts.add_toast(new Adw.Toast(heading + ": " + message));
+			});
+			task_store.submitted.connect((count) => {
+				var label = count == 1 ?
+					"Task created and running — view it in the Tasks tab" :
+					count.to_string() + " tasks created and running — view them in the Tasks tab";
+				this.toasts.add_toast(new Adw.Toast(label));
+			});
+			this.remove_confirmed.connect((obj) => {
+				var row = obj as Argus.Shared.OSQuery.Programs;
+				if (row == null || row.agent_id < 1) {
+					return;
+				}
+				var cmd = row.silent_command();
+				if (cmd == "") {
+					this.toasts.add_toast(new Adw.Toast(
+						"No uninstall command found for " + row.name));
+					return;
+				}
+				var ids = new Gee.ArrayList<int32>();
+				ids.add((int32) row.agent_id);
+				task_store.run_command("Uninstall " + row.name, cmd, ids);
+			});
 			this.content.append(this.overlay);
 		}
 

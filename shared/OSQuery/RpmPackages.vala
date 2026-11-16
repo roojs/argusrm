@@ -44,8 +44,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			RpmPackages.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS rpm_packages (
 					id            INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id      INTEGER NOT NULL,
@@ -61,25 +60,16 @@ namespace Argus.Shared.OSQuery
 					vendor        TEXT NOT NULL DEFAULT '',
 					package_group TEXT NOT NULL DEFAULT ''
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("rpm_packages create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "rpm_packages");
-			var idx_query = """
+			db.exec("""
 				CREATE INDEX IF NOT EXISTS rpm_packages_deleted_name_agent
 				ON rpm_packages (deleted_dt, name, agent_id);
-				""";
-			if (Sqlite.OK != db.db.exec(idx_query, null, out errmsg)) {
-				GLib.warning("rpm_packages index failed: %s", db.db.errmsg());
-			}
-			var idx_agent = """
+				""");
+			db.exec("""
 				CREATE INDEX IF NOT EXISTS rpm_packages_agent
 				ON rpm_packages (agent_id);
-				""";
-			if (Sqlite.OK != db.db.exec(idx_agent, null, out errmsg)) {
-				GLib.warning("rpm_packages agent index failed: %s", db.db.errmsg());
-			}
+				""");
 		}
 
 		/**

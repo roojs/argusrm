@@ -315,18 +315,7 @@ namespace Argus.Agent
 		public override int command_line(GLib.ApplicationCommandLine command_line)
 		{
 			OLLMrpc.rpc_register();
-			Argus.Shared.OSQuery.SystemInfo.rpc_register();
-			Argus.Shared.OSQuery.CpuInfo.rpc_register();
-			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
-			Argus.Shared.OSQuery.Users.rpc_register();
-			Argus.Shared.OSQuery.Groups.rpc_register();
-			Argus.Shared.OSQuery.UserGroups.rpc_register();
-			Argus.Shared.OSQuery.InterfaceAddresses.rpc_register();
-			Argus.Shared.OSQuery.OsVersion.rpc_register();
-			Argus.Shared.OSQuery.DebPackages.rpc_register();
-			Argus.Shared.OSQuery.RpmPackages.rpc_register();
-			Argus.Shared.OSQuery.Programs.rpc_register();
-			Argus.Shared.OSQuery.PackageUpdates.rpc_register();
+			Argus.Shared.OSQuery.rpc_register();
 			Command.rpc_register();
 			opt_debug = false;
 			opt_debug_critical = false;

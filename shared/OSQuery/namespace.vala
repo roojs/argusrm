@@ -33,6 +33,30 @@ namespace Argus.Shared.OSQuery
 	}
 
 	/**
+	 * Register osquery row types with the ''OLLMrpc'' bin codec.
+	 *
+	 * Agent and server call this before ''OSQuery.sync''.
+	 */
+	public static void rpc_register()
+	{
+		SystemInfo.rpc_register();
+		CpuInfo.rpc_register();
+		Uptime.rpc_register();
+		Mounts.rpc_register();
+		LoggedInUsers.rpc_register();
+		Users.rpc_register();
+		Groups.rpc_register();
+		UserGroups.rpc_register();
+		InterfaceAddresses.rpc_register();
+		OsVersion.rpc_register();
+		DebPackages.rpc_register();
+		AptSources.rpc_register();
+		RpmPackages.rpc_register();
+		Programs.rpc_register();
+		PackageUpdates.rpc_register();
+	}
+
+	/**
 	 * Register all osquery RPC handlers with ''OLLMrpc''.
 	 */
 	public static void register()

@@ -120,5 +120,44 @@ namespace Argus.Shared.OSQuery
 				);
 				""");
 		}
+
+		/**
+		 * Insert missing fleet ''apt_url'' rows from ''apt_sources_catalog''.
+		 *
+		 * Called from {@link Argus.Server.Apt.CatalogImport.run_update}
+		 * before ''Packages'' import, not from {@link sync}.
+		 * Does not update rows that already exist (catalog import metadata
+		 * stays on the row).
+		 *
+		 * @param db Argus database
+		 */
+		public static void reconcile_apt_url(SQ.Database db)
+		{
+			db.exec("""
+				INSERT OR IGNORE INTO apt_url (
+					url_key,
+					base_uri,
+					suite,
+					components,
+					arch
+				)
+				SELECT DISTINCT
+					url_key,
+					base_uri,
+					release,
+					components,
+					catalog_arch
+				FROM
+					apt_sources_catalog;
+				""");
+		}
+
+		/**
+		 * Register this row for {@link OSQuery.sync}.
+		 */
+		public static void rpc_register()
+		{
+			OLLMrpc.Bin.register("AptSources", typeof(AptSources));
+		}
 	}
 }

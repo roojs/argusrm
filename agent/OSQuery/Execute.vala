@@ -227,7 +227,9 @@ namespace Argus.Agent.OSQuery
 		{
 			switch (this.application.os_version.package_manager()) {
 				case Argus.Shared.OSQuery.PackageManager.APT:
-					return new DebPackages().send(this.application);
+					var code = new DebPackages().send(this.application);
+					code += this.sync_table("apt_sources", "AptSources");
+					return code;
 
 				case Argus.Shared.OSQuery.PackageManager.DNF:
 					return new RpmPackages().send(this.application);
