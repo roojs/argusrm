@@ -105,8 +105,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			OsVersion.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS os_version (
 					id            INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id      INTEGER NOT NULL,
@@ -124,14 +123,14 @@ namespace Argus.Shared.OSQuery
 					pkgs_status     INTEGER NOT NULL DEFAULT 0,
 					reboot_required INTEGER NOT NULL DEFAULT 0
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("os_version create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "os_version");
-			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_updated INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
-			db.db.exec("ALTER TABLE os_version ADD COLUMN pkgs_status INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
-			db.db.exec("ALTER TABLE os_version ADD COLUMN reboot_required INTEGER NOT NULL DEFAULT 0;", null, out errmsg);
+			db.exec(
+				"ALTER TABLE os_version ADD COLUMN pkgs_updated INTEGER NOT NULL DEFAULT 0;");
+			db.exec(
+				"ALTER TABLE os_version ADD COLUMN pkgs_status INTEGER NOT NULL DEFAULT 0;");
+			db.exec(
+				"ALTER TABLE os_version ADD COLUMN reboot_required INTEGER NOT NULL DEFAULT 0;");
 		}
 
 		/**

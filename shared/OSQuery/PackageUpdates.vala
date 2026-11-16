@@ -115,32 +115,22 @@ namespace Argus.Shared.OSQuery
 		 */
 		public static void init_db(SQ.Database db)
 		{
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS package_updates (
 					id       INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id INTEGER NOT NULL,
 					name     TEXT NOT NULL DEFAULT '',
 					since    INTEGER NOT NULL DEFAULT 0
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("package_updates create failed: %s", db.db.errmsg());
-			}
-			var idx = """
+				""");
+			db.exec("""
 				CREATE INDEX IF NOT EXISTS package_updates_agent_name
 				ON package_updates (agent_id, name);
-				""";
-			if (Sqlite.OK != db.db.exec(idx, null, out errmsg)) {
-				GLib.warning("package_updates index failed: %s", db.db.errmsg());
-			}
-			var idx_name = """
+				""");
+			db.exec("""
 				CREATE INDEX IF NOT EXISTS package_updates_name_agent
 				ON package_updates (name, agent_id, since);
-				""";
-			if (Sqlite.OK != db.db.exec(idx_name, null, out errmsg)) {
-				GLib.warning("package_updates name index failed: %s", db.db.errmsg());
-			}
+				""");
 		}
 
 		/**

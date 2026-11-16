@@ -119,6 +119,11 @@ namespace Argus.Server
 		public OsUpdate os_update { get; private set; }
 
 		/**
+		 * Debian ''Packages'' catalog refresh (daily).
+		 */
+		public Apt.CatalogRefresh catalog_refresh { get; private set; }
+
+		/**
 		 * Unix socket the controller uses for {@link Agent.offer}.
 		 */
 		public OLLMrpc.Transport.SocketListen listen { get; private set; }
@@ -199,6 +204,7 @@ namespace Argus.Server
 				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sqlite"), true);
 			this.scheduler = new SQT.Scheduler(this);
 			this.os_update = new OsUpdate(this);
+			this.catalog_refresh = new Apt.CatalogRefresh(this);
 			this.listen = new OLLMrpc.Transport.SocketListen(
 				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
 				live_handles = true
@@ -213,6 +219,7 @@ namespace Argus.Server
 				this.publish.stop();
 				this.scheduler.stop();
 				this.os_update.stop();
+				this.catalog_refresh.stop();
 				this.listen.stop();
 				this.db.backup_real();
 				this.ssl_listen.stop();
@@ -363,6 +370,7 @@ namespace Argus.Server
 			Argus.Shared.OsReleases.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
 			Argus.Shared.SQT.init_db(this.db);
+			Argus.Shared.OSQuery.AptSources.init_db(this.db);
 			new SQT.Script.for_rpc(this).import_defaults();
 			OLLMrpc.Request.register("Agent", new Agent.for_rpc(this));
 			OLLMrpc.Request.register("Registration", new Registration(this));
@@ -433,6 +441,7 @@ namespace Argus.Server
 			}
 			this.scheduler.start();
 			this.os_update.start();
+			this.catalog_refresh.start();
 			GLib.debug("staying up");
 			this.hold();
 			return 0;

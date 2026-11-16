@@ -18,6 +18,8 @@ namespace Argus.Shared.OSQuery
 	{
 		SystemInfo.init_db(db);
 		CpuInfo.init_db(db);
+		Uptime.init_db(db);
+		Mounts.init_db(db);
 		LoggedInUsers.init_db(db);
 		Users.init_db(db);
 		Groups.init_db(db);
@@ -38,6 +40,8 @@ namespace Argus.Shared.OSQuery
 		OLLMrpc.Request.register("SystemInfo", new SystemInfo());
 		OLLMrpc.Request.register("OsVersion", new OsVersion());
 		OLLMrpc.Request.register("CpuInfo", new CpuInfo());
+		OLLMrpc.Request.register("Uptime", new Uptime());
+		OLLMrpc.Request.register("Mounts", new Mounts());
 		OLLMrpc.Request.register("LoggedInUsers", new LoggedInUsers());
 		OLLMrpc.Request.register("Users", new Users());
 		OLLMrpc.Request.register("Groups", new Groups());

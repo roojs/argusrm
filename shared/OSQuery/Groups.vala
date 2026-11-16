@@ -46,8 +46,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			Groups.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS groups (
 					id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id   INTEGER NOT NULL,
@@ -55,10 +54,7 @@ namespace Argus.Shared.OSQuery
 					gid_signed INTEGER NOT NULL DEFAULT 0,
 					groupname  TEXT NOT NULL DEFAULT ''
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("groups create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "groups");
 		}
 

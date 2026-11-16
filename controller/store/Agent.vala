@@ -144,7 +144,8 @@ namespace Argus.Controller.Store
 			this.epoch++;
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Agent.list"
+				method = "Agent.list",
+				args = OLLMrpc.args("i", 0)
 			}, (obj, res) => {
 				if (epoch != this.epoch) {
 					return;

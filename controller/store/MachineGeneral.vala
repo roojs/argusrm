@@ -22,8 +22,8 @@ namespace Argus.Controller.Store
 	 * Key-value rows for the per-machine General detail tab.
 	 *
 	 * A {@link GLib.ListModel} of {@link KeyValue}. {@link load} fetches
-	 * ''SystemInfo.list'', ''OsVersion.list'', ''OsReleases.list'', and
-	 * ''CpuInfo.list'' for one ''agent_id'' and replaces {@link items} from
+	 * ''SystemInfo.list'', ''OsVersion.list'', ''OsReleases.list'',
+	 * ''CpuInfo.list'', ''Uptime.list'', and ''Agent.list'' for one ''agent_id'' and replaces {@link items} from
 	 * ''machine_general.csv''.
 	 *
 	 * == Example ==
@@ -120,8 +120,9 @@ namespace Argus.Controller.Store
 
 		/**
 		 * Fetch ''SystemInfo.list'', ''OsVersion.list'',
-		 * ''OsReleases.list'', and ''CpuInfo.list'' for ''agent_id'' and
-		 * replace {@link items} using ''machine_general.csv''.
+		 * ''OsReleases.list'', ''CpuInfo.list'', ''Uptime.list'', and
+		 * ''Agent.list'' for ''agent_id'' and replace {@link items} using
+		 * ''machine_general.csv''.
 		 *
 		 * @param agent_id selected machine agent id
 		 */
@@ -142,11 +143,19 @@ namespace Argus.Controller.Store
 				return;
 			}
 			if (!yield this.load_section(
+				"agent", "Agent.list", OLLMrpc.args("i", agent_id))) {
+				return;
+			}
+			if (!yield this.load_section(
 				"os_version", "OsVersion.list", OLLMrpc.args("i", agent_id))) {
 				return;
 			}
 			if (!yield this.load_section(
 				"os_releases", "OsReleases.list", OLLMrpc.args("i", agent_id))) {
+				return;
+			}
+			if (!yield this.load_section(
+				"uptime", "Uptime.list", OLLMrpc.args("i", agent_id))) {
 				return;
 			}
 			if (!yield this.load_cpu_section(agent_id)) {

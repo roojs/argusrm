@@ -58,6 +58,9 @@ sources = files(
 	'SQT/Scheduler.vala',
 	'SQT/Task.vala',
 	'Git/Callbacks.vala',
+	'Apt/namespace.vala',
+	'Apt/CatalogImport.vala',
+	'Apt/CatalogRefresh.vala',
 	'Daemon.vala',
 )
 executable(
@@ -93,6 +96,31 @@ packages_test = executable(
 	install: false,
 )
 test('packages', packages_test, timeout: 30)
+apt_catalog_test = executable(
+	'argus-apt-catalog-test',
+	files(
+		'Apt/namespace.vala',
+		'Apt/CatalogImport.vala',
+		'tests/apt-catalog.vala',
+	),
+	dependencies: [
+		dependency('glib-2.0'),
+		dependency('gobject-2.0'),
+		dependency('gio-2.0'),
+		dependency('gee-0.8'),
+		dependency('libsoup-3.0'),
+		shared_server_dep,
+		ocsqlite_dep,
+	],
+	c_args: ocsqlite_c_args,
+	vala_args: [
+		'--vapidir', meson.current_source_dir() / 'vapi',
+		'--pkg', 'gee-0.8', '--pkg', 'libsoup-3.0',
+		'--pkg', 'ocrpc', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
+	],
+	install: false,
+)
+test('apt-catalog', apt_catalog_test, timeout: 300)
 executable(
 	'argus-nftables-test',
 	files('tests/nftables.vala', 'Net/NFTables.vala'),

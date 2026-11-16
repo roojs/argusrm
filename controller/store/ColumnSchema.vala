@@ -119,6 +119,49 @@ namespace Argus.Controller.Store
 						.replace(".0 ", " ");
 					return ret;
 
+				case "uptime":
+					var secs = (int64) 0;
+					if (prop.value_type == GLib.Type.INT64) {
+						secs = value.get_int64();
+					}
+					if (prop.value_type == GLib.Type.INT) {
+						secs = (int64) value.get_int();
+					}
+					if (secs < 1) {
+						return ret;
+					}
+					/* Two units max; 365-day years (same spirit as ''elapsed'' in Tab.Base). */
+					if (secs < 60) {
+						ret.val = secs.to_string() + "s";
+						return ret;
+					}
+					if (secs < 3600) {
+						ret.val = (secs / 60).to_string() + "m";
+						return ret;
+					}
+					if (secs < 86400) {
+						var rem_mins = (secs % 3600) / 60;
+						ret.val = (secs / 3600).to_string() + "h";
+						if (rem_mins > 0) {
+							ret.val += " " + rem_mins.to_string() + "m";
+						}
+						return ret;
+					}
+					if (secs < 365 * 86400) {
+						var rem_hours = (secs % 86400) / 3600;
+						ret.val = (secs / 86400).to_string() + "d";
+						if (rem_hours > 0) {
+							ret.val += " " + rem_hours.to_string() + "h";
+						}
+						return ret;
+					}
+					var rem_days = (secs % (365 * 86400)) / 86400;
+					ret.val = (secs / (365 * 86400)).to_string() + "y";
+					if (rem_days > 0) {
+						ret.val += " " + rem_days.to_string() + "d";
+					}
+					return ret;
+
 				case "date":
 					var stamp = prop.value_type == GLib.Type.INT64 ?
 						value.get_int64() :

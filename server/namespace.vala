@@ -33,6 +33,7 @@
  * the output for the controller that asked.
  * {@link SQT.Task} manages tasks, templates, and draft targets.
  * {@link SQT.Scheduler} wakes due tasks on the main context.
+ * {@link Apt.CatalogRefresh} refreshes the Debian catalog daily.
  *
  * == Example ==
  *

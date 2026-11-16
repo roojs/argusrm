@@ -42,8 +42,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			LoggedInUsers.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS logged_in_users (
 					id       INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id INTEGER NOT NULL,
@@ -54,10 +53,7 @@ namespace Argus.Shared.OSQuery
 					time     INTEGER NOT NULL DEFAULT 0,
 					pid      INTEGER NOT NULL DEFAULT 0
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("logged_in_users create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "logged_in_users");
 		}
 

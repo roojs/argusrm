@@ -42,8 +42,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			CpuInfo.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS cpu_info (
 					id                  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id            INTEGER NOT NULL,
@@ -59,10 +58,7 @@ namespace Argus.Shared.OSQuery
 					max_clock_speed     INTEGER NOT NULL DEFAULT 0,
 					socket_designation  TEXT NOT NULL DEFAULT ''
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("cpu_info create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "cpu_info");
 		}
 

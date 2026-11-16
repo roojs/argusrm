@@ -161,6 +161,8 @@ namespace Argus.Agent.OSQuery
 			var code = 0;
 			code += this.sync_table("system_info", "SystemInfo");
 			code += this.sync_table("cpu_info", "CpuInfo");
+			code += this.sync_table("uptime", "Uptime");
+			code += this.sync_table("mounts", "Mounts");
 #if LINUX
 			// deal with buggy logged in users in osquery
 			code += new LoggedInUsers().send(this.application);

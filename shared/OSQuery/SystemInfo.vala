@@ -48,8 +48,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			SystemInfo.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS system_info (
 					id                 INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id           INTEGER NOT NULL,
@@ -73,17 +72,12 @@ namespace Argus.Shared.OSQuery
 					computer_name      TEXT NOT NULL DEFAULT '',
 					local_hostname     TEXT NOT NULL DEFAULT ''
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("system_info create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "system_info");
-			if (Sqlite.OK != db.db.exec("""
+			db.exec("""
 				DELETE FROM system_info
 				WHERE agent_id NOT IN (SELECT id FROM agent);
-				""", null, out errmsg)) {
-				GLib.warning("system_info prune failed: %s", db.db.errmsg());
-			}
+				""");
 		}
 
 		/**

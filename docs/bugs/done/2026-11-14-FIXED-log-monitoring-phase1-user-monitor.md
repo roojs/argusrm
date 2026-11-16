@@ -1,8 +1,8 @@
 # Agent UserMonitor — logins and local accounts (phase 1)
 
-**Status:** ✅ closed 2026-11-14. `UserMonitor` on Linux and Windows is in the tree. Phases 2–3 → [2026-11-14-log-monitoring-phases-2-3.md](../2026-11-14-log-monitoring-phases-2-3.md).
+**Status:** ✅ closed 2026-11-14. `UserMonitor` on Linux and Windows is in the tree. Later refresh work → [2.3-future-monitoring.md](../../plans/2.3-future-monitoring.md), [2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md), [2026-11-16-superseded-log-monitoring-phases-2-3.md](2026-11-16-superseded-log-monitoring-phases-2-3.md).
 
-**Pointer:** `docs/bug-fix-process.md`, `agent/linux/UserMonitor.vala`, `agent/Win32/UserMonitor.vala`, `agent/Application.vala`, `agent/Win32/Service.vala`, [2026-11-14-log-monitoring-phases-2-3.md](../2026-11-14-log-monitoring-phases-2-3.md), [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)
+**Pointer:** `docs/bug-fix-process.md`, `agent/linux/UserMonitor.vala`, `agent/Win32/UserMonitor.vala`, `agent/Application.vala`, `agent/Win32/Service.vala`, [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)
 
 ---
 
@@ -27,7 +27,7 @@
 
 Design constraints kept from the original plan:
 
-- 🚫 No `/var/log/auth.log` or unfiltered auth journal (phase 3 + server filters).
+- 🚫 No `/var/log/auth.log` or unfiltered auth journal as a sync trigger.
 - 🚫 No periodic timer for `logged_in_users` — startup + session events only.
 
 ---

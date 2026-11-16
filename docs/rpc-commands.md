@@ -100,12 +100,13 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket.
 - Direction: controller calls the server.
-- Arguments: none.
-- Reply `retval` `o`: an array of `Argus.Shared.Agent` rows, at most twenty.
+- Arguments `i`: `agent_id`, or `0` for every registered row (Agents grid).
+- Reply `retval` `o`: an array of `Argus.Shared.Agent` rows. When `agent_id` is less than one, every row. When `agent_id` is greater than zero, zero or one row for that id. Unknown id returns an empty array.
 - `status` is `1` when the machine is registered, and `0` while a controller registration is still pending.
 - `created` is the unix time the row was registered.
 - `last_connected` is the unix time of the latest app-socket session. `0` means it has never connected.
 - `connected` is true while that machine's app socket is open. It is not a database column.
+- ℹ️ `Store.MachineGeneral` calls `Agent.list` with the selected machine id for the **General** tab **Connection** expander.
 - 💩 The command line prints `id` and `requester`.
 
 ### `Agent.remove`
@@ -171,6 +172,24 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of `CpuInfo` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `device_id`. An `agent_id` less than one returns an empty array.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/CpuInfo.vala`. `Store.MachineGeneral` calls it for the per-machine **General** tab (one key-value block per processor).
+
+### `Uptime.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `Uptime` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`. An `agent_id` less than one returns an empty array. Osquery returns one row per host.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Uptime.vala`. `Store.MachineGeneral` calls it for the per-machine **General** tab **Uptime** expander.
+
+### `Mounts.list`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `i`: `agent_id`.
+- Reply `retval` `o`: an array of `Mounts` rows (`deleted_dt = 0`) for that `agent_id` when `agent_id` is in `agent`, ordered by `path`. An `agent_id` less than one returns an empty array.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `shared/OSQuery/Mounts.vala`. `Store.Mounts` calls it for the per-machine **Storage** tab.
 
 ### `LoggedInUsers.list`
 

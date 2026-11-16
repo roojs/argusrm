@@ -1,0 +1,9 @@
+Column header | Database name [JSON] | Visible | Width | Format | Sort
+
+Mount,path,ON,200,text,ON
+Device,device,ON,140,text,ON
+Type,ctype,ON,90,text,ON
+Total,display-total-bytes,ON,96,bytes,ON
+Used,display-used-bytes,ON,96,bytes,ON
+Free,display-free-bytes,ON,96,bytes,ON
+% full,display-percent-full,ON,72,number,ON

@@ -45,7 +45,8 @@ namespace Argus.Controller
 		public void run()
 		{
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Agent.list"
+				method = "Agent.list",
+				args = OLLMrpc.args("i", 0)
 			}, this.reply);
 		}
 

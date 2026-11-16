@@ -46,7 +46,7 @@ namespace Argus.Server
 				"Agent", typeof(Agent),
 				"request_registration", "ssssbss",
 				"offer", "",
-				"list", "",
+				"list", "i",
 				"remove", "i"
 			);
 		}
@@ -451,12 +451,24 @@ namespace Argus.Server
 		 * {@link Argus.Shared.Agent.connected} is true while that
 		 * machine's app socket is open.
 		 *
+		 * When ''agent_id'' is less than one, every registered row
+		 * is returned. Otherwise zero or one row for that id.
+		 *
 		 * @param request inbound RPC on the Unix socket
+		 * @param agent_id ''agent.id'', or zero for the full list
 		 */
-		public void list(OLLMrpc.Request request)
+		public void list(OLLMrpc.Request request, int agent_id)
 		{
 			var rows = new Gee.ArrayList<Argus.Shared.Agent>();
-			Argus.Shared.Agent.query(this.app.db).select("LIMIT 20", rows);
+			if (agent_id > 0) {
+				var int_binds = new Gee.HashMap<string, int>();
+				var text_binds = new Gee.HashMap<string, string>();
+				int_binds.set("id", agent_id);
+				Argus.Shared.Agent.query(this.app.db).selectWhere(
+					"WHERE id = $id", int_binds, text_binds, rows);
+			} else {
+				Argus.Shared.Agent.query(this.app.db).select("", rows);
+			}
 			var live = new Gee.HashMap<int, bool>();
 			foreach (var connection in this.app.ssl_listen.connections) {
 				if (!connection.running || connection.user.id < 1) {

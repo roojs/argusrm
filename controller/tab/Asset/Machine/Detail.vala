@@ -25,7 +25,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 	 * tab ({@link DebPackages}, {@link RpmPackages}, or
 	 * {@link Programs}) for the selected machine's
 	 * {@link Argus.Shared.OSQuery.SystemInfo.package_manager},
-	 * {@link InterfaceAddresses}. Tabs lazy-load
+	 * {@link InterfaceAddresses}, and {@link Storage}. Tabs lazy-load
 	 * when visible for the current machine.
 	 *
 	 * == Example ==
@@ -46,12 +46,14 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Adw.Toggle rpm_toggle;
 		private Adw.Toggle windows_toggle;
 		private Adw.Toggle interfaces_toggle;
+		private Adw.Toggle storage_toggle;
 		private General general;
 		private Users users;
 		private DebPackages debian;
 		private RpmPackages rpm;
 		private Programs windows;
 		private InterfaceAddresses interfaces;
+		private Storage storage;
 		private int current_agent_id = 0;
 		private Argus.Shared.OSQuery.PackageManager current_pm = Argus.Shared.OSQuery.PackageManager.UNKNOWN;
 		private bool has_pm = false;
@@ -60,6 +62,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private bool rpm_loaded = false;
 		private bool windows_loaded = false;
 		private bool interfaces_loaded = false;
+		private bool storage_loaded = false;
 
 		/**
 		 * Build the per-machine tab switcher and stacked detail pages.
@@ -237,6 +240,32 @@ namespace Argus.Controller.Tab.Asset.Machine
 				}
 			};
 			this.interfaces.bind_property("refreshing", interfaces_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
+			this.storage = new Storage(window);
+			this.pages.add_titled_with_icon(
+				this.storage, "storage", "Storage", "drive-harddisk-symbolic");
+			var storage_spin = new Adw.Spinner() {
+				visible = false,
+				halign = Gtk.Align.END,
+				valign = Gtk.Align.CENTER
+			};
+			var storage_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 6) {
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER
+			};
+			storage_row.append(new Gtk.Image.from_icon_name("drive-harddisk-symbolic"));
+#if !ANDROID
+			storage_row.append(new Gtk.Label("Storage"));
+#endif
+			this.storage_toggle = new Adw.Toggle() {
+				name = "storage",
+				tooltip = "Storage",
+				child = new Gtk.CenterBox() {
+					center_widget = storage_row,
+					end_widget = storage_spin,
+					hexpand = true
+				}
+			};
+			this.storage.bind_property("refreshing", storage_spin, "visible", GLib.BindingFlags.SYNC_CREATE);
 			this.group.notify["active-name"].connect(() => {
 				var name = this.group.active_name;
 				if (name == null || name == "") {
@@ -291,6 +320,14 @@ namespace Argus.Controller.Tab.Asset.Machine
 						this.interfaces.load(this.current_agent_id);
 						break;
 
+					case "storage":
+						if (this.storage_loaded) {
+							break;
+						}
+						this.storage_loaded = true;
+						this.storage.load(this.current_agent_id);
+						break;
+
 					default:
 						break;
 				}
@@ -317,6 +354,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 			this.rpm_loaded = false;
 			this.windows_loaded = false;
 			this.interfaces_loaded = false;
+			this.storage_loaded = false;
 		}
 
 		/**
@@ -338,6 +376,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 			this.rpm_loaded = false;
 			this.windows_loaded = false;
 			this.interfaces_loaded = false;
+			this.storage_loaded = false;
 			var pm = machine.package_manager();
 			if (!this.has_pm || pm != this.current_pm) {
 				this.has_pm = true;
@@ -376,11 +415,13 @@ namespace Argus.Controller.Tab.Asset.Machine
 						break;
 				}
 				this.group.add(this.interfaces_toggle);
+				this.group.add(this.storage_toggle);
 				var target = "general";
 				switch (previous) {
 					case "general":
 					case "users":
 					case "interfaces":
+					case "storage":
 						target = previous;
 						break;
 
@@ -446,6 +487,14 @@ namespace Argus.Controller.Tab.Asset.Machine
 					}
 					this.interfaces_loaded = true;
 					this.interfaces.load(agent_id);
+					break;
+
+				case "storage":
+					if (this.storage_loaded) {
+						break;
+					}
+					this.storage_loaded = true;
+					this.storage.load(agent_id);
 					break;
 
 				default:

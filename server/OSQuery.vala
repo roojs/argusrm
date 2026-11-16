@@ -28,6 +28,8 @@ namespace Argus.Server
 		{
 			Argus.Shared.OSQuery.SystemInfo.rpc_register();
 			Argus.Shared.OSQuery.CpuInfo.rpc_register();
+			Argus.Shared.OSQuery.Uptime.rpc_register();
+			Argus.Shared.OSQuery.Mounts.rpc_register();
 			Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
 			Argus.Shared.OSQuery.Users.rpc_register();
 			Argus.Shared.OSQuery.Groups.rpc_register();

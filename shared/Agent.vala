@@ -28,7 +28,7 @@ namespace Argus.Shared
 	 * {{{
 	 * Argus.Shared.Agent.rpc_register();
 	 * var rows = new Gee.ArrayList<Argus.Shared.Agent>();
-	 * Argus.Shared.Agent.query(db).select("LIMIT 20", rows);
+	 * Argus.Shared.Agent.query(db).select("", rows);
 	 * }}}
 	 */
 	public class Agent : GLib.Object, SQ.Interface, OLLMrpc.Bin.Serializable

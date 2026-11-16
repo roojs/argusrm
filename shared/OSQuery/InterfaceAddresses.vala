@@ -42,8 +42,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			InterfaceAddresses.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS interface_addresses (
 					id             INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id       INTEGER NOT NULL,
@@ -54,10 +53,7 @@ namespace Argus.Shared.OSQuery
 					point_to_point TEXT NOT NULL DEFAULT '',
 					type           TEXT NOT NULL DEFAULT ''
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("interface_addresses create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "interface_addresses");
 		}
 

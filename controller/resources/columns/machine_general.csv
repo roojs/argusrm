@@ -23,6 +23,10 @@ Indent  |  Column header  |  Database name [JSON]  |  Visible  |  Width in pixel
 1,Added,added-dt,ON,0,date,off,system_info
 1,Updated,updated-dt,ON,0,date,off,system_info
 
+0,Connection,id,ON,0,expander,off,agent
+1,Connected,display-connected,ON,0,text,off,agent
+1,Last connected,display-last,ON,0,text,off,agent
+
 0,OS version,name,ON,0,expander,off,os_version
 1,Name,name,ON,0,text,off,os_version
 1,Version,version,ON,0,text,off,os_version
@@ -54,6 +58,13 @@ Indent  |  Column header  |  Database name [JSON]  |  Visible  |  Width in pixel
 1,End of life,eol,ON,0,text,off,os_releases
 1,LTS,is-lts,ON,0,number,off,os_releases
 1,Updated,updated,ON,0,date,off,os_releases
+
+0,Uptime,total-seconds,ON,0,expander,off,uptime
+1,Up for,total-seconds,ON,0,uptime,off,uptime
+1,Days,days,off,0,number,off,uptime
+1,Hours,hours,off,0,number,off,uptime
+1,Minutes,minutes,off,0,number,off,uptime
+1,Seconds,seconds,off,0,number,off,uptime
 
 1,Model,model,ON,0,text,off,cpu_info
 1,Cores,number-of-cores,ON,0,number,off,cpu_info

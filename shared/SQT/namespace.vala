@@ -23,6 +23,8 @@
  * runs on. {@link Script} is a file under ''scripts/'' or a clone.
  * {@link ScriptPerm} permits a script on a machine.
  * {@link ScriptRepository} is a git clone under ''git/''.
+ * {@link AptUrl}, {@link AptPkg}, and {@link AptPkgDepends} are the
+ * Debian repository dependency catalog.
  *
  * == Example ==
  *
@@ -46,5 +48,8 @@ namespace Argus.Shared.SQT
 		Script.init_db(db);
 		ScriptPerm.init_db(db);
 		ScriptRepository.init_db(db);
+		AptUrl.init_db(db);
+		AptPkg.init_db(db);
+		AptPkgDepends.init_db(db);
 	}
 }

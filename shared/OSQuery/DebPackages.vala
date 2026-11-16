@@ -44,8 +44,7 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			DebPackages.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS deb_packages (
 					id         INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id   INTEGER NOT NULL,
@@ -60,25 +59,16 @@ namespace Argus.Shared.OSQuery
 					section    TEXT NOT NULL DEFAULT '',
 					priority   TEXT NOT NULL DEFAULT ''
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("deb_packages create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "deb_packages");
-			var idx_query = """
+			db.exec("""
 				CREATE INDEX IF NOT EXISTS deb_packages_deleted_name_agent
 				ON deb_packages (deleted_dt, name, agent_id);
-				""";
-			if (Sqlite.OK != db.db.exec(idx_query, null, out errmsg)) {
-				GLib.warning("deb_packages index failed: %s", db.db.errmsg());
-			}
-			var idx_agent = """
+				""");
+			db.exec("""
 				CREATE INDEX IF NOT EXISTS deb_packages_agent
 				ON deb_packages (agent_id);
-				""";
-			if (Sqlite.OK != db.db.exec(idx_agent, null, out errmsg)) {
-				GLib.warning("deb_packages agent index failed: %s", db.db.errmsg());
-			}
+				""");
 		}
 
 		/**

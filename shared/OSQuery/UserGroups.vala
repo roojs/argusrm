@@ -46,18 +46,14 @@ namespace Argus.Shared.OSQuery
 		public static void init_db(SQ.Database db)
 		{
 			UserGroups.db = db;
-			string errmsg;
-			var ddl = """
+			db.exec("""
 				CREATE TABLE IF NOT EXISTS user_groups (
 					id       INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					agent_id INTEGER NOT NULL,
 					uid      INTEGER NOT NULL DEFAULT 0,
 					gid      INTEGER NOT NULL DEFAULT 0
 				);
-				""";
-			if (Sqlite.OK != db.db.exec(ddl, null, out errmsg)) {
-				GLib.warning("user_groups create failed: %s", db.db.errmsg());
-			}
+				""");
 			Argus.Shared.init_db_audit(db, "user_groups");
 		}
 
