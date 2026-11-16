@@ -13,7 +13,7 @@
   - 🔷 **Phase 1 — One machine at a time (`Machines -> Windows programs`):** add the trash icon to `programs_machine.csv` and wire `Machine/Programs.vala` `remove_confirmed` to convert `uninstall_string` to silent flags when needed (owned by the task builder, not `agent/Win32/Command.vala`) and queue the uninstall task straight away for that single machine via `Task.submit`.
   - 🔷 **Phase 2 — All machines (`Software -> Windows`):** add an RPC call (`Programs.machines`) to fetch every machine where that program is installed, show a destructive confirmation dialog requiring the user to type `"delete all"`, convert each machine's `uninstall_string` to silent flags, group machines by command, and queue a separate `Task.submit` task for each distinct uninstall command.
 - 🔷 **Scope:** Windows only. Debian and RPM package removal stays out of scope until a proper dependency tree is available (not part of the original aims timeline).
-- 🔷 **Actual:** `programs_machine.csv` has no `Uninstall` column, `Store.TaskTarget` has no `run_command(...)` / `silent_command(...)` methods, there is no `Programs.machines` RPC to fetch per-machine rows for one program name, and neither `Machine/Programs.vala` nor `Programs.vala` connects `remove_confirmed`.
+- 🔷 **Actual:** `programs_machine.csv` has no `Uninstall` column, `Argus.Shared.OSQuery.Programs` has no `silent_command()` helper, `Store.TaskTarget` has no `run_command(...)` method, there is no `Programs.machines` RPC to fetch per-machine rows for one program name, and neither `Machine/Programs.vala` nor `Programs.vala` connects `remove_confirmed`.
 
 ---
 
@@ -31,33 +31,66 @@
   - `Programs.list(0, 0)` returns one summary row per `name` (`installed`, `uninstall_count`, `GROUP_CONCAT(...)`) and does not list which machines have it.
   - 🚫 There is no RPC call yet to fetch the per-machine `Programs` rows for a given program `name` across all agents (also needed by [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md)).
 - ✔️ `server/SQT/Task.vala` (`Task.submit`) accepts an `Argus.Shared.SQT.Task` (`is_script = false`, `script_id = 0`, `command != ""`) and `ai` `agent_ids`, and `agent/Win32/Command.vala` runs `command` via `cmd.exe /c`.
-- 🚫 `controller/store/TaskTarget.vala` only exposes `run_script(platform, app, action, agent_ids)` via `Script.search`, with no method to convert `uninstall_string` to silent flags or submit a direct `command` task.
+- 🚫 `controller/store/TaskTarget.vala` only exposes `run_script(platform, app, action, agent_ids)` via `Script.search`, with no `run_command(...)` method to submit a direct `command` task.
+- 🚫 `shared/OSQuery/Programs.vala` (`Argus.Shared.OSQuery.Programs`) owns `uninstall_string`, so converting it to silent flags belongs on `Programs` rather than on the generic `TaskTarget` store.
 - ℹ️ As noted in [1.0-DONE-overview.md](../plans/done/1.0-DONE-overview.md), osquery's `programs` table only collects `uninstall_string` (often `MsiExec.exe /I{GUID}` or an interactive uninstaller, not `QuietUninstallString`), whereas `agent/Win32/Command.vala` runs non-interactively in the Windows service (Session 0).
 
 ---
 
 ## Root cause
 
-- ✔️ `Store.TaskTarget` lacks `silent_command(...)` and `run_command(...)` for `Task.submit`, `programs_machine.csv` / `Programs.list(agent_id > 0)` / `Machine/Programs.vala` lack the trash column and `remove_confirmed` handler, and there is no `Programs.machines` RPC to fetch per-machine rows for bulk uninstall from `Software -> Windows`.
+- ✔️ `Store.TaskTarget` lacks `run_command(...)` for `Task.submit`, `Argus.Shared.OSQuery.Programs` lacks `silent_command()`, `programs_machine.csv` / `Programs.list(agent_id > 0)` / `Machine/Programs.vala` lack the trash column and `remove_confirmed` handler, and there is no `Programs.machines` RPC to fetch per-machine rows for bulk uninstall from `Software -> Windows`.
 
 ---
 
 ## Phases
 
-- ⏳ **Phase 1 — Single-machine Windows uninstall:** `shared/OSQuery/Programs.vala` (`uninstall_count` for `agent_id > 0`), `controller/resources/columns/programs_machine.csv`, `controller/store/TaskTarget.vala` (`silent_command` + `run_command`), and `controller/tab/Asset/Machine/Programs.vala` (`remove_confirmed` + toasts).
+- ⏳ **Phase 1 — Single-machine Windows uninstall:** `shared/OSQuery/Programs.vala` (`uninstall_count` for `agent_id > 0` + `silent_command()`), `controller/resources/columns/programs_machine.csv`, `controller/store/TaskTarget.vala` (`run_command`), and `controller/tab/Asset/Machine/Programs.vala` (`remove_confirmed` + toasts).
 - ⏳ **Phase 2 — Bulk Windows uninstall from Software -> Windows:** `shared/OSQuery/Programs.vala` (`Programs.machines`), `docs/rpc-commands.md`, `controller/store/Programs.vala` (`load_machines` + `machines_loaded`), and `controller/tab/Asset/Programs.vala` (`remove_confirmed` -> fetch machines -> `"delete all"` dialog -> grouped `run_command`).
 
 ---
 
 ## Phase 1 — Single-machine Windows uninstall
 
-### 1. `shared/OSQuery/Programs.vala` — set `uninstall_count` on per-machine `list` rows
+### 1. `shared/OSQuery/Programs.vala` — set `uninstall_count` on per-machine `list` rows & add `silent_command()`
 
-**Why:** Per-machine `Programs.list(agent_id > 0, 0)` rows do not populate `uninstall_count` (it is not a stored SQLite column), so `Base.column_factory()` `"bin"` would hide the trash button on `programs_machine.csv`. Setting `uninstall_count = 1` when `uninstall_string != ""` makes `"bin"` work in both grids without colliding with the existing `uninstall-string` column name in `programs_machine.csv`.
+**Why:** Per-machine `Programs.list(agent_id > 0, 0)` rows do not populate `uninstall_count` (it is not a stored SQLite column), so `Base.column_factory()` `"bin"` would hide the trash button on `programs_machine.csv`. Setting `uninstall_count = 1` when `uninstall_string != ""` makes `"bin"` work in both grids without colliding with the existing `uninstall-string` column name in `programs_machine.csv`. Placing `silent_command()` on `Argus.Shared.OSQuery.Programs` keeps Windows `msiexec` flag conversion on the Windows package class that owns `uninstall_string` rather than on `Store.TaskTarget`. Fixed regex patterns do not need `try`/`catch`.
 
-**Where:** `shared/OSQuery/Programs.vala`, `list()` in the `since <= 0 && agent_id > 0` branch.
+**Where:** `shared/OSQuery/Programs.vala`, `list()` in the `since <= 0 && agent_id > 0` branch, and `silent_command()` after `pkg_name()`.
 
 **Depends on:** none.
+
+#### Add — `shared/OSQuery/Programs.vala`, immediately after `pkg_name()`
+
+Convert interactive Windows `msiexec` uninstall strings into silent flags on the `Programs` package row.
+
+```vala
+		/**
+		 * Silent uninstall command built from {@link uninstall_string}.
+		 *
+		 * Rewrites ''msiexec /I...'' to ''/X...'' and appends
+		 * ''/qn /norestart'' when no quiet flag is present.
+		 *
+		 * @return silent command string, or empty when unset
+		 */
+		public string silent_command()
+		{
+			var cmd = this.uninstall_string.strip();
+			if (cmd == "") {
+				return "";
+			}
+			if (GLib.Regex.match_simple("(^|\\s|\\\\)msiexec(\\.exe)?\\b", cmd,
+				GLib.RegexCompileFlags.CASELESS)) {
+				cmd = new GLib.Regex("(^|\\s)/i(?=(\\{|\\s|$))",
+					GLib.RegexCompileFlags.CASELESS).replace(cmd, -1, 0, "\\1/X");
+				if (!GLib.Regex.match_simple("(^|\\s)/q", cmd,
+					GLib.RegexCompileFlags.CASELESS)) {
+					cmd = cmd + " /qn /norestart";
+				}
+			}
+			return cmd;
+		}
+```
 
 #### Remove — `shared/OSQuery/Programs.vala` (`list()`, `since <= 0 && agent_id > 0`)
 
@@ -112,9 +145,9 @@ Uninstall,uninstall-count,ON,80,bin,ON
 
 ---
 
-### 3. `controller/store/TaskTarget.vala` — add `silent_command()` and `run_command()`
+### 3. `controller/store/TaskTarget.vala` — add `run_command()`
 
-**Why:** Provide direct command submission via `Task.submit` (`is_script = false`, `script_id = 0`) and convert interactive `MsiExec.exe /I{...}` strings to silent `/X{...} /qn /norestart` when building uninstall tasks (instead of putting uninstall logic in `agent/Win32/Command.vala`).
+**Why:** Provide direct command submission via `Task.submit` (`is_script = false`, `script_id = 0`) without script lookup.
 
 **Where:** `controller/store/TaskTarget.vala` (docblock and immediately after `run_script()`).
 
@@ -139,45 +172,9 @@ Uninstall,uninstall-count,ON,80,bin,ON
 
 #### Add — `controller/store/TaskTarget.vala`, immediately after `run_script()`
 
-Add `silent_command()` to normalize Windows `msiexec` uninstall strings to silent flags and `run_command()` to queue a non-script `Task` via `Task.submit`.
+Add `run_command()` to queue a non-script `Task` via `Task.submit`.
 
 ```vala
-		/**
-		 * Convert an interactive Windows uninstall string into a silent
-		 * command when possible.
-		 *
-		 * Rewrites ''msiexec /I...'' to ''/X...'' and appends
-		 * ''/qn /norestart'' when no quiet flag is present.
-		 *
-		 * @param uninstall_string raw ''programs.uninstall_string'' value
-		 * @return silent command string
-		 */
-		public string silent_command(string uninstall_string)
-		{
-			var cmd = uninstall_string.strip();
-			if (cmd == "") {
-				return "";
-			}
-			try {
-				var is_msi = new GLib.Regex(
-					"(^|\\s|\\\\)msiexec(\\.exe)?\\b",
-					GLib.RegexCompileFlags.CASELESS);
-				if (is_msi.match(cmd)) {
-					cmd = new GLib.Regex(
-						"(^|\\s)/i(?=(\\{|\\s|$))",
-						GLib.RegexCompileFlags.CASELESS).replace(cmd, -1, 0, "\\1/X");
-					if (!new GLib.Regex(
-						"(^|\\s)/q",
-						GLib.RegexCompileFlags.CASELESS).match(cmd)) {
-						cmd = cmd + " /qn /norestart";
-					}
-				}
-			} catch (GLib.RegexError e) {
-				GLib.warning("%s", e.message);
-			}
-			return cmd;
-		}
-
 		/**
 		 * Submit a plain shell command task for ''agent_ids''.
 		 *
@@ -246,7 +243,7 @@ Add `silent_command()` to normalize Windows `msiexec` uninstall strings to silen
 
 **Where:** `controller/tab/Asset/Machine/Programs.vala`, `Programs()` constructor before `this.content.append(this.overlay);`.
 
-**Depends on:** #1, #2, #3 (`Store.TaskTarget.silent_command` / `run_command`).
+**Depends on:** #1 (`Programs.silent_command`), #2, #3 (`Store.TaskTarget.run_command`).
 
 #### Add — `controller/tab/Asset/Machine/Programs.vala`, immediately before `this.content.append(this.overlay);`
 
@@ -268,7 +265,7 @@ Wire `Store.TaskTarget` and `this.remove_confirmed` to queue a single-machine un
 				if (row == null || row.agent_id < 1) {
 					return;
 				}
-				var cmd = task_store.silent_command(row.uninstall_string);
+				var cmd = row.silent_command();
 				if (cmd == "") {
 					this.toasts.add_toast(new Adw.Toast(
 						"No uninstall command found for " + row.name));
@@ -470,7 +467,7 @@ Wire `remove_confirmed` -> `store.load_machines` -> `"delete all"` confirmation 
 					if (row.agent_id < 1) {
 						continue;
 					}
-					var cmd = task_store.silent_command(row.uninstall_string);
+					var cmd = row.silent_command();
 					if (cmd == "") {
 						continue;
 					}
