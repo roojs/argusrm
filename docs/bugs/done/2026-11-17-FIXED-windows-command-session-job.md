@@ -1,8 +1,8 @@
 # Windows command stops at the first process, in session 0
 
-**Status:** ⏳ install test — `Command.start_in_session` is in the tree (`0.1.24`). The open step is the `0.1.25` NSIS setup.
+**Status:** ✅ closed 2026-11-17 — `0.1.26` starts the command on the signed-in desktop and keeps the task running while `Set-up.exe` is alive.
 
-**Pointer:** `docs/bug-fix-process.md`, `agent/Win32/Command.vala`, `agent/Win32/Service.vala`, [done/2026-11-17-FIXED-windows-command-quoting.md](done/2026-11-17-FIXED-windows-command-quoting.md)
+**Pointer:** `docs/bug-fix-process.md`, `agent/Win32/Command.vala`, `agent/Win32/Service.vala`, [2026-11-17-FIXED-windows-command-quoting.md](2026-11-17-FIXED-windows-command-quoting.md)
 
 ---
 
@@ -215,5 +215,5 @@ The poll loop's `WaitForSingleObject` on the first process stops breaking out wh
 
 ## Next
 
-- ⏳ 🔷 Install `C:\msys64\tmp\argusrm\dist-windows\ArgusAgent-0.1.25-Setup.exe` and run a command that starts a second process. The task stays Running until that process exits, and the exit code is the last one.
-- ⏳ 💩 The October `Set-up.exe` in session 0 still holds the lock that made the Illustrator run fail. The new launch does not stop it.
+- ✅ `ArgusAgent-0.1.26-Setup.exe` is installed. Command 27 at 18:01 put the Adobe uninstall window on the signed-in desktop. The task reported `Set-up.exe` while it ran.
+- ℹ️ The October session-0 `Set-up.exe` pair, and the 14:34 pair, were stopped by hand so the next uninstall could take the bootstrapper lock. That was a leftover on this machine, not a change to the launch.

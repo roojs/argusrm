@@ -1,8 +1,8 @@
 # Windows uninstall trash icon: press-and-hold confirmation (`HoldButton` and `Tab.Base`)
 
-**Status:** ✅ closed 2026-11-16 — Phase 1 (`HoldButton` widget) and Phase 2 (`Tab.Base` shared `toasts`, `overlay`/`spinner`, `HoldButton` grid wiring, `Store.SystemInfo.busy`) implemented (`ninja -C build`, `meson test -C build` 6/6 passed); Phase 3 moved to [2026-11-16-windows-uninstall-task-queue.md](../2026-11-16-windows-uninstall-task-queue.md)
+**Status:** ✅ closed 2026-11-16 — Phase 1 (`HoldButton` widget) and Phase 2 (`Tab.Base` shared `toasts`, `overlay`/`spinner`, `HoldButton` grid wiring, `Store.SystemInfo.busy`) implemented (`ninja -C build`, `meson test -C build` 6/6 passed); Phase 3 moved to [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-FIXED-windows-uninstall-task-queue.md)
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [5.9-DONE-assets-software.md](../../plans/done/5.9-DONE-assets-software.md), [1.0-DONE-overview.md](../../plans/done/1.0-DONE-overview.md), [5.5-controller-user-interface.md](../../plans/5.5-controller-user-interface.md), [7.2-tasks-ui-and-signing.md](../../plans/7.2-tasks-ui-and-signing.md), [2026-11-14-software-filters-remaining.md](../2026-11-14-software-filters-remaining.md), [2026-11-16-windows-uninstall-task-queue.md](../2026-11-16-windows-uninstall-task-queue.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [5.9-DONE-assets-software.md](../../plans/done/5.9-DONE-assets-software.md), [1.0-DONE-overview.md](../../plans/done/1.0-DONE-overview.md), [5.5-controller-user-interface.md](../../plans/5.5-controller-user-interface.md), [7.2-tasks-ui-and-signing.md](../../plans/7.2-tasks-ui-and-signing.md), [2026-11-14-software-filters-remaining.md](../2026-11-14-software-filters-remaining.md), [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-FIXED-windows-uninstall-task-queue.md)
 
 ---
 
@@ -54,7 +54,7 @@
 
 - ✔️ **Phase 1 — Reusable `HoldButton` widget:** `controller/widget/HoldButton.vala`, `controller/resources/style.css`, `controller/meson.build`, `docs/meson.build`.
 - ✔️ **Phase 2 — Shared `toasts` + `overlay`/`spinner` on `Tab.Base` & wire `HoldButton` into the grid:** `controller/tab/Base.vala` (`Base(...)` constructor + `public Gtk.Box content` + `public Adw.ToastOverlay toasts` + `public Gtk.Overlay overlay` + `public Adw.Spinner spinner` + `HoldButton`), `controller/store/SystemInfo.vala` (`busy` property), and all 13 `Tab.Base` subclasses.
-- ℹ️ **Phase 3 (task queuing):** moved to [2026-11-16-windows-uninstall-task-queue.md](../2026-11-16-windows-uninstall-task-queue.md).
+- ℹ️ **Phase 3 (task queuing):** moved to [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-FIXED-windows-uninstall-task-queue.md).
 
 ---
 
@@ -1074,4 +1074,4 @@ Example shown for `controller/tab/Asset/Programs.vala`; the same `refreshing` / 
 ## Next
 
 - ✅ Phase 1 (`HoldButton`) and Phase 2 (`Tab.Base` shared `toasts`, `overlay`/`spinner`, `HoldButton` wiring, and `Store.SystemInfo.busy`) verified and archived in `docs/bugs/done/2026-11-15-FIXED-windows-uninstall-hold-action.md`.
-- ℹ️ Task queuing follow-up tracked in [2026-11-16-windows-uninstall-task-queue.md](../2026-11-16-windows-uninstall-task-queue.md).
+- ℹ️ Task queuing follow-up tracked in [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-FIXED-windows-uninstall-task-queue.md).

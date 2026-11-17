@@ -61,4 +61,4 @@
 ## LLM notes
 
 - 🚫 Do not put controls in the window header ([no-header-bar-controls](.cursor/rules/no-header-bar-controls.mdc)).
-- 🚫 Do not implement the package machines dialog here — [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md).
+- 🚫 Do not implement the package machines dialog here — [2026-11-14-software-package-machines-grid.md](done/2026-11-14-FIXED-software-package-machines-grid.md).

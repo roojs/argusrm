@@ -1,8 +1,8 @@
 # Windows uninstall: queue uninstall task on hold confirm
 
-**Status:** ⏳ Phase 1 and Phase 2 approved and in the tree — verify on Windows controller
+**Status:** ✅ closed 2026-11-17 — hold-to-confirm queues the uninstall, and the Software page ran it on the Windows machine.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [done/2026-11-15-FIXED-windows-uninstall-hold-action.md](done/2026-11-15-FIXED-windows-uninstall-hold-action.md), [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md), [2026-11-14-software-filters-remaining.md](2026-11-14-software-filters-remaining.md), [1.0-DONE-overview.md](../plans/done/1.0-DONE-overview.md), [7.2-tasks-ui-and-signing.md](../plans/7.2-tasks-ui-and-signing.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-15-FIXED-windows-uninstall-hold-action.md](2026-11-15-FIXED-windows-uninstall-hold-action.md), [2026-11-14-FIXED-software-package-machines-grid.md](2026-11-14-FIXED-software-package-machines-grid.md), [2026-11-14-software-filters-remaining.md](../2026-11-14-software-filters-remaining.md), [1.0-DONE-overview.md](../plans/done/1.0-DONE-overview.md), [7.2-tasks-ui-and-signing.md](../plans/7.2-tasks-ui-and-signing.md)
 
 ---
 
@@ -12,7 +12,7 @@
 - 🔷 **Expected:**
   - 🔷 **Phase 1 — One machine at a time (`Machines -> Windows programs`):** add the trash icon to `programs_machine.csv` and wire `Machine/Programs.vala` `remove_confirmed` to convert `uninstall_string` to silent flags when needed (owned by the task builder, not `agent/Win32/Command.vala`) and queue the uninstall task straight away for that single machine via `Task.submit`.
   - 🔷 **Phase 2 — All machines (`Software -> Windows`):** add an RPC call (`Programs.machines`) to fetch every machine where that program is installed, show a destructive confirmation dialog requiring the user to type `"delete all"`, convert each machine's `uninstall_string` to silent flags, group machines by command, and queue a separate `Task.submit` task for each distinct uninstall command.
-- 🔷 **Scope:** Windows only. Debian and RPM package removal stays out of scope until a proper dependency tree is available (not part of the original aims timeline). Debian preview is [2026-11-17-debian-install-remove-preview.md](2026-11-17-debian-install-remove-preview.md).
+- 🔷 **Scope:** Windows only. Debian and RPM package removal stays out of scope until a proper dependency tree is available (not part of the original aims timeline). Debian preview is [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
 - 🔷 **Actual:** `programs_machine.csv` has no `Uninstall` column, `Argus.Shared.OSQuery.Programs` has no `silent_command()` helper, `Store.TaskTarget` has no `run_command(...)` method, there is no `Programs.machines` RPC to fetch per-machine rows for one program name, and neither `Machine/Programs.vala` nor `Programs.vala` connects `remove_confirmed`.
 
 ---
@@ -29,7 +29,7 @@
 - ✔️ `shared/OSQuery/Programs.vala` only exposes `Programs.list(agent_id, since)`:
   - `Programs.list(agent_id > 0, 0)` returns per-machine rows for one `agent_id` (each row has `agent_id` and `uninstall_string`).
   - `Programs.list(0, 0)` returns one summary row per `name` (`installed`, `uninstall_count`, `GROUP_CONCAT(...)`) and does not list which machines have it.
-  - 🚫 There is no RPC call yet to fetch the per-machine `Programs` rows for a given program `name` across all agents (also needed by [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md)).
+  - 🚫 There is no RPC call yet to fetch the per-machine `Programs` rows for a given program `name` across all agents (also needed by [2026-11-14-FIXED-software-package-machines-grid.md](2026-11-14-FIXED-software-package-machines-grid.md)).
 - ✔️ `server/SQT/Task.vala` (`Task.submit`) accepts an `Argus.Shared.SQT.Task` (`is_script = false`, `script_id = 0`, `command != ""`) and `ai` `agent_ids`, and `agent/Win32/Command.vala` runs `command` via `cmd.exe /c`.
 - 🚫 `controller/store/TaskTarget.vala` only exposes `run_script(platform, app, action, agent_ids)` via `Script.search`, with no `run_command(...)` method to submit a direct `command` task.
 - 🚫 `shared/OSQuery/Programs.vala` (`Argus.Shared.OSQuery.Programs`) owns `uninstall_string`, so converting it to silent flags belongs on `Programs` rather than on the generic `TaskTarget` store.

@@ -1,6 +1,6 @@
 # Task queue: Client disconnected
 
-**Status:** ⏳ open — reported in OLLMchat. Argus is not the place to patch it.
+**Status:** ✅ closed 2026-11-17 — the released library takes the array length, and a task queues. Argus did not patch the library.
 
 **Pointer:** [OLLMchat `2026-11-17-rpc-args-int-array.md`](../../../OLLMchat/docs/bugs/2026-11-17-rpc-args-int-array.md), [`server/SQT/Task.vala`](../../server/SQT/Task.vala)
 

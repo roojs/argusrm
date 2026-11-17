@@ -1,8 +1,8 @@
 # Software page: machines for a package name
 
-**Status:** ✔️ in the tree — double-click or hold opens the machine dialog. `DistributeMachine` and `PackageMachine` live in `SQV`. The dialog colors version, and can uninstall or upgrade.
+**Status:** ✅ closed 2026-11-17 — double-click or hold opens the machines for that package name. The dialog colors version, and can uninstall or upgrade.
 
-**Pointer:** `docs/bug-fix-process.md`, [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [5.5-controller-user-interface.md](../plans/5.5-controller-user-interface.md), [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala), [`controller/tab/Distributables.vala`](../../controller/tab/Distributables.vala), [2026-11-17-windows-exe-distribution.md](2026-11-17-windows-exe-distribution.md), [../rpc-commands.md](../rpc-commands.md)
+**Pointer:** `docs/bug-fix-process.md`, [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [5.5-controller-user-interface.md](../plans/5.5-controller-user-interface.md), [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala), [`controller/tab/Distributables.vala`](../../controller/tab/Distributables.vala), [2026-11-17-windows-exe-distribution.md](../2026-11-17-windows-exe-distribution.md), [../rpc-commands.md](../rpc-commands.md)
 
 ---
 
@@ -83,4 +83,4 @@ The list call returns those three columns for one exact name. Debian reads `deb_
 - ✔️ A green version is up to date. A red version has a row in `package_updates`. Hold uninstalls that machine: Debian opens the dependency preview, Windows queues `silent_command`. Update available and Upgrade all, at the bottom left, queue `apt` or `dnf` update or upgrade for every red row. RPM has no uninstall. Windows has no upgrade script.
 - ✔️ The Machines list right-click is gone. Update and Upgrade sit on the selected machine's Debian or RPM Software bar. An up arrow at the right of the Machines bar opens `Dialog.Upgrade`, titled Update Upgrade. Debian packages and RPM packages use the Software switcher. The list is every machine of that platform. Select all sits beside search. Update selected and Upgrade selected queue the ticked rows. Upgrade selected stays hidden when that tab has no update waiting.
 - ✔️ The dialog title is the package name. The machine column is "Installed on this machine" for one row, and "Installed on these machines" otherwise.
-- ⏳ 🔷 Restart the controller. On Machines, the up arrow opens Update Upgrade. Both Debian and RPM machines are listed. Select all, then Update selected. Upgrade selected appears only when that tab has an update waiting.
+- ✅ The machines dialog is in use. Update Upgrade on the Machines bar is part of the same close.

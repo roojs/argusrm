@@ -1,6 +1,6 @@
 # Package status update notification and frontend cache invalidation
 
-**Status:** ⏳ investigation opened — awaiting notification shape and cache-invalidation design review
+**Status:** ⏳ critical — an uninstall that finished on the machine left the Software row in place. Notification shape is still open.
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md), [done/2026-11-16-superseded-log-monitoring-phases-2-3.md](done/2026-11-16-superseded-log-monitoring-phases-2-3.md), [2026-11-13-FIXED-package-updates.md](done/2026-11-13-FIXED-package-updates.md), [2026-11-13-FIXED-controller-package-load-performance.md](done/2026-11-13-FIXED-controller-package-load-performance.md)
 
@@ -39,6 +39,14 @@
 - ✔️ `controller/store/DebPackages.vala`, `RpmPackages.vala`, `Programs.vala`, `SystemInfo.vala`, `InterfaceAddresses.vala`, and `MachineGeneral.vala` retain cached rows in memory across unmap/remap until a later `load()` reply replaces them.
 - 🚫 Unlike `controller/tab/Agent.vala` (which connects `this.window.app.rpc.notification` to reload on `event.agent` and `event.pair`), none of the Asset tabs or stores subscribe to server notifications.
 - ℹ️ `SystemInfo.list(true)` (`shared/OSQuery/SystemInfo.vala`) does not select `os_version.pkgs_updated` / `os_version.pkgs_status` yet (noted in [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md)), though `SystemInfo` and `Machine.Detail` still need notification-driven cache invalidation once those or `PackageUpdates` change.
+
+### 4. The 2026-11-17 uninstall never reached the controller
+
+- 🔷 This path is critical. A package that comes off the machine has to leave the Software list on a connected controller.
+- ✔️ Command 27 on agent 11, 18:01. The stored line was the Illustrator `Uninstaller.exe` command. Afterwards the HDBox uninstall keys, Illustrator and the Color sets, were gone from the registry.
+- ✔️ `agent/Win32/PackageMonitor.vala` subscribes to the Application log, source `MsiInstaller`, events `1033`, `11707`, `1034`, and `11724`. A match waits 60 seconds, then `send_packages()`.
+- ✔️ No `MsiInstaller` event after 17:50. The agent log after the command is `logged_in_users` at 18:02. There is no `programs` send. The server's `OSQuery.sync` at 18:02 is that users sync.
+- ✔️ Opening Software reloads `Programs.list` from the snapshot the server already has. That snapshot was not replaced, so the row stays.
 
 ---
 
@@ -150,3 +158,4 @@
 - ⏳ 🔷 Confirm notification shape (`event.osquery` with `name` + `agent_id` vs `event.packages`) and whether `OSQuery.sync` should suppress notifications during unchanged snapshots / debounce startup bursts.
 - ⏳ 🔷 Confirm whether unmapped tabs should clear their in-memory `Store` items immediately on notification (showing the loading spinner on next open) or keep existing rows with the tab spinner while reloading on `map`.
 - ⏳ 💩 Once confirmed, add verbatim `Remove` / `Replace with` / `Add` hunks and `docs/rpc-commands.md` updates for sections 1 and 3.
+- ⏳ 🔷 The Windows watch did not see the Illustrator uninstall, so the server snapshot never changed. A controller notification does not drop that row until the agent sends `Programs`.

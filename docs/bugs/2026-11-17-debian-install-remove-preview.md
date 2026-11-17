@@ -2,7 +2,7 @@
 
 **Status:** ⏳ preview is in the tree — all dependents, one query, and the dialog. Start does not queue a task yet
 
-**Pointer:** `docs/bug-fix-process.md`, closed catalog [done/2026-11-16-FIXED-debian-package-catalog-integration.md](done/2026-11-16-FIXED-debian-package-catalog-integration.md), [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-windows-uninstall-task-queue.md), [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md), [rpc-commands.md](../rpc-commands.md), [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala), [`shared/SQV/PackageMachine.vala`](../../shared/SQV/PackageMachine.vala), [`server/SQV/PackageMachine.vala`](../../server/SQV/PackageMachine.vala), [`shared/SQT/AptPkg.vala`](../../shared/SQT/AptPkg.vala), [`shared/SQT/AptPkgDepends.vala`](../../shared/SQT/AptPkgDepends.vala)
+**Pointer:** `docs/bug-fix-process.md`, closed catalog [done/2026-11-16-FIXED-debian-package-catalog-integration.md](done/2026-11-16-FIXED-debian-package-catalog-integration.md), [2026-11-16-FIXED-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [2026-11-14-FIXED-software-package-machines-grid.md](done/2026-11-14-FIXED-software-package-machines-grid.md), [rpc-commands.md](../rpc-commands.md), [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala), [`shared/SQV/PackageMachine.vala`](../../shared/SQV/PackageMachine.vala), [`server/SQV/PackageMachine.vala`](../../server/SQV/PackageMachine.vala), [`shared/SQT/AptPkg.vala`](../../shared/SQT/AptPkg.vala), [`shared/SQT/AptPkgDepends.vala`](../../shared/SQT/AptPkgDepends.vala)
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## Window
 
-The remove preview and the install preview are one `Adw.Dialog`. The shell is [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala). [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md) uses that same shell for the machines that have one package name. That dialog is not in the tree yet. This one is not either.
+The remove preview and the install preview are one `Adw.Dialog`. The shell is [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala). [2026-11-14-FIXED-software-package-machines-grid.md](done/2026-11-14-FIXED-software-package-machines-grid.md) uses that same shell for the machines that have one package name. That dialog is in the tree. This preview is not.
 
 - 🔷 Title is the package name. `Distribute.open` sets `this.title` from the row name the same way.
 - 🔷 Remove fills the column view with the packages that come off with it.

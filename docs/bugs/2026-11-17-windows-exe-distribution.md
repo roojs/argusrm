@@ -2,7 +2,7 @@
 
 **Status:** ⏳ opened — dialog queues the task; the agent does not download the file yet
 
-**Pointer:** `docs/bug-fix-process.md`, [2.0-agent.md](../plans/2.0-agent.md), [7.0-tasks.md](../plans/7.0-tasks.md), [2026-11-17-remote-repository-checkouts.md](2026-11-17-remote-repository-checkouts.md), [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-windows-uninstall-task-queue.md), [`controller/TabList.vala`](../../controller/TabList.vala), [`shared/SQT/Task.vala`](../../shared/SQT/Task.vala), [`shared/OSQuery/Programs.vala`](../../shared/OSQuery/Programs.vala), [`packaging/windows/argusrm-agent.nsi`](../../packaging/windows/argusrm-agent.nsi)
+**Pointer:** `docs/bug-fix-process.md`, [2.0-agent.md](../plans/2.0-agent.md), [7.0-tasks.md](../plans/7.0-tasks.md), [2026-11-17-remote-repository-checkouts.md](2026-11-17-remote-repository-checkouts.md), [2026-11-16-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [`controller/TabList.vala`](../../controller/TabList.vala), [`shared/SQT/Task.vala`](../../shared/SQT/Task.vala), [`shared/OSQuery/Programs.vala`](../../shared/OSQuery/Programs.vala), [`packaging/windows/argusrm-agent.nsi`](../../packaging/windows/argusrm-agent.nsi)
 
 ---
 
