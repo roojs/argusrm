@@ -263,15 +263,17 @@ namespace Argus.Server.SQT
 		 * @param offset bytes already stored
 		 * @param bytes the next slice, at most 1 MiB
 		 */
-		public void chunk(OLLMrpc.Request request, int id, int64 offset, uint8[] bytes)
+		public void chunk(OLLMrpc.Request request, int id, int64 offset, GLib.Bytes? bytes)
 		{
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
 			}
+			var data = bytes == null ? null : bytes.get_data();
+			var length = data == null ? 0 : data.length;
 			var session = this.uploads.get(id);
-			if (session == null || offset != session.received || bytes.length < 1 ||
-				bytes.length > 1024 * 1024 ||
-				session.received + bytes.length > session.size) {
+			if (session == null || offset != session.received || length < 1 ||
+				length > 1024 * 1024 ||
+				session.received + length > session.size) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("invalid chunk")
 				});
@@ -279,7 +281,7 @@ namespace Argus.Server.SQT
 			}
 			try {
 				size_t written;
-				session.stream.write_all(bytes, out written);
+				session.stream.write_all(data, out written);
 			} catch (GLib.Error e) {
 				this.drop_upload(session);
 				request.reply(new OLLMrpc.Response() {
@@ -287,7 +289,7 @@ namespace Argus.Server.SQT
 				});
 				return;
 			}
-			session.received += (int64) bytes.length;
+			session.received += (int64) length;
 			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
 			});
@@ -330,7 +332,7 @@ namespace Argus.Server.SQT
 			Argus.Shared.SQT.Distributable row;
 			try {
 				row = this.from_file(session);
-			} catch (InstallerError e) {
+			} catch (Argus.Server.Win.InstallerError e) {
 				if (session.path != "") {
 					GLib.FileUtils.remove(session.path);
 				}
@@ -378,17 +380,17 @@ namespace Argus.Server.SQT
 		 * @param session finished upload
 		 * @return the product, with the latest version fields set
 		 */
-		private Argus.Shared.SQT.Distributable from_file(UploadSession session) throws InstallerError
+		private Argus.Shared.SQT.Distributable from_file(UploadSession session) throws Argus.Server.Win.InstallerError
 		{
-			var info = new Installer.from_file(session.path);
+			var info = new Argus.Server.Win.Installer.from_file(session.path);
 			if (info.size != session.size) {
-				throw new InstallerError.REJECTED("incomplete upload");
+				throw new Argus.Server.Win.InstallerError.REJECTED("incomplete upload");
 			}
 			var dir = GLib.Path.build_filename(
 				Argus.SERVER_DATA_DIR, "packages", "distributables");
 			if (GLib.DirUtils.create_with_parents(dir, 0700) != 0 &&
 				!GLib.FileUtils.test(dir, GLib.FileTest.IS_DIR)) {
-				throw new InstallerError.REJECTED("could not store the installer");
+				throw new Argus.Server.Win.InstallerError.REJECTED("could not store the installer");
 			}
 			var relative = "distributables/" + info.sha256 + ".exe";
 			var dest = GLib.Path.build_filename(dir, info.sha256 + ".exe");
@@ -399,7 +401,7 @@ namespace Argus.Server.SQT
 					GLib.File.new_for_path(session.path).move(
 						GLib.File.new_for_path(dest), GLib.FileCopyFlags.NONE);
 				} catch (GLib.Error e) {
-					throw new InstallerError.REJECTED("could not store the installer");
+					throw new Argus.Server.Win.InstallerError.REJECTED("could not store the installer");
 				}
 			}
 			var db = this.app.db;

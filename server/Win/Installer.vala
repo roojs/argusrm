@@ -16,7 +16,10 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Server.SQT
+
+ /// BEWARE - this is unreviewed LLM code - normally we dont allow this - but dealing with 
+ /// installer stuff 
+namespace Argus.Server.Win
 {
 	/**
 	 * Why an uploaded file was not stored as an installer.
@@ -29,14 +32,16 @@ namespace Argus.Server.SQT
 	 * Name and version read from an NSIS installer.
 	 *
 	 * {@link Installer.from_file} accepts a PE whose overlay contains
-	 * the NSIS first-header signature, then reads ''ProductName'' and
-	 * ''ProductVersion'' from the PE version resource. ''FileVersion''
-	 * fills in when product version is empty.
+	 * the NSIS first-header signature. It reads ''ProductName'' and
+	 * ''ProductVersion'' from the PE version resource when those exist.
+	 * Otherwise it reads ''DisplayName'' and ''DisplayVersion'' from the
+	 * uncompressed NSIS script, which is where ''Name'' and the uninstall
+	 * registry values live when the ''.nsi'' does not set a version resource.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var info = new Argus.Server.SQT.Installer.from_file(path);
+	 * var info = new Argus.Server.Win.Installer.from_file(path);
 	 * }}}
 	 */
 	public class Installer : GLib.Object
@@ -78,6 +83,18 @@ namespace Argus.Server.SQT
 			var version = (strings.get("ProductVersion") ?? "").strip();
 			if (version == "") {
 				version = (strings.get("FileVersion") ?? "").strip();
+			}
+			if (name == "" || version == "") {
+				string script_name;
+				string script_version;
+				if (this.nsis_registry(path, out script_name, out script_version)) {
+					if (name == "") {
+						name = script_name;
+					}
+					if (version == "") {
+						version = script_version;
+					}
+				}
 			}
 			if (name == "") {
 				throw new InstallerError.REJECTED("installer has no product name");
@@ -445,6 +462,331 @@ namespace Argus.Server.SQT
 				}
 				p = next;
 			}
+		}
+
+		/**
+		 * ''DisplayName'' and ''DisplayVersion'' from a deflate NSIS script.
+		 *
+		 * The script is the compressed block after the first header.
+		 * A non-solid deflate block starts with a 4-byte marker whose
+		 * last byte is ''0x80''. String positions in the instructions
+		 * are character offsets into the string block. A ''WriteReg''
+		 * whose value name is ''DisplayName'' or ''DisplayVersion''
+		 * supplies the text. The uninstall key wins when more than one
+		 * write uses that name.
+		 *
+		 * @param path installer path
+		 * @param name product name, or empty
+		 * @param version product version, or empty
+		 * @return true when the script yielded a name or a version
+		 */
+		private bool nsis_registry(string path, out string name, out string version) throws InstallerError
+		{
+			name = "";
+			version = "";
+			GLib.FileInputStream input;
+			try {
+				input = GLib.File.new_for_path(path).read();
+			} catch (GLib.Error e) {
+				throw new InstallerError.REJECTED("could not read the installer");
+			}
+			uint8[] sig = {
+				0xEF, 0xBE, 0xAD, 0xDE,
+				0x4E, 0x75, 0x6C, 0x6C,
+				0x73, 0x6F, 0x66, 0x74,
+				0x49, 0x6E, 0x73, 0x74
+			};
+			var prev = new uint8[0];
+			var buf = new uint8[64 * 1024];
+			int64 pos =  0;
+			int64 sig_at = -1;
+			try {
+				while (sig_at < 0) {
+					var n = input.read(buf);
+					if (n <= 0) {
+						break;
+					}
+					var chunk = new uint8[n];
+					GLib.Memory.copy((uint8*) chunk, buf, n);
+					var window = new uint8[prev.length + chunk.length];
+					if (prev.length > 0) {
+						GLib.Memory.copy((uint8*) window, prev, prev.length);
+					}
+					GLib.Memory.copy((uint8*) window + prev.length, chunk, chunk.length);
+					if (window.length >= sig.length) {
+						for (var i = 0; i <= window.length - sig.length; i++) {
+							var match = true;
+							for (var j = 0; j < sig.length; j++) {
+								if (window[i + j] != sig[j]) {
+									match = false;
+									break;
+								}
+							}
+							if (!match) {
+								continue;
+							}
+							sig_at = pos + chunk.length - window.length + i;
+							break;
+						}
+					}
+					var keep = sig.length - 1;
+					if (keep > window.length) {
+						keep = window.length;
+					}
+					prev = new uint8[keep];
+					if (keep > 0) {
+						GLib.Memory.copy((uint8*) prev,
+							(uint8*) window + (window.length - keep), keep);
+					}
+					pos += (int64) n;
+				}
+			} catch (GLib.Error e) {
+				throw new InstallerError.REJECTED("could not read the installer");
+			}
+			if (sig_at < 4) {
+				return false;
+			}
+			uint8[] head;
+			try {
+				head = this.read_at(input, sig_at - 4, 28);
+			} catch (GLib.Error e) {
+				return false;
+			}
+			var compressed = (int) (
+				(uint32) head[20]
+				| ((uint32) head[21] << 8)
+				| ((uint32) head[22] << 16)
+				| ((uint32) head[23] << 24));
+			if (compressed < 16 || compressed > 8 * 1024 * 1024) {
+				return false;
+			}
+			uint8[] payload;
+			try {
+				payload = this.read_at(input, sig_at - 4 + 28, compressed);
+			} catch (GLib.Error e) {
+				return false;
+			}
+			try {
+				input.close();
+			} catch (GLib.Error e) {
+				return false;
+			}
+			var comp = payload;
+			if (payload.length > 8 && payload[3] == 0x80) {
+				if (payload[4] == 0x5D || payload[4] == 0x31) {
+					return false;
+				}
+				comp = new uint8[payload.length - 4];
+				GLib.Memory.copy((uint8*) comp, (uint8*) payload + 4, comp.length);
+			}
+			var header = new uint8[0];
+			try {
+				var source = new GLib.MemoryInputStream.from_data(comp);
+				var decoded = new GLib.ConverterInputStream(source,
+					new GLib.ZlibDecompressor(GLib.ZlibCompressorFormat.RAW));
+				var outbuf = new uint8[64 * 1024];
+				header = new uint8[64 * 1024];
+				var total = 0;
+				while (total < 8 * 1024 * 1024) {
+					var n = decoded.read(outbuf);
+					if (n <= 0) {
+						break;
+					}
+					if (total + (int) n > header.length) {
+						var bigger = new uint8[header.length * 2];
+						GLib.Memory.copy((uint8*) bigger, header, total);
+						header = bigger;
+					}
+					GLib.Memory.copy((uint8*) header + total, outbuf, n);
+					total += (int) n;
+				}
+				var body = new uint8[total];
+				if (total > 0) {
+					GLib.Memory.copy((uint8*) body, header, total);
+				}
+				header = body;
+			} catch (GLib.Error e) {
+				return false;
+			}
+			if (header.length >= 8) {
+				var mark = (uint32) header[0]
+					| ((uint32) header[1] << 8)
+					| ((uint32) header[2] << 16)
+					| ((uint32) header[3] << 24);
+				if (mark == (uint32) compressed && header.length >= 4 + compressed) {
+					var body = new uint8[compressed];
+					GLib.Memory.copy((uint8*) body, (uint8*) header + 4, compressed);
+					header = body;
+				}
+			}
+			var entries_at = -1;
+			var entries_n = 0;
+			var strings_at = 0;
+			var strings_end = 0;
+			int[] widths = { 12, 8 };
+			foreach (var width in widths) {
+				if (4 + 8 * width > header.length) {
+					continue;
+				}
+				for (var i = 0; i < 7; i++) {
+					var o = 4 + i * width;
+					uint64 off;
+					uint32 num;
+					uint64 next;
+					if (width == 12) {
+						off = (uint64) header[o]
+							| ((uint64) header[o + 1] << 8)
+							| ((uint64) header[o + 2] << 16)
+							| ((uint64) header[o + 3] << 24)
+							| ((uint64) header[o + 4] << 32)
+							| ((uint64) header[o + 5] << 40)
+							| ((uint64) header[o + 6] << 48)
+							| ((uint64) header[o + 7] << 56);
+						num = (uint32) header[o + 8]
+							| ((uint32) header[o + 9] << 8)
+							| ((uint32) header[o + 10] << 16)
+							| ((uint32) header[o + 11] << 24);
+						var n = o + width;
+						next = (uint64) header[n]
+							| ((uint64) header[n + 1] << 8)
+							| ((uint64) header[n + 2] << 16)
+							| ((uint64) header[n + 3] << 24)
+							| ((uint64) header[n + 4] << 32)
+							| ((uint64) header[n + 5] << 40)
+							| ((uint64) header[n + 6] << 48)
+							| ((uint64) header[n + 7] << 56);
+					} else {
+						off = (uint32) header[o]
+							| ((uint32) header[o + 1] << 8)
+							| ((uint32) header[o + 2] << 16)
+							| ((uint32) header[o + 3] << 24);
+						num = (uint32) header[o + 4]
+							| ((uint32) header[o + 5] << 8)
+							| ((uint32) header[o + 6] << 16)
+							| ((uint32) header[o + 7] << 24);
+						var n = o + width;
+						next = (uint32) header[n]
+							| ((uint32) header[n + 1] << 8)
+							| ((uint32) header[n + 2] << 16)
+							| ((uint32) header[n + 3] << 24);
+					}
+					if (num < 1 || num > 200000 || next <= off) {
+						continue;
+					}
+					if (off + (uint64) num * 28 != next || next >= (uint64) header.length) {
+						continue;
+					}
+					entries_at = (int) off;
+					entries_n = (int) num;
+					strings_at = (int) next;
+					strings_end = header.length;
+					if (i < 6) {
+						var n3 = o + width * 2;
+						uint64 after;
+						if (width == 12) {
+							after = (uint64) header[n3]
+								| ((uint64) header[n3 + 1] << 8)
+								| ((uint64) header[n3 + 2] << 16)
+								| ((uint64) header[n3 + 3] << 24)
+								| ((uint64) header[n3 + 4] << 32)
+								| ((uint64) header[n3 + 5] << 40)
+								| ((uint64) header[n3 + 6] << 48)
+								| ((uint64) header[n3 + 7] << 56);
+						} else {
+							after = (uint32) header[n3]
+								| ((uint32) header[n3 + 1] << 8)
+								| ((uint32) header[n3 + 2] << 16)
+								| ((uint32) header[n3 + 3] << 24);
+						}
+						if (after > next && after <= (uint64) header.length) {
+							strings_end = (int) after;
+						}
+					}
+					break;
+				}
+				if (entries_at >= 0) {
+					break;
+				}
+			}
+			if (entries_at < 0) {
+				return false;
+			}
+			var chosen_name = "";
+			var chosen_version = "";
+			var other_name = "";
+			var other_version = "";
+			for (var i = 0; i < entries_n; i++) {
+				var o = entries_at + i * 28;
+				if (o + 28 > header.length) {
+					break;
+				}
+				int[] field = new int[5];
+				for (var f = 0; f < 5; f++) {
+					var p = o + 4 + f * 4;
+					field[f] = (int) (
+						(uint32) header[p]
+						| ((uint32) header[p + 1] << 8)
+						| ((uint32) header[p + 2] << 16)
+						| ((uint32) header[p + 3] << 24));
+				}
+				if (field[4] != 1) {
+					continue;
+				}
+				string[] text = new string[3];
+				for (var f = 1; f < 4; f++) {
+					var chars = new GLib.StringBuilder();
+					var p = strings_at + field[f] * 2;
+					if (field[f] < 0 || p < strings_at || p >= strings_end) {
+						text[f - 1] = "";
+						continue;
+					}
+					while (p + 1 < strings_end && chars.len < 200) {
+						uint16 c = (uint16) header[p] | ((uint16) header[p + 1] << 8);
+						p += 2;
+						if (c == 0) {
+							break;
+						}
+						if (c < 32 || c > 126) {
+							chars.erase(0, -1);
+							break;
+						}
+						chars.append_unichar((unichar) c);
+					}
+					text[f - 1] = chars.str;
+				}
+				var key = text[0];
+				var item = text[1];
+				var data = text[2].strip();
+				if (data == "") {
+					continue;
+				}
+				var uninstall = key.down().contains("uninstall");
+				if (item == "DisplayName") {
+					if (uninstall || other_name == "") {
+						other_name = data;
+					}
+					if (uninstall) {
+						chosen_name = data;
+					}
+				}
+				if (item == "DisplayVersion") {
+					if (uninstall || other_version == "") {
+						other_version = data;
+					}
+					if (uninstall) {
+						chosen_version = data;
+					}
+				}
+			}
+			if (chosen_name == "") {
+				chosen_name = other_name;
+			}
+			if (chosen_version == "") {
+				chosen_version = other_version;
+			}
+			name = chosen_name;
+			version = chosen_version;
+			return name != "" || version != "";
 		}
 
 		/**

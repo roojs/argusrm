@@ -115,18 +115,22 @@ namespace Argus.Shared.OSQuery
 		 *
 		 * The Storage grid hides these until the user turns on system
 		 * mounts. A disk, a pool, and a network filesystem stay visible.
-		 * ''/dev'', ''/proc'', ''/sys'', ''/run'', and ''/snap'' are
-		 * system paths. A ''/dev/loop'' device is a system mount.
+		 * ''/dev'', ''/proc'', ''/sys'', ''/run'', ''/snap'', and
+		 * ''/var/snap'' are system paths. A ''/dev/loop'' device is a
+		 * system mount. Snap bind-mounts host files under ''/var/snap''
+		 * (Firefox hunspell is one) on the real disk type, so the path
+		 * is what hides them. A mount whose total size is zero, such as
+		 * ''/var/lib/lxcfs'', is not a storage volume.
 		 *
 		 * @return true when the row is not a storage volume
 		 */
 		public bool is_system_mount()
 		{
-			if (this.path == "/dev" || this.path.has_prefix("/dev/")
-				|| this.path == "/proc" || this.path.has_prefix("/proc/")
-				|| this.path == "/sys" || this.path.has_prefix("/sys/")
-				|| this.path == "/run" || this.path.has_prefix("/run/")
-				|| this.path == "/snap" || this.path.has_prefix("/snap/")) {
+			if (this.display_total_bytes < 1) {
+				return true;
+			}
+			if (GLib.Regex.match_simple(
+				"^/(dev|proc|sys|run|snap|var/snap)(/|$)", this.path)) {
 				return true;
 			}
 			if (this.device.has_prefix("/dev/loop")) {

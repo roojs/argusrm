@@ -2,6 +2,7 @@ Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 Name,name,ON,200,text,ON
 Leaf,leaf,ON,70,leaf,ON
+Install date,installed-dt,ON,120,date,ON
 Version,version,ON,140,text,ON
 Revision,revision,ON,100,text,ON
 Arch,arch,ON,80,text,ON

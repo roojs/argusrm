@@ -24,9 +24,10 @@ namespace Argus.Controller.Tab.Asset.Machine
 	 * {@link Argus.Controller.Tab.Base.column_menu} reads
 	 * ''deb_packages_machine.csv''. {@link Argus.Controller.Store.DebPackages}
 	 * loads ''DebPackages.list'' for the selected ''agent_id''.
-	 * {@link Argus.Controller.Filters.DebPackages} is the Filters
-	 * menu above the grid. An empty grid shows a spinner over it while that call is in
-	 * flight. {@link refreshing} is true when rows are already shown
+	 * {@link Argus.Controller.Filters.DebPackages} is the bar above
+	 * the grid: search on the left, Filters on the right. An empty
+	 * grid shows a spinner over it while that call is in flight.
+	 * {@link refreshing} is true when rows are already shown
 	 * and a later call is in flight.
 	 *
 	 * == Example ==
@@ -60,10 +61,18 @@ namespace Argus.Controller.Tab.Asset.Machine
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
+			var search = new Gtk.SearchEntry() {
+				placeholder_text = "Search",
+				hexpand = true
+			};
+			search.search_changed.connect(() => {
+				this.filter.search = search.text;
+			});
 			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				css_classes = { "machines-filter" },
 				hexpand = true
 			};
+			bar.append(search);
 			bar.append(this.filter.menu());
 			this.content.append(bar);
 			this.content.append(this.overlay);

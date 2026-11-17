@@ -49,8 +49,10 @@ namespace Argus.Controller.Filters
 		public bool explicit { get; set; default = true; }
 		/**
 		 * True keeps a row whose ''leaf'' flag is set.
+		 * Starts off. A leaf that was also explicitly installed
+		 * still shows, because that tick is on.
 		 */
-		public bool leaf { get; set; default = true; }
+		public bool leaf { get; set; default = false; }
 		/**
 		 * True keeps a row whose ''update_since'' is greater than zero.
 		 */
@@ -70,8 +72,10 @@ namespace Argus.Controller.Filters
 		 * The Filters menu for this grid.
 		 *
 		 * A menu model of three boolean actions. ''MenuButton'' draws
-		 * those as check items. All three start on. Unticking one
-		 * drops a package only when no other tick still matches it.
+		 * those as check items. Explicitly installed and Update
+		 * pending start on. Top level packages (leaf) starts off.
+		 * Unticking one drops a package only when no other tick
+		 * still matches it.
 		 *
 		 * @return the menu button
 		 */
@@ -90,7 +94,7 @@ namespace Argus.Controller.Filters
 			});
 			group.add_action(explicit_action);
 			var leaf_action = new GLib.SimpleAction.stateful(
-				"leaf", null, new GLib.Variant.boolean(true));
+				"leaf", null, new GLib.Variant.boolean(false));
 			leaf_action.change_state.connect((value) => {
 				leaf_action.set_state(value);
 				this.leaf = value.get_boolean();

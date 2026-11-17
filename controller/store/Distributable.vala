@@ -350,7 +350,9 @@ namespace Argus.Controller.Store
 				this.send_complete(generation);
 				return;
 			}
-			var chunk = buf[0:n];
+			var raw = new uint8[n];
+			GLib.Memory.copy((uint8*) raw, buf, n);
+			var chunk = new GLib.Bytes.take((owned) raw);
 			var offset = this.upload_offset;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
 				method = "Distributable.chunk",
