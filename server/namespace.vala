@@ -32,6 +32,8 @@
  * {@link Command} tells one agent to run a command and stores
  * the output for the controller that asked.
  * {@link SQT.Task} manages tasks, templates, and draft targets.
+ * {@link SQV.DistributeMachine}, {@link SQV.PackageMachine}, and
+ * {@link SQV.AptDepends} are query results, not tables.
  * {@link SQT.Scheduler} wakes due tasks on the main context.
  * {@link Apt.CatalogRefresh} refreshes the Debian catalog daily.
  * {@link Win.Installer} reads the name and version from an NSIS setup.

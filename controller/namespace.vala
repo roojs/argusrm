@@ -21,8 +21,9 @@
  *
  * With no command on a desktop, {@link Dialog.Bootstrap} checks saved
  * connections and may open {@link Window}. {@link TabList} is the
- * sidebar. {@link Tab.Settings} is the page at the bottom of that
- * list. ''--give-me-a-certificate'' issues the local login
+ * sidebar. {@link Tab.Agent} and {@link Tab.Settings} are the
+ * pages pinned at the bottom of that list.
+ * ''--give-me-a-certificate'' issues the local login
  * certificate. A registration PIN, the agent list, and a command
  * are ''argusrm-controller-cli''.
  *

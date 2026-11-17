@@ -58,6 +58,13 @@ namespace Argus.Shared.SQT
 		 */
 		public int64 script_id { get; set; default = 0; }
 		/**
+		 * {@link DistributableVersion.id} of the installer to fetch,
+		 * or ''0'' when this task has no installer.
+		 *
+		 * Stored on the task. Each target does not keep its own.
+		 */
+		public int64 dist_version_id { get; set; default = 0; }
+		/**
 		 * Login account to execute as. Empty uses the agent account.
 		 */
 		public string run_as { get; set; default = ""; }
@@ -90,11 +97,7 @@ namespace Argus.Shared.SQT
 		 */
 		public int64 approved_by { get; set; default = 0; }
 		/**
-		 * Canonical SHA-256 digest of the task payload and targets.
-		 */
-		public string payload_hash { get; set; default = ""; }
-		/**
-		 * Controller signature over {@link payload_hash}.
+		 * Controller signature of this task. Empty until signing exists.
 		 */
 		public string controller_sig { get; set; default = ""; }
 		/**
@@ -163,6 +166,7 @@ namespace Argus.Shared.SQT
 					is_script   INTEGER NOT NULL DEFAULT 0,
 					command     TEXT NOT NULL DEFAULT '',
 					script_id   INTEGER NOT NULL DEFAULT 0,
+					dist_version_id INTEGER NOT NULL DEFAULT 0,
 					run_as      TEXT NOT NULL DEFAULT '',
 					is_template    INTEGER NOT NULL DEFAULT 0,
 					is_draft       INTEGER NOT NULL DEFAULT 1,
@@ -170,7 +174,6 @@ namespace Argus.Shared.SQT
 					completed      INT64 NOT NULL DEFAULT 0,
 					created_by     INTEGER NOT NULL DEFAULT 0,
 					approved_by    INTEGER NOT NULL DEFAULT 0,
-					payload_hash   TEXT NOT NULL DEFAULT '',
 					controller_sig TEXT NOT NULL DEFAULT '',
 					server_sig     TEXT NOT NULL DEFAULT '',
 					expires_at     INT64 NOT NULL DEFAULT 0
@@ -197,7 +200,7 @@ namespace Argus.Shared.SQT
 				"ALTER TABLE task ADD COLUMN approved_by INTEGER NOT NULL DEFAULT 0;",
 				null, out errmsg);
 			db.db.exec(
-				"ALTER TABLE task ADD COLUMN payload_hash TEXT NOT NULL DEFAULT '';",
+				"ALTER TABLE task DROP COLUMN payload_hash;",
 				null, out errmsg);
 			db.db.exec(
 				"ALTER TABLE task ADD COLUMN controller_sig TEXT NOT NULL DEFAULT '';",
@@ -207,6 +210,9 @@ namespace Argus.Shared.SQT
 				null, out errmsg);
 			db.db.exec(
 				"ALTER TABLE task ADD COLUMN expires_at INT64 NOT NULL DEFAULT 0;",
+				null, out errmsg);
+			db.db.exec(
+				"ALTER TABLE task ADD COLUMN dist_version_id INTEGER NOT NULL DEFAULT 0;",
 				null, out errmsg);
 		}
 	}

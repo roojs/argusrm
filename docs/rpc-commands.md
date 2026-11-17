@@ -267,6 +267,24 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Programs.vala`.
 
+### `PackageMachine.machines`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `ss`: exact package name, and `kind`. `kind` is `deb`, `rpm`, or `programs`.
+- Reply `retval` `o`: an array of `PackageMachine` rows. One row per agent still in `agent` that has a live row of that name. The machine name is `system_info.computer_name`, or the agent hostname, requester, or id. `logged_in_users` is the distinct live sessions. Debian `version` is version and revision. RPM `version` is epoch, version, and release. Windows `version` is `programs.version`. `update_since` is the earliest `package_updates.since` for that name on that agent, or zero when none is waiting. `uninstall_string` is the Windows uninstall command, or empty. Ordered by the machine name.
+- A caller that is not a controller is `controller only`. An unknown `kind` is `unknown package list`.
+- ℹ️ The method is `server/SQV/PackageMachine.vala`. `Store.PackageMachines` calls it. The Software dialog is `controller/dialog/PackageMachines.vala`.
+
+### `AptDepends.removed`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `s`: exact `apt_pkg.name`.
+- Reply `retval` `o`: an array of `AptDepends` rows. Each name is a package that depends on that name, or that depends on one of those, through Depends and Pre-Depends. The named package is not a row. An unknown name is an empty array. The same edge in more than one `apt_url` is one row. The column view sorts the names.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `server/SQV/AptDepends.vala`. `Store.AptDepends` calls it. Holding Remove on the Debian Software grid opens `controller/dialog/AptDepends.vala`.
+
 ---
 
 ## Downloads
@@ -440,11 +458,21 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 Controller calls for the script library and tasks. Defined in [7.1](plans/7.1-tasks-implementation.md).
 
 - `ScriptRepository.clone` `o`, `pull` `i`, `remove` `i`, `list` — in the tree. Clone uses libgit2 (`Ggit`). The row is written after the checkout succeeds.
-- `Distributable.list` — no arguments. Reply `o`: live `distributable` rows, one per product, with `version`, `size`, and `version_id` from the latest live `distributable_version`. A row with `deleted_dt` set is absent. Osquery in the package store is not a row.
+- `Distributable.list` — no arguments. Reply `o`: live `distributable` rows, one per product, with `version`, `size`, `version_id`, and `filename` from the latest live `distributable_version`. A row with `deleted_dt` set is absent. Osquery in the package store is not a row.
+- `DistributeMachine.machines` `ss` — `programs.name`, then `os_version.platform`. Reply `o`: an array of `Argus.DistributeMachine`. One row per registered agent (`status` 1) whose latest live `os_version.platform` matches. `machine` is `system_info.computer_name`, or the agent hostname, requester, or id. `existing` is the latest live `programs.version` for that name, or empty. `logged_in_users` is `GROUP_CONCAT(DISTINCT logged_in_users.user)` for that agent, or empty. A caller that is not a controller is `controller only`.
 - `Distributable.archive` `i` — `distributable.id`. Sets `deleted_dt` and `updated_dt`. The file stays in the package store.
 - `Distributable.begin` `sx` — file name, size in bytes. Reply `i`: an upload id, the unix time plus a sequence so two uploads in the same second differ. The bytes are not in this call. The server remembers the name, the size, and the calling agent (`0` on the Unix socket) and opens `packages/distributables/incoming/{id}`.
 - `Distributable.chunk` `ixay` — upload id, offset, bytes. The offset must be the number of bytes already stored. A chunk is at most 1 MiB.
 - `Distributable.complete` `i` — upload id. The stored length must equal the size from `begin`. The server reads the NSIS installer. The product name and version come from the PE version resource; when that resource has no name, a deflate-compressed script still supplies `DisplayName` and `DisplayVersion`. LZMA scripts are not read. It then moves the file to `packages/distributables/{sha256}.exe`, and inserts the `distributable` and `distributable_version` rows. Reply `o`: that `distributable`, with `version`, `size`, and `version_id`. A live row with the same platform and name gets another version. The same bytes on that row return the version already stored. A file that is not NSIS, or that has no product name and version, is deleted and the reply is an error.
 - `Distributable.cancel` `i` — upload id. Deletes the partial file.
 - `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `search` `sss` (`platform`, `app`, `action` -> `o` array), `enable` `ii`, `disable` `ii`, `agents` `i`
-- `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `watch` `i`, `approve` `ib`, `submit` `ovb` (`task`, `ai` `agent_ids`, `watch` -> `o` targets), `duplicate` `i`, `targets` `i`, `all_targets` (no args -> `o` joined targets), `logs` `i` (`target_id` -> `as` `[stdout, stderr, stdin]`)
+- `Task.create` `o`, `update` `o`, `list`, `target` `iai`, `watch` `i`, `approve` `ib`, `submit` `oaib` (`task`, `ai` `agent_ids`, `watch` -> `o` targets), `duplicate` `i`, `targets` `i`, `all_targets` (no args -> `o` joined targets), `logs` `i` (`target_id` -> `as` `[stdout, stderr, stdin]`), `agent_boot` (no arguments)
+- `Task.submit` stores `dist_version_id` on `task`. `0` means the task has no installer file. A non-zero value must be a live `distributable_version.id`. The id is not stored on `task_target`.
+- `ai` in `args()` is the array, then its length. `Task.submit` is `OLLMrpc.args("oaib", task, ids, ids.length, false)`. `Task.target` is `OLLMrpc.args("iai", task_id, agents, agents.length)`. The method still receives `int[]`.
+
+### `Task.agent_boot`
+
+- Socket: the app socket. The agent calls the server at the end of `Execute.send_startup`. This process has no child yet.
+- No arguments.
+- The server ends this agent's targets with `started > 0`, `ended = 0`, and `is_cancelled = 0`. The stored exit code is 127. Stderr is `agent started and this task was not running`. `event.task` `ended` is broadcast. That command is not dispatched again.
+- Reply: `ok`. A controller caller is refused.

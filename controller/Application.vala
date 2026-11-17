@@ -121,6 +121,7 @@ namespace Argus.Controller
 			Argus.Shared.OsReleases.rpc_register();
 			Argus.Shared.Registration.Data.rpc_register();
 			Argus.Shared.SQT.rpc_register();
+			Argus.Shared.SQV.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			give_certificate = "";
 			deregister_name = "";

@@ -220,25 +220,21 @@ namespace Argus.Controller.Store
 				}
 				var script = scripts.get(0);
 				var now = new GLib.DateTime.now_utc().to_unix();
-				var builder = new GLib.VariantBuilder(new GLib.VariantType("ai"));
-				string[] id_text = {};
+				int[] ids = new int[agent_ids.size];
+				var n = 0;
 				foreach (var id in agent_ids) {
-					builder.add_value(new GLib.Variant.int32(id));
-					id_text += id.to_string();
+					ids[n] = id;
+					n++;
 				}
-				var canonical = script.id.to_string() + "|1||" +
-					now.to_string() + "|" + string.joinv(",", id_text);
 				var task = new Argus.Shared.SQT.Task() {
 					name = app + " " + action,
 					is_script = true,
 					script_id = script.id,
-					scheduled = now,
-					payload_hash = GLib.Checksum.compute_for_string(
-						GLib.ChecksumType.SHA256, canonical)
+					scheduled = now
 				};
 				this.app.rpc.call.begin(new OLLMrpc.Request() {
 					method = "Task.submit",
-					args = OLLMrpc.args("ovb", task, builder.end(), false)
+					args = OLLMrpc.args("oaib", task, ids, ids.length, false)
 				}, (submit_obj, submit_res) => {
 					OLLMrpc.Response submit_reply;
 					try {
@@ -279,26 +275,22 @@ namespace Argus.Controller.Store
 				return;
 			}
 			var now = new GLib.DateTime.now_utc().to_unix();
-			var builder = new GLib.VariantBuilder(new GLib.VariantType("ai"));
-			string[] id_text = {};
+			int[] ids = new int[agent_ids.size];
+			var n = 0;
 			foreach (var id in agent_ids) {
-				builder.add_value(new GLib.Variant.int32(id));
-				id_text += id.to_string();
+				ids[n] = id;
+				n++;
 			}
-			var canonical = command + "|0||" +
-				now.to_string() + "|" + string.joinv(",", id_text);
 			var task = new Argus.Shared.SQT.Task() {
 				name = name,
 				is_script = false,
 				command = command,
 				script_id = 0,
-				scheduled = now,
-				payload_hash = GLib.Checksum.compute_for_string(
-					GLib.ChecksumType.SHA256, canonical)
+				scheduled = now
 			};
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
 				method = "Task.submit",
-				args = OLLMrpc.args("ovb", task, builder.end(), false)
+				args = OLLMrpc.args("oaib", task, ids, ids.length, false)
 			}, (submit_obj, submit_res) => {
 				OLLMrpc.Response submit_reply;
 				try {

@@ -224,16 +224,11 @@ namespace Argus.Controller
 				transition_type = Gtk.StackTransitionType.CROSSFADE
 			};
 			this.content_bar.content = pages;
-			var agent = new Tab.Agent(this);
 			var repository = new Tab.Repository(this);
 			for (var i = 0; i < tabs.keys.length; i++) {
 				var key = tabs.keys[i];
 				if (key == "dashboard") {
 					pages.add_named(new Tab.Dashboard(this), key);
-					continue;
-				}
-				if (key == "agents") {
-					pages.add_named(agent, key);
 					continue;
 				}
 				if (key == "repositories") {
@@ -257,6 +252,7 @@ namespace Argus.Controller
 					vexpand = true
 				}, key);
 			}
+			pages.add_named(new Tab.Agent(this), "agents");
 			pages.add_named(new Tab.Settings(this), "settings");
 			pages.visible_child_name = tabs.keys[0];
 			var split = new Adw.OverlaySplitView() {

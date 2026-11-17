@@ -126,6 +126,9 @@ namespace Argus.Server.Net
 					Argus.Shared.Agent.query(this.app.db).updateById(rows.get(0));
 				}
 			}
+			if (tell && !this.user.is_controller) {
+				new Argus.Server.SQT.Task.for_rpc(this.app).connection_lost(this.user.id);
+			}
 			base.stop();
 			if (tell) {
 				this.app.broadcast(new OLLMrpc.Notification() {

@@ -56,6 +56,10 @@ sources = files(
 	'SQT/Script.vala',
 	'SQT/ScriptRepository.vala',
 	'SQT/Distributable.vala',
+	'SQV/namespace.vala',
+	'SQV/DistributeMachine.vala',
+	'SQV/PackageMachine.vala',
+	'SQV/AptDepends.vala',
 	'SQT/Scheduler.vala',
 	'SQT/Task.vala',
 	'Git/Callbacks.vala',
@@ -153,6 +157,17 @@ apt_explicit_test = executable(
 	install: false,
 )
 test('apt-explicit-install', apt_explicit_test, timeout: 30)
+apt_depends_test = executable(
+	'argus-apt-depends-test',
+	sources,
+	files('tests/apt-depends.vala'),
+	dependencies: deps,
+	c_args: ocsqlite_c_args,
+	export_dynamic: true,
+	vala_args: server_vala_args,
+	install: false,
+)
+test('apt-depends', apt_depends_test, timeout: 30)
 executable(
 	'argus-nftables-test',
 	files('tests/nftables.vala', 'Net/NFTables.vala'),

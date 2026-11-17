@@ -7,4 +7,6 @@ alwaysApply: true
 
 A Windows installer uses the first version in `CHANGELOG.md`. Bump that version, and the same version in `meson.build`, before building the installer. Leave the previous number as its own section.
 
+`scripts/ci/windows-package-nsis.sh` refuses to package when `meson.build` or the compiled `argus-agent.exe` is a different version. Reconfigure and rebuild after the bump. The agent window shows the compiled version.
+
 The window title already appends `Argus.VERSION`. Do not ship a Windows build on a version that was already installed.

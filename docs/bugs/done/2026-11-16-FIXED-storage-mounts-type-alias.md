@@ -1,8 +1,8 @@
 # Storage tab drops the mounts reply
 
-**Status:** ✔️ controller registers `Mounts` and `Uptime` — restart the installed controller to see the grid
+**Status:** ✅ closed 2026-11-17 — Storage shows the mounts rows. `OSQuery.rpc_register()` registers `Mounts` and `Uptime`.
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-16-FIXED-machine-additional-osquery-data.md](done/2026-11-16-FIXED-machine-additional-osquery-data.md), [`controller/Application.vala`](../../controller/Application.vala), [`shared/OSQuery/Mounts.vala`](../../shared/OSQuery/Mounts.vala)
+**Pointer:** `docs/bug-fix-process.md`, [2026-11-16-FIXED-machine-additional-osquery-data.md](2026-11-16-FIXED-machine-additional-osquery-data.md), [`controller/Application.vala`](../../../controller/Application.vala), [`shared/OSQuery/Mounts.vala`](../../../shared/OSQuery/Mounts.vala)
 
 ---
 
@@ -42,5 +42,5 @@ Argus.Shared.OSQuery.Mounts.rpc_register();
 Argus.Shared.OSQuery.LoggedInUsers.rpc_register();
 ```
 
-- ✔️ Applied in both files.
-- ⏳ Installed `/usr/bin/argusrm-controller` is still the build from before this change. Restart it after install.
+- ✔️ Both applications call `Argus.Shared.OSQuery.rpc_register()`, which registers `Mounts` and `Uptime` in `shared/OSQuery/namespace.vala`.
+- ✅ Storage shows the rows.

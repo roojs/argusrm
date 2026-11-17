@@ -21,7 +21,13 @@
  *
  * {@link SystemInfo} filters the Machines grid.
  * {@link DebPackages} filters the Debian package grid.
+ * {@link RpmPackages} filters the RPM package grid.
+ * {@link Programs} filters the Windows program grid.
  * {@link Distributables} filters the Distributables grid.
+ * {@link Distribute} filters the installer grid by machine name
+ * or logged-in user.
+ * {@link Upgrade} filters the upgrade-all grid by platform tab
+ * and by machine name or logged-in user.
  *
  * == Example ==
  *

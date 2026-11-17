@@ -19,6 +19,29 @@ icon="${ROOT}/packaging/windows/argusrm.ico"
 	echo "missing ${exe}" >&2
 	exit 1
 }
+meson_version="$(awk -F"'" '/^[[:space:]]*version:[[:space:]]*'\''/ { print $2; exit }' meson.build)"
+[[ -n "${meson_version}" ]] || {
+	echo "meson.build has no project version" >&2
+	exit 1
+}
+built="$(grep -a -o -E 'Argus Remote Management Agent [0-9]+\.[0-9]+\.[0-9]+' "${exe}" | awk '{print $NF}' | sort -u || true)"
+[[ -n "${built}" ]] || {
+	echo "argus-agent.exe has no compiled version string" >&2
+	exit 1
+}
+mismatch=0
+if [[ "${meson_version}" != "${version}" ]]; then
+	echo "meson.build is ${meson_version}, but CHANGELOG.md is ${version}." >&2
+	mismatch=1
+fi
+if [[ "${built}" != "${version}" ]]; then
+	echo "argus-agent.exe was compiled as ${built}, but CHANGELOG.md is ${version}." >&2
+	mismatch=1
+fi
+if [[ "${mismatch}" -ne 0 ]]; then
+	echo "The agent window shows the compiled version. Refusing to package." >&2
+	exit 1
+fi
 [[ -f "${icon}" ]] || {
 	echo "missing ${icon}" >&2
 	exit 1

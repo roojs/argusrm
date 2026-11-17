@@ -26,6 +26,8 @@ namespace Argus.Controller.Tab.Asset
 	 *  * {@link Argus.Controller.Tab.Base.column_menu} builds the columns.
 	 *  * A click selects a row. More than one row can be selected.
 	 *  * The store loads when this page is shown.
+	 *  * An up arrow at the right of the filter bar opens
+	 *    {@link Argus.Controller.Dialog.Upgrade}.
 	 *
 	 * == Example ==
 	 *
@@ -153,6 +155,15 @@ namespace Argus.Controller.Tab.Asset
 				}
 				this.filling = false;
 			});
+			var upgrade_all = new Gtk.Button() {
+				icon_name = "go-up-symbolic",
+				tooltip_text = "Update or upgrade",
+				halign = Gtk.Align.END
+			};
+			var upgrade_dialog = new Argus.Controller.Dialog.Upgrade(window.app);
+			upgrade_all.clicked.connect(() => {
+				upgrade_dialog.open(this.window, this.store.items);
+			});
 			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				css_classes = { "machines-filter" },
 				hexpand = true
@@ -183,12 +194,14 @@ namespace Argus.Controller.Tab.Asset
 			bar.append(os_drop);
 			bar.append(new Gtk.Label("Status"));
 			bar.append(status_drop);
+			bar.append(upgrade_all);
 #else
 			bar.append(search);
 			bar.append(new Gtk.Label("OS type"));
 			bar.append(os_drop);
 			bar.append(new Gtk.Label("Status"));
 			bar.append(status_drop);
+			bar.append(upgrade_all);
 #endif
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
@@ -250,92 +263,11 @@ namespace Argus.Controller.Tab.Asset
 				detail.show_machine(
 					(Argus.Shared.OSQuery.SystemInfo) selection.get_item(selected.get_minimum()));
 			});
-			var row_model = new GLib.Menu();
-			row_model.append("Update", "row.update");
-			row_model.append("Upgrade", "row.upgrade");
-			var row_menu = new Gtk.PopoverMenu.from_model(row_model) {
-				has_arrow = false
-			};
-			row_menu.set_parent(this.grid);
-			var task_store = new Argus.Controller.Store.TaskTarget(window.app);
-			task_store.failed.connect((heading, message) => {
-				this.toasts.add_toast(new Adw.Toast(heading + ": " + message));
-			});
-			task_store.submitted.connect((count) => {
-				var label = count == 1 ?
-					"Task created and running — view it in the Tasks tab" :
-					count.to_string() + " tasks created and running — view them in the Tasks tab";
-				this.toasts.add_toast(new Adw.Toast(label));
-			});
-			var row_actions = new GLib.SimpleActionGroup();
-			var update_action = new GLib.SimpleAction("update", null);
-			update_action.activate.connect(() => {
-				task_store.run_script("linux", "apt", "update",
-					this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT));
-				task_store.run_script("linux", "dnf", "update",
-					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF));
-			});
-			var upgrade_action = new GLib.SimpleAction("upgrade", null);
-			upgrade_action.activate.connect(() => {
-				task_store.run_script("linux", "apt", "upgrade",
-					this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT));
-				task_store.run_script("linux", "dnf", "upgrade",
-					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF));
-			});
-			row_actions.add_action(update_action);
-			row_actions.add_action(upgrade_action);
-			this.grid.insert_action_group("row", row_actions);
-			var row_click = new Gtk.GestureClick() {
-				button = Gdk.BUTTON_SECONDARY
-			};
-			row_click.pressed.connect((n_press, x, y) => {
-				if (this.selected_agents(Argus.Shared.OSQuery.PackageManager.APT).size == 0 &&
-					this.selected_agents(Argus.Shared.OSQuery.PackageManager.DNF).size == 0) {
-					row_click.set_state(Gtk.EventSequenceState.DENIED);
-					return;
-				}
-				var where = Gdk.Rectangle() {
-					x = (int) x,
-					y = (int) y,
-					width = 1,
-					height = 1
-				};
-				row_menu.set_pointing_to(where);
-				row_menu.popup();
-			});
-			this.grid.add_controller(row_click);
-			this.destroy.connect(() => {
-				row_menu.unparent();
-			});
 			this.content.append(bar);
 #if ANDROID
 			this.content.append(search_bar);
 #endif
 			this.content.append(paned);
-		}
-
-		/**
-		 * Collect ''agent.id'' values for selected machines matching ''pm''.
-		 *
-		 * @param pm package manager family to match
-		 * @return selected agent ids
-		 */
-		private Gee.ArrayList<int32> selected_agents(Argus.Shared.OSQuery.PackageManager pm)
-		{
-			var ids = new Gee.ArrayList<int32>();
-			var selection = (Gtk.MultiSelection) this.grid.model;
-			var total = selection.get_n_items();
-			for (var i = (uint) 0; i < total; i++) {
-				if (!selection.is_selected(i)) {
-					continue;
-				}
-				var row = selection.get_item(i) as Argus.Shared.OSQuery.SystemInfo;
-				if (row == null || row.package_manager() != pm) {
-					continue;
-				}
-				ids.add((int32) row.agent_id);
-			}
-			return ids;
 		}
 	}
 }

@@ -23,7 +23,8 @@ namespace Argus.Controller.Store
 	 *
 	 * A {@link GLib.ListModel} of {@link Argus.Shared.SQT.Distributable}.
 	 * {@link load} is ''Distributable.list''. {@link archive} sets
-	 * ''deleted_dt'' and loads again. A newer {@link load} drops a reply
+	 * ''deleted_dt'' and loads again. {@link submit} queues an installer
+	 * task for a list of agent ids. A newer {@link load} drops a reply
 	 * that is still waiting.
 	 *
 	 * == Example ==
@@ -73,6 +74,11 @@ namespace Argus.Controller.Store
 		 * True while an installer upload is sending chunks.
 		 */
 		public bool uploading { get; private set; default = false; }
+
+		/**
+		 * True while {@link submit} is in flight.
+		 */
+		public bool submitting { get; private set; default = false; }
 
 		/**
 		 * A distributable call failed.
@@ -230,6 +236,60 @@ namespace Argus.Controller.Store
 				this.busy = false;
 				this.archived();
 				this.load();
+			});
+		}
+
+		/**
+		 * Queue the installer on ''agent_ids''.
+		 *  CURRENTLY VERY WINDOWS SPECIFIC !!!!!!!!!!!!!<<<<<<<<<<
+		 *
+		 * The command is the file name and ''/S''. ''dist_version_id''
+		 * is {@link Argus.Shared.SQT.Distributable.version_id}.
+		 *
+		 * @param product the distributable whose latest file is sent
+		 * @param agent_ids ticked machines, including one hidden by search
+		 */
+		public void submit(Argus.Shared.SQT.Distributable product, Gee.ArrayList<int> agent_ids)
+		{
+			if (this.submitting || product.version_id < 1 || product.filename == "") {
+				return;
+			}
+			if (agent_ids.size < 1) {
+				return;
+			}
+			this.submitting = true;
+			var now = new GLib.DateTime.now_utc().to_unix();
+			var command = "\"" + product.filename + "\" /S";
+			int[] ids = new int[agent_ids.size];
+			var n = 0;
+			foreach (var id in agent_ids) {
+				ids[n] = id;
+				n++;
+			}
+			var task = new Argus.Shared.SQT.Task() {
+				name = product.name + " " + product.version,
+				is_script = false,
+				command = command,
+				script_id = 0,
+				dist_version_id = product.version_id,
+				scheduled = now
+			};
+			this.app.rpc.call.begin(new OLLMrpc.Request() {
+				method = "Task.submit",
+				args = OLLMrpc.args("oaib", task, ids, ids.length, false)
+			}, (obj, res) => {
+				this.submitting = false;
+				OLLMrpc.Response response;
+				try {
+					response = this.app.rpc.call.end(res);
+				} catch (GLib.Error e) {
+					this.failed("Could not queue task", e.message);
+					return;
+				}
+				if (response.error != null) {
+					this.failed("Could not queue task", response.error.message);
+					return;
+				}
 			});
 		}
 

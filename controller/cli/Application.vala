@@ -97,6 +97,7 @@ namespace Argus.Controller
 			OLLMrpc.rpc_register();
 			Argus.Shared.Agent.rpc_register();
 			Argus.Shared.SQT.rpc_register();
+			Argus.Shared.SQV.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			pin = false;
 			agents = false;

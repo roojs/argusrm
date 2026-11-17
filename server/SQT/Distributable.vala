@@ -89,7 +89,7 @@ namespace Argus.Server.SQT
 		}
 
 		/**
-		 * Live products, each with its latest version and file size.
+		 * Live products, each with its latest version, size, and file name.
 		 *
 		 * A deleted product is absent. Osquery in the package store is
 		 * not a row here.
@@ -151,7 +151,21 @@ namespace Argus.Server.SQT
 							distributable_version.id DESC
 						LIMIT
 							1
-					), 0) AS version_id
+					), 0) AS version_id,
+					COALESCE((
+						SELECT
+							distributable_version.filename
+						FROM
+							distributable_version
+						WHERE
+							distributable_version.distributable_id = distributable.id
+						AND
+							distributable_version.deleted_dt = 0
+						ORDER BY
+							distributable_version.id DESC
+						LIMIT
+							1
+					), '') AS filename
 				FROM
 					distributable
 				WHERE

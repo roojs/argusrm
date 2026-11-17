@@ -53,6 +53,12 @@ shared_sqt_sources = files(
 	'SQT/AptPkg.vala',
 	'SQT/AptPkgDepends.vala',
 )
+shared_sqv_sources = files(
+	'SQV/namespace.vala',
+	'SQV/DistributeMachine.vala',
+	'SQV/PackageMachine.vala',
+	'SQV/AptDepends.vala',
+)
 shared_sources = files(
 	'namespace.vala',
 	'Agent.vala',
@@ -62,6 +68,7 @@ shared_sources = files(
 shared_sources += paths_vala
 shared_sources += shared_osquery_sources
 shared_sources += shared_sqt_sources
+shared_sources += shared_sqv_sources
 shared_vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'sqlite3',
 ]

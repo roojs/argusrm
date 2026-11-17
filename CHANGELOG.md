@@ -8,6 +8,51 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.26] - Unreleased
+
+### Fixed
+
+- The Windows agent is built against the RPC library that sends an integer array followed by its length, so a task reaches the machine.
+
+## [0.1.25] - Unreleased
+
+### Fixed
+
+- The Windows agent window shows the same version as the installer.
+
+## [0.1.24] - Unreleased
+
+### Fixed
+
+- A silent Windows task shows the executable name and its CPU time. A task whose agent connection closes before the command starts is marked failed.
+- A Windows task starts on the signed-in desktop and stays running until every process that command started has exited. The exit code is the last of those processes.
+
+## [0.1.23] - Unreleased
+
+### Fixed
+
+- A silent Windows task reports `running` every five seconds while its process is alive, and the task ends when that process exits.
+
+## [0.1.22] - Unreleased
+
+### Fixed
+
+- Run a Windows task command through GLib's command-line parser and report the process exit code. A quoted path such as the Adobe uninstaller was being escaped and then shown as exit 0.
+
+## [0.1.21] - Unreleased
+
+### Fixed
+
+- After startup sync, end tasks this agent process is not running, so a restarted machine is not left occupied by a task whose child never started.
+
+## [0.1.20] - Unreleased
+
+### Fixed
+
+- Send the command line as stdin once a task process has started, so the Tasks pane shows what was run.
+- End a Windows task with exit 127 when the process fails to start, instead of leaving it Running.
+- Draw the Connected tick again when a machine reconnects.
+
 ## [0.1.19] - Unreleased
 
 ### Fixed

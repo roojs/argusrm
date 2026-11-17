@@ -10,6 +10,19 @@
 namespace Argus.Server.SQT
 {
 	/**
+	 * Register stored row types and their calls.
+	 *
+	 * Handlers are {@link register}.
+	 */
+	public static void rpc_register()
+	{
+		ScriptRepository.rpc_register();
+		Distributable.rpc_register();
+		Script.rpc_register();
+		Task.rpc_register();
+	}
+
+	/**
 	 * Register all SQT RPC handlers with ''OLLMrpc''.
 	 *
 	 * @param app the running server

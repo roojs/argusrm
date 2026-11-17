@@ -27,6 +27,8 @@
  * {@link OSQuery.Row} is one osquery row. The agent and the
  * server both use those objects. {@link SQT.Task} and the other
  * SQT rows are the task and script tables.
+ * {@link SQV.DistributeMachine}, {@link SQV.PackageMachine}, and
+ * {@link SQV.AptDepends} are query results, not tables.
  *
  * == Example ==
  *

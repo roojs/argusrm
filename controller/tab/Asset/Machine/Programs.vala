@@ -24,8 +24,10 @@ namespace Argus.Controller.Tab.Asset.Machine
 	 * {@link Argus.Controller.Tab.Base.column_menu} reads
 	 * ''programs_machine.csv''. {@link Argus.Controller.Store.Programs}
 	 * loads ''Programs.list'' for the selected ''agent_id''.
-	 * An empty grid shows a spinner over it while that call is in
-	 * flight. {@link refreshing} is true when rows are already shown
+	 * {@link Argus.Controller.Filters.Programs} is the bar above
+	 * the grid: search on the left, Filters on the right. An empty
+	 * grid shows a spinner over it while that call is in flight.
+	 * {@link refreshing} is true when rows are already shown
 	 * and a later call is in flight.
 	 *
 	 * == Example ==
@@ -38,6 +40,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 	public class Programs : Argus.Controller.Tab.Base
 	{
 		private Argus.Controller.Store.Programs store;
+		private Argus.Controller.Filters.Programs filter;
 
 		/**
 		 * Build the per-machine Windows program grid.
@@ -48,7 +51,11 @@ namespace Argus.Controller.Tab.Asset.Machine
 		{
 			base("programs_machine", "name");
 			this.store = new Argus.Controller.Store.Programs(window.app);
-			this.column_grid(this.store);
+			this.filter = new Argus.Controller.Filters.Programs();
+			var rows = new Gtk.FilterListModel(this.store, this.filter) {
+				incremental = true
+			};
+			this.column_grid(rows);
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
@@ -79,6 +86,20 @@ namespace Argus.Controller.Tab.Asset.Machine
 				ids.add((int32) row.agent_id);
 				task_store.run_command("Uninstall " + row.name, cmd, ids);
 			});
+			var search = new Gtk.SearchEntry() {
+				placeholder_text = "Search",
+				hexpand = true
+			};
+			search.search_changed.connect(() => {
+				this.filter.search = search.text;
+			});
+			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
+				css_classes = { "machines-filter" },
+				hexpand = true
+			};
+			bar.append(search);
+			bar.append(this.filter.menu());
+			this.content.append(bar);
 			this.content.append(this.overlay);
 		}
 

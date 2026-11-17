@@ -71,14 +71,15 @@ namespace Argus.Server.SQT
 				"create", "o",
 				"update", "o",
 				"list", "",
-				"target", "iv",
+				"target", "iai",
 				"watch", "i",
 				"approve", "ib",
-				"submit", "ovb",
+				"submit", "oaib",
 				"duplicate", "i",
 				"targets", "i",
 				"all_targets", "",
-				"logs", "i"
+				"logs", "i",
+				"agent_boot", ""
 			);
 		}
 
@@ -211,17 +212,11 @@ namespace Argus.Server.SQT
 		 *
 		 * @param request inbound RPC from the controller
 		 * @param task_id ''task.id''
-		 * @param agent_ids variant containing an ''ai'' array of agent ids
+		 * @param agent_ids agent ids
 		 */
-		public void target(OLLMrpc.Request request, int task_id, GLib.Variant agent_ids)
+		public void target(OLLMrpc.Request request, int task_id, int[] agent_ids)
 		{
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
-				return;
-			}
-			if (!agent_ids.is_of_type(new GLib.VariantType("ai"))) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("agent ids must be an int array")
-				});
 				return;
 			}
 			var tasks = new Gee.ArrayList<Argus.Shared.SQT.Task>();
@@ -267,8 +262,7 @@ namespace Argus.Server.SQT
 					allowed.set((int) agent.id, true);
 				}
 			}
-			for (var i = 0; i < agent_ids.n_children(); i++) {
-				var agent_id = agent_ids.get_child_value(i).get_int32();
+			foreach (var agent_id in agent_ids) {
 				if (allowed.has_key(agent_id)) {
 					continue;
 				}
@@ -281,8 +275,7 @@ namespace Argus.Server.SQT
 				return;
 			}
 			var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
-			for (var i = 0; i < agent_ids.n_children(); i++) {
-				var agent_id = agent_ids.get_child_value(i).get_int32();
+			foreach (var agent_id in agent_ids) {
 				if (existing_agents.has_key(agent_id)) {
 					if (!rows.contains(existing_agents.get(agent_id))) {
 						rows.add(existing_agents.get(agent_id));
@@ -474,13 +467,13 @@ namespace Argus.Server.SQT
 		 *
 		 * @param request inbound RPC from the controller
 		 * @param row task values (with optional signing fields)
-		 * @param agent_ids variant containing an ''ai'' array of agent ids
+		 * @param agent_ids agent ids
 		 * @param watch true to stream target output to this connection
 		 */
 		public void submit(
 			OLLMrpc.Request request,
 			Argus.Shared.SQT.Task row,
-			GLib.Variant agent_ids,
+			int[] agent_ids,
 			bool watch
 		) {
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
@@ -488,12 +481,24 @@ namespace Argus.Server.SQT
 			}
 			if (row.script_id < 0 || (!row.is_script && row.script_id > 0) ||
 				(row.script_id == 0 && row.command == "") ||
-				!agent_ids.is_of_type(new GLib.VariantType("ai")) ||
-				agent_ids.n_children() < 1) {
+				agent_ids.length < 1) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("invalid task")
 				});
 				return;
+			}
+			if (row.dist_version_id > 0) {
+				var versions = new Gee.ArrayList<Argus.Shared.SQT.DistributableVersion>();
+				var version_binds = new Gee.HashMap<string, int>();
+				version_binds.set("id", (int) row.dist_version_id);
+				Argus.Shared.SQT.DistributableVersion.query(this.app.db).selectWhere(
+					"WHERE id = $id AND deleted_dt = 0", version_binds, null, versions);
+				if (versions.size == 0) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INVALID_REQUEST("unknown distributable version")
+					});
+					return;
+				}
 			}
 			var needs_perm = false;
 			if (row.script_id > 0) {
@@ -524,8 +529,7 @@ namespace Argus.Server.SQT
 					allowed.set((int) agent.id, true);
 				}
 			}
-			for (var i = 0; i < agent_ids.n_children(); i++) {
-				var agent_id = agent_ids.get_child_value(i).get_int32();
+			foreach (var agent_id in agent_ids) {
 				if (allowed.has_key(agent_id)) {
 					continue;
 				}
@@ -552,8 +556,7 @@ namespace Argus.Server.SQT
 			Argus.Shared.SQT.Task.query(this.app.db).insert(row);
 			var created_targets = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
 			var seen = new Gee.HashMap<int, bool>();
-			for (var i = 0; i < agent_ids.n_children(); i++) {
-				var agent_id = agent_ids.get_child_value(i).get_int32();
+			foreach (var agent_id in agent_ids) {
 				if (seen.has_key(agent_id)) {
 					continue;
 				}
@@ -701,6 +704,159 @@ namespace Argus.Server.SQT
 				retval = OLLMrpc.val("as", result),
 				msg = "ok"
 			});
+		}
+
+		/**
+		 * End this agent's tasks that are still marked started.
+		 *
+		 * The agent calls this at the end of startup sync. This process
+		 * has no child yet. Each target with
+		 * {@link Argus.Shared.SQT.TaskTarget.started} set and
+		 * {@link Argus.Shared.SQT.TaskTarget.ended} still 0 is closed
+		 * with exit 127. The same command is not sent again.
+		 *
+		 * @param request inbound RPC from the agent
+		 */
+		public void agent_boot(OLLMrpc.Request request)
+		{
+			var caller = request.connection as Net.SslConnection;
+			if (caller == null || caller.user == null || caller.user.id < 1 ||
+				caller.user.is_controller) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("agent only")
+				});
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			var running = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).select(
+				"WHERE started > 0 AND ended = 0 AND is_cancelled = 0", running);
+			foreach (var target in running) {
+				if (target.agent_id == caller.user.id) {
+					rows.add(target);
+				}
+			}
+			GLib.debug("agent_boot caller %d running %u",
+				(int) caller.user.id, rows.size);
+			var now = new GLib.DateTime.now_utc().to_unix();
+			var text = "agent started and this task was not running\n";
+			var ended_any = false;
+			foreach (var target in rows) {
+				if (target.log_dir != "" && target.identifier > 0) {
+					var name = caller.user.id.to_string() + "-" +
+						target.identifier.to_string() + ".stderr";
+					var path = GLib.Path.build_filename(target.log_dir, name);
+					var stream = GLib.FileStream.open(path, "a");
+					if (stream != null) {
+						stream.puts(text);
+						stream.flush();
+					}
+				}
+				var controller = target.is_watched ?
+					Argus.Server.Command.watcher((int) target.id) : null;
+				if (controller != null && controller.running) {
+					controller.write(new OLLMrpc.Notification() {
+						method = "controller.stderr",
+						args = OLLMrpc.args("is", target.identifier, text)
+					});
+					controller.write(new OLLMrpc.Notification() {
+						method = "controller.ended",
+						args = OLLMrpc.args("i", target.identifier)
+					});
+				}
+				// Exit 127: this agent booted and the task had no child.
+				// The Tasks grid shows Failed, and the output footer shows this exit.
+				target.ended = now;
+				target.success = 127;
+				Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
+				this.complete_task((int) target.task_id, now);
+				ended_any = true;
+				GLib.debug("task %s target %s ended 127",
+					target.task_id.to_string(), target.agent_id.to_string());
+			}
+			if (ended_any) {
+				this.app.db.backupDB();
+				this.app.broadcast(new OLLMrpc.Notification() {
+					method = "event.task",
+					action = "ended"
+				});
+			}
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+			if (ended_any) {
+				this.app.scheduler.reschedule();
+			}
+		}
+
+		/**
+		 * End this agent's started tasks that never reported a child.
+		 *
+		 * The app socket closed. A target with a stdin log had a process.
+		 * One without that file never started. Exit 127. The Tasks grid
+		 * shows Failed, and the output footer shows this exit.
+		 *
+		 * @param agent_id ''agent.id'' of the closed connection
+		 */
+		public void connection_lost(int64 agent_id)
+		{
+			if (agent_id < 1) {
+				return;
+			}
+			var running = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
+			Argus.Shared.SQT.TaskTarget.query(this.app.db).select(
+				"WHERE started > 0 AND ended = 0 AND is_cancelled = 0", running);
+			var now = new GLib.DateTime.now_utc().to_unix();
+			var text = "agent connection closed before the command started\n";
+			var ended_any = false;
+			foreach (var target in running) {
+				if (target.agent_id != agent_id) {
+					continue;
+				}
+				if (target.log_dir != "" && target.identifier > 0) {
+					var stdin_name = target.agent_id.to_string() + "-" +
+						target.identifier.to_string() + ".stdin";
+					var stdin_path = GLib.Path.build_filename(target.log_dir, stdin_name);
+					if (GLib.FileUtils.test(stdin_path, GLib.FileTest.IS_REGULAR)) {
+						continue;
+					}
+					var stderr_name = target.agent_id.to_string() + "-" +
+						target.identifier.to_string() + ".stderr";
+					var stderr_path = GLib.Path.build_filename(target.log_dir, stderr_name);
+					var stream = GLib.FileStream.open(stderr_path, "a");
+					if (stream != null) {
+						stream.puts(text);
+						stream.flush();
+					}
+				}
+				var controller = target.is_watched ?
+					Argus.Server.Command.watcher((int) target.id) : null;
+				if (controller != null && controller.running) {
+					controller.write(new OLLMrpc.Notification() {
+						method = "controller.stderr",
+						args = OLLMrpc.args("is", target.identifier, text)
+					});
+					controller.write(new OLLMrpc.Notification() {
+						method = "controller.ended",
+						args = OLLMrpc.args("i", target.identifier)
+					});
+				}
+				target.ended = now;
+				target.success = 127;
+				Argus.Shared.SQT.TaskTarget.query(this.app.db).updateById(target);
+				this.complete_task((int) target.task_id, now);
+				ended_any = true;
+				GLib.debug("task %s target %s connection lost",
+					target.task_id.to_string(), target.agent_id.to_string());
+			}
+			if (ended_any) {
+				this.app.db.backupDB();
+				this.app.broadcast(new OLLMrpc.Notification() {
+					method = "event.task",
+					action = "ended"
+				});
+				this.app.scheduler.reschedule();
+			}
 		}
 
 		/**

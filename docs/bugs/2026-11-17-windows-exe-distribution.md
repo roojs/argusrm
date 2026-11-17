@@ -1,6 +1,6 @@
 # Distributables: NSIS installers
 
-**Status:** ⏳ opened — one grid, Distribute picks machines and creates a task
+**Status:** ⏳ opened — dialog queues the task; the agent does not download the file yet
 
 **Pointer:** `docs/bug-fix-process.md`, [2.0-agent.md](../plans/2.0-agent.md), [7.0-tasks.md](../plans/7.0-tasks.md), [2026-11-17-remote-repository-checkouts.md](2026-11-17-remote-repository-checkouts.md), [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-windows-uninstall-task-queue.md), [`controller/TabList.vala`](../../controller/TabList.vala), [`shared/SQT/Task.vala`](../../shared/SQT/Task.vala), [`shared/OSQuery/Programs.vala`](../../shared/OSQuery/Programs.vala), [`packaging/windows/argusrm-agent.nsi`](../../packaging/windows/argusrm-agent.nsi)
 
@@ -9,7 +9,7 @@
 ## Problem
 
 - 🔷 There is no way to hand a Windows installer to a machine. The download socket only serves the fixed osquery installer. Repository checkouts already exist in MTrack. [2026-11-17-remote-repository-checkouts.md](2026-11-17-remote-repository-checkouts.md).
-- 🔷 **Expected:** a sidebar page, **Distributables**. One grid: the distributable name, its platform, the version, and a **Distribute** button. Distribute opens a dialog of the machines for that platform. The list is searchable. Each row shows the version already installed on that machine, when `programs` has this name. Machines that already have it start ticked, so the default run is an update. The user can tick a machine that does not have it, or clear one. **Select all** ticks every machine in the list. Confirming creates a task whose command is that installer, on the ticked machines, and the task references the stored distributable file the agent has to download.
+- 🔷 **Expected:** a sidebar page, **Distributables**. One grid: the distributable name, its platform, and the version. Double-click, or a long press on a touch screen, opens a dialog of the machines for that platform. The list is searchable. Each row shows the version already installed on that machine, when `programs` has this name. The Existing column is wide enough to read that version. Machines that already have it start ticked, so the default run is an update. The user can tick a machine that does not have it, or clear one. **Select all** ticks every machine in the list. **Start the task now** creates a task whose command is that installer, on the ticked machines, and the task stores `dist_version_id` for the file the agent has to download.
 - 🔷 The file is an NSIS installer. Other files wait. Several versions of one name are stored, with their files. A screen that lists those versions is not part of this bug.
 - 🔷 **Actual:** no Distributables page, no stored installer, and `task` has no reference to a file the agent must fetch.
 
@@ -62,8 +62,9 @@ VIAddVersionKey /LANG=1033 "FileVersion" "1.2.3"
 
 ## Phases
 
-- ⏳ **Phase 1 — Store the installer and show it.** Upload keeps the file and the version. The grid is one row per distributable: name, platform, latest version, Distribute.
-- ⏳ **Phase 2 — Distribute.** The dialog reads `programs` for the installed version, ticks machines that already have this name, and creates a task that references the file.
+- ⏳ **Phase 1 — Store the installer and show it.** Upload keeps the file and the version. The grid is one row per distributable: name, platform, latest version.
+- ✔️ **Phase 2 — Distribute.** Double-click or a long press opens the dialog. It reads `programs` for the installed version, ticks machines that already have this name, and creates a task with `dist_version_id`.
+- ⏳ **Phase 3 — Run it.** The agent downloads that file from the download socket, then runs the task command. Not in this change. The queued command is still dispatched as a shell line.
 
 A version-history screen is deferred. The rows and the files from Phase 1 stay.
 
@@ -73,7 +74,7 @@ A version-history screen is deferred. The rows and the files from Phase 1 stay.
 
 - ✔️ Sidebar page `distributables`, title **Distributables**. The grid columns are name, platform, latest version, file size, and **Archive**. Search matches those three text columns. **Upload** (suggested action) sits on the right of the bar. Download is not on the bar yet.
 - ✔️ **Archive** is a hold, the same gesture as the rubbish bin. It sets `deleted_dt` on that distributable and the row leaves the list. There is no view of archived rows. The file stays in the package store. Osquery under `packages/osquery/` is not a row on this grid.
-- 🔷 **Distribute** on a row is still Phase 2.
+- ✔️ Double-click, or a long press on a touch screen, opens the installer dialog. There is no Distribute button.
 - 🚫 No second grid of older versions. No running the installer on the server to discover its name. The bytes do not go in SQLite.
 
 ### Tables
@@ -122,12 +123,10 @@ The controller is on the Unix socket, so the send is an RPC there. The file is n
 
 ## Phase 2 — Distribute
 
-- 🔷 Where a distributable is installed is a live `programs` row whose `name` equals `distributable.name`, on an agent whose `os_version.platform` equals `distributable.platform`. There is no placement table. The next `Programs` sync is what moves the version the dialog shows.
-- 🔷 **Distribute** on a row opens a dialog. The dialog lists agents of that platform. For `windows`, each row is a Windows agent plus the `programs.version` for this `name` when one exists. No `programs` row means it is not installed, and the version cell is empty. A search box filters the list by machine name.
-- 🔷 Machines that already have this `name` start ticked. That is the update. A machine with no copy starts clear, and the user can tick it to install. **Select all** ticks every machine currently listed. The user can clear a ticked machine.
-- 🔷 The version cell is the installed `programs.version` next to the version this dialog will send (the latest on the grid), so a machine already on that version is visible before the task is created.
-- 🔷 Confirm creates one task. The targets are the ticked machines. The command is that installer run with `/S`. The task stores a reference to the distributable version file, so the agent downloads that file on the download socket and then runs it.
-- 🔷 `task` gains that reference. `script_id` stays for library scripts. `command` stays the line that runs after the file is on the machine.
-- 💩 The column name on `task` (`distributable_version.id`). The agent needs the file id.
-- 💩 Empty selection. Confirm stays disabled until one machine is ticked.
+- ✔️ Where a distributable is installed is a live `programs` row whose `name` equals `distributable.name`, on an agent whose `os_version.platform` equals `distributable.platform`. There is no placement table. The next `Programs` sync is what moves the version the dialog shows.
+- ✔️ Double-click a row, or long-press it on a touch screen, opens the dialog. The grid is a column view over `Store.Distribute`. `DistributeMachine.machines` returns the registered hosts on that platform, with the installed `programs.version` when one exists. Each row is the machine, the logged-in users, that installed version, and the version this dialog will send. Logged in users is the same distinct `logged_in_users.user` join as the Machines list. No `programs` row means it is not installed, and that cell is empty. The Existing column is 180px wide so the version fits in the header. A search box filters the grid by machine name or logged-in user. Start the task now asks the store for the ticked rows, then `Store.Distributable.submit` creates the task from those agent ids.
+- ✔️ Machines that already have this `name` start ticked. That is the update. A machine with no copy starts clear, and the user can tick it to install. **Select all** ticks every machine currently listed. The user can clear a ticked machine.
+- ✔️ **Cancel** closes the dialog. **Start the task now** stays off until one machine is ticked. It creates one task. The targets are the ticked machines, including a ticked machine hidden by the current search. The command is `"filename" /S`. `task.dist_version_id` is the latest `distributable_version.id` on the grid.
+- ✔️ `dist_version_id` is a column of `task`, not `task_target`. `0` is a task with no installer. `script_id` stays for library scripts. `command` stays the line that runs after the file is on the machine.
 - 🚫 The dialog does not offer a pick-list of older versions. It sends the version the grid is showing. Do not write a "distributed to" row when the task is queued. `programs` is the record after the install.
+- 🚫 The agent does not download the file yet. Start the task now still dispatches `command` as a shell line. The download, then the run, is the next step.

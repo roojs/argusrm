@@ -363,10 +363,8 @@ namespace Argus.Server
 			Daemon.rpc_register();
 			OSQuery.rpc_register();
 			Command.rpc_register();
-			SQT.ScriptRepository.rpc_register();
-			SQT.Distributable.rpc_register();
-			SQT.Script.rpc_register();
-			SQT.Task.rpc_register();
+			SQT.rpc_register();
+			SQV.rpc_register();
 			Argus.Shared.Agent.init_db(this.db);
 			Argus.Shared.OsReleases.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
@@ -381,6 +379,7 @@ namespace Argus.Server
 			OLLMrpc.Request.register("OsReleases", new Argus.Shared.OsReleases());
 			OLLMrpc.Request.register("Command", new Command.for_rpc(this));
 			SQT.register(this);
+			SQV.register(this);
 			if (!(new Initialize()).fetch_osquery()) {
 				command_line.printerr("error: download store was not created\n");
 				return 1;

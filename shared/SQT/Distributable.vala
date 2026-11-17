@@ -73,6 +73,11 @@ namespace Argus.Shared.SQT
 		 * Latest live {@link DistributableVersion.id}. Not a column. ''0'' when none.
 		 */
 		public int64 version_id { get; set; default = 0; }
+		/**
+		 * Latest live original file name. Not a column.
+		 * The list call fills it. Empty when no version exists.
+		 */
+		public string filename { get; set; default = ""; }
 
 		/**
 		 * Register the wire name ''Argus.Distributable''.

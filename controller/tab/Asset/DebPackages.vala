@@ -26,6 +26,10 @@ namespace Argus.Controller.Tab.Asset
 	 * loads ''DebPackages.list'' with zero, every agent.
 	 * {@link Argus.Controller.Filters.DebPackages} is the bar above
 	 * the grid: search, Filters, and versions differ.
+	 * A double-click, or a long press, opens
+	 * {@link Argus.Controller.Dialog.PackageMachines} for that name.
+	 * Holding Remove opens {@link Argus.Controller.Dialog.AptDepends}
+	 * for the packages that have to be removed with it.
 	 * The grid loads when this page is shown. An empty grid
 	 * shows a spinner over it while that call is in flight.
 	 * {@link refreshing} is true when rows are already shown
@@ -39,8 +43,11 @@ namespace Argus.Controller.Tab.Asset
 	 */
 	public class DebPackages : Argus.Controller.Tab.Base
 	{
+		public Argus.Controller.Window window;
 		private Argus.Controller.Store.DebPackages store;
 		private Argus.Controller.Filters.DebPackages filter;
+		private Argus.Controller.Dialog.PackageMachines machines;
+		private Argus.Controller.Dialog.AptDepends depends;
 
 		/**
 		 * Build the grid.
@@ -50,8 +57,15 @@ namespace Argus.Controller.Tab.Asset
 		public DebPackages(Argus.Controller.Window window)
 		{
 			base("deb_packages", "name");
+			this.window = window;
 			this.store = new Argus.Controller.Store.DebPackages(window.app);
 			this.filter = new Argus.Controller.Filters.DebPackages();
+			this.machines = new Argus.Controller.Dialog.PackageMachines(window.app, "deb");
+			this.depends = new Argus.Controller.Dialog.AptDepends(window.app);
+			this.remove_confirmed.connect((obj) => {
+				var row = (Argus.Shared.OSQuery.DebPackages) obj;
+				this.depends.open(this.window, row.name);
+			});
 			var rows = new Gtk.FilterListModel(this.store, this.filter) {
 				incremental = true
 			};
@@ -112,6 +126,33 @@ namespace Argus.Controller.Tab.Asset
 			bar.append(spread);
 			this.content.append(bar);
 #endif
+			var click = new Gtk.GestureClick() {
+				button = Gdk.BUTTON_PRIMARY
+			};
+			click.pressed.connect((n_press, x, y) => {
+				if (n_press < 2) {
+					return;
+				}
+				var row_item = this.pick(x, y);
+				if (row_item == null || row_item.item == null) {
+					return;
+				}
+				this.machines.open(this.window,
+					((Argus.Shared.OSQuery.DebPackages) row_item.item).name);
+			});
+			var hold = new Gtk.GestureLongPress() {
+				touch_only = true
+			};
+			hold.pressed.connect((x, y) => {
+				var row_item = this.pick(x, y);
+				if (row_item == null || row_item.item == null) {
+					return;
+				}
+				this.machines.open(this.window,
+					((Argus.Shared.OSQuery.DebPackages) row_item.item).name);
+			});
+			this.grid.add_controller(click);
+			this.grid.add_controller(hold);
 			this.content.append(this.overlay);
 		}
 	}

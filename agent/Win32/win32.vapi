@@ -368,8 +368,40 @@ namespace Argus.Agent.Win32 {
 	public struct StartupInfo {
 		[CCode (cname = "cb")]
 		public uint32 cb;
+		[CCode (cname = "lpReserved")]
+		public string16 reserved;
 		[CCode (cname = "lpDesktop")]
 		public string16 desktop;
+		[CCode (cname = "lpTitle")]
+		public string16 title;
+		[CCode (cname = "dwX")]
+		public uint32 x;
+		[CCode (cname = "dwY")]
+		public uint32 y;
+		[CCode (cname = "dwXSize")]
+		public uint32 width;
+		[CCode (cname = "dwYSize")]
+		public uint32 height;
+		[CCode (cname = "dwXCountChars")]
+		public uint32 x_chars;
+		[CCode (cname = "dwYCountChars")]
+		public uint32 y_chars;
+		[CCode (cname = "dwFillAttribute")]
+		public uint32 fill;
+		[CCode (cname = "dwFlags")]
+		public uint32 flags;
+		[CCode (cname = "wShowWindow")]
+		public uint16 show;
+		[CCode (cname = "cbReserved2")]
+		public uint16 reserved2;
+		[CCode (cname = "lpReserved2")]
+		public void* reserved2_bytes;
+		[CCode (cname = "hStdInput")]
+		public void* stdin_handle;
+		[CCode (cname = "hStdOutput")]
+		public void* stdout_handle;
+		[CCode (cname = "hStdError")]
+		public void* stderr_handle;
 	}
 
 	[CCode (cname = "PROCESS_INFORMATION", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
@@ -378,6 +410,28 @@ namespace Argus.Agent.Win32 {
 		public void* process;
 		[CCode (cname = "hThread")]
 		public void* thread;
+		[CCode (cname = "dwProcessId")]
+		public uint32 pid;
+		[CCode (cname = "dwThreadId")]
+		public uint32 tid;
+	}
+
+	[CCode (cname = "SECURITY_ATTRIBUTES", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct SecurityAttributes {
+		[CCode (cname = "nLength")]
+		public uint32 length;
+		[CCode (cname = "lpSecurityDescriptor")]
+		public void* descriptor;
+		[CCode (cname = "bInheritHandle")]
+		public bool inherit;
+	}
+
+	[CCode (cname = "JOBOBJECT_ASSOCIATE_COMPLETION_PORT", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct JobCompletionPort {
+		[CCode (cname = "CompletionKey")]
+		public void* key;
+		[CCode (cname = "CompletionPort")]
+		public void* port;
 	}
 
 	[CCode (cname = "GetModuleFileNameW", cheader_filename = "win32.h")]
@@ -403,7 +457,61 @@ namespace Argus.Agent.Win32 {
 	[CCode (cname = "WriteFile", cheader_filename = "win32.h")]
 	public bool WriteFile (void* file, [CCode (array_length = false)] uint8[] buffer, uint32 bytes, out uint32 written, Overlapped* ov);
 	[CCode (cname = "CreateProcessAsUserW", cheader_filename = "win32.h")]
-	public bool CreateProcessAsUserW (void* token, string16 app, void* command, void* process_attr, void* thread_attr, bool inherit, uint32 flags, void* env, string16 cwd, StartupInfo* startup, out ProcessInfo info);
+	public bool CreateProcessAsUserW (void* token, string16? app, [CCode (array_length = false)] uint16[]? command, void* process_attr, void* thread_attr, bool inherit, uint32 flags, [CCode (array_length = false)] uint16[]? env, string16? cwd, StartupInfo* startup, out ProcessInfo info);
+	[CCode (cname = "CreateProcessW", cheader_filename = "win32.h")]
+	public bool CreateProcessW (string16? app, [CCode (array_length = false)] uint16[]? command, void* process_attr, void* thread_attr, bool inherit, uint32 flags, [CCode (array_length = false)] uint16[]? env, string16? cwd, StartupInfo* startup, out ProcessInfo info);
+	[CCode (cname = "CREATE_SUSPENDED", cheader_filename = "win32.h")]
+	public const uint32 CREATE_SUSPENDED;
+	[CCode (cname = "CREATE_UNICODE_ENVIRONMENT", cheader_filename = "win32.h")]
+	public const uint32 CREATE_UNICODE_ENVIRONMENT;
+	[CCode (cname = "STARTF_USESTDHANDLES", cheader_filename = "win32.h")]
+	public const uint32 STARTF_USESTDHANDLES;
+	[CCode (cname = "HANDLE_FLAG_INHERIT", cheader_filename = "win32.h")]
+	public const uint32 HANDLE_FLAG_INHERIT;
+	[CCode (cname = "JobObjectAssociateCompletionPortInformation", cheader_filename = "win32.h")]
+	public const int JobObjectAssociateCompletionPortInformation;
+	[CCode (cname = "JOB_OBJECT_MSG_NEW_PROCESS", cheader_filename = "win32.h")]
+	public const uint32 JOB_OBJECT_MSG_NEW_PROCESS;
+	[CCode (cname = "JOB_OBJECT_MSG_EXIT_PROCESS", cheader_filename = "win32.h")]
+	public const uint32 JOB_OBJECT_MSG_EXIT_PROCESS;
+	[CCode (cname = "JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS", cheader_filename = "win32.h")]
+	public const uint32 JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS;
+	[CCode (cname = "JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO", cheader_filename = "win32.h")]
+	public const uint32 JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO;
+	[CCode (cname = "_O_RDONLY", cheader_filename = "win32.h")]
+	public const int O_RDONLY;
+	[CCode (cname = "_O_WRONLY", cheader_filename = "win32.h")]
+	public const int O_WRONLY;
+	[CCode (cname = "_O_BINARY", cheader_filename = "win32.h")]
+	public const int O_BINARY;
+	[CCode (cname = "CreateJobObjectW", cheader_filename = "win32.h")]
+	public void* CreateJobObjectW (void* security, string16? name);
+	[CCode (cname = "SetInformationJobObject", cheader_filename = "win32.h")]
+	public bool SetInformationJobObject (void* job, int klass, void* info, uint32 length);
+	[CCode (cname = "AssignProcessToJobObject", cheader_filename = "win32.h")]
+	public bool AssignProcessToJobObject (void* job, void* process);
+	[CCode (cname = "CreateIoCompletionPort", cheader_filename = "win32.h")]
+	public void* CreateIoCompletionPort (void* file, void* existing, uint64 key, uint32 threads);
+	[CCode (cname = "GetQueuedCompletionStatus", cheader_filename = "win32.h")]
+	public bool GetQueuedCompletionStatus (void* port, out uint32 bytes, out uint64 key, out void* overlapped, uint32 ms);
+	[CCode (cname = "ResumeThread", cheader_filename = "win32.h")]
+	public uint32 ResumeThread (void* thread);
+	[CCode (cname = "CreatePipe", cheader_filename = "win32.h")]
+	public bool CreatePipe (out void* read, out void* write, SecurityAttributes* security, uint32 size);
+	[CCode (cname = "SetHandleInformation", cheader_filename = "win32.h")]
+	public bool SetHandleInformation (void* handle, uint32 mask, uint32 flags);
+	[CCode (cname = "SearchPathW", cheader_filename = "win32.h")]
+	public uint32 SearchPathW (string16? path, string16 file, string16? extension, uint32 size, string16 buffer, void* part);
+	[CCode (cname = "wcslen", cheader_filename = "win32.h")]
+	public uint64 wide_length (string16 text);
+	[CCode (cname = "argus_wide_at", cheader_filename = "win32.h")]
+	public uint16 wide_at (string16 text, uint64 index);
+	[CCode (cname = "argus_invalid_handle", cheader_filename = "win32.h")]
+	public void* invalid_handle ();
+	[CCode (cname = "argus_open_osfhandle", cheader_filename = "win32.h")]
+	public int open_osfhandle (void* handle, int flags);
+	[CCode (cname = "_close", cheader_filename = "win32.h")]
+	public int close_fd (int fd);
 	[CCode (cname = "OpenProcess", cheader_filename = "win32.h")]
 	public void* OpenProcess (uint32 access, bool inherit, uint32 pid);
 	[CCode (cname = "GetCurrentProcessId", cheader_filename = "win32.h")]
@@ -414,6 +522,15 @@ namespace Argus.Agent.Win32 {
 	public bool TerminateProcess (void* process, uint32 code);
 	[CCode (cname = "GetExitCodeProcess", cheader_filename = "win32.h")]
 	public bool GetExitCodeProcess (void* process, void* code);
+	[CCode (cname = "FILETIME", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct FileTime {
+		[CCode (cname = "dwLowDateTime")]
+		public uint32 low;
+		[CCode (cname = "dwHighDateTime")]
+		public uint32 high;
+	}
+	[CCode (cname = "GetProcessTimes", cheader_filename = "win32.h")]
+	public bool GetProcessTimes (void* process, out FileTime created, out FileTime exited, out FileTime kernel, out FileTime user);
 	[CCode (cname = "EnumProcesses", cheader_filename = "win32.h")]
 	public bool EnumProcesses ([CCode (array_length = false)] uint32[] ids, uint32 bytes, out uint32 needed);
 	[CCode (cname = "QueryFullProcessImageNameW", cheader_filename = "win32.h")]

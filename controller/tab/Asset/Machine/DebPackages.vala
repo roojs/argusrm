@@ -25,7 +25,9 @@ namespace Argus.Controller.Tab.Asset.Machine
 	 * ''deb_packages_machine.csv''. {@link Argus.Controller.Store.DebPackages}
 	 * loads ''DebPackages.list'' for the selected ''agent_id''.
 	 * {@link Argus.Controller.Filters.DebPackages} is the bar above
-	 * the grid: search on the left, Filters on the right. An empty
+	 * the grid: search on the left, Filters on the right, then
+	 * Update. Upgrade is shown when a package on this machine has
+	 * an update waiting. An empty
 	 * grid shows a spinner over it while that call is in flight.
 	 * {@link refreshing} is true when rows are already shown
 	 * and a later call is in flight.
@@ -40,7 +42,9 @@ namespace Argus.Controller.Tab.Asset.Machine
 	public class DebPackages : Argus.Controller.Tab.Base
 	{
 		private Argus.Controller.Store.DebPackages store;
+		private Argus.Controller.Store.TaskTarget tasks;
 		private Argus.Controller.Filters.DebPackages filter;
+		private int agent_id = 0;
 
 		/**
 		 * Build the per-machine Debian package grid.
@@ -51,6 +55,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		{
 			base("deb_packages_machine", "name");
 			this.store = new Argus.Controller.Store.DebPackages(window.app);
+			this.tasks = new Argus.Controller.Store.TaskTarget(window.app);
 			this.filter = new Argus.Controller.Filters.DebPackages();
 			var rows = new Gtk.FilterListModel(this.store, this.filter) {
 				incremental = true
@@ -60,6 +65,45 @@ namespace Argus.Controller.Tab.Asset.Machine
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
 				notice.present(this);
+			});
+			this.tasks.failed.connect((heading, message) => {
+				this.toasts.add_toast(new Adw.Toast(heading + ": " + message));
+			});
+			this.tasks.submitted.connect((count) => {
+				var label = count == 1 ?
+					"Task created and running — view it in the Tasks tab" :
+					count.to_string() + " tasks created and running — view them in the Tasks tab";
+				this.toasts.add_toast(new Adw.Toast(label));
+			});
+			var update = new Gtk.Button.with_label("Update");
+			var upgrade = new Gtk.Button.with_label("Upgrade") {
+				visible = false
+			};
+			this.store.items_changed.connect((position, removed, added) => {
+				var any = false;
+				foreach (var row in this.store.items) {
+					if (row.update_since > 0) {
+						any = true;
+						break;
+					}
+				}
+				upgrade.visible = any;
+			});
+			update.clicked.connect(() => {
+				if (this.agent_id < 1) {
+					return;
+				}
+				var ids = new Gee.ArrayList<int32>();
+				ids.add((int32) this.agent_id);
+				this.tasks.run_script("linux", "apt", "update", ids);
+			});
+			upgrade.clicked.connect(() => {
+				if (this.agent_id < 1) {
+					return;
+				}
+				var ids = new Gee.ArrayList<int32>();
+				ids.add((int32) this.agent_id);
+				this.tasks.run_script("linux", "apt", "upgrade", ids);
 			});
 			var search = new Gtk.SearchEntry() {
 				placeholder_text = "Search",
@@ -74,6 +118,8 @@ namespace Argus.Controller.Tab.Asset.Machine
 			};
 			bar.append(search);
 			bar.append(this.filter.menu());
+			bar.append(update);
+			bar.append(upgrade);
 			this.content.append(bar);
 			this.content.append(this.overlay);
 		}
@@ -85,6 +131,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		 */
 		public void load(int agent_id)
 		{
+			this.agent_id = agent_id;
 			this.store.load(agent_id);
 		}
 	}

@@ -151,6 +151,9 @@ namespace Argus.Agent.OSQuery
 
 		/**
 		 * Post the startup tables, then the one package class.
+		 *
+		 * After that sync, this process has no child. Ask the server to
+		 * close the tasks it still has as started for this machine.
 		 */
 		public void send_startup()
 		{
@@ -182,6 +185,21 @@ namespace Argus.Agent.OSQuery
 			}
 #endif
 			GLib.debug("osquery %d", code);
+			var connection = this.application.connection;
+			if (connection == null) {
+				return;
+			}
+			try {
+				var response = connection.call(new OLLMrpc.Request() {
+					method = "Task.agent_boot"
+				});
+				if (response.error != null) {
+					GLib.warning("task agent_boot %s", response.error.message);
+				}
+			} catch (GLib.Error e) {
+				Argus.Agent.Application.connection_down = true;
+				GLib.warning("%s", e.message);
+			}
 		}
 
 		/**

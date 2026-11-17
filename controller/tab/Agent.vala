@@ -149,17 +149,12 @@ namespace Argus.Controller.Tab
 			};
 			var selection = (Gtk.MultiSelection) this.grid.model;
 			click.pressed.connect((n_press, x, y) => {
-				var picked = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
-				while (picked != null && picked != this.grid &&
-					picked.get_data<Gtk.ListItem>("argus-grid-row") == null) {
-					picked = picked.parent;
-				}
-				if (picked == null || picked == this.grid) {
+				var row_item = this.pick(x, y);
+				if (row_item == null) {
 					click.set_state(Gtk.EventSequenceState.DENIED);
 					return;
 				}
-				var row_item = picked.get_data<Gtk.ListItem>("argus-grid-row");
-				if (row_item == null || this.store.busy || removing_label.visible) {
+				if (this.store.busy || removing_label.visible) {
 					return;
 				}
 				if (row_item.item == null) {

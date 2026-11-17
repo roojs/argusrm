@@ -23,7 +23,9 @@ namespace Argus.Controller.Tab
 	 *
 	 * A {@link Gtk.ColumnView} over {@link Argus.Controller.Store.Distributable}.
 	 * Search filters name, platform, and version. Archive holds to set
-	 * ''deleted_dt''. Upload sends the file in chunks.
+	 * ''deleted_dt''. Upload sends the file in chunks. A double-click,
+	 * or a long press on a touch screen, opens
+	 * {@link Argus.Controller.Dialog.Distribute} for that row.
 	 *
 	 * == Example ==
 	 *
@@ -40,6 +42,7 @@ namespace Argus.Controller.Tab
 		private Gtk.Stack body;
 		private Gtk.Button upload_button;
 		private Argus.Controller.Dialog.Upload uploader;
+		private Argus.Controller.Dialog.Distribute distribute;
 
 		/**
 		 * Build the search bar, the grid, and the empty page.
@@ -73,6 +76,7 @@ namespace Argus.Controller.Tab
 				halign = Gtk.Align.END
 			};
 			this.uploader = new Argus.Controller.Dialog.Upload(this.store);
+			this.distribute = new Argus.Controller.Dialog.Distribute(window.app, this.store);
 			var toolbar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				margin_top = 12,
 				margin_bottom = 12,
@@ -124,7 +128,37 @@ namespace Argus.Controller.Tab
 			this.upload_button.clicked.connect(() => {
 				this.uploader.open(this.window);
 			});
+			var click = new Gtk.GestureClick() {
+				button = Gdk.BUTTON_PRIMARY
+			};
+			click.pressed.connect((n_press, x, y) => {
+				if (n_press < 2) {
+					return;
+				}
+				var row_item = this.pick(x, y);
+				if (row_item == null || row_item.item == null) {
+					return;
+				}
+				this.distribute.open(this.window,
+					(Argus.Shared.SQT.Distributable) row_item.item);
+			});
+			var hold = new Gtk.GestureLongPress() {
+				touch_only = true
+			};
+			hold.pressed.connect((x, y) => {
+				var row_item = this.pick(x, y);
+				if (row_item == null || row_item.item == null) {
+					return;
+				}
+				this.distribute.open(this.window,
+					(Argus.Shared.SQT.Distributable) row_item.item);
+			});
+			this.grid.add_controller(click);
+			this.grid.add_controller(hold);
 			this.store.failed.connect((heading, message) => {
+				if (this.distribute.showing) {
+					return;
+				}
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
 				notice.present(this);

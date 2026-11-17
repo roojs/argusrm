@@ -97,6 +97,13 @@ label.version-spread {
 	border-radius: 4px;
 }
 
+label.version-current {
+	background-color: #2ec27e;
+	color: #ffffff;
+	padding: 2px 6px;
+	border-radius: 4px;
+}
+
 .pairing-pin {
 	font-size: 64px;
 	font-weight: 800;
@@ -206,10 +213,17 @@ toggle-group > toggle:checked.keyboard-activating {
 	background-color: var(--view-bg-color);
 }
 
-.vertical-list-expander > title {
-	padding: 8px 12px;
-	font-weight: 600;
+.vertical-list-expander > box > title {
+	padding: 6px 12px;
+	min-height: 0;
 	border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.vertical-list-expander > box > title > label {
+	font-weight: 700;
+	font-size: unset;
+	padding: 0;
+	margin: 0;
 }
 
 .vertical-list-rows {

@@ -125,12 +125,10 @@ namespace Argus.Controller
 					return;
 				}
 				this.task_id = row.id;
-				var agents = new GLib.Variant.array(
-					new GLib.VariantType("i"),
-					{ new GLib.Variant.int32((int32) agent_id) });
+				int[] agents = { (int) agent_id };
 				this.app.rpc.call.begin(new OLLMrpc.Request() {
 					method = "Task.target",
-					args = OLLMrpc.args("iv", (int) this.task_id, agents)
+					args = OLLMrpc.args("iai", (int) this.task_id, agents, agents.length)
 				}, (obj, target_res) => {
 					this.on_targeted(target_res);
 				});

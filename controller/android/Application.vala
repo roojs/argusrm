@@ -92,6 +92,7 @@ namespace Argus.Controller
 				Argus.Shared.OsReleases.rpc_register();
 				Argus.Shared.Registration.Data.rpc_register();
 				Argus.Shared.SQT.rpc_register();
+				Argus.Shared.SQV.rpc_register();
 				Argus.Controller.Command.rpc_register();
 				Gtk.Settings.get_default().gtk_icon_theme_name = "Adwaita";
 				var screen = Gdk.Display.get_default();

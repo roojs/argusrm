@@ -8,7 +8,7 @@
 
 ## Problem
 
-- 🔷 Software phase 1 (three aggregate grids) is in the tree. Debian has a minimal filter bar. RPM and Windows have **no** bar. Several filter behaviours drawn in [5.5](../plans/5.5-controller-user-interface.md) and [1.2](../plans/1.2-aim-debian-update.md) are not implemented on Software.
+- 🔷 Software phase 1 (three aggregate grids) is in the tree. Debian, RPM, and Windows each have a filter bar on the software page and on the machine page. Several filter behaviours drawn in [5.5](../plans/5.5-controller-user-interface.md) and [1.2](../plans/1.2-aim-debian-update.md) are not implemented on Software.
 - 🔷 Track remaining UI in this file and linked bugs (no separate filter plan).
 
 ---
@@ -21,8 +21,8 @@
 | **Change / Recent changes** | Debian | ⏳ [2026-11-14-debian-package-change-filter.md](2026-11-14-debian-package-change-filter.md) |
 | Rubbish bin **click** → Remove task | Debian | ⏳ icon only; [5.5](../plans/5.5-controller-user-interface.md) / tasks |
 | Hide secondary binaries of one source package | Debian | ⏳ not started |
-| Filter bar (fields TBD) | RPM | ⏳ not started |
-| Filter bar (fields TBD) | Windows | ⏳ not started |
+| Search + Update pending + Versions differ | RPM | ✔️ software and machine bars |
+| Search + Can uninstall + Versions differ | Windows | ✔️ software and machine bars |
 | **Needs updating** (`update_since` > 0 on aggregate row) | Debian/RPM | ⏳ data on RPC; no column/filter on Software grid |
 | Saved filters replace temp bar | All | ⏳ [5.7](../plans/5.7-list-filters.md) |
 
@@ -32,7 +32,9 @@
 
 ✔️ Debian: `controller/tab/Asset/DebPackages.vala`, `controller/filter/DebPackages.vala`.
 
-🚫 No `controller/filter/RpmPackages.vala` or `Programs.vala`.
+✔️ RPM: `controller/filter/RpmPackages.vala`, `controller/tab/Asset/RpmPackages.vala`, `controller/tab/Asset/Machine/RpmPackages.vala`. Search matches the package name. Filters is Update pending (`update_since` > 0), off by default. Software also has Versions differ.
+
+✔️ Windows: `controller/filter/Programs.vala`, `controller/tab/Asset/Programs.vala`, `controller/tab/Asset/Machine/Programs.vala`. Search matches the program name and the publisher. Filters is Can uninstall, off by default. Software also has Versions differ.
 
 ✔️ `update_since` on `DebPackages` / `RpmPackages` from `package_updates` ([2026-11-13-FIXED-package-updates.md](done/2026-11-13-FIXED-package-updates.md)); not in `controller/resources/columns/deb_packages.csv`.
 
@@ -42,7 +44,7 @@
 
 ## Proposed fix (by task — implement as separate commits)
 
-1. **RPM / Windows bars** — mirror Debian patterns where they apply (search + platform-specific facets); write bar spec in this bug before code if fields differ from Debian.
+1. **RPM / Windows bars** — ✔️ search plus a Filters menu on the software page and the machine page. Software also has Versions differ. RPM's tick is Update pending. Windows' tick is Can uninstall. Both ticks start off.
 2. **Needs updating** — visible column and/or bar toggle on Debian and RPM; wire `Filters.*.match` to `update_since`.
 3. **Secondary packages** — Debian-only filter rule (source/namesake); do not suffix-heuristic hide `-dev` (per old plan LLM notes).
 4. **Bin click** — depends on task UI / signing; link [done/2026-11-15-FIXED-machines-package-update-phase4-ui.md](done/2026-11-15-FIXED-machines-package-update-phase4-ui.md) when Remove exists.
@@ -51,7 +53,7 @@
 
 ## Next
 
-- ⏳ Pick next slice: RPM bar vs **needs updating** vs secondary packages.
+- ⏳ Pick next slice: **needs updating** column vs secondary packages. RPM and Windows bars are in the tree.
 - ⏳ Close sub-items in this file or spin separate dated bugs when a slice grows.
 
 ---
@@ -59,4 +61,4 @@
 ## LLM notes
 
 - 🚫 Do not put controls in the window header ([no-header-bar-controls](.cursor/rules/no-header-bar-controls.mdc)).
-- 🚫 Do not implement the package machines grid here — [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md).
+- 🚫 Do not implement the package machines dialog here — [2026-11-14-software-package-machines-grid.md](2026-11-14-software-package-machines-grid.md).

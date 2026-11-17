@@ -31,7 +31,8 @@ namespace Argus.Controller
 	 * {@link Tab.Asset.Software}. {@link Store.SystemInfo} loads
 	 * ''SystemInfo.list''. Software is three package grids.
 	 * {@link Tab.Repository} lists script clones. The other places
-	 * are blank. Settings stays at the bottom of the list.
+	 * are blank. Agent / Controllers and Settings stay at the
+	 * bottom of the list.
 	 * The open server's row is ''Deregister and disconnect''.
 	 * Holding it for two seconds closes this window and returns
 	 * to the startup check.
@@ -169,16 +170,11 @@ namespace Argus.Controller
 				transition_type = Gtk.StackTransitionType.CROSSFADE
 			};
 			this.content_bar.content = pages;
-			var agent = new Tab.Agent(this);
 			var repository = new Tab.Repository(this);
 			for (var i = 0; i < tabs.keys.length; i++) {
 				var key = tabs.keys[i];
 				if (key == "dashboard") {
 					pages.add_named(new Tab.Dashboard(this), key);
-					continue;
-				}
-				if (key == "agents") {
-					pages.add_named(agent, key);
 					continue;
 				}
 				if (key == "repositories") {
@@ -202,6 +198,7 @@ namespace Argus.Controller
 					vexpand = true
 				}, key);
 			}
+			pages.add_named(new Tab.Agent(this), "agents");
 			pages.add_named(new Tab.Settings(this), "settings");
 			var sidebar_page = new Adw.NavigationPage(sidebar_bar, "Argus RM");
 			var content_page = new Adw.NavigationPage(this.content_bar, content_title.label);

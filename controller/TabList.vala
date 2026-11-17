@@ -21,12 +21,13 @@ namespace Argus.Controller
 	/**
 	 * Sidebar places for {@link Window}.
 	 *
-	 * The scrolling rows are the places. Settings is a separate row
-	 * pinned to the bottom, drawn over the list, so a long list
-	 * slides underneath it. A bottom margin on the list keeps the
-	 * last place from staying hidden under that row. {@link chosen}
-	 * is the place to show on the right. The first place is selected
-	 * when the list is shown, including when that page is empty.
+	 * The scrolling rows are the places. Agent / Controllers and
+	 * Settings are separate rows pinned to the bottom, drawn over
+	 * the list, so a long list slides underneath them. A bottom
+	 * margin on the list keeps the last place from staying hidden
+	 * under those rows. {@link chosen} is the place to show on the
+	 * right. The first place is selected when the list is shown,
+	 * including when that page is empty.
 	 *
 	 * == Example ==
 	 *
@@ -40,11 +41,11 @@ namespace Argus.Controller
 	public class TabList : Gtk.Box
 	{
 		/**
-		 * Page names, in sidebar order. Settings is not one of these.
+		 * Page names, in sidebar order. Agent / Controllers and
+		 * Settings are pinned under these.
 		 */
 		public string[] keys = {
 			"dashboard",
-			"agents",
 			"assets",
 			"distributables",
 			"tasks",
@@ -57,7 +58,6 @@ namespace Argus.Controller
 		 */
 		public string[] titles = {
 			"Dashboard",
-			"Agent / Controllers",
 			"Assets",
 			"Distributables",
 			"Tasks",
@@ -68,13 +68,14 @@ namespace Argus.Controller
 		/**
 		 * The place the user picked.
 		 *
-		 * @param key page name, ''settings'' for the bottom row
+		 * @param key page name, ''agents'' or ''settings'' for a
+		 * bottom row
 		 * @param title header text
 		 */
 		public signal void chosen(string key, string title);
 
 		/**
-		 * Build the place list and the pinned Settings row.
+		 * Build the place list and the pinned bottom rows.
 		 */
 		public TabList()
 		{
@@ -117,6 +118,21 @@ namespace Argus.Controller
 				css_classes = { "navigation-sidebar" },
 				hexpand = true
 			};
+			var agents_row = new Gtk.ListBoxRow();
+			var agents_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8) {
+				margin_top = 6,
+				margin_bottom = 6,
+				margin_start = 12,
+				margin_end = 12
+			};
+			agents_box.append(new Gtk.Image.from_icon_name("computer-symbolic"));
+			agents_box.append(new Gtk.Label("Agent / Controllers") {
+				xalign = 0,
+				hexpand = true
+			});
+			agents_row.child = agents_box;
+			agents_row.name = "agents";
+			settings_list.append(agents_row);
 			var settings_row = new Gtk.ListBoxRow();
 			var settings_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8) {
 				margin_top = 6,
@@ -152,7 +168,15 @@ namespace Argus.Controller
 					return;
 				}
 				list.unselect_all();
-				this.chosen("settings", "Settings");
+				switch (row.name) {
+					case "agents":
+						this.chosen("agents", "Agent / Controllers");
+						break;
+
+					default:
+						this.chosen("settings", "Settings");
+						break;
+				}
 			});
 			list.row_activated.connect((row) => {
 				if (row == list.get_selected_row()) {
@@ -160,8 +184,17 @@ namespace Argus.Controller
 				}
 			});
 			settings_list.row_activated.connect((row) => {
-				if (row == settings_list.get_selected_row()) {
-					this.chosen("settings", "Settings");
+				if (row != settings_list.get_selected_row()) {
+					return;
+				}
+				switch (row.name) {
+					case "agents":
+						this.chosen("agents", "Agent / Controllers");
+						break;
+
+					default:
+						this.chosen("settings", "Settings");
+						break;
 				}
 			});
 			settings_bar.map.connect(() => {

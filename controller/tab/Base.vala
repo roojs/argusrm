@@ -204,12 +204,7 @@ namespace Argus.Controller.Tab
 				propagation_phase = Gtk.PropagationPhase.CAPTURE
 			};
 			open.pressed.connect((n_press, x, y) => {
-				var picked = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
-				while (picked != null && picked != this.grid &&
-					picked.get_data<Gtk.ListItem>("argus-grid-row") == null) {
-					picked = picked.parent;
-				}
-				if (picked != null && picked != this.grid) {
+				if (this.pick(x, y) != null) {
 					open.set_state(Gtk.EventSequenceState.DENIED);
 					return;
 				}
@@ -225,6 +220,34 @@ namespace Argus.Controller.Tab
 			});
 			this.grid.add_controller(open);
 			return group;
+		}
+
+		/**
+		 * Grid row under a coordinate.
+		 *
+		 * The return value is the {@link Gtk.ListItem} stored on the widget
+		 * under that point, or on an ancestor. A press on a
+		 * {@link Argus.Controller.Widget.HoldButton} is that button, so
+		 * this returns null. A coordinate that is not a row returns null.
+		 *
+		 * @param x pointer x in {@link grid} coordinates
+		 * @param y pointer y in {@link grid} coordinates
+		 * @return the list item for that row, or null
+		 */
+		protected new Gtk.ListItem? pick(double x, double y)
+		{
+			var row_widget = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
+			while (row_widget != null && row_widget != this.grid) {
+				if (row_widget is Argus.Controller.Widget.HoldButton) {
+					return null;
+				}
+				var row_item = row_widget.get_data<Gtk.ListItem>("argus-grid-row");
+				if (row_item != null) {
+					return row_item;
+				}
+				row_widget = row_widget.parent;
+			}
+			return null;
 		}
 
 		/**
