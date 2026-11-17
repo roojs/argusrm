@@ -364,6 +364,7 @@ namespace Argus.Server
 			OSQuery.rpc_register();
 			Command.rpc_register();
 			SQT.ScriptRepository.rpc_register();
+			SQT.Distributable.rpc_register();
 			SQT.Script.rpc_register();
 			SQT.Task.rpc_register();
 			Argus.Shared.Agent.init_db(this.db);

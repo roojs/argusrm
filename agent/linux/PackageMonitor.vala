@@ -148,7 +148,8 @@ namespace Argus.Agent
 		 * A change waits until a non-blocking fcntl write lock
 		 * succeeds on ''/var/lib/dpkg/lock'' and
 		 * ''/var/lib/dpkg/lock-frontend''. A missing lock file is
-		 * not held. The rescan then queries ''deb_packages''.
+		 * not held. The rescan then queries ''deb_packages'' and
+		 * posts apt history explicit installs.
 		 */
 		public void apt()
 		{
@@ -203,6 +204,7 @@ namespace Argus.Agent
 						return true;
 					}
 					this.application.osquery.send_packages();
+					new Argus.Agent.Apt.History().send(this.application);
 					this.send_pending();
 					foreach (var fd in fds) {
 						Posix.close(fd);

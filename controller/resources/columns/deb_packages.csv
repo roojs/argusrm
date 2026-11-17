@@ -1,6 +1,7 @@
 Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 Name,name,ON,180,text,ON
+Leaf,leaf,ON,70,leaf,ON
 Arch,arch,ON,90,text,ON
 Section,section,ON,110,text,ON
 Priority,priority,ON,90,text,ON

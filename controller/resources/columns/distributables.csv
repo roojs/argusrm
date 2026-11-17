@@ -1,0 +1,7 @@
+Column header | Database name [JSON] | Visible | Width | Format | Sort
+
+Name,name,ON,200,text,ON
+Platform,platform,ON,120,text,ON
+Version,version,ON,120,text,ON
+Size,size,ON,100,bytes,ON
+Archive,id,ON,80,archive,off

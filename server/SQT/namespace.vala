@@ -19,5 +19,6 @@ namespace Argus.Server.SQT
 		OLLMrpc.Request.register("ScriptRepository", new ScriptRepository.for_rpc(app));
 		OLLMrpc.Request.register("Script", new Script.for_rpc(app));
 		OLLMrpc.Request.register("Task", new Task.for_rpc(app));
+		OLLMrpc.Request.register("Distributable", new Distributable.for_rpc(app));
 	}
 }

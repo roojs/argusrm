@@ -17,7 +17,8 @@
 ## Out of scope (other bugs)
 
 - 🚫 osquery **`apt_sources`** — [2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md).
-- 🚫 Install log, attribution, UI — [2026-11-16-debian-package-catalog-integration.md](../2026-11-16-debian-package-catalog-integration.md) (slices E–G).
+- ✔️ Install log and attribution — [2026-11-16-FIXED-debian-package-catalog-integration.md](2026-11-16-FIXED-debian-package-catalog-integration.md).
+- ⏳ Install and remove preview — [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
 
 ---
 

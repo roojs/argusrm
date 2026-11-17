@@ -21,6 +21,7 @@
  *
  * {@link SystemInfo} filters the Machines grid.
  * {@link DebPackages} filters the Debian package grid.
+ * {@link Distributables} filters the Distributables grid.
  *
  * == Example ==
  *

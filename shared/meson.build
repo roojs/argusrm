@@ -47,6 +47,8 @@ shared_sqt_sources = files(
 	'SQT/Script.vala',
 	'SQT/ScriptPerm.vala',
 	'SQT/ScriptRepository.vala',
+	'SQT/Distributable.vala',
+	'SQT/DistributableVersion.vala',
 	'SQT/AptUrl.vala',
 	'SQT/AptPkg.vala',
 	'SQT/AptPkgDepends.vala',

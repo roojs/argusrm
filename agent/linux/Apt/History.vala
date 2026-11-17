@@ -26,6 +26,10 @@ namespace Argus.Agent.Apt
 	 * reads the rotated logs once. The server stores the first
 	 * ''Start-Date'' and does not drop older rows.
 	 *
+	 * {@link Argus.Agent.OSQuery.Execute.send_startup} calls {@link send}
+	 * for an APT host. {@link Argus.Agent.PackageMonitor.apt} calls
+	 * {@link send} again after a dpkg change, once the locks are free.
+	 *
 	 * == Example ==
 	 *
 	 * {{{

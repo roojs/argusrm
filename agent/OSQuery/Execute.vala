@@ -175,6 +175,12 @@ namespace Argus.Agent.OSQuery
 			code += this.sync_table("interface_addresses", "InterfaceAddresses");
 			code += this.sync_table("os_version", "OsVersion");
 			code += this.send_packages();
+#if LINUX
+			if (this.application.os_version.package_manager() ==
+				Argus.Shared.OSQuery.PackageManager.APT) {
+				code += new Argus.Agent.Apt.History().send(this.application);
+			}
+#endif
 			GLib.debug("osquery %d", code);
 		}
 
@@ -229,9 +235,6 @@ namespace Argus.Agent.OSQuery
 				case Argus.Shared.OSQuery.PackageManager.APT:
 					var code = new DebPackages().send(this.application);
 					code += this.sync_table("apt_sources", "AptSources");
-#if LINUX
-					code += new Argus.Agent.Apt.History().send(this.application);
-#endif
 					return code;
 
 				case Argus.Shared.OSQuery.PackageManager.DNF:

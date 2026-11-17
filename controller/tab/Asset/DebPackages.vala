@@ -25,7 +25,7 @@ namespace Argus.Controller.Tab.Asset
 	 * ''deb_packages.csv''. {@link Argus.Controller.Store.DebPackages}
 	 * loads ''DebPackages.list'' with zero, every agent.
 	 * {@link Argus.Controller.Filters.DebPackages} is the bar above
-	 * the grid: search, section, and versions differ.
+	 * the grid: search, Filters, and versions differ.
 	 * The grid loads when this page is shown. An empty grid
 	 * shows a spinner over it while that call is in flight.
 	 * {@link refreshing} is true when rows are already shown
@@ -41,7 +41,6 @@ namespace Argus.Controller.Tab.Asset
 	{
 		private Argus.Controller.Store.DebPackages store;
 		private Argus.Controller.Filters.DebPackages filter;
-		private bool filling = false;
 
 		/**
 		 * Build the grid.
@@ -65,28 +64,7 @@ namespace Argus.Controller.Tab.Asset
 			this.map.connect(() => {
 				this.store.load(0);
 			});
-			var section_rows = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-			var section_scroll = new Gtk.ScrolledWindow() {
-				child = section_rows,
-				propagate_natural_width = true,
-				propagate_natural_height = true,
-				max_content_height = 360,
-				hscrollbar_policy = Gtk.PolicyType.NEVER
-			};
-			var section_pop = new Gtk.Popover() {
-				child = section_scroll,
-				has_arrow = false,
-				position = Gtk.PositionType.BOTTOM
-			};
-			section_pop.add_css_class("menu");
-			section_pop.add_css_class("column-menu");
-			var section_button = new Gtk.MenuButton() {
-				label = "Section",
-				popover = section_pop
-			};
-			this.store.items_changed.connect((position, removed, added) => {
-				this.build_sections(section_rows);
-			});
+			var filters = this.filter.menu();
 			var search = new Gtk.SearchEntry() {
 				placeholder_text = "Search",
 				hexpand = true
@@ -124,129 +102,17 @@ namespace Argus.Controller.Tab.Asset
 			bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				hexpand = true
 			});
-			bar.append(section_button);
+			bar.append(filters);
 			bar.append(spread);
 			this.content.append(bar);
 			this.content.append(search_bar);
 #else
 			bar.append(search);
-			bar.append(section_button);
+			bar.append(filters);
 			bar.append(spread);
 			this.content.append(bar);
 #endif
 			this.content.append(this.overlay);
-		}
-
-		/**
-		 * Rebuild the section checks from the packages in the store.
-		 *
-		 * A section that was unchecked stays off when the names change.
-		 * The last checked section stays on. Matching names leave the
-		 * menu as it is.
-		 *
-		 * @param rows the checks in the section menu
-		 */
-		private void build_sections(Gtk.Box rows)
-		{
-			var seen = new Gee.HashSet<string>();
-			foreach (var package in this.store.items) {
-				foreach (var part in package.section.split(",")) {
-					var section = part.strip();
-					if (section == "") {
-						continue;
-					}
-					seen.add(section);
-				}
-			}
-			var names = new Gee.ArrayList<string>();
-			names.add_all(seen);
-			names.sort((a, b) => {
-				return a.ascii_casecmp(b);
-			});
-			var current = new Gee.ArrayList<string>();
-			var child = rows.get_first_child();
-			while (child != null) {
-				current.add(((Gtk.CheckButton) child).label);
-				child = child.get_next_sibling();
-			}
-			var same = names.size == current.size;
-			if (same) {
-				for (var i = 0; i < names.size; i++) {
-					if (names.get(i) != current.get(i)) {
-						same = false;
-						break;
-					}
-				}
-			}
-			if (same) {
-				return;
-			}
-			var off = new Gee.ArrayList<string>();
-			child = rows.get_first_child();
-			while (child != null) {
-				var shown = (Gtk.CheckButton) child;
-				if (!shown.active) {
-					off.add(shown.label);
-				}
-				child = child.get_next_sibling();
-			}
-			var keep = 0;
-			foreach (var section in names) {
-				if (off.contains(section)) {
-					continue;
-				}
-				keep++;
-			}
-			if (keep < 1) {
-				off.clear();
-			}
-			this.filling = true;
-			child = rows.get_first_child();
-			while (child != null) {
-				var next = child.get_next_sibling();
-				rows.remove(child);
-				child = next;
-			}
-			var on = new Gee.ArrayList<string>();
-			foreach (var section in names) {
-				var active = !off.contains(section);
-				if (active) {
-					on.add(section);
-				}
-				var button = new Gtk.CheckButton.with_label(section) {
-					active = active,
-					hexpand = true,
-					halign = Gtk.Align.FILL
-				};
-				button.toggled.connect(() => {
-					if (this.filling) {
-						return;
-					}
-					var chosen = new Gee.ArrayList<string>();
-					var total = 0;
-					var row = rows.get_first_child();
-					while (row != null) {
-						total++;
-						var check = (Gtk.CheckButton) row;
-						if (check.active) {
-							chosen.add(check.label);
-						}
-						row = row.get_next_sibling();
-					}
-					if (chosen.size < 1 && total > 0) {
-						this.filling = true;
-						button.active = true;
-						this.filling = false;
-						return;
-					}
-					this.filter.sections = chosen;
-					this.filter.section_count = total;
-				});
-				rows.append(button);
-			}
-			this.filter.section_count = names.size;
-			this.filter.sections = on;
-			this.filling = false;
 		}
 	}
 }

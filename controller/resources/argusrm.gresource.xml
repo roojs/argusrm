@@ -17,10 +17,12 @@
     <file>columns/task_targets.csv</file>
     <file>columns/agent.csv</file>
     <file>columns/repository.csv</file>
+    <file>columns/distributables.csv</file>
   </gresource>
   <gresource prefix="/argusrm/icons">
     <file alias="scalable/apps/emblem-debian-symbolic.svg">icons/emblem-debian-symbolic.svg</file>
     <file alias="scalable/apps/application-x-rpm-symbolic.svg">icons/application-x-rpm-symbolic.svg</file>
     <file alias="scalable/apps/windows-symbolic.svg">icons/windows-symbolic.svg</file>
+    <file alias="scalable/apps/leaf-symbolic.svg">icons/leaf-symbolic.svg</file>
   </gresource>
 </gresources>

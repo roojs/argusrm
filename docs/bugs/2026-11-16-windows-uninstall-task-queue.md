@@ -12,7 +12,7 @@
 - 🔷 **Expected:**
   - 🔷 **Phase 1 — One machine at a time (`Machines -> Windows programs`):** add the trash icon to `programs_machine.csv` and wire `Machine/Programs.vala` `remove_confirmed` to convert `uninstall_string` to silent flags when needed (owned by the task builder, not `agent/Win32/Command.vala`) and queue the uninstall task straight away for that single machine via `Task.submit`.
   - 🔷 **Phase 2 — All machines (`Software -> Windows`):** add an RPC call (`Programs.machines`) to fetch every machine where that program is installed, show a destructive confirmation dialog requiring the user to type `"delete all"`, convert each machine's `uninstall_string` to silent flags, group machines by command, and queue a separate `Task.submit` task for each distinct uninstall command.
-- 🔷 **Scope:** Windows only. Debian and RPM package removal stays out of scope until a proper dependency tree is available (not part of the original aims timeline).
+- 🔷 **Scope:** Windows only. Debian and RPM package removal stays out of scope until a proper dependency tree is available (not part of the original aims timeline). Debian preview is [2026-11-17-debian-install-remove-preview.md](2026-11-17-debian-install-remove-preview.md).
 - 🔷 **Actual:** `programs_machine.csv` has no `Uninstall` column, `Argus.Shared.OSQuery.Programs` has no `silent_command()` helper, `Store.TaskTarget` has no `run_command(...)` method, there is no `Programs.machines` RPC to fetch per-machine rows for one program name, and neither `Machine/Programs.vala` nor `Programs.vala` connects `remove_confirmed`.
 
 ---

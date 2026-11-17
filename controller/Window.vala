@@ -185,6 +185,10 @@ namespace Argus.Controller
 					pages.add_named(repository, key);
 					continue;
 				}
+				if (key == "distributables") {
+					pages.add_named(new Tab.Distributables(this), key);
+					continue;
+				}
 				if (key == "assets") {
 					pages.add_named(new Tab.Assets(this), key);
 					continue;

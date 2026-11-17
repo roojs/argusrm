@@ -123,7 +123,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: agent calls the server.
 - 🔷 One call per table. The arguments are the table name and the array of row objects.
 - Arguments `so`: the table name, then the array.
-- Tables: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`, then one package class, plus `package_updates` on Linux (`APT` / `DNF`) from `PackageMonitor.send_pending`. APT also sends `apt_explicit_install` from `Apt.History.send` on Linux.
+- Tables: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`, then one package class, plus `package_updates` on Linux (`APT` / `DNF`) from `PackageMonitor.send_pending`. On APT, `Apt.History.send` posts `apt_explicit_install` from `Execute.send_startup` and again from `PackageMonitor.apt` after a dpkg change.
 - The package class follows `os_version.package_manager`. APT sends `DebPackages`. DNF sends `RpmPackages`. WIN sends `Programs`. Any other value sends no package class.
 - A row left out of a standard table snapshot gets `deleted_dt`. For `PackageUpdates`, existing names keep their `since` time, new names are inserted, and names left out are deleted.
 - `AptExplicitInstall` is not a snapshot. The batch is only names whose apt history `Start-Date` is after the agent watermark. The server inserts a new `(agent_id, name)` and keeps the first `installed_dt`. A name left out of the batch stays. An empty batch is not posted.
@@ -440,5 +440,11 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 Controller calls for the script library and tasks. Defined in [7.1](plans/7.1-tasks-implementation.md).
 
 - `ScriptRepository.clone` `o`, `pull` `i`, `remove` `i`, `list` — in the tree. Clone uses libgit2 (`Ggit`). The row is written after the checkout succeeds.
+- `Distributable.list` — no arguments. Reply `o`: live `distributable` rows, one per product, with `version`, `size`, and `version_id` from the latest live `distributable_version`. A row with `deleted_dt` set is absent. Osquery in the package store is not a row.
+- `Distributable.archive` `i` — `distributable.id`. Sets `deleted_dt` and `updated_dt`. The file stays in the package store.
+- `Distributable.begin` `sx` — file name, size in bytes. Reply `i`: an upload id, the unix time plus a sequence so two uploads in the same second differ. The bytes are not in this call. The server remembers the name, the size, and the calling agent (`0` on the Unix socket) and opens `packages/distributables/incoming/{id}`.
+- `Distributable.chunk` `ixay` — upload id, offset, bytes. The offset must be the number of bytes already stored. A chunk is at most 1 MiB.
+- `Distributable.complete` `i` — upload id. The stored length must equal the size from `begin`. The server reads the NSIS installer, moves it to `packages/distributables/{sha256}.exe`, and inserts the `distributable` and `distributable_version` rows. Reply `o`: that `distributable`, with `version`, `size`, and `version_id`. A live row with the same platform and name gets another version. The same bytes on that row return the version already stored. A file that is not NSIS, or that has no product name and version, is deleted and the reply is an error.
+- `Distributable.cancel` `i` — upload id. Deletes the partial file.
 - `Script.create` `ss`, `update` `is`, `read` `i`, `list` `i`, `search` `sss` (`platform`, `app`, `action` -> `o` array), `enable` `ii`, `disable` `ii`, `agents` `i`
 - `Task.create` `o`, `update` `o`, `list`, `target` `iv`, `watch` `i`, `approve` `ib`, `submit` `ovb` (`task`, `ai` `agent_ids`, `watch` -> `o` targets), `duplicate` `i`, `targets` `i`, `all_targets` (no args -> `o` joined targets), `logs` `i` (`target_id` -> `as` `[stdout, stderr, stdin]`)

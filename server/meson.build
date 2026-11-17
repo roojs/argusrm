@@ -55,6 +55,8 @@ sources = files(
 	'SQT/namespace.vala',
 	'SQT/Script.vala',
 	'SQT/ScriptRepository.vala',
+	'SQT/Distributable.vala',
+	'SQT/Installer.vala',
 	'SQT/Scheduler.vala',
 	'SQT/Task.vala',
 	'Git/Callbacks.vala',

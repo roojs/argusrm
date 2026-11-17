@@ -366,10 +366,15 @@ namespace Argus.Controller.Tab
 		 *    ''uninstallable''.
 		 *  * ''remove'' is that same bin. The count is ''installed''.
 		 *    The mouseover is the count alone.
+		 *  * ''archive'' is a hold button with an archive icon. Holding
+		 *    it emits {@link remove_confirmed}. A short click asks for the hold.
 		 *  * ''status'' is a centered circle. If the row has a
 		 *    ''tooltip-<name>'' string property, it is used as the
 		 *    mouseover tooltip.
 		 *  * ''tick'' is an image.
+		 *  * ''leaf'' is a leaf icon when the int property is not zero.
+		 *    The mouseover says the package is top level. A row whose
+		 *    ''agent-id'' is zero says that is true on at least one machine.
 		 *  * The row header is bold when {@link bold_header} is true.
 		 *
 		 * A column whose database name is on the row fills its cell. Other columns stay empty.
@@ -377,7 +382,7 @@ namespace Argus.Controller.Tab
 		 * @param name JSON name. A hyphen is an underscore.
 		 * @param format text, dim-text, controller-kind, recent-created,
 		 *   recent-last-connected, tick-registered, tick-connected, number,
-		 *   bytes, mhz, date, elapsed, cidr, status, tick, bin, or remove
+		 *   bytes, mhz, date, elapsed, cidr, status, tick, leaf, bin, remove, or archive
 		 * @param header_column true for the row header
 		 * @return the factory that sets up each cell
 		 */
@@ -411,21 +416,28 @@ namespace Argus.Controller.Tab
 					case "tick":
 					case "tick-registered":
 					case "tick-connected":
+					case "leaf":
 						item.child = new Gtk.Image() {
 							halign = Gtk.Align.CENTER,
-							hexpand = true
+							hexpand = true,
+							pixel_size = 16
 						};
 						break;
 
 					case "bin":
 					case "remove":
+					case "archive":
 						var hold_button = new Argus.Controller.Widget.HoldButton() {
 							halign = Gtk.Align.CENTER,
 							valign = Gtk.Align.CENTER,
 							visible = false
 						};
+						if (format == "archive") {
+							hold_button.icon_name = "archive-symbolic";
+						}
 						hold_button.short_click.connect(() => {
-							this.toasts.add_toast(new Adw.Toast("Click and hold to remove"));
+							var verb = format == "archive" ? "archive" : "remove";
+							this.toasts.add_toast(new Adw.Toast("Click and hold to " + verb));
 						});
 						hold_button.confirmed.connect(() => {
 							if (item.item != null) {
@@ -529,6 +541,9 @@ namespace Argus.Controller.Tab
 				var lookup = name;
 				if (format == "remove") {
 					lookup = "installed";
+				}
+				if (format == "archive") {
+					lookup = "id";
 				}
 				var prop = row.get_class().find_property(lookup);
 				if (prop == null) {
@@ -802,6 +817,33 @@ namespace Argus.Controller.Tab
 								}));
 						break;
 
+					case "leaf":
+						var leaf_image = (Gtk.Image) item.child;
+						var leaf_on = false;
+						if (prop.value_type == GLib.Type.INT) {
+							leaf_on = value.get_int() != 0;
+						}
+						if (prop.value_type == GLib.Type.INT64) {
+							leaf_on = value.get_int64() != 0;
+						}
+						leaf_image.visible = leaf_on;
+						leaf_image.icon_name = leaf_on ? "leaf-symbolic" : null;
+						leaf_image.tooltip_text = null;
+						if (!leaf_on) {
+							break;
+						}
+						var fleet = false;
+						var agent_prop = row.get_class().find_property("agent-id");
+						if (agent_prop != null && agent_prop.value_type == GLib.Type.INT64) {
+							var agent_value = GLib.Value(GLib.Type.INT64);
+							row.get_property("agent-id", ref agent_value);
+							fleet = agent_value.get_int64() == 0;
+						}
+						leaf_image.tooltip_text = fleet ?
+							"Top level on at least one machine." :
+							"Top level package. Nothing installed on this machine depends on it.";
+						break;
+
 					case "tick":
 						var tick_image = (Gtk.Image) item.child;
 						var ticked = false;
@@ -850,6 +892,14 @@ namespace Argus.Controller.Tab
 						}
 						break;
 
+					case "archive":
+						var archive_button = (Argus.Controller.Widget.HoldButton) item.child;
+						archive_button.reset();
+						archive_button.icon_name = "archive-symbolic";
+						archive_button.visible = true;
+						archive_button.tooltip_text = "Archive";
+						break;
+
 					case "bytes":
 						var count = (uint64) 0;
 						if (prop.value_type == GLib.Type.INT64) {
@@ -869,11 +919,46 @@ namespace Argus.Controller.Tab
 						break;
 
 					default:
-						((Gtk.Label) item.child).label = shown;
+						var text_label = (Gtk.Label) item.child;
+						text_label.label = shown;
+						if (name == "name") {
+							this.mark_explicit(text_label, row, header_column);
+						}
 						break;
 				}
 			});
 			return factory;
+		}
+
+		/**
+		 * Underline a package name that was explicitly installed.
+		 *
+		 * The row header stays bold. A row without an ''explicit''
+		 * property, or with that flag clear, is plain text.
+		 *
+		 * @param label the name cell
+		 * @param row the grid row
+		 * @param header_column true when this column is the row header
+		 */
+		private void mark_explicit(Gtk.Label label, GLib.Object row, bool header_column)
+		{
+			var attrs = new Pango.AttrList();
+			if (header_column) {
+				attrs.insert(Pango.attr_weight_new(Pango.Weight.SEMIBOLD));
+			}
+			var on = false;
+			var prop = row.get_class().find_property("explicit");
+			if (prop != null && prop.value_type == GLib.Type.INT) {
+				var value = GLib.Value(GLib.Type.INT);
+				row.get_property("explicit", ref value);
+				on = value.get_int() != 0;
+			}
+			label.tooltip_text = null;
+			if (on) {
+				attrs.insert(Pango.attr_underline_new(Pango.Underline.SINGLE));
+				label.tooltip_text = "Explicitly installed";
+			}
+			label.attributes = attrs;
 		}
 	}
 }

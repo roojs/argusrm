@@ -92,8 +92,9 @@ namespace Argus.Shared.OSQuery
 		 * added-up columns. A row whose ''agent_id'' is not in
 		 * ''agent'' is absent. A caller that is not a controller
 		 * is refused. ''since'' zero leaves out a row whose
-		 * ''deleted_dt'' is set. A later ''since'' returns every
-		 * row changed after that time, including a deleted row.
+		 * ''deleted_dt'' is set, and fills ''explicit'' and ''leaf''.
+		 * A later ''since'' returns every row changed after that
+		 * time, including a deleted row, without those flags.
 		 *
 		 * @param request inbound RPC from a controller
 		 * @param agent_id agent id, or zero for every agent
@@ -140,7 +141,15 @@ namespace Argus.Shared.OSQuery
 				query.selectQuery("""
 					SELECT
 						%s,
-						COALESCE(package_updates.since, 0) AS update_since
+						COALESCE(package_updates.since, 0) AS update_since,
+						CASE
+							WHEN apt_explicit_install.name IS NULL THEN 0
+							ELSE 1
+						END AS explicit,
+						CASE
+							WHEN depended.name IS NULL THEN 1
+							ELSE 0
+						END AS leaf
 					FROM
 						deb_packages
 					LEFT JOIN
@@ -149,12 +158,61 @@ namespace Argus.Shared.OSQuery
 						package_updates.agent_id = deb_packages.agent_id
 					AND
 						package_updates.name = deb_packages.name
+					LEFT JOIN
+						apt_explicit_install
+					ON
+						apt_explicit_install.agent_id = deb_packages.agent_id
+					AND
+						apt_explicit_install.name = deb_packages.name
+					LEFT JOIN (
+						SELECT DISTINCT
+							installed.name AS name
+						FROM
+							deb_packages AS installed
+						JOIN
+							apt_pkg AS child
+						ON
+							child.name = installed.name
+						JOIN
+							apt_pkg_depends
+						ON
+							apt_pkg_depends.depends_pkg_id = child.id
+						JOIN
+							apt_pkg AS parent
+						ON
+							parent.id = apt_pkg_depends.pkg_id
+						JOIN
+							deb_packages AS needed
+						ON
+							needed.agent_id = installed.agent_id
+						AND
+							needed.name = parent.name
+						AND
+							needed.deleted_dt = 0
+						JOIN
+							apt_url
+						ON
+							apt_url.id = apt_pkg_depends.apt_url_id
+						JOIN
+							apt_sources_catalog
+						ON
+							apt_sources_catalog.agent_id = installed.agent_id
+						AND
+							apt_sources_catalog.url_key = apt_url.url_key
+						WHERE
+							installed.agent_id = %d
+						AND
+							installed.deleted_dt = 0
+					) AS depended
+					ON
+						depended.name = deb_packages.name
 					WHERE
 						deb_packages.agent_id = %d
 					AND
 						deb_packages.deleted_dt = 0
 					""".printf(
 						string.joinv(", ", query.getColsExcept(null, "deb_packages.")),
+						agent_id,
 						agent_id), rows);
 			}
 			if (since <= 0 && agent_id <= 0) {
@@ -170,7 +228,19 @@ namespace Argus.Shared.OSQuery
 						MAX(deb_packages.version || '-' || deb_packages.revision) AS max_version,
 						MAX(deb_packages.size) AS max_size,
 						COUNT(DISTINCT deb_packages.agent_id) AS installed,
-						COALESCE(pkg_updates.update_since, 0) AS update_since
+						COALESCE(pkg_updates.update_since, 0) AS update_since,
+						MAX(
+							CASE
+								WHEN explicit_names.name IS NULL THEN 0
+								ELSE 1
+							END
+						) AS explicit,
+						MAX(
+							CASE
+								WHEN leaf_names.name IS NULL THEN 0
+								ELSE 1
+							END
+						) AS leaf
 					FROM
 						deb_packages
 					LEFT JOIN (
@@ -186,6 +256,71 @@ namespace Argus.Shared.OSQuery
 					) AS pkg_updates
 					ON
 						pkg_updates.name = deb_packages.name
+					LEFT JOIN (
+						SELECT DISTINCT
+							deb_packages.name AS name
+						FROM
+							apt_explicit_install
+						JOIN
+							deb_packages
+						ON
+							deb_packages.agent_id = apt_explicit_install.agent_id
+						AND
+							deb_packages.name = apt_explicit_install.name
+						AND
+							deb_packages.deleted_dt = 0
+						WHERE
+							deb_packages.agent_id IN (SELECT id FROM agent)
+					) AS explicit_names
+					ON
+						explicit_names.name = deb_packages.name
+					LEFT JOIN (
+						SELECT DISTINCT
+							installed.name AS name
+						FROM
+							deb_packages AS installed
+						WHERE
+							installed.deleted_dt = 0
+						AND
+							installed.agent_id IN (SELECT id FROM agent)
+						AND
+							NOT EXISTS (
+								SELECT
+									parent.name
+								FROM
+									apt_pkg AS child
+								JOIN
+									apt_pkg_depends
+								ON
+									apt_pkg_depends.depends_pkg_id = child.id
+								JOIN
+									apt_pkg AS parent
+								ON
+									parent.id = apt_pkg_depends.pkg_id
+								JOIN
+									deb_packages AS needed
+								ON
+									needed.agent_id = installed.agent_id
+								AND
+									needed.name = parent.name
+								AND
+									needed.deleted_dt = 0
+								JOIN
+									apt_url
+								ON
+									apt_url.id = apt_pkg_depends.apt_url_id
+								JOIN
+									apt_sources_catalog
+								ON
+									apt_sources_catalog.agent_id = installed.agent_id
+								AND
+									apt_sources_catalog.url_key = apt_url.url_key
+								WHERE
+									child.name = installed.name
+							)
+					) AS leaf_names
+					ON
+						leaf_names.name = deb_packages.name
 					WHERE
 						deb_packages.deleted_dt = 0
 					AND
@@ -242,5 +377,23 @@ namespace Argus.Shared.OSQuery
 		 * Not stored.
 		 */
 		public int installed { get; set; default = 0; }
+		/**
+		 * ''1'' when this name was an explicit apt install.
+		 *
+		 * For one machine, that is a row in ''apt_explicit_install''.
+		 * For every machine, any machine that still has the package
+		 * installed counts. Filled by ''list'' when ''since'' is zero.
+		 * Not stored.
+		 */
+		public int explicit { get; set; default = 0; }
+		/**
+		 * ''1'' when nothing else installed depends on this name.
+		 *
+		 * For one machine, no other installed package on that machine
+		 * has a catalog Depends or Pre-Depends edge onto it. For every
+		 * machine, any such machine counts. A name with no catalog row
+		 * is a leaf. Filled by ''list'' when ''since'' is zero. Not stored.
+		 */
+		public int leaf { get; set; default = 0; }
 	}
 }

@@ -24,7 +24,8 @@ namespace Argus.Controller.Tab.Asset.Machine
 	 * {@link Argus.Controller.Tab.Base.column_menu} reads
 	 * ''deb_packages_machine.csv''. {@link Argus.Controller.Store.DebPackages}
 	 * loads ''DebPackages.list'' for the selected ''agent_id''.
-	 * An empty grid shows a spinner over it while that call is in
+	 * {@link Argus.Controller.Filters.DebPackages} is the Filters
+	 * menu above the grid. An empty grid shows a spinner over it while that call is in
 	 * flight. {@link refreshing} is true when rows are already shown
 	 * and a later call is in flight.
 	 *
@@ -38,6 +39,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 	public class DebPackages : Argus.Controller.Tab.Base
 	{
 		private Argus.Controller.Store.DebPackages store;
+		private Argus.Controller.Filters.DebPackages filter;
 
 		/**
 		 * Build the per-machine Debian package grid.
@@ -48,12 +50,22 @@ namespace Argus.Controller.Tab.Asset.Machine
 		{
 			base("deb_packages_machine", "name");
 			this.store = new Argus.Controller.Store.DebPackages(window.app);
-			this.column_grid(this.store);
+			this.filter = new Argus.Controller.Filters.DebPackages();
+			var rows = new Gtk.FilterListModel(this.store, this.filter) {
+				incremental = true
+			};
+			this.column_grid(rows);
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
+			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
+				css_classes = { "machines-filter" },
+				hexpand = true
+			};
+			bar.append(this.filter.menu());
+			this.content.append(bar);
 			this.content.append(this.overlay);
 		}
 

@@ -36,7 +36,8 @@
 
 ## Follow-on (open bugs)
 
-- ⏳ Slices E–G — [2026-11-16-debian-package-catalog-integration.md](../2026-11-16-debian-package-catalog-integration.md).
+- ✔️ Slices E–F — [2026-11-16-FIXED-debian-package-catalog-integration.md](2026-11-16-FIXED-debian-package-catalog-integration.md).
+- ⏳ Install and remove preview — [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
 
 ---
 
