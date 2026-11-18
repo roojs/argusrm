@@ -53,6 +53,8 @@ namespace Argus.Controller
 			"scripts",
 			"repositories"
 		};
+		private Gtk.ListBox places;
+		private Gtk.ListBoxRow? rdp_row;
 		/**
 		 * Header text for {@link keys}, in the same order.
 		 */
@@ -82,13 +84,14 @@ namespace Argus.Controller
 			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
 			this.hexpand = true;
 			this.vexpand = true;
-			var list = new Gtk.ListBox() {
+			this.places = new Gtk.ListBox() {
 				selection_mode = Gtk.SelectionMode.SINGLE,
 				activate_on_single_click = true,
 				css_classes = { "navigation-sidebar" },
 				vexpand = true,
 				hexpand = true
 			};
+			var list = this.places;
 			for (var i = 0; i < this.keys.length; i++) {
 				var row = new Gtk.ListBoxRow();
 				row.child = new Gtk.Label(this.titles[i]) {
@@ -221,6 +224,51 @@ namespace Argus.Controller
 					return false;
 				});
 			});
+		}
+
+		/**
+		 * Show RDP under Assets and select it.
+		 *
+		 * A row that is already there is only selected.
+		 */
+		public void show_rdp()
+		{
+			if (this.rdp_row != null) {
+				this.places.select_row(this.rdp_row);
+				return;
+			}
+			var row = new Gtk.ListBoxRow();
+			row.child = new Gtk.Label("RDP") {
+				xalign = 0,
+				margin_top = 6,
+				margin_bottom = 6,
+				margin_start = 12,
+				margin_end = 12
+			};
+			row.name = "rdp";
+			this.places.insert(row, 2);
+			this.rdp_row = row;
+			this.places.select_row(row);
+		}
+
+		/**
+		 * Remove the RDP row.
+		 *
+		 * When that row was selected, Assets is selected.
+		 */
+		public void hide_rdp()
+		{
+			if (this.rdp_row == null) {
+				return;
+			}
+			var selected = this.places.get_selected_row() == this.rdp_row;
+			var row = this.rdp_row;
+			this.rdp_row = null;
+			this.places.remove(row);
+			if (!selected) {
+				return;
+			}
+			this.places.select_row(this.places.get_row_at_index(1));
 		}
 	}
 }

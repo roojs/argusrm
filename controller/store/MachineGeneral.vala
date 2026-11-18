@@ -46,7 +46,9 @@ namespace Argus.Controller.Store
 			get; set; default = new Gee.ArrayList<KeyValue>();
 		}
 		private int epoch = 0;
-		private int loaded_agent = -1;
+		public int loaded_agent { get; private set; default = -1; }
+		public bool desktop { get; private set; default = false; }
+		public string hostname { get; private set; default = ""; }
 
 		/**
 		 * Rows from the last load. This list is the model.
@@ -132,8 +134,12 @@ namespace Argus.Controller.Store
 				return;
 			}
 			this.busy = true;
-			if (agent_id != this.loaded_agent && this.items_store.size > 0) {
-				this.items = new Gee.ArrayList<KeyValue>();
+			if (agent_id != this.loaded_agent) {
+				this.desktop = false;
+				this.hostname = "";
+				if (this.items_store.size > 0) {
+					this.items = new Gee.ArrayList<KeyValue>();
+				}
 			}
 			this.loaded_agent = agent_id;
 			this.epoch++;
@@ -266,6 +272,17 @@ namespace Argus.Controller.Store
 			var rows = (Gee.ArrayList<GLib.Object>) response.retval.get_object();
 			if (rows.size == 0) {
 				return true;
+			}
+			if (source == "os_version") {
+				var version = (Argus.Shared.OSQuery.OsVersion) rows.get(0);
+				this.desktop = version.supports_rdp();
+			}
+			if (source == "system_info") {
+				var info = (Argus.Shared.OSQuery.SystemInfo) rows.get(0);
+				this.hostname = info.hostname;
+				if (this.hostname == "") {
+					this.hostname = info.computer_name;
+				}
 			}
 			foreach (var col in this.cols) {
 				if (!col.visible || col.source != source) {

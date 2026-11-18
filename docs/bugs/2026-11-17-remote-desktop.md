@@ -1,6 +1,6 @@
 # Remote desktop from the machine General tab
 
-**Status:** ⏳ critical — Phases 1–4 are implemented and not yet verified. Force and the Disconnect notice are Phase 6.5. The viewer is Phases 5 and 6. Phase 7 waits until Windows works.
+**Status:** ⏳ critical — Phases 1–5 are in the tree. The controller compiled. None of this is verified on a machine. Phase 6 is the session tabs. Phase 6.5 is Force and the Disconnect notice. Phase 7 waits until Windows works.
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, archived plan [5.12-MOVED-remote-desktop.md](../plans/done/5.12-MOVED-remote-desktop.md), [2026-11-17-FIXED-windows-command-session-job.md](done/2026-11-17-FIXED-windows-command-session-job.md), [2026-11-16-FIXED-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [`controller/tab/Asset/Machine/General.vala`](../../controller/tab/Asset/Machine/General.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`server/Net/Download.vala`](../../server/Net/Download.vala)
 
@@ -24,7 +24,7 @@
 
 ## Evidence
 
-- ✔️ The General tab is `controller/tab/Asset/Machine/General.vala`, inside `controller/tab/Asset/Machine/Detail.vala`. General is a vertical list of expanders. It has no bar of its own. `Detail` has the tab toggles. The window header bar is the title only.
+- ✔️ The General tab is `controller/tab/Asset/Machine/General.vala`, inside `controller/tab/Asset/Machine/Detail.vala`. General is a vertical list of expanders. It has no search and no bar of its own. Users, Windows programs, Storage, and the package tabs put a search field in a bar at the top of the page. `Detail` has the tab toggles. The window header bar is the title only.
 - ✔️ The controller is GTK 4 and libadwaita. `controller/meson.build`.
 - ✔️ The Windows agent is the service in `agent/Win32/Service.vala`. It already holds a TLS session to the server. Nothing in the tree sets `fDenyTSConnections`, starts `TermService`, or speaks Remote Desktop.
 - ℹ️ The download socket is the precedent for a second listen: the same client certificate, and a transfer there does not clog the app socket. `server/Net/Download.vala`.
@@ -46,7 +46,7 @@
 - ✔️ **Phase 4 — Start the flow.** In the tree. Not verified on a machine. The agent streams. The server tells the controller. Bytes are dropped until the controller connects, then forwarded from the start of a connection. A late controller gets a new connection from the first byte.
 - 🔷 ⏳ **Phase 5 — Viewer.** A touch and hold of the screen button on General opens the RDP page in this window.
 - 🔷 ⏳ **Phase 6 — Session tabs.** The selected tab is the live feed. The X on a tab disconnects it.
-- 🔷 ⏳ **Phase 6.5 — Takeover edges.** Force. The tray names who has the screen and can disconnect. The stream proposal is Phase 4.
+- 🔷 ⏳ **Phase 6.5 — Takeover edges.** Force. The tray asks before Remote Desktop is turned on, and the controller is told so the page is not blank. The tray names who has the screen and can disconnect.
 - 💩 ⏳ **Phase 7 — Linux desktops.** After Windows works. GNOME Remote Desktop and xrdp speak this protocol.
 
 Phase 2 adds no port and no listener.
@@ -91,8 +91,8 @@ Phase 2 adds no port and no listener.
 - ✔️ After startup the Windows agent sets `fDenyTSConnections` to `0`, sets `UserAuthentication` to `1`, and starts `TermService`. The firewall group is left closed.
 - 🔷 Leave the Windows password prompt on. Argus does not store the password.
 - ✔️ Nobody is logged in: an active Windows session is absent, so Remote Desktop is turned on. No tray question.
-- ✔️ Someone is logged in: an active session is present. The service sends `agent.desktop`.
-- ✔️ The tray reads the last keyboard or mouse time. Half an hour idle allows Remote Desktop without asking. More recent input shows a balloon. A click allows it. Ignoring the balloon leaves it off.
+- ℹ️ Someone is logged in: the tray ask is held until Phase 6.5. Until then the agent turns Remote Desktop on without asking.
+- ℹ️ The tray reads the last keyboard or mouse time. Half an hour idle allows Remote Desktop without asking. More recent input shows a balloon. A click allows it. Ignoring the balloon leaves it off. That ask is Phase 6.5.
 - ℹ️ The service cannot read that time. It runs in session 0. The tray runs in the signed-in session.
 - 🔷 Sign in as the person already logged in. A different account logs them off.
 - ℹ️ Force, and the tray notice that names who has the screen, are Phase 6.5.
@@ -111,728 +111,10 @@ Phase 2 adds no port and no listener.
 - ℹ️ Windows sends nothing until it receives the viewer's opening bytes. The controller's first bytes are the start of the connection.
 - 🔷 A controller that arrives after a stream is already going does not join the middle. The agent closes that connection to Windows and opens a new one. Forwarding starts at the first byte of the new connection.
 - 🚫 The server does not read Remote Desktop messages to find a cut point. The cut is a new connection.
-- ℹ️ The proposal is this phase. Force and the tray notice stay in Phase 6.5.
+- ℹ️ Force and the tray notice stay in Phase 6.5.
+- ✔️ In the tree. `server/Rdp/Relay.vala`, `server/Rdp/Seat.vala`, `agent/Application.vala`, `agent/Win32/Service.vala`, `agent/Rdp/Tunnel.vala`, `controller/store/MachineGeneral.vala`.
 - ℹ️ Not in `meson test -C build rdp-relay`. That test starts the agent and the viewer itself. `Relay.listen` stays the test listen.
 - 🔷 Phase 5's screen button calls `MachineGeneral.start_desktop`. It does not draw the button.
-
-### 1. `server/Rdp/Relay.vala` — `rpc_register`: `start`, `view`, `fresh`
-
-**Why:** The controller asks on the app socket. The view joins on its own connection. `fresh` is the cut after Windows is dialed again. `join` and `write` stay the test pair.
-
-**Where:** `rpc_register`, the `add_class` argument list.
-
-**Depends on:** none.
-
-#### Remove
-
-```vala
-				"join", "s",
-				"write", "ay");
-```
-
-#### Replace with
-
-```vala
-				"join", "s",
-				"write", "ay",
-				"start", "i",
-				"view", "i",
-				"fresh", "");
-```
-
-### 2. `server/Rdp/Seat.vala` — one machine
-
-**Why:** One test pair cannot carry more than one machine. Each agent id has its own stream, view, and the controller that asked. That state lives on `Seat`. `Relay` keeps the map.
-
-**Where:** `server/Rdp/Seat.vala`. The map is inside `Relay`, after `view_conn`.
-
-**Depends on:** none.
-
-#### Add — `Seat`, and the map on `Relay`
-
-`asked` is the controller app connection waiting for `relay.ready`. `holding` is a `Relay.view` that is waiting for `release`. `begun` is set when a byte has been forwarded. `ready`, `joined`, `attach`, `release`, and `forward` are the seat. The controller check and `ssl_listen.by_id` stay on `Relay`.
-
-```vala
-		private Gee.HashMap<int, Seat> seats = new Gee.HashMap<int, Seat>();
-```
-
-### 3. `server/Rdp/Relay.vala` — `seat` and `seat_of`
-
-**Why:** `start`, `view`, `join`, `write`, and `fresh` share one lookup.
-
-**Where:** new methods, after `rpc_register`.
-
-**Depends on:** ### 2.
-
-#### Add — after `rpc_register`, the two lookups
-
-```vala
-		/**
-		 * The seat for one agent id, creating it on first use.
-		 *
-		 * @param id ''agent.id''
-		 * @return that seat
-		 */
-		private Seat seat(int id)
-		{
-			if (this.seats.has_key(id)) {
-				return this.seats.get(id);
-			}
-			var created = new Seat();
-			this.seats.set(id, created);
-			return created;
-		}
-
-		/**
-		 * The seat whose stream or view is this connection.
-		 *
-		 * @param conn a stream connection
-		 * @return the seat, or null for the test pair
-		 */
-		private Seat? seat_of(OLLMrpc.Transport.Connection conn)
-		{
-			foreach (var seat in this.seats.values) {
-				if (seat.agent_conn == conn || seat.view_conn == conn) {
-					return seat;
-				}
-			}
-			return null;
-		}
-```
-
-### 4. `server/Rdp/Relay.vala` — `start`
-
-**Why:** The hold on General calls this. The server tells that agent, on the app connection, to open the stream. The reply is not the desktop.
-
-**Where:** new method, after `seat_of`.
-
-**Depends on:** ### 3.
-
-#### Add — after `seat_of`, the controller ask
-
-A missing agent replies `unknown agent`. An agent that has already joined gets `relay.ready` on this call. Otherwise the ask is stored and `relay.start` is written to `ssl_listen.by_id`.
-
-```vala
-		/**
-		 * Ask one Windows agent to open its desktop stream.
-		 *
-		 * The caller is a controller. ''relay.start'' goes to that
-		 * agent's app connection. ''relay.ready'' is sent here when
-		 * the stream is already up, and from {@link join} when it
-		 * comes up later.
-		 *
-		 * @param request inbound RPC
-		 * @param agent_id ''agent.id'' of the machine
-		 */
-		public void start(OLLMrpc.Request request, int agent_id)
-		{
-			if (!Argus.Shared.Agent.is_a_controller(request)) {
-				return;
-			}
-			var ssl = request.connection as Net.SslConnection;
-			if (ssl == null || agent_id < 1) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
-				});
-				return;
-			}
-			var agent = ssl.app.ssl_listen.by_id.get(agent_id);
-			if (agent == null || !agent.running) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
-				});
-				return;
-			}
-			var seat = this.seat(agent_id);
-			if (seat.agent_conn != null) {
-				request.reply(new OLLMrpc.Response());
-				seat.ready(request.connection, agent_id);
-				return;
-			}
-			seat.asked = request.connection;
-			agent.write(new OLLMrpc.Notification() {
-				method = "relay.start"
-			});
-			request.reply(new OLLMrpc.Response());
-		}
-```
-
-### 5. `server/Rdp/Relay.vala` — `join` for a product agent
-
-**Why:** The second connection is the agent's certificate. The test connections are not `SslConnection`, so they keep the single pair.
-
-**Where:** the start of `join`, before `if (role == "agent")`.
-
-**Depends on:** ### 3.
-
-#### Add — at the start of `join`, before the test pair
-
-An agent `SslConnection` is stored on that id. `relay.ready` goes to the controller that called `start`. A controller `join` is not this branch.
-
-```vala
-			var ssl = request.connection as Net.SslConnection;
-			if (ssl != null && ssl.user.id > 0 && !ssl.user.is_controller && role == "agent") {
-				var id = (int) ssl.user.id;
-				this.seat(id).joined(request, id);
-				return;
-			}
-```
-
-### 6. `server/Rdp/Relay.vala` — `view` and `fresh`
-
-**Why:** The first view is forwarded from the Windows connection already waiting. A view that arrives after a byte has been forwarded does not join that middle. The server tells the agent `relay.cut` and does not answer `view` until `fresh`.
-
-**Where:** new methods, after `start`.
-
-**Depends on:** ### 4.
-
-#### Add — after `start`, the view join and the cut
-
-`view` stores this connection as the view. When `begun` is false it replies at once. When `begun` is true it keeps the request and writes `relay.cut` on the agent app connection. `fresh` clears `begun` and replies to that held request. Bytes until then are dropped by `write`.
-
-```vala
-		/**
-		 * Attach this controller stream to one agent.
-		 *
-		 * A stream that has already forwarded a byte is cut first.
-		 * The reply waits for {@link fresh}.
-		 *
-		 * @param request inbound RPC, the controller's second connection
-		 * @param agent_id ''agent.id'' of the machine
-		 */
-		public void view(OLLMrpc.Request request, int agent_id)
-		{
-			if (!Argus.Shared.Agent.is_a_controller(request)) {
-				return;
-			}
-			var ssl = request.connection as Net.SslConnection;
-			if (ssl == null || agent_id < 1) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
-				});
-				return;
-			}
-			var seat = this.seat(agent_id);
-			if (!seat.attach(request)) {
-				return;
-			}
-			var agent = ssl.app.ssl_listen.by_id.get(agent_id);
-			if (agent == null || !agent.running) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
-				});
-				return;
-			}
-			seat.holding = request;
-			agent.write(new OLLMrpc.Notification() {
-				method = "relay.cut"
-			});
-		}
-
-		/**
-		 * Mark the agent's new Windows connection as the start.
-		 *
-		 * The next forwarded byte is the first byte of that connection.
-		 *
-		 * @param request inbound RPC on the agent stream
-		 */
-		public void fresh(OLLMrpc.Request request)
-		{
-			var seat = this.seat_of(request.connection);
-			request.reply(new OLLMrpc.Response());
-			if (seat == null) {
-				return;
-			}
-			seat.release();
-		}
-```
-
-### 7. `server/Rdp/Relay.vala` — `write`
-
-**Why:** Product bytes go to that seat's other side. Until the view exists, and while a cut is waiting, the chunk is dropped. The test pair is unchanged.
-
-**Where:** `write`, the lines that choose `other`, and after `other.write`.
-
-**Depends on:** ### 6.
-
-#### Remove
-
-```vala
-			var other = this.agent_conn;
-			if (request.connection == this.agent_conn) {
-				other = this.view_conn;
-			}
-			request.reply(new OLLMrpc.Response());
-			if (other == null || chunk.get_size() == 0) {
-				return;
-			}
-```
-
-#### Replace with
-
-```vala
-			var seat = this.seat_of(request.connection);
-			var other = this.agent_conn;
-			if (seat == null && request.connection == this.agent_conn) {
-				other = this.view_conn;
-			}
-			request.reply(new OLLMrpc.Response());
-			if (seat != null) {
-				seat.forward(request.connection, chunk);
-				return;
-			}
-			if (other == null || chunk.get_size() == 0) {
-				return;
-			}
-```
-
-`Seat.forward` writes the chunk and remembers that a byte moved. The test pair still uses `other.write(note)` below this.
-
-### 8. `docs/rpc-commands.md` — the three calls and two notifications
-
-**Why:** A new method and a new notification are written here in the same change.
-
-**Where:** the Remote desktop section, after `relay.data`.
-
-**Depends on:** ### 1.
-
-#### Add — after `relay.data`, the start path
-
-```markdown
-### `Relay.start`
-
-- 🔷 Socket: the app socket. The first connection.
-- 🔷 Direction: controller calls the server.
-- 🔷 Argument `i`: `agent.id`.
-- 🔷 The server writes notification `relay.start` on that agent's app connection. No arguments. That is not the desktop.
-- 🔷 Reply: empty success. An unknown or disconnected agent is `unknown agent`. A caller that is not a controller is `controller only`.
-- 🔷 When that agent has already joined, the reply is followed by notification `relay.ready` on this controller connection.
-
-### `relay.start`
-
-- 🔷 Notification on the agent's app connection. No arguments. The agent opens the second connection once Remote Desktop is on.
-
-### `relay.ready`
-
-- 🔷 Notification on the controller connection that called `Relay.start`. Argument `i`: `agent.id`. The stream has started. This is not the desktop bytes.
-
-### `Relay.view`
-
-- 🔷 Socket: the controller's second connection to the same port.
-- 🔷 Argument `i`: `agent.id`.
-- 🔷 Reply: empty success, then both sides are forwarded.
-- 🔷 A view that arrives after a byte has already been forwarded gets no reply until `Relay.fresh`. The server writes notification `relay.cut` on that agent's app connection.
-
-### `relay.cut`
-
-- 🔷 Notification on the agent's app connection. No arguments. The agent closes its connection to Windows and opens a new one, then calls `Relay.fresh`.
-
-### `Relay.fresh`
-
-- 🔷 Socket: the agent stream connection. No arguments.
-- 🔷 Reply: empty success. The held `Relay.view` is answered. Forwarding starts at the next byte, which is the first byte of the new Windows connection.
-- 🚫 The server does not read Remote Desktop messages to find this cut.
-```
-
-### 9. `agent/Application.vala` — `stream_connection` and the two notifications
-
-**Why:** The app connection stays the first socket. The desktop is another connection to the same host and port. `relay.start` and `relay.cut` are handled on Windows only.
-
-**Where:** `stream_connection` is a new method after `open_connection`. The two cases go in `notification`, immediately before `default:`.
-
-**Depends on:** ### 8.
-
-#### Add — after `open_connection`, a second socket that is not stored
-
-```vala
-		/**
-		 * Open another connection to the same server.
-		 *
-		 * {@link connection} stays the app session. This socket
-		 * is the desktop stream. The certificate files are the
-		 * ones {@link open_connection} uses.
-		 *
-		 * @return the stream, or null when the server file or the handshake fails
-		 */
-		internal OLLMrpc.Transport.TlsClient? stream_connection()
-		{
-#if LINUX
-			var dir = Argus.AGENT_DATA_DIR;
-#else
-			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
-#endif
-			var text = "";
-			try {
-				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return null;
-			}
-			text = text.strip();
-			var mark = text.last_index_of(":");
-			if (text == "" || mark < 1) {
-				return null;
-			}
-			var host = text.substring(0, mark);
-			var port = int.parse(text.substring(mark + 1));
-			if (port <= 0 || port > 65535) {
-				return null;
-			}
-			var tls_files = new OLLMrpc.Transport.Cert() {
-				dir = dir,
-				cert_pem = "client.pem",
-				key_pem = "client-key.pem",
-				cn = "argus-agent",
-			};
-			tls_files.ensure();
-			var opened = new OLLMrpc.Transport.TlsClient(host, (uint16) port) {
-				accept_any = true,
-				tls_certificate = tls_files.certificate
-			};
-			opened.timeout = 5;
-			try {
-				opened.open();
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return null;
-			}
-			return opened;
-		}
-```
-
-#### Add — in `notification`, immediately before `default:`
-
-```vala
-				case "relay.start":
-#if WINDOWS
-					if (Service.current != null) {
-						Service.current.relay_start();
-					}
-#endif
-					return;
-				case "relay.cut":
-#if WINDOWS
-					if (Service.current == null) {
-						return;
-					}
-					if (Service.current.tunnel == null) {
-						Service.current.relay_start();
-						return;
-					}
-					Service.current.tunnel.reopen();
-#endif
-					return;
-```
-
-### 10. `agent/Win32/Service.vala` — start once Remote Desktop is on
-
-**Why:** `relay.start` before `desktop()` waits. `relay.cut` closes Windows and dials it again. The service object has to be visible to `Application.notification`.
-
-**Where:** `current` becomes `internal`. `desktop_on`, `start_asked`, and `tunnel` are new fields next to `ticks`. `tunnel` is `internal` because the cut notification uses it. `desktop()` sets `desktop_on` only after TermService is running. `relay_start` is the new method after `desktop`.
-
-**Depends on:** ### 9 and ### 11.
-
-#### Remove
-
-```vala
-		private static Service current;
-```
-
-#### Replace with
-
-```vala
-		internal static Service current;
-```
-
-#### Add — after `ticks`, the desktop gate and the one tunnel
-
-```vala
-		private bool desktop_on = false;
-		private bool start_asked = false;
-		internal Argus.Agent.Rdp.Tunnel? tunnel;
-```
-
-#### Remove
-
-```vala
-			if (!Win32.StartServiceW(svc, 0, null) &&
-				Win32.GetLastError() != Win32.ERROR_SERVICE_ALREADY_RUNNING) {
-				GLib.warning("remote desktop service start %u", Win32.GetLastError());
-			}
-			Win32.CloseServiceHandle(svc);
-			Win32.CloseServiceHandle(scm);
-		}
-```
-
-#### Replace with
-
-```vala
-			var started = Win32.StartServiceW(svc, 0, null) ||
-				Win32.GetLastError() == Win32.ERROR_SERVICE_ALREADY_RUNNING;
-			if (!started) {
-				GLib.warning("remote desktop service start %u", Win32.GetLastError());
-			}
-			Win32.CloseServiceHandle(svc);
-			Win32.CloseServiceHandle(scm);
-			if (!started) {
-				return;
-			}
-			this.desktop_on = true;
-			if (this.start_asked) {
-				this.relay_start();
-			}
-		}
-```
-
-#### Add — after `desktop`, open the tunnel
-
-```vala
-		/**
-		 * Open the desktop stream once Remote Desktop is on.
-		 *
-		 * A start that arrives earlier waits for {@link desktop}.
-		 * A tunnel that is already open is left as it is.
-		 */
-		internal void relay_start()
-		{
-			if (!this.desktop_on) {
-				this.start_asked = true;
-				return;
-			}
-			this.start_asked = false;
-			if (this.tunnel != null) {
-				return;
-			}
-			var rpc = this.application.stream_connection();
-			if (rpc == null) {
-				return;
-			}
-			this.tunnel = new Argus.Agent.Rdp.Tunnel();
-			try {
-				this.tunnel.open_windows(rpc);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				this.tunnel = null;
-			}
-		}
-```
-
-### 11. `agent/Rdp/Tunnel.vala` — `open_windows`, `handle_stream`, and `reopen`
-
-**Why:** The product dials `127.0.0.1:3389` and the real server. `run` stays the test path and still exits the process. This path does not. The desktop thread is the `while`. `handle_stream` is one read.
-
-**Where:** new fields and methods after `carry`.
-
-**Depends on:** ### 9.
-
-#### Add — after `carry`, the Windows stream
-
-`dial` is a field because `open_windows` returns while the read thread still uses it. `buf` is a property. The desktop thread allocates it. `reopen` closes the Windows socket. `handle_stream` discards that read, dials again, and calls `Relay.fresh` before the thread reads another byte.
-
-```vala
-		private GLib.SocketClient dial;
-		private uint8[] buf { get; set; }
-		public GLib.SocketConnection? plain;
-		public OLLMrpc.Transport.TlsClient? rpc;
-		public bool again;
-
-		/**
-		 * Dial Windows on loopback and join the server as ''agent''.
-		 *
-		 * The app connection is not this socket. ''Relay.write''
-		 * carries bytes read from port 3389. ''relay.data'' is
-		 * written back to that port.
-		 *
-		 * @param rpc the agent's second connection
-		 */
-		public void open_windows(OLLMrpc.Transport.TlsClient rpc) throws GLib.Error
-		{
-			this.dial = new GLib.SocketClient();
-			this.dial.timeout = 10;
-			this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
-			try {
-				this.plain.socket.set_option(6, 1, 1);
-			} catch (GLib.Error e) {
-				GLib.warning("nodelay: %s", e.message);
-			}
-			this.rpc = rpc;
-			this.rpc.notification.connect((notif) => {
-				if (notif.method != "relay.data" || notif.args.size < 1 || this.plain == null) {
-					return;
-				}
-				var blob = (GLib.Bytes) notif.args.get(0).get_boxed();
-				unowned uint8[] data = blob.get_data();
-				if (data == null) {
-					return;
-				}
-				size_t off = 0;
-				while (off < data.length) {
-					try {
-						off += this.plain.output_stream.write(data[off:data.length]);
-					} catch (GLib.Error e) {
-						GLib.warning("desktop write: %s", e.message);
-						return;
-					}
-				}
-			});
-			var joined = this.rpc.call(new OLLMrpc.Request() {
-				method = "Relay.join",
-				args = OLLMrpc.args("s", "agent")
-			});
-			if (joined.error != null) {
-				GLib.warning("join: %s", joined.error.message);
-				return;
-			}
-			this.rpc.watch();
-			new GLib.Thread<int>("desktop", () => {
-				this.buf = new uint8[16384];
-				while (this.handle_stream()) {
-				}
-				return 0;
-			});
-		}
-
-		/**
-		 * Read one chunk from Windows and write it to the server.
-		 *
-		 * A cut dials port 3389 again and calls ''Relay.fresh''.
-		 * That chunk is not copied.
-		 *
-		 * @return true when the desktop thread should read again
-		 */
-		private bool handle_stream()
-		{
-			ssize_t n = 0;
-			try {
-				n = this.plain.input_stream.read(this.buf);
-			} catch (GLib.Error e) {
-				if (!this.again) {
-					GLib.warning("desktop read: %s", e.message);
-					return false;
-				}
-			}
-			if (this.again) {
-				this.again = false;
-				try {
-					this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
-				} catch (GLib.Error e) {
-					GLib.warning("desktop: %s", e.message);
-					return false;
-				}
-				try {
-					var mark = this.rpc.call(new OLLMrpc.Request() {
-						method = "Relay.fresh"
-					});
-					if (mark.error != null) {
-						GLib.warning("fresh: %s", mark.error.message);
-						return false;
-					}
-				} catch (GLib.Error e) {
-					GLib.warning("fresh: %s", e.message);
-					return false;
-				}
-				return true;
-			}
-			if (n <= 0) {
-				return false;
-			}
-			var chunk = new uint8[n];
-			GLib.Memory.copy((uint8[]) chunk, this.buf, n);
-			var held = GLib.Value(typeof(GLib.Bytes));
-			held.set_boxed(new GLib.Bytes(chunk));
-			var request = new OLLMrpc.Request() {
-				method = "Relay.write"
-			};
-			request.args.add(held);
-			try {
-				var response = this.rpc.call(request);
-				if (response.error != null) {
-					GLib.warning("desktop write: %s", response.error.message);
-					return false;
-				}
-			} catch (GLib.Error e) {
-				GLib.warning("desktop call: %s", e.message);
-				return false;
-			}
-			return true;
-		}
-
-		/**
-		 * Close the Windows socket so the read dials a new one.
-		 */
-		public void reopen()
-		{
-			this.again = true;
-			if (this.plain == null) {
-				return;
-			}
-			try {
-				this.plain.close();
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-			}
-		}
-```
-
-### 12. `agent/meson.build` and `docs/meson.build` — compile the tunnel into the Windows agent
-
-**Why:** `Tunnel.vala` is only in the test binary today.
-
-**Where:** the Windows `sources += files(` list in `agent/meson.build`, and the agent source list in `docs/meson.build`.
-
-**Depends on:** ### 11.
-
-#### Add — `agent/meson.build`, in the Windows `sources += files(`, after `Win32/main.vala`
-
-The Windows agent compiles the tunnel. Linux does not.
-
-```meson
-		'Rdp/Tunnel.vala',
-```
-
-#### Add — `docs/meson.build`, after `../agent/Application.vala`
-
-```meson
-  '../agent/Rdp/Tunnel.vala',
-```
-
-### 13. `controller/store/MachineGeneral.vala` — `start_desktop`
-
-**Why:** The hold starts the flow by this call. The store already has the app connection and the loaded agent. The button is Phase 5.
-
-**Where:** a new method after `load_section`, before the class closing brace.
-
-**Depends on:** ### 4.
-
-#### Add — after `load_section`, the ask for this machine
-
-No call when the page has not loaded a machine. `relay.ready` is the later notice that the stream is up.
-
-```vala
-		/**
-		 * Ask the server to start this machine's desktop stream.
-		 *
-		 * Phase 5's screen button calls this on touch and hold.
-		 * ''relay.ready'' is the later notice that the stream is up.
-		 */
-		public void start_desktop()
-		{
-			if (this.loaded_agent < 1) {
-				return;
-			}
-			var agent_id = this.loaded_agent;
-			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Relay.start",
-				args = OLLMrpc.args("i", agent_id)
-			}, (obj, res) => {
-				try {
-					this.app.rpc.call.end(res);
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-				}
-			});
-		}
-```
 
 ---
 
@@ -846,18 +128,24 @@ No call when the page has not loaded a machine. `relay.ready` is the later notic
 - 🔷 The button is shown only when that machine's `OsVersion.supports_rdp()` is true. Unknown and Home show nothing.
 - 🔷 The RDP row sits under Assets on the left. It shows while a session tab exists, and it goes when the last tab is gone. `controller/TabList.vala` lists Assets above Distributables.
 - 🔷 On Android the viewer is that same RDP page.
-- 💩 ⏳ The button sits at the top of the General page, above the key-value list, on a bar that belongs to that page. Not in the window header. Not on the detail tab switcher.
+- 🔷 The screen button sits at the top of the General page, in the bar where the other machine tabs put search. General has no search. The bar belongs to that page. Not in the window header. Not on the detail tab switcher.
 - 🚫 A text button labeled Connect to desktop.
 - 🚫 The starter on the machine list, or on Agents.
-- ℹ️ A desktop inside the controller window links `libfreerdp-client` and paints into GTK. The localhost port from Phase 2 is the socket that viewer reads.
+- ℹ️ A desktop inside the controller window links `libfreerdp-client` and paints into GTK. The localhost port the viewer already listens on is the socket FreeRDP reads. `Viewer.run` stays the test. This phase does not change it.
 - 🚫 A separate viewer window.
+- ℹ️ The X, the key, and a quiet tab are Phase 6. This phase adds the tab and shows the selected picture. An unselected tab stays connected. `Rdp.drop` removes a tab and hides the row when none remain. Phase 6's X calls `drop`, and that phase is what tells the agent to let go of the Windows session.
+- ℹ️ The hold is `HoldButton`. That is two seconds. `short_click` is not connected.
+- 💩 The Windows certificate is accepted. FreeRDP dials `127.0.0.1`, so the certificate name will not match that host.
+- 💩 An empty hostname uses `computer_name` for the tab.
+- 💩 The picture uses 1280×720 when the page has no size yet.
+- ℹ️ The controller links `freerdp3` and `winpr3` on every host, including Android. The test's optional dependency stays optional.
 
 ```
 web-03, General
 +------------------------------------------------------------------+
 | [ General | Users | Windows programs | Interfaces | Storage ]    |
 +------------------------------------------------------------------+
-|                                                          [screen]|
+| [screen]                                                         |
 |  Computer                                                        |
 |  hostname            web-03                                      |
 |  operating system    Microsoft Windows 11 Pro                    |
@@ -885,6 +173,1180 @@ web-03, General
 +------------------+------------------------------------------------------+
 ```
 
+Edits are **Remove** / **Replace with** / **Add** from the tree. Verify the surrounding lines before applying.
+
+### 1. `controller/store/MachineGeneral.vala` — `desktop` and `hostname`
+
+**Why:** The button is shown only when this machine's `OsVersion.supports_rdp()` is true. The tab title is the hostname. An empty hostname uses `computer_name`.
+
+**Where:** the `loaded_agent` field, the agent change at the start of `load`, and `load_section` after an empty row list returns.
+
+**Depends on:** none.
+
+#### Remove
+
+```vala
+		private int loaded_agent = -1;
+```
+
+#### Replace with
+
+```vala
+		public int loaded_agent { get; private set; default = -1; }
+		public bool desktop { get; private set; default = false; }
+		public string hostname { get; private set; default = ""; }
+```
+
+#### Remove
+
+```vala
+			if (agent_id != this.loaded_agent && this.items_store.size > 0) {
+				this.items = new Gee.ArrayList<KeyValue>();
+			}
+```
+
+#### Replace with
+
+```vala
+			if (agent_id != this.loaded_agent) {
+				this.desktop = false;
+				this.hostname = "";
+				if (this.items_store.size > 0) {
+					this.items = new Gee.ArrayList<KeyValue>();
+				}
+			}
+```
+
+#### Add — in `load_section`, after the empty-row return, before the column loop
+
+An `os_version` row sets `desktop`. A `system_info` row sets `hostname`.
+
+```vala
+			if (source == "os_version") {
+				var version = (Argus.Shared.OSQuery.OsVersion) rows.get(0);
+				this.desktop = version.supports_rdp();
+			}
+			if (source == "system_info") {
+				var info = (Argus.Shared.OSQuery.SystemInfo) rows.get(0);
+				this.hostname = info.hostname;
+				if (this.hostname == "") {
+					this.hostname = info.computer_name;
+				}
+			}
+```
+
+### 2. `controller/tab/Asset/Machine/General.vala` — the screen button
+
+**Why:** Touch and hold calls `start_desktop` and opens the RDP page. A short press does not. The button sits in the page bar, and it is shown only when `desktop` is true.
+
+**Where:** a field for the window, the start of the constructor, and the bar appended before the list.
+
+**Depends on:** ### 1 and ### 4.
+
+#### Add — field, after `list`
+
+```vala
+		private Argus.Controller.Window window;
+```
+
+#### Add — first line of the constructor body, after `Object(...)`
+
+```vala
+			this.window = window;
+```
+
+#### Remove
+
+```vala
+			this.append(overlay);
+```
+
+#### Replace with
+
+```vala
+			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
+				css_classes = { "machines-filter" },
+				margin_start = 12,
+				margin_end = 12,
+				margin_top = 8,
+				margin_bottom = 4,
+				visible = false
+			};
+			var screen = new Argus.Controller.Widget.HoldButton() {
+				icon_name = "video-display-symbolic",
+				halign = Gtk.Align.START,
+				valign = Gtk.Align.CENTER
+			};
+			screen.confirmed.connect(() => {
+				var agent_id = this.store.loaded_agent;
+				var name = this.store.hostname;
+				this.window.open_desktop(agent_id, name);
+				this.store.start_desktop();
+			});
+			bar.append(screen);
+			this.store.notify["desktop"].connect(() => {
+				bar.visible = this.store.desktop;
+			});
+			this.append(bar);
+			this.append(overlay);
+```
+
+### 3. `controller/TabList.vala` — the RDP row
+
+**Why:** The row sits under Assets while a session tab exists, and it goes when the last tab is gone. Selecting it shows the RDP page. Hiding it while it is selected returns to Assets.
+
+**Where:** `places` keeps the list that is local today. `show_rdp` and `hide_rdp` are new methods before the class closing brace.
+
+**Depends on:** none.
+
+#### Remove
+
+```vala
+			var list = new Gtk.ListBox() {
+```
+
+#### Replace with
+
+```vala
+			this.places = new Gtk.ListBox() {
+```
+
+#### Add — immediately after that initializer's `};`
+
+The rest of the constructor keeps the name `list`.
+
+```vala
+			var list = this.places;
+```
+
+#### Add — fields, next to `titles`
+
+```vala
+		private Gtk.ListBox places;
+		private Gtk.ListBoxRow? rdp_row;
+```
+
+#### Add — `show_rdp` and `hide_rdp`, before the class closing brace
+
+`show_rdp` inserts the row after Assets and selects it. `hide_rdp` removes it. Phase 6's last X is what calls `hide_rdp`.
+
+```vala
+		/**
+		 * Show RDP under Assets and select it.
+		 *
+		 * A row that is already there is only selected.
+		 */
+		public void show_rdp()
+		{
+			if (this.rdp_row != null) {
+				this.places.select_row(this.rdp_row);
+				return;
+			}
+			var row = new Gtk.ListBoxRow();
+			row.child = new Gtk.Label("RDP") {
+				xalign = 0,
+				margin_top = 6,
+				margin_bottom = 6,
+				margin_start = 12,
+				margin_end = 12
+			};
+			row.name = "rdp";
+			this.places.insert(row, 2);
+			this.rdp_row = row;
+			this.places.select_row(row);
+		}
+
+		/**
+		 * Remove the RDP row.
+		 *
+		 * When that row was selected, Assets is selected.
+		 */
+		public void hide_rdp()
+		{
+			if (this.rdp_row == null) {
+				return;
+			}
+			var selected = this.places.get_selected_row() == this.rdp_row;
+			var row = this.rdp_row;
+			this.rdp_row = null;
+			this.places.remove(row);
+			if (!selected) {
+				return;
+			}
+			this.places.select_row(this.places.get_row_at_index(1));
+		}
+```
+
+### 4. `controller/Window.vala` — the page and the host
+
+**Why:** The hold switches this window to the RDP page. The second connection dials the host that answered. The page is added once, named `rdp`.
+
+**Where:** `host`, `tabs`, `pages`, and `rdp` are fields. The constructor stores the host and the two locals. `open_desktop` is a new method after `check_connection`.
+
+**Depends on:** ### 3 and ### 7.
+
+#### Add — fields, after `issued`
+
+```vala
+		public string host { get; set; default = ""; }
+		private TabList tabs;
+		private Gtk.Stack pages;
+		private Tab.Rdp rdp;
+```
+
+#### Remove
+
+```vala
+		public Window(
+			Application app,
+			Connection connection,
+			Argus.Shared.Registration.Data issued
+		) {
+			this.app = app;
+			this.connection = connection;
+			this.issued = issued;
+```
+
+#### Replace with
+
+```vala
+		public Window(
+			Application app,
+			Connection connection,
+			Argus.Shared.Registration.Data issued,
+			string host
+		) {
+			this.app = app;
+			this.connection = connection;
+			this.issued = issued;
+			this.host = host;
+```
+
+#### Remove
+
+```vala
+			var tabs = new TabList();
+```
+
+#### Replace with
+
+```vala
+			this.tabs = new TabList();
+			var tabs = this.tabs;
+```
+
+#### Remove
+
+```vala
+			var pages = new Gtk.Stack() {
+```
+
+#### Replace with
+
+```vala
+			this.pages = new Gtk.Stack() {
+```
+
+#### Add — immediately after that initializer's `};`
+
+```vala
+			var pages = this.pages;
+```
+
+#### Add — after `pages.add_named(new Tab.Settings(this), "settings");`
+
+```vala
+			this.rdp = new Tab.Rdp(this);
+			pages.add_named(this.rdp, "rdp");
+```
+
+#### Add — after `check_connection`, before the class closing brace
+
+```vala
+		/**
+		 * Open this machine on the RDP page.
+		 *
+		 * A machine that already has a tab is selected.
+		 * A new machine adds a tab. The sidebar row is shown.
+		 *
+		 * @param agent_id ''agent.id'' of the machine
+		 * @param name tab title, the hostname
+		 */
+		public void open_desktop(int agent_id, string name)
+		{
+			this.rdp.open(agent_id, name);
+			this.tabs.show_rdp();
+		}
+```
+
+### 5. `controller/android/Window.vala` — the same page
+
+**Why:** Android uses this same RDP page. `open` is where the desktop window's constructor builds the pages.
+
+**Where:** the same fields. `open` gains `host`. The page is added in `open`, and `open_desktop` matches ### 4.
+
+**Depends on:** ### 4.
+
+#### Add — fields, after `issued`
+
+```vala
+		public string host { get; set; default = ""; }
+		private TabList tabs;
+		private Gtk.Stack pages;
+		private Tab.Rdp rdp;
+```
+
+#### Remove
+
+```vala
+		public void open(
+			Connection connection,
+			Argus.Shared.Registration.Data issued
+		) {
+```
+
+#### Replace with
+
+```vala
+		public void open(
+			Connection connection,
+			Argus.Shared.Registration.Data issued,
+			string host
+		) {
+```
+
+#### Add — in `open`, after `this.issued = issued;`
+
+```vala
+			this.host = host;
+```
+
+#### Remove
+
+```vala
+			var tabs = new TabList();
+```
+
+#### Replace with
+
+```vala
+			this.tabs = new TabList();
+			var tabs = this.tabs;
+```
+
+#### Remove
+
+```vala
+			var pages = new Gtk.Stack() {
+```
+
+#### Replace with
+
+```vala
+			this.pages = new Gtk.Stack() {
+```
+
+#### Add — immediately after that initializer's `};`
+
+```vala
+			var pages = this.pages;
+```
+
+#### Add — after `pages.add_named(new Tab.Settings(this), "settings");`
+
+```vala
+			this.rdp = new Tab.Rdp(this);
+			pages.add_named(this.rdp, "rdp");
+```
+
+#### Add — `open_desktop`, the same method as ### 4, before the class closing brace
+
+### 6. `controller/dialog/Bootstrap.vala` — pass the host that answered
+
+**Why:** `use` already has that host. The window needs it for the second connection.
+
+**Where:** the two places that open the window, inside the connect callback in `use`.
+
+**Depends on:** ### 4 and ### 5.
+
+#### Remove
+
+```vala
+				app.window.open(connection, issued);
+```
+
+#### Replace with
+
+```vala
+				app.window.open(connection, issued, host);
+```
+
+#### Remove
+
+```vala
+				var window = new Window(app, connection, issued);
+```
+
+#### Replace with
+
+```vala
+				var window = new Window(app, connection, issued, host);
+```
+
+### 7. `controller/tab/Rdp.vala` — the page
+
+**Why:** One page holds every machine's picture. The selected tab is the picture in front. A second machine adds a tab. `relay.ready` starts that machine's FreeRDP. `drop` removes a tab and hides the row when none remain. Phase 6's X calls `drop`.
+
+**Where:** new file. The copyright comment is the one on `controller/Rdp/Viewer.vala`.
+
+**Depends on:** ### 4 and ### 9.
+
+#### Add — new file `controller/tab/Rdp.vala`
+
+```vala
+namespace Argus.Controller.Tab
+{
+	/**
+	 * Remote desktops for this window.
+	 *
+	 * One tab per machine. The selected tab is the picture
+	 * in front. {@link Argus.Controller.Rdp.Screen} paints it.
+	 *
+	 * == Example ==
+	 *
+	 * {{{
+	 * rdp.open(4, "web-03");
+	 * }}}
+	 */
+	public class Rdp : Gtk.Box
+	{
+		private Argus.Controller.Window window;
+		private Gtk.Stack pictures;
+		private Adw.ToggleGroup group;
+		private Gee.HashMap<int, Argus.Controller.Rdp.Screen> screens;
+
+		/**
+		 * Build the picture stack and the tab bar.
+		 *
+		 * @param window the window this page belongs to
+		 */
+		public Rdp(Argus.Controller.Window window)
+		{
+			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
+			this.window = window;
+			this.hexpand = true;
+			this.vexpand = true;
+			this.screens = new Gee.HashMap<int, Argus.Controller.Rdp.Screen>();
+			this.pictures = new Gtk.Stack() {
+				hexpand = true,
+				vexpand = true
+			};
+			this.group = new Adw.ToggleGroup() {
+				orientation = Gtk.Orientation.HORIZONTAL,
+				hexpand = true
+			};
+			this.group.notify["active-name"].connect(() => {
+				var name = this.group.active_name;
+				if (name == null || name == "") {
+					return;
+				}
+				this.pictures.visible_child_name = name;
+			});
+			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8) {
+				css_classes = { "machines-filter" },
+				margin_start = 12,
+				margin_end = 12,
+				margin_top = 4,
+				margin_bottom = 8
+			};
+			bar.append(this.group);
+			this.append(this.pictures);
+			this.append(bar);
+			this.window.app.rpc.notification.connect((notification) => {
+				if (notification.method != "relay.ready" || notification.args.size < 1) {
+					return;
+				}
+				var agent_id = notification.args.get(0).get_int();
+				if (!this.screens.has_key(agent_id)) {
+					return;
+				}
+				var screen = this.screens.get(agent_id);
+				if (screen.started) {
+					return;
+				}
+				screen.started = true;
+				screen.begin();
+			});
+		}
+
+		/**
+		 * Select this machine, or add its tab.
+		 *
+		 * @param agent_id ''agent.id'' of the machine
+		 * @param name tab title
+		 */
+		public void open(int agent_id, string name)
+		{
+			var key = agent_id.to_string();
+			if (this.screens.has_key(agent_id)) {
+				this.group.active_name = key;
+				return;
+			}
+			var screen = new Argus.Controller.Rdp.Screen(this.window, agent_id);
+			this.screens.set(agent_id, screen);
+			this.pictures.add_named(screen.picture, key);
+			this.group.add(new Adw.Toggle() {
+				name = key,
+				label = name
+			});
+			this.group.active_name = key;
+		}
+
+		/**
+		 * Remove one machine's tab.
+		 *
+		 * The local picture stops. The last tab hides the RDP row.
+		 * Phase 6's X calls this. Letting go of the Windows session
+		 * is that phase.
+		 *
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		public void drop(int agent_id)
+		{
+			if (!this.screens.has_key(agent_id)) {
+				return;
+			}
+			var screen = this.screens.get(agent_id);
+			this.screens.unset(agent_id);
+			screen.stop();
+			var key = agent_id.to_string();
+			var child = this.pictures.get_child_by_name(key);
+			if (child != null) {
+				this.pictures.remove(child);
+			}
+			var toggle = this.group.get_toggle_by_name(key);
+			if (toggle != null) {
+				this.group.remove(toggle);
+			}
+			if (this.screens.size > 0) {
+				return;
+			}
+			this.window.tabs_hide_rdp();
+		}
+	}
+}
+```
+
+`Window.tabs_hide_rdp` is the one-line call, on both window classes, next to `open_desktop`:
+
+```vala
+		/**
+		 * Hide the RDP row. {@link Tab.Rdp.drop} calls this
+		 * when the last tab is gone.
+		 */
+		public void tabs_hide_rdp()
+		{
+			this.tabs.hide_rdp();
+		}
+```
+
+### 8. `controller/Rdp/Viewer.vala` — `serve`
+
+**Why:** The product listens on loopback and splices that socket to `Relay.view`. `run` stays the test. This path does not exit the process. `watch` runs on the caller, which is the GTK thread. `view` is the thread. Each call that throws has its own try.
+
+**Where:** `view_port`, `rpc`, and `plain` are fields. `serve` is a new method after `carry`. `view` is the next method.
+
+**Depends on:** none.
+
+#### Add — fields, after the class opening
+
+```vala
+		public uint16 view_port { get; private set; }
+		private OLLMrpc.Transport.TlsClient rpc;
+		private GLib.SocketConnection? plain;
+```
+
+#### Add — after `carry`, the product splice
+
+`plain` is null until FreeRDP connects. `relay.data` before that is dropped. Windows sends nothing until it has the client's opening bytes.
+
+```vala
+		/**
+		 * Listen on loopback and carry that socket to one agent.
+		 *
+		 * {@link view_port} is set before this returns. FreeRDP
+		 * connects there. ''Relay.view'' is the join. ''run'' is
+		 * the test and is not this method.
+		 *
+		 * @param host server that answered
+		 * @param port server port
+		 * @param certificate this controller's certificate
+		 * @param database the server CA
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		public void serve(
+			string host,
+			uint16 port,
+			GLib.TlsCertificate certificate,
+			GLib.TlsDatabase database,
+			int agent_id
+		) throws GLib.Error
+		{
+			var listener = new GLib.SocketListener();
+			var where = new GLib.InetSocketAddress(
+				new GLib.InetAddress.loopback(GLib.SocketFamily.IPV4), 0);
+			GLib.SocketAddress? bound = null;
+			listener.add_address(
+				where, GLib.SocketType.STREAM, GLib.SocketProtocol.TCP, null, out bound);
+			this.view_port = ((GLib.InetSocketAddress) bound).get_port();
+			this.rpc = new OLLMrpc.Transport.TlsClient(host, port) {
+				tls_certificate = certificate,
+				tls_database = database
+			};
+			this.rpc.timeout = 5;
+			this.rpc.notification.connect((notif) => {
+				if (notif.method != "relay.data" || notif.args.size < 1 || this.plain == null) {
+					return;
+				}
+				var blob = (GLib.Bytes) notif.args.get(0).get_boxed();
+				unowned uint8[] data = blob.get_data();
+				if (data == null) {
+					return;
+				}
+				size_t off = 0;
+				while (off < data.length) {
+					try {
+						off += this.plain.output_stream.write(data[off:data.length]);
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+						return;
+					}
+				}
+			});
+			this.rpc.watch();
+			new GLib.Thread<int>("view", () => {
+				this.view(listener, agent_id);
+				return 0;
+			});
+		}
+
+		/**
+		 * Join one agent and copy until that socket closes.
+		 *
+		 * This is the view thread. ''Relay.view'', the accept,
+		 * the read, and ''Relay.write'' each have their own try.
+		 *
+		 * @param listener the loopback listen
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		private void view(GLib.SocketListener listener, int agent_id)
+		{
+			OLLMrpc.Response joined;
+			try {
+				joined = this.rpc.call(new OLLMrpc.Request() {
+					method = "Relay.view",
+					args = OLLMrpc.args("i", agent_id)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return;
+			}
+			if (joined.error != null) {
+				GLib.warning("%s", joined.error.message);
+				return;
+			}
+			try {
+				this.plain = listener.accept(null);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return;
+			}
+			try {
+				this.plain.socket.set_option(6, 1, 1);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			var buf = new uint8[16384];
+			while (true) {
+				ssize_t n = 0;
+				try {
+					n = this.plain.input_stream.read(buf);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					return;
+				}
+				if (n <= 0) {
+					return;
+				}
+				var chunk = new uint8[n];
+				GLib.Memory.copy((uint8[]) chunk, buf, n);
+				var held = GLib.Value(typeof(GLib.Bytes));
+				held.set_boxed(new GLib.Bytes(chunk));
+				var request = new OLLMrpc.Request() {
+					method = "Relay.write"
+				};
+				request.args.add(held);
+				OLLMrpc.Response response;
+				try {
+					response = this.rpc.call(request);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					return;
+				}
+				if (response.error != null) {
+					GLib.warning("%s", response.error.message);
+					return;
+				}
+			}
+		}
+```
+
+### 9. `controller/Rdp/Screen.vala` — paint with FreeRDP
+
+**Why:** FreeRDP connects to the loopback port and asks for the Windows user and password. Drive redirection, clipboard, and audio stay off. The GDI buffer is copied onto the picture. The Windows certificate is accepted because the dial is `127.0.0.1`.
+
+**Where:** new file. The copyright comment is the one on `controller/Rdp/Viewer.vala`.
+
+**Depends on:** ### 8 and ### 10.
+
+#### Add — new file `controller/Rdp/Screen.vala`
+
+```vala
+namespace Argus.Controller.Rdp
+{
+	/**
+	 * One machine's picture.
+	 *
+	 * FreeRDP dials the loopback port {@link Viewer} is reading.
+	 * {@link begin} runs after ''relay.ready''. The password
+	 * dialog is FreeRDP's authenticate callback.
+	 *
+	 * == Example ==
+	 *
+	 * {{{
+	 * var screen = new Argus.Controller.Rdp.Screen(window, 4);
+	 * screen.begin();
+	 * }}}
+	 */
+	public class Screen : GLib.Object
+	{
+		/**
+		 * The picture for this machine.
+		 */
+		public Gtk.Picture picture { get; private set; }
+		/**
+		 * True after ''relay.ready'' has started this picture.
+		 */
+		public bool started = false;
+		private static Gee.ArrayList<Screen> live = new Gee.ArrayList<Screen>();
+		private Argus.Controller.Window window;
+		private int agent_id;
+		private FreeRDP.Instance? instance;
+		private string user = "";
+		private string pass = "";
+
+		/**
+		 * @param window the window that owns the certificate
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		public Screen(Argus.Controller.Window window, int agent_id)
+		{
+			this.window = window;
+			this.agent_id = agent_id;
+			this.picture = new Gtk.Picture() {
+				hexpand = true,
+				vexpand = true,
+				can_shrink = true,
+				content_fit = Gtk.ContentFit.CONTAIN
+			};
+		}
+
+		/**
+		 * Open the splice and run FreeRDP on its own thread.
+		 */
+		public void begin()
+		{
+			var pem = this.window.issued.client_certificate + "\n" + this.window.issued.private_key;
+			GLib.TlsCertificate certificate;
+			GLib.TlsDatabase trust;
+			try {
+				certificate = new GLib.TlsCertificate.from_pem(pem, pem.length);
+#if ANDROID
+				var dir = GLib.Path.build_filename(
+					GLib.Environment.get_user_config_dir(), "argusrm");
+#else
+				var dir = GLib.Environment.get_user_runtime_dir();
+#endif
+				trust = GLib.TlsFileDatabase.new(
+					GLib.Path.build_filename(dir, "argusrm-ca.pem"));
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return;
+			}
+			var viewer = new Viewer();
+			try {
+				viewer.serve(
+					this.window.host,
+					(uint16) this.window.connection.port,
+					certificate,
+					trust,
+					this.agent_id);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return;
+			}
+			this.instance = new FreeRDP.Instance();
+			if (!this.instance.context_new()) {
+				GLib.warning("desktop context");
+				return;
+			}
+			this.instance.PostConnect = Screen.connected;
+			this.instance.Authenticate = Screen.authenticate;
+			this.instance.VerifyCertificateEx = Screen.verify;
+			Screen.live.add(this);
+			unowned FreeRDP.Settings settings = this.instance.context.settings;
+			settings.set_string(FreeRDP.SettingsString.ServerHostname, "127.0.0.1");
+			settings.set_uint32(FreeRDP.SettingsUint32.ServerPort, viewer.view_port);
+			var width = this.picture.get_width();
+			var height = this.picture.get_height();
+			if (width < 64) {
+				width = 1280;
+			}
+			if (height < 64) {
+				height = 720;
+			}
+			settings.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
+			settings.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
+			settings.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
+			settings.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
+			settings.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
+			settings.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
+			new GLib.Thread<int>("screen", () => {
+				if (!this.instance.connect()) {
+					GLib.warning("desktop connect failed");
+					return 0;
+				}
+				while (!this.instance.shall_disconnect()) {
+					if (!FreeRDP.check_event_handles(this.instance.context)) {
+						break;
+					}
+					this.publish();
+				}
+				return 0;
+			});
+		}
+
+		/**
+		 * Stop this picture. {@link Argus.Controller.Tab.Rdp.drop}
+		 * calls this.
+		 */
+		public void stop()
+		{
+			Screen.live.remove(this);
+			if (this.instance == null) {
+				return;
+			}
+			this.instance.disconnect();
+			FreeRDP.gdi_free(this.instance);
+			this.instance.context_free();
+			this.instance = null;
+		}
+
+		private void publish()
+		{
+			unowned FreeRDP.Gdi? gdi = this.instance.context.gdi;
+			if (gdi == null || gdi.width < 1 || gdi.height < 1) {
+				return;
+			}
+			var width = gdi.width;
+			var height = gdi.height;
+			var stride = (int) gdi.stride;
+			var size = stride * height;
+			var copy = new uint8[size];
+			GLib.Memory.copy((void*) copy, gdi.primary_buffer, size);
+			var bytes = new GLib.Bytes(copy);
+			GLib.Idle.add(() => {
+				var texture = new Gdk.MemoryTexture(
+					width, height, Gdk.MemoryFormat.B8G8R8A8, bytes, (uint) stride);
+				this.picture.set_paintable(texture);
+				return false;
+			});
+		}
+
+		/**
+		 * Ask for the Windows user and password.
+		 *
+		 * The FreeRDP thread waits. The dialog runs on the GTK thread.
+		 *
+		 * @return true when both fields are filled
+		 */
+		private bool prompt()
+		{
+			var user_entry = new Gtk.Entry() {
+				placeholder_text = "User"
+			};
+			var pass_entry = new Gtk.PasswordEntry();
+			var form = new Gtk.Box(Gtk.Orientation.VERTICAL, 8);
+			form.append(user_entry);
+			form.append(pass_entry);
+			var dialog = new Adw.AlertDialog("Windows sign-in", null);
+			dialog.extra_child = form;
+			dialog.add_response("cancel", "Cancel");
+			dialog.add_response("ok", "Sign in");
+			dialog.default_response = "ok";
+			dialog.close_response = "cancel";
+			bool ok = false;
+			bool done = false;
+			var mutex = GLib.Mutex();
+			var cond = GLib.Cond();
+			GLib.Idle.add(() => {
+				dialog.response.connect((response) => {
+					mutex.lock();
+					if (response == "ok") {
+						this.user = user_entry.text;
+						this.pass = pass_entry.text;
+						ok = this.user != "" && this.pass != "";
+					}
+					done = true;
+					cond.signal();
+					mutex.unlock();
+				});
+				dialog.present(this.picture);
+				return false;
+			});
+			mutex.lock();
+			while (!done) {
+				cond.wait(mutex);
+			}
+			mutex.unlock();
+			return ok;
+		}
+
+		private static Screen? find(FreeRDP.Instance instance)
+		{
+			foreach (var screen in Screen.live) {
+				if (screen.instance == instance) {
+					return screen;
+				}
+			}
+			return null;
+		}
+
+		private static bool connected(FreeRDP.Instance instance)
+		{
+			return FreeRDP.gdi_init(instance, FreeRDP.PIXEL_FORMAT_BGRA32);
+		}
+
+		private static bool authenticate(
+			FreeRDP.Instance instance,
+			out string username,
+			out string password,
+			out string domain)
+		{
+			username = "";
+			password = "";
+			domain = "";
+			var screen = Screen.find(instance);
+			if (screen == null || !screen.prompt()) {
+				return false;
+			}
+			username = screen.user;
+			password = screen.pass;
+			return true;
+		}
+
+		private static uint32 verify(
+			FreeRDP.Instance instance,
+			string host,
+			uint16 port,
+			string common_name,
+			string subject,
+			string issuer,
+			string fingerprint,
+			uint32 flags)
+		{
+			return 1;
+		}
+	}
+}
+```
+
+### 10. `server/vapi/freerdp.vapi` — the client
+
+**Why:** The vapi is the server listener. The picture needs the client, the GDI buffer, and the authenticate callback. Names are the FreeRDP 3 calls. A header that disagrees is fixed here before the picture is built.
+
+**Where:** more settings keys, `set_string`, and the client types before the `WinPr` namespace.
+
+**Depends on:** none.
+
+#### Add — on `SettingsBool`, after `NSCodec`
+
+```vala
+		RedirectDrives,
+		AudioPlayback,
+		RedirectClipboard,
+```
+
+#### Add — on `SettingsUint32`, after `ColorDepth`
+
+```vala
+		ServerPort,
+		DesktopWidth,
+		DesktopHeight,
+```
+
+#### Add — after the `SettingsUint32` enum
+
+```vala
+	[CCode (cprefix = "FreeRDP_", has_type_id = false, cheader_filename = "freerdp/settings_keys.h")]
+	public enum SettingsString
+	{
+		ServerHostname,
+		Username,
+		Password,
+		Domain
+	}
+```
+
+#### Add — on `Settings`, after `set_pointer`
+
+```vala
+		[CCode (cname = "freerdp_settings_set_string")]
+		public bool set_string (SettingsString key, string value);
+```
+
+#### Add — on `Context`, after `settings`
+
+```vala
+		public unowned Instance instance;
+		public unowned Gdi? gdi;
+```
+
+#### Add — before the `WinPr` namespace
+
+```vala
+	[CCode (cname = "PIXEL_FORMAT_BGRA32", cheader_filename = "freerdp/codec/color.h")]
+	public const uint32 PIXEL_FORMAT_BGRA32;
+
+	[Compact]
+	[CCode (cname = "rdpGdi", cheader_filename = "freerdp/gdi/gdi.h")]
+	public class Gdi
+	{
+		public int width;
+		public int height;
+		public uint32 stride;
+		public void *primary_buffer;
+	}
+
+	[CCode (has_target = false, cname = "pPostConnect")]
+	public delegate bool PostConnect (Instance instance);
+
+	[CCode (has_target = false, cname = "pAuthenticate")]
+	public delegate bool Authenticate (
+		Instance instance,
+		[CCode (type = "char**")] out string username,
+		[CCode (type = "char**")] out string password,
+		[CCode (type = "char**")] out string domain);
+
+	[CCode (has_target = false, cname = "pVerifyCertificateEx")]
+	public delegate uint32 VerifyCertificateEx (
+		Instance instance,
+		string host,
+		uint16 port,
+		string common_name,
+		string subject,
+		string issuer,
+		string fingerprint,
+		uint32 flags);
+
+	[Compact]
+	[CCode (cname = "freerdp", free_function = "freerdp_free", cheader_filename = "freerdp/freerdp.h")]
+	public class Instance
+	{
+		[CCode (cname = "freerdp_new")]
+		public Instance ();
+
+		public unowned Context context;
+		public PostConnect PostConnect;
+		public Authenticate Authenticate;
+		public VerifyCertificateEx VerifyCertificateEx;
+
+		[CCode (cname = "freerdp_context_new")]
+		public bool context_new ();
+
+		[CCode (cname = "freerdp_context_free")]
+		public void context_free ();
+
+		[CCode (cname = "freerdp_connect")]
+		public bool connect ();
+
+		[CCode (cname = "freerdp_disconnect")]
+		public bool disconnect ();
+
+		[CCode (cname = "freerdp_shall_disconnect")]
+		public bool shall_disconnect ();
+	}
+
+	[CCode (cname = "freerdp_check_event_handles")]
+	public bool check_event_handles (Context context);
+
+	[CCode (cname = "gdi_init", cheader_filename = "freerdp/gdi/gdi.h")]
+	public bool gdi_init (Instance instance, uint32 format);
+
+	[CCode (cname = "gdi_free", cheader_filename = "freerdp/gdi/gdi.h")]
+	public void gdi_free (Instance instance);
+```
+
+### 11. `controller/meson.build` and `docs/meson.build` — compile the picture
+
+**Why:** `Viewer.vala` is only in the test binary today. The controller compiles it, the picture, and the page, and links FreeRDP.
+
+**Where:** `deps` and `controller_vala_args` in `controller/meson.build`, the `sources` list, and the same files plus `--pkg=freerdp` in `docs/meson.build`.
+
+**Depends on:** ### 9.
+
+#### Add — `controller/meson.build`, after `deps += shared_dep`
+
+```meson
+dependency('freerdp3')
+dependency('winpr3')
+pkgconfig = find_program('pkg-config')
+freerdp_cflags = run_command(pkgconfig, '--cflags', 'freerdp3', check: true).stdout().split()
+freerdp_libs = run_command(pkgconfig, '--libs', 'freerdp3', check: true).stdout().split()
+winpr_cflags = run_command(pkgconfig, '--cflags', 'winpr3', check: true).stdout().split()
+winpr_libs = run_command(pkgconfig, '--libs', 'winpr3', check: true).stdout().split()
+deps += declare_dependency(
+	compile_args: freerdp_cflags + winpr_cflags,
+	link_args: freerdp_libs + winpr_libs,
+)
+controller_vala_args += [
+	'--vapidir', meson.project_source_root() / 'server' / 'vapi',
+	'--pkg', 'freerdp',
+]
+```
+
+#### Add — `controller/meson.build`, in `sources`, after `'TabList.vala',`
+
+```meson
+	'Rdp/Viewer.vala',
+	'Rdp/Screen.vala',
+	'tab/Rdp.vala',
+```
+
+#### Add — `docs/meson.build`, after `'../controller/TabList.vala',`
+
+```meson
+  '../controller/Rdp/Viewer.vala',
+  '../controller/Rdp/Screen.vala',
+  '../controller/tab/Rdp.vala',
+```
+
+#### Add — `docs/meson.build`, in the valadoc `command`, after `'--pkg=libadwaita-1',`
+
+```meson
+    '--pkg=freerdp',
+```
+
 ---
 
 ## Phase 6 — Session tabs
@@ -902,7 +1364,9 @@ web-03, General
 
 ## Phase 6.5 — Takeover edges
 
-- ℹ️ The stream proposal is Phase 4. This phase does not repeat it.
+- ℹ️ The stream is in the tree. This phase does not repeat it.
+- ⏳ 🔷 When someone is at the keyboard, the tray asks before Remote Desktop is turned on. Half an hour idle allows it without asking. A click allows it. Ignoring the balloon leaves it off.
+- ⏳ 🔷 The server tells the controller that this desktop is waiting for that authorization. The RDP page says so. It does not stay blank.
 - ⏳ 🔷 Force is off unless the operator turns it on.
 - ⏳ 🔷 The tray names who from Argus has the screen, and offers Disconnect.
 - ℹ️ While a connection is up the PC screen is locked. Signing in at the PC disconnects the remote side. Windows does that. It does not say the Argus name.
@@ -945,11 +1409,19 @@ web-03, General
 - ✔️ 2026-11-18: The relay and the tunnel have one body. A connection that is not a server connection stays the single test pair. The service opens the second connection and passes it to the tunnel.
 - ✔️ 2026-11-18: `Seat` is its own class. It remembers the ask, answers `relay.ready`, attaches a view, holds a late view, releases that view, and forwards one chunk. `Relay` still checks the controller and finds the agent connection.
 - ✔️ 2026-11-18: `relay.cut` with no tunnel opens the stream. An open tunnel is closed so the read dials Windows again. That sits in the notification. `Service.tunnel` is visible to it.
+- 🔷 2026-11-18: The screen button sits at the top of General, where the other machine tabs put their search field. General has no search.
+- ✔️ 2026-11-18: Phase 4's proposed code is removed. The stream is in the tree. Phase 5's proposed code is the screen button, the RDP page, and the FreeRDP picture.
+- ✔️ 2026-11-18: Phase 5 is in the tree. The screen button, `controller/tab/Rdp.vala`, `Viewer.serve` / `Viewer.view`, and `controller/Rdp/Screen.vala` match the proposal. `freerdp3` and `winpr3` are linked from `controller/meson.build`. The `controller_vala_args +=` sits after that list is assigned.
+- ✔️ 2026-11-18: `ninja -C build controller/argusrm-controller` linked. Meson must not pass `--pkg freerdp3` or `--pkg winpr3` to valac. Those packages have no vapi. The link uses `pkg-config --cflags` and `--libs`, and valac uses `--pkg freerdp`. `context.settings` and `context.gdi` are `unowned`. `gdi` is nullable.
+- ✔️ 2026-11-18: `server.log` at 18:06: `Relay.start` from the controller, then `no handler for 'Relay'`. The running `argusrm-server` started 17 Nov 17:38. The binary on disk is 18 Nov 18:04. The desktop never left the controller.
+- ✔️ 2026-11-18: After the server restart, `Relay.start` at 18:16 has no handler error. The Windows agent exe is still 17 Nov 17:29, 1175091 bytes. Its log at 18:16:11 is `name-ref token 21 alias mismatch`. `ArgusAgent-0.1.27-Setup.exe` is in `C:\msys64\tmp\argusrm\dist-windows` and is not installed.
+- ✔️ 2026-11-18: After installing 0.1.27, `argus-agent.exe` and `argus-tray.exe` are 18:24, 1198463 bytes. At 18:30:10 the server received `Relay.start` and the agent logged `relay.start`. There is no `AgentService.allow`, no `Relay.join`, and no `relay.ready`. Windows 10 Pro, `fDenyTSConnections` is 0, and TermService is running. The picture waits for `relay.ready`.
+- ✔️ 2026-11-18: The tray ask is what stopped that stream. `initialize` turns Remote Desktop on without sending `agent.desktop`. The ask, and telling the controller that the page is waiting for authorization, are Phase 6.5.
 
 ## Next
 
-- ⏳ 🔷 Phase 5 is the viewer: the screen button on General, and the RDP page. Phase 6 is the session tabs.
-- ⏳ 🔷 Phase 6.5 is Force and the tray notice that names who has the screen. The stream proposal is Phase 4.
+- ⏳ 🔷 Phase 5 is not verified on a machine. The Windows agent installer for that try is 0.1.28. Phase 6 is the session tabs.
+- ⏳ 🔷 Phase 6.5 is the tray ask, the controller notice while that ask is open, Force, and the tray notice that names who has the screen.
 - ⏳ 💩 The proof listen is still `Relay.listen`. Phase 2 does not move it into `SslListen`.
 
 ## LLM notes

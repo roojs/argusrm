@@ -1008,14 +1008,14 @@ namespace Argus.Controller.Dialog
 				app.rpc = rpc;
 #if ANDROID
 				app.running_window = true;
-				app.window.open(connection, issued);
+				app.window.open(connection, issued, host);
 				this.close();
 #else
 				var previous = app.window;
 				if (replace) {
 					previous.leaving = true;
 				}
-				var window = new Window(app, connection, issued);
+				var window = new Window(app, connection, issued, host);
 				app.running_window = true;
 				app.window = window;
 				window.present();

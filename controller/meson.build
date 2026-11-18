@@ -32,6 +32,24 @@ controller_vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'sqlite3',
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
 ]
+# The Windows installer is the agent. FreeRDP is the controller picture.
+if host_machine.system() != 'windows'
+	dependency('freerdp3')
+	dependency('winpr3')
+	pkgconfig = find_program('pkg-config')
+	freerdp_cflags = run_command(pkgconfig, '--cflags', 'freerdp3', check: true).stdout().split()
+	freerdp_libs = run_command(pkgconfig, '--libs', 'freerdp3', check: true).stdout().split()
+	winpr_cflags = run_command(pkgconfig, '--cflags', 'winpr3', check: true).stdout().split()
+	winpr_libs = run_command(pkgconfig, '--libs', 'winpr3', check: true).stdout().split()
+	deps += declare_dependency(
+		compile_args: freerdp_cflags + winpr_cflags,
+		link_args: freerdp_libs + winpr_libs,
+	)
+	controller_vala_args += [
+		'--vapidir', meson.project_source_root() / 'server' / 'vapi',
+		'--pkg', 'freerdp',
+	]
+endif
 controller_c_args = ocsqlite_c_args
 # Android passes gee-0.8.vapi as a source via dependency('gee-0.8').
 # --pkg=gee-0.8 looks for a host package and fails in the Pixiewood build.
@@ -140,6 +158,9 @@ sources = files(
 	'tab/Settings.vala',
 	'tab/Tasks.vala',
 	'TabList.vala',
+	'Rdp/Viewer.vala',
+	'Rdp/Screen.vala',
+	'tab/Rdp.vala',
 )
 if host_machine.system() == 'android'
 	sources += files(

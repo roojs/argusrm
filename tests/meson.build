@@ -94,16 +94,3 @@ if host_machine.system() == 'linux'
 	)
 	test('apt-history', apt_history_test, timeout: 30)
 endif
-
-if host_machine.system() == 'windows'
-	executable(
-		'argus-folder-test',
-		files('folder.c'),
-		c_args: ['-D_WIN32_WINNT=0x0601'],
-		dependencies: [
-			meson.get_compiler('c').find_library('shell32'),
-			meson.get_compiler('c').find_library('ole32'),
-		],
-		install: false,
-	)
-endif

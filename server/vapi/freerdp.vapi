@@ -12,14 +12,29 @@ namespace FreeRDP
 		RdpSecurity,
 		SupportGraphicsPipeline,
 		RemoteFxCodec,
-		NSCodec
+		NSCodec,
+		RedirectDrives,
+		AudioPlayback,
+		RedirectClipboard,
 	}
 
 	[CCode (cprefix = "FreeRDP_", has_type_id = false, cheader_filename = "freerdp/settings_keys.h")]
 	public enum SettingsUint32
 	{
 		EncryptionLevel,
-		ColorDepth
+		ColorDepth,
+		ServerPort,
+		DesktopWidth,
+		DesktopHeight,
+	}
+
+	[CCode (cprefix = "FreeRDP_", has_type_id = false, cheader_filename = "freerdp/settings_keys.h")]
+	public enum SettingsString
+	{
+		ServerHostname,
+		Username,
+		Password,
+		Domain
 	}
 
 	[CCode (cprefix = "FreeRDP_", has_type_id = false, cheader_filename = "freerdp/settings_keys.h")]
@@ -41,6 +56,9 @@ namespace FreeRDP
 
 		[CCode (cname = "freerdp_settings_set_pointer")]
 		public bool set_pointer (SettingsPointer key, void* value);
+
+		[CCode (cname = "freerdp_settings_set_string")]
+		public bool set_string (SettingsString key, string value);
 	}
 
 	[Compact]
@@ -48,6 +66,8 @@ namespace FreeRDP
 	public class Context
 	{
 		public unowned Settings settings;
+		public unowned Instance instance;
+		public unowned Gdi? gdi;
 	}
 
 	[Compact]
@@ -139,6 +159,77 @@ namespace FreeRDP
 		public ListenerClose Close;
 		public PeerAccepted PeerAccepted;
 	}
+
+	[CCode (cname = "PIXEL_FORMAT_BGRA32", cheader_filename = "freerdp/codec/color.h")]
+	public const uint32 PIXEL_FORMAT_BGRA32;
+
+	[Compact]
+	[CCode (cname = "rdpGdi", cheader_filename = "freerdp/gdi/gdi.h")]
+	public class Gdi
+	{
+		public int width;
+		public int height;
+		public uint32 stride;
+		public void *primary_buffer;
+	}
+
+	[CCode (has_target = false, cname = "pPostConnect")]
+	public delegate bool PostConnect (Instance instance);
+
+	[CCode (has_target = false, cname = "pAuthenticate")]
+	public delegate bool Authenticate (
+		Instance instance,
+		[CCode (type = "char**")] out string username,
+		[CCode (type = "char**")] out string password,
+		[CCode (type = "char**")] out string domain);
+
+	[CCode (has_target = false, cname = "pVerifyCertificateEx")]
+	public delegate uint32 VerifyCertificateEx (
+		Instance instance,
+		string host,
+		uint16 port,
+		string common_name,
+		string subject,
+		string issuer,
+		string fingerprint,
+		uint32 flags);
+
+	[Compact]
+	[CCode (cname = "freerdp", free_function = "freerdp_free", cheader_filename = "freerdp/freerdp.h")]
+	public class Instance
+	{
+		[CCode (cname = "freerdp_new")]
+		public Instance ();
+
+		public unowned Context context;
+		public PostConnect PostConnect;
+		public Authenticate Authenticate;
+		public VerifyCertificateEx VerifyCertificateEx;
+
+		[CCode (cname = "freerdp_context_new")]
+		public bool context_new ();
+
+		[CCode (cname = "freerdp_context_free")]
+		public void context_free ();
+
+		[CCode (cname = "freerdp_connect")]
+		public bool connect ();
+
+		[CCode (cname = "freerdp_disconnect")]
+		public bool disconnect ();
+
+		[CCode (cname = "freerdp_shall_disconnect")]
+		public bool shall_disconnect ();
+	}
+
+	[CCode (cname = "freerdp_check_event_handles")]
+	public bool check_event_handles (Context context);
+
+	[CCode (cname = "gdi_init", cheader_filename = "freerdp/gdi/gdi.h")]
+	public bool gdi_init (Instance instance, uint32 format);
+
+	[CCode (cname = "gdi_free", cheader_filename = "freerdp/gdi/gdi.h")]
+	public void gdi_free (Instance instance);
 }
 
 [CCode (cheader_filename = "winpr/thread.h", cprefix = "", lower_case_cprefix = "")]

@@ -219,6 +219,9 @@ valadoc_sources += files(
   '../controller/tab/Settings.vala',
   '../controller/tab/Tasks.vala',
   '../controller/TabList.vala',
+  '../controller/Rdp/Viewer.vala',
+  '../controller/Rdp/Screen.vala',
+  '../controller/tab/Rdp.vala',
   '../controller/Window.vala',
   # cli/Application.vala, cli/Pin.vala, and Agents.vala are the
   # command-line build. That Application repeats this class.
@@ -243,6 +246,7 @@ valadoc_docs = custom_target('valadoc',
     '--pkg=libsoup-3.0',
     '--pkg=gtk4',
     '--pkg=libadwaita-1',
+    '--pkg=freerdp',
     '--pkg=sqlite3',
     '--pkg=ocsqlite',
     '--pkg=ocrpc',

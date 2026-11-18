@@ -232,12 +232,6 @@ namespace Argus.Agent.Win32
 			if (!this.application.os_version.supports_rdp()) {
 				return;
 			}
-			if (argus_active_session() != (uint32) 0xFFFFFFFF) {
-				this.local_listen.broadcast(new OLLMrpc.Notification() {
-					method = "agent.desktop"
-				});
-				return;
-			}
 			this.desktop();
 		}
 

@@ -31,7 +31,7 @@ namespace Argus.Controller
 	 *
 	 * {{{
 	 * var window = new Argus.Controller.Window(app);
-	 * window.open(connection, issued);
+	 * window.open(connection, issued, host);
 	 * window.present();
 	 * }}}
 	 */
@@ -42,6 +42,10 @@ namespace Argus.Controller
 		public Argus.Shared.Registration.Data issued {
 			get; set; default = new Argus.Shared.Registration.Data();
 		}
+		public string host { get; set; default = ""; }
+		private TabList tabs;
+		private Gtk.Stack pages;
+		private Tab.Rdp rdp;
 		/**
 		 * Header of the active page.
 		 */
@@ -131,10 +135,12 @@ namespace Argus.Controller
 		 *
 		 * @param connection the server that answered
 		 * @param issued certificate from this process, or empty
+		 * @param host the server that answered
 		 */
 		public void open(
 			Connection connection,
-			Argus.Shared.Registration.Data issued
+			Argus.Shared.Registration.Data issued,
+			string host
 		) {
 			if (this.connection_check_id != 0) {
 				GLib.Source.remove(this.connection_check_id);
@@ -145,6 +151,7 @@ namespace Argus.Controller
 			this.next_reconnect = 0;
 			this.connection = connection;
 			this.issued = issued;
+			this.host = host;
 			this.issued.name = connection.name;
 			this.issued.finished.connect((removed) => {
 				if (removed) {
@@ -194,7 +201,8 @@ namespace Argus.Controller
 			this.insert_action_group("win", actions);
 			var sidebar_bar = new Adw.ToolbarView();
 			sidebar_bar.add_top_bar(header);
-			var tabs = new TabList();
+			this.tabs = new TabList();
+			var tabs = this.tabs;
 			sidebar_bar.content = tabs;
 			this.content_header = new Adw.HeaderBar();
 			var menu_button = new Gtk.ToggleButton() {
@@ -218,11 +226,12 @@ namespace Argus.Controller
 				hexpand = true
 			};
 			this.content_bar.add_top_bar(this.content_header);
-			var pages = new Gtk.Stack() {
+			this.pages = new Gtk.Stack() {
 				hexpand = true,
 				vexpand = true,
 				transition_type = Gtk.StackTransitionType.CROSSFADE
 			};
+			var pages = this.pages;
 			this.content_bar.content = pages;
 			var repository = new Tab.Repository(this);
 			for (var i = 0; i < tabs.keys.length; i++) {
@@ -254,6 +263,8 @@ namespace Argus.Controller
 			}
 			pages.add_named(new Tab.Agent(this), "agents");
 			pages.add_named(new Tab.Settings(this), "settings");
+			this.rdp = new Tab.Rdp(this);
+			pages.add_named(this.rdp, "rdp");
 			pages.visible_child_name = tabs.keys[0];
 			var split = new Adw.OverlaySplitView() {
 				sidebar = sidebar_bar,
@@ -332,6 +343,30 @@ namespace Argus.Controller
 				}
 			});
 			return true;
+		}
+
+		/**
+		 * Open this machine on the RDP page.
+		 *
+		 * A machine that already has a tab is selected.
+		 * A new machine adds a tab. The sidebar row is shown.
+		 *
+		 * @param agent_id ''agent.id'' of the machine
+		 * @param name tab title, the hostname
+		 */
+		public void open_desktop(int agent_id, string name)
+		{
+			this.rdp.open(agent_id, name);
+			this.tabs.show_rdp();
+		}
+
+		/**
+		 * Hide the RDP row. {@link Tab.Rdp.drop} calls this
+		 * when the last tab is gone.
+		 */
+		public void tabs_hide_rdp()
+		{
+			this.tabs.hide_rdp();
 		}
 	}
 }

@@ -40,6 +40,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		 */
 		public Argus.Controller.Store.MachineGeneral store { get; private set; }
 		private Gtk.Box list;
+		private Argus.Controller.Window window;
 
 		/**
 		 * True while a later load is in flight and rows are already shown.
@@ -54,6 +55,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		public General(Argus.Controller.Window window)
 		{
 			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
+			this.window = window;
 			this.hexpand = true;
 			this.vexpand = true;
 			this.store = new Argus.Controller.Store.MachineGeneral(window.app);
@@ -93,6 +95,33 @@ namespace Argus.Controller.Tab.Asset.Machine
 				spinner.visible = this.store.busy && this.store.get_n_items() == 0;
 				this.refreshing = this.store.busy && this.store.get_n_items() > 0;
 			});
+			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
+				css_classes = { "machines-filter" },
+				hexpand = true,
+				visible = false
+			};
+			var screen = new Argus.Controller.Widget.HoldButton() {
+				icon_name = "video-display-symbolic",
+				label = "Take control",
+				halign = Gtk.Align.END,
+				valign = Gtk.Align.CENTER,
+				hexpand = false,
+				vexpand = false
+			};
+			bar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
+				hexpand = true
+			});
+			screen.confirmed.connect(() => {
+				var agent_id = this.store.loaded_agent;
+				var name = this.store.hostname;
+				this.window.open_desktop(agent_id, name);
+				this.store.start_desktop();
+			});
+			bar.append(screen);
+			this.store.notify["desktop"].connect(() => {
+				bar.visible = this.store.desktop;
+			});
+			this.append(bar);
 			this.append(overlay);
 		}
 

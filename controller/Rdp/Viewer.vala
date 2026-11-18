@@ -37,6 +37,9 @@ namespace Argus.Controller.Rdp
 	 */
 	public class Viewer : GLib.Object
 	{
+		public uint16 view_port { get; private set; }
+		private OLLMrpc.Transport.TlsClient rpc;
+		private GLib.SocketConnection? plain;
 		/**
 		 * Accept one FreeRDP client and copy until that socket closes.
 		 *
@@ -135,6 +138,135 @@ namespace Argus.Controller.Rdp
 				GLib.Process.exit(0);
 			});
 			new GLib.MainLoop().run();
+		}
+
+		/**
+		 * Listen on loopback and carry that socket to one agent.
+		 *
+		 * {@link view_port} is set before this returns. FreeRDP
+		 * connects there. ''Relay.view'' is the join. ''run'' is
+		 * the test and is not this method.
+		 *
+		 * @param host server that answered
+		 * @param port server port
+		 * @param certificate this controller's certificate
+		 * @param database the server CA
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		public void serve(
+			string host,
+			uint16 port,
+			GLib.TlsCertificate certificate,
+			GLib.TlsDatabase database,
+			int agent_id
+		) throws GLib.Error
+		{
+			var listener = new GLib.SocketListener();
+			var where = new GLib.InetSocketAddress(
+				new GLib.InetAddress.loopback(GLib.SocketFamily.IPV4), 0);
+			GLib.SocketAddress? bound = null;
+			listener.add_address(
+				where, GLib.SocketType.STREAM, GLib.SocketProtocol.TCP, null, out bound);
+			this.view_port = ((GLib.InetSocketAddress) bound).get_port();
+			this.rpc = new OLLMrpc.Transport.TlsClient(host, port) {
+				tls_certificate = certificate,
+				tls_database = database
+			};
+			this.rpc.timeout = 5;
+			this.rpc.notification.connect((notif) => {
+				if (notif.method != "relay.data" || notif.args.size < 1 || this.plain == null) {
+					return;
+				}
+				var blob = (GLib.Bytes) notif.args.get(0).get_boxed();
+				unowned uint8[] data = blob.get_data();
+				if (data == null) {
+					return;
+				}
+				size_t off = 0;
+				while (off < data.length) {
+					try {
+						off += this.plain.output_stream.write(data[off:data.length]);
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+						return;
+					}
+				}
+			});
+			this.rpc.watch();
+			new GLib.Thread<int>("view", () => {
+				this.view(listener, agent_id);
+				return 0;
+			});
+		}
+
+		/**
+		 * Join one agent and copy until that socket closes.
+		 *
+		 * This is the view thread. ''Relay.view'', the accept,
+		 * the read, and ''Relay.write'' each have their own try.
+		 *
+		 * @param listener the loopback listen
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		private void view(GLib.SocketListener listener, int agent_id)
+		{
+			OLLMrpc.Response joined;
+			try {
+				joined = this.rpc.call(new OLLMrpc.Request() {
+					method = "Relay.view",
+					args = OLLMrpc.args("i", agent_id)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return;
+			}
+			if (joined.error != null) {
+				GLib.warning("%s", joined.error.message);
+				return;
+			}
+			try {
+				this.plain = listener.accept(null);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return;
+			}
+			try {
+				this.plain.socket.set_option(6, 1, 1);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			var buf = new uint8[16384];
+			while (true) {
+				ssize_t n = 0;
+				try {
+					n = this.plain.input_stream.read(buf);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					return;
+				}
+				if (n <= 0) {
+					return;
+				}
+				var chunk = new uint8[n];
+				GLib.Memory.copy((uint8[]) chunk, buf, n);
+				var held = GLib.Value(typeof(GLib.Bytes));
+				held.set_boxed(new GLib.Bytes(chunk));
+				var request = new OLLMrpc.Request() {
+					method = "Relay.write"
+				};
+				request.args.add(held);
+				OLLMrpc.Response response;
+				try {
+					response = this.rpc.call(request);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					return;
+				}
+				if (response.error != null) {
+					GLib.warning("%s", response.error.message);
+					return;
+				}
+			}
 		}
 	}
 }

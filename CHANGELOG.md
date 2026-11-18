@@ -8,6 +8,22 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.28] - Unreleased
+
+### Changed
+
+- The Windows agent turns Remote Desktop on without asking at the tray.
+
+## [0.1.27] - Unreleased
+
+### Added
+
+- Touch and hold the screen button on a Windows machine's General tab to open that desktop.
+- The desktop is a page in this window, with an RDP row under Assets and a tab per machine.
+- FreeRDP asks for the Windows password. Drives, the clipboard, and audio stay on the machine.
+- The Windows agent turns Remote Desktop on when that edition allows it, and asks at the tray when someone is at the keyboard.
+- The desktop bytes travel on a second connection. A late join starts from the first byte.
+
 ## [0.1.26] - Unreleased
 
 ### Fixed
