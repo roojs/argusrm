@@ -29,6 +29,16 @@ namespace Argus.Agent.Win32 {
 	public const uint32 SERVICE_QUERY_STATUS;
 	[CCode (cname = "SERVICE_START", cheader_filename = "win32.h")]
 	public const uint32 SERVICE_START;
+	[CCode (cname = "SERVICE_CHANGE_CONFIG", cheader_filename = "win32.h")]
+	public const uint32 SERVICE_CHANGE_CONFIG;
+	[CCode (cname = "SERVICE_AUTO_START", cheader_filename = "win32.h")]
+	public const uint32 SERVICE_AUTO_START;
+	[CCode (cname = "SERVICE_NO_CHANGE", cheader_filename = "win32.h")]
+	public const uint32 SERVICE_NO_CHANGE;
+	[CCode (cname = "KEY_SET_VALUE", cheader_filename = "win32.h")]
+	public const uint32 KEY_SET_VALUE;
+	[CCode (cname = "REG_DWORD", cheader_filename = "win32.h")]
+	public const uint32 REG_DWORD;
 	[CCode (cname = "SERVICE_STOP", cheader_filename = "win32.h")]
 	public const uint32 SERVICE_STOP;
 	[CCode (cname = "SC_STATUS_PROCESS_INFO", cheader_filename = "win32.h")]
@@ -94,6 +104,23 @@ namespace Argus.Agent.Win32 {
 
 	[CCode (cheader_filename = "win32.h")]
 	public bool StartServiceW (void* hService, uint32 dwNumServiceArgs, void* lpServiceArgVectors);
+
+	[CCode (cheader_filename = "win32.h")]
+	public bool ChangeServiceConfigW (void* hService, uint32 dwServiceType, uint32 dwStartType,
+		uint32 dwErrorControl, void* lpBinaryPathName, void* lpLoadOrderGroup, void* lpdwTagId,
+		void* lpDependencies, void* lpServiceStartName, void* lpPassword, void* lpDisplayName);
+
+	[CCode (cheader_filename = "win32.h")]
+	public void* argus_hkey_local_machine ();
+
+	[CCode (cheader_filename = "win32.h")]
+	public int32 RegOpenKeyExW (void* hKey, string16 lpSubKey, uint32 ulOptions, uint32 samDesired, void* phkResult);
+
+	[CCode (cheader_filename = "win32.h")]
+	public int32 RegSetValueExW (void* hKey, string16 lpValueName, uint32 reserved, uint32 dwType, void* lpData, uint32 cbData);
+
+	[CCode (cheader_filename = "win32.h")]
+	public int32 RegCloseKey (void* hKey);
 
 	[CCode (cheader_filename = "win32.h")]
 	public bool QueryServiceStatusEx (void* hService, uint32 InfoLevel, void* lpBuffer, uint32 cbBufSize, void* pcbBytesNeeded);
@@ -211,6 +238,20 @@ namespace Argus.Agent.Win32 {
 		[CCode (cname = "message")]
 		public uint32 message;
 	}
+
+	[CCode (cname = "LASTINPUTINFO", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
+	public struct LastInputInfo {
+		[CCode (cname = "cbSize")]
+		public uint32 cb_size;
+		[CCode (cname = "dwTime")]
+		public uint32 time;
+	}
+
+	[CCode (cname = "GetLastInputInfo", cheader_filename = "win32.h")]
+	public bool GetLastInputInfo (ref LastInputInfo info);
+
+	[CCode (cname = "GetTickCount", cheader_filename = "win32.h")]
+	public uint32 GetTickCount ();
 
 	[CCode (cname = "NOTIFYICONDATAW", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
 	public struct NotifyIcon {

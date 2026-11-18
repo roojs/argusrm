@@ -64,6 +64,8 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - `AgentService.hello` `is`: protocol version, client name. Reply `msg`: `ok`.
 - `AgentService.status`: no arguments. Reply `retval` `as`: `["1"|"0" registered, "1"|"0" connected, tip]`.
 - `AgentService.register` `ss`: six-digit PIN, `host:port` (or empty to use browse). Reply `retval` `i`: `0` on success or `OLLMrpc.RpcErrorCode`.
+- `AgentService.allow` `b`: the tray's answer. `true` turns Remote Desktop on. `false` does nothing. Reply `msg`: `ok`.
+- Notification `agent.desktop`: no arguments. The service sends it on the loopback socket when someone is logged in, before Remote Desktop is turned on. The tray shows a balloon. A click allows it. Ignoring the balloon leaves it off. Half an hour idle allows it without the balloon.
 - ℹ️ The handlers are in `agent/Win32/Service.vala`, called from `agent/Win32/tray/Tray.vala`.
 
 ### `Registration.certificate`

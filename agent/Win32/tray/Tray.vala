@@ -59,6 +59,7 @@ namespace Argus.Agent.Win32
 		private string tip_text = "";
 		private void* restart_proc = null;
 		private bool restarting = false;
+		private bool asking = false;
 
 		/**
 		 * Return true when another ''argus-tray.exe'' process is running.
@@ -189,6 +190,10 @@ namespace Argus.Agent.Win32
 			OLLMrpc.rpc_register();
 			this.rpc = new OLLMrpc.Client("", "", "tcp://127.0.0.1:4142");
 			this.rpc.notification.connect((notif) => {
+				if (notif.method == "agent.desktop") {
+					this.ask();
+					return;
+				}
 				if (notif.method != "agent.status" || notif.args.size < 3) {
 					return;
 				}
@@ -299,8 +304,8 @@ namespace Argus.Agent.Win32
 		/**
 		 * Window procedure for the tray.
 		 *
-		 * Taskbar recreate, left-click status or registration,
-		 * right-click menu, and the elevated restart command.
+		 * The taskbar id is assigned at runtime, so it is tested
+		 * before the switch. Each other message goes to one helper.
 		 *
 		 * @param hwnd window the message was sent to
 		 * @param msg window message
@@ -312,206 +317,229 @@ namespace Argus.Agent.Win32
 		private int64 on_message(void* hwnd, uint32 msg, uint64 wparam, int64 lparam)
 		{
 			if (msg == this.taskbar && this.taskbar != 0) {
-				this.added = false;
-				this.add_icon();
+				this.on_taskbar();
 				return 0;
 			}
-			if (msg == this.tray_msg) {
-				switch ((uint32) (lparam & 0xffff)) {
-					case NIN_SELECT:
-					case NIN_KEYSELECT:
-					case NIN_BALLOONUSERCLICK:
-					case WM_LBUTTONUP:
-						SetTimer(hwnd, 1, 150, null);
-						return 0;
+			switch (msg) {
+				case WM_APP + 42:
+					return this.on_icon(hwnd, lparam);
 
-					case WM_RBUTTONUP:
-					case WM_CONTEXTMENU:
-						var pt = POINT();
-						GetCursorPos(out pt);
-						var menu = CreatePopupMenu();
-						AppendMenuW(menu, MF_STRING | MF_GRAYED, 0,
-							g_utf8_to_utf16("Argus RM Agent " + Argus.VERSION));
-						var status = this.tip_text != "" ? this.tip_text : "Not registered";
-						if (this.restarting) {
-							status = "Restarting agent…";
-						}
-						AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, g_utf8_to_utf16(status));
-						AppendMenuW(menu, MF_SEPARATOR, 0, null);
-						var restart_flags = this.restarting ? MF_STRING | MF_GRAYED : MF_STRING;
-						AppendMenuW(menu, restart_flags, 1001, g_utf8_to_utf16("Restart Agent"));
-						if (!this.registered) {
-							AppendMenuW(menu, MF_STRING, 1002, g_utf8_to_utf16("Register…"));
-						}
-						SetForegroundWindow(this.hwnd);
-						TrackPopupMenu(menu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, this.hwnd, null);
-						PostMessageW(this.hwnd, WM_NULL, 0, 0);
-						DestroyMenu(menu);
-						return 0;
+				case WM_TIMER:
+					return this.on_timer(hwnd, wparam, lparam);
 
-					default:
-						return 0;
-				}
+				case WM_COMMAND:
+					return this.on_command(hwnd, wparam, lparam);
+
+				case WM_DESTROY:
+					if (this.added) {
+						Shell_NotifyIconW(NIM_DELETE, &this.nid);
+						this.added = false;
+					}
+					return 0;
+
+				default:
+					return DefWindowProcW(hwnd, msg, wparam, lparam);
 			}
-			if (msg == WM_TIMER) {
-				switch (wparam) {
-					case 1:
-						KillTimer(hwnd, 1);
-						if (!this.registered) {
-							this.present();
-							return 0;
+		}
+
+		/**
+		 * Put the icon back after Explorer restarts.
+		 *
+		 * A takeover question that is still waiting is shown again.
+		 */
+		private void on_taskbar()
+		{
+			this.added = false;
+			this.add_icon();
+			if (!this.asking) {
+				return;
+			}
+			this.balloon(
+				"An admin wants to take over",
+				"Your programs stay open, and you will not be logged off. Click to allow.");
+		}
+
+		/**
+		 * Handle a click on the tray icon.
+		 *
+		 * A click on the takeover balloon allows it. A left click
+		 * opens status. A right click opens the menu.
+		 *
+		 * @param hwnd window the message was sent to
+		 * @param lparam notification code in the low word
+		 * @return 0
+		 */
+		private int64 on_icon(void* hwnd, int64 lparam)
+		{
+			switch ((uint32) (lparam & 0xffff)) {
+				case NIN_BALLOONUSERCLICK:
+					if (!this.asking) {
+						return 0;
+					}
+					this.asking = false;
+					if (!this.rpc.connected) {
+						return 0;
+					}
+					try {
+						this.rpc.call_sync(new OLLMrpc.Request() {
+							method = "AgentService.allow",
+							args = OLLMrpc.args("b", true)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+					return 0;
+
+				case NIN_SELECT:
+				case NIN_KEYSELECT:
+				case WM_LBUTTONUP:
+					SetTimer(hwnd, 1, 150, null);
+					return 0;
+
+				case WM_RBUTTONUP:
+				case WM_CONTEXTMENU:
+					var pt = POINT();
+					GetCursorPos(out pt);
+					var menu = CreatePopupMenu();
+					AppendMenuW(menu, MF_STRING | MF_GRAYED, 0,
+						g_utf8_to_utf16("Argus RM Agent " + Argus.VERSION));
+					var status = this.tip_text != "" ? this.tip_text : "Not registered";
+					if (this.restarting) {
+						status = "Restarting agent…";
+					}
+					AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, g_utf8_to_utf16(status));
+					AppendMenuW(menu, MF_SEPARATOR, 0, null);
+					var restart_flags = this.restarting ? MF_STRING | MF_GRAYED : MF_STRING;
+					AppendMenuW(menu, restart_flags, 1001, g_utf8_to_utf16("Restart Agent"));
+					if (!this.registered) {
+						AppendMenuW(menu, MF_STRING, 1002, g_utf8_to_utf16("Register…"));
+					}
+					SetForegroundWindow(this.hwnd);
+					TrackPopupMenu(menu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, this.hwnd, null);
+					PostMessageW(this.hwnd, WM_NULL, 0, 0);
+					DestroyMenu(menu);
+					return 0;
+
+				default:
+					return 0;
+			}
+		}
+
+		/**
+		 * Handle a timer on the tray window.
+		 *
+		 * Timer 1 opens registration or the status dialog.
+		 *
+		 * @param hwnd window the message was sent to
+		 * @param wparam timer id
+		 * @param lparam message parameter
+		 * @return 0 when the timer was handled, otherwise the
+		 *   default window procedure
+		 */
+		private int64 on_timer(void* hwnd, uint64 wparam, int64 lparam)
+		{
+			switch (wparam) {
+				case 1:
+					KillTimer(hwnd, 1);
+					if (!this.registered) {
+						this.present();
+						return 0;
+					}
+					if (!this.gtk_up) {
+						Adw.init();
+						this.gtk_up = true;
+					}
+					if (this.notice_up) {
+						this.status_notice.present(null);
+						return 0;
+					}
+					var heading = this.restarting ?
+						"Argus agent is restarting" : "Argus agent is running";
+					var detail = this.tip_text != "" ?
+						this.tip_text : "Not connected to the management server.";
+					this.status_notice = new Argus.Shared.Notice(heading, detail);
+					this.status_notice.title =
+						"Argus Remote Management Agent " + Argus.VERSION;
+					this.status_notice.add_response("close", "Close");
+					if (!this.restarting) {
+						this.status_notice.add_response("restart", "Restart");
+					}
+					this.status_notice.responded.connect((response) => {
+						if (response == "restart") {
+							PostMessageW(this.hwnd, WM_COMMAND, 1001, 0);
+						}
+					});
+					this.notice_up = true;
+					this.status_notice.closed.connect(() => {
+						this.notice_up = false;
+					});
+					this.status_notice.present(null);
+					return 0;
+
+				default:
+					return DefWindowProcW(hwnd, WM_TIMER, wparam, lparam);
+			}
+		}
+
+		/**
+		 * Handle a menu command.
+		 *
+		 * 1001 restarts the service elevated. 1002 opens
+		 * registration.
+		 *
+		 * @param hwnd window the message was sent to
+		 * @param wparam command id in the low word
+		 * @param lparam message parameter
+		 * @return 0 when the command was handled, otherwise the
+		 *   default window procedure
+		 */
+		private int64 on_command(void* hwnd, uint64 wparam, int64 lparam)
+		{
+			switch ((uint32) (wparam & 0xffff)) {
+				case 1001:
+					if (this.restarting) {
+						return 0;
+					}
+					var exe_buf = g_utf8_to_utf16(string.nfill(259, ' '));
+					if (GetModuleFileNameW(null, exe_buf, 260) == 0) {
+						return 0;
+					}
+					var exe_path = "";
+					try {
+						exe_path = exe_buf.to_utf8();
+					} catch (GLib.ConvertError e) {
+						return 0;
+					}
+					var slash = exe_path.last_index_of("\\");
+					var dir_w = g_utf8_to_utf16(slash > 0 ? exe_path.substring(0, slash) : "");
+					var verb_w = g_utf8_to_utf16("runas");
+					var params_w = g_utf8_to_utf16("--restart");
+					var sei = SHELLEXECUTEINFOW() {
+						cbSize = (uint32) sizeof(SHELLEXECUTEINFOW),
+						fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI,
+						hwnd = this.hwnd,
+						lpVerb = verb_w,
+						lpFile = exe_buf,
+						lpParameters = params_w,
+						nShow = SW_SHOWNORMAL,
+					};
+					if (slash > 0) {
+						sei.lpDirectory = dir_w;
+					}
+					if (!ShellExecuteExW(ref sei)) {
+						var err = GetLastError();
+						var title = "Could not restart the Argus agent service";
+						var detail = "Error %u.".printf(err);
+						if (err == ERROR_CANCELLED) {
+							title = "Could not request administrator access";
+							detail = "Administrator access was not granted.";
 						}
 						if (!this.gtk_up) {
 							Adw.init();
 							this.gtk_up = true;
 						}
-						if (this.notice_up) {
-							this.status_notice.present(null);
-							return 0;
-						}
-						var heading = this.restarting ?
-							"Argus agent is restarting" : "Argus agent is running";
-						var detail = this.tip_text != "" ?
-							this.tip_text : "Not connected to the management server.";
-						this.status_notice = new Argus.Shared.Notice(heading, detail);
-						this.status_notice.title =
-							"Argus Remote Management Agent " + Argus.VERSION;
-						this.status_notice.add_response("close", "Close");
-						if (!this.restarting) {
-							this.status_notice.add_response("restart", "Restart");
-						}
-						this.status_notice.responded.connect((response) => {
-							if (response == "restart") {
-								PostMessageW(this.hwnd, WM_COMMAND, 1001, 0);
-							}
-						});
-						this.notice_up = true;
-						this.status_notice.closed.connect(() => {
-							this.notice_up = false;
-						});
-						this.status_notice.present(null);
-						return 0;
-
-					default:
-						break;
-				}
-			}
-			if (msg == WM_COMMAND) {
-				switch ((uint32) (wparam & 0xffff)) {
-					case 1001:
-						if (this.restarting) {
-							return 0;
-						}
-						var exe_buf = g_utf8_to_utf16(string.nfill(259, ' '));
-						if (GetModuleFileNameW(null, exe_buf, 260) == 0) {
-							return 0;
-						}
-						var exe_path = "";
-						try {
-							exe_path = exe_buf.to_utf8();
-						} catch (GLib.ConvertError e) {
-							return 0;
-						}
-						var slash = exe_path.last_index_of("\\");
-						var dir_w = g_utf8_to_utf16(slash > 0 ? exe_path.substring(0, slash) : "");
-						var verb_w = g_utf8_to_utf16("runas");
-						var params_w = g_utf8_to_utf16("--restart");
-						var sei = SHELLEXECUTEINFOW() {
-							cbSize = (uint32) sizeof(SHELLEXECUTEINFOW),
-							fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI,
-							hwnd = this.hwnd,
-							lpVerb = verb_w,
-							lpFile = exe_buf,
-							lpParameters = params_w,
-							nShow = SW_SHOWNORMAL,
-						};
-						if (slash > 0) {
-							sei.lpDirectory = dir_w;
-						}
-						if (!ShellExecuteExW(ref sei)) {
-							var err = GetLastError();
-							var title = "Could not restart the Argus agent service";
-							var detail = "Error %u.".printf(err);
-							if (err == ERROR_CANCELLED) {
-								title = "Could not request administrator access";
-								detail = "Administrator access was not granted.";
-							}
-							if (!this.gtk_up) {
-								Adw.init();
-								this.gtk_up = true;
-							}
-							if (!this.notice_up) {
-								this.status_notice = new Argus.Shared.Notice(title, detail);
-								this.status_notice.title =
-									"Argus Remote Management Agent " + Argus.VERSION;
-								this.status_notice.add_response("ok", "OK");
-								this.notice_up = true;
-								this.status_notice.closed.connect(() => {
-									this.notice_up = false;
-								});
-								this.status_notice.present(null);
-							}
-							return 0;
-						}
-						this.restarting = true;
-						this.set_tip("Restarting agent…");
-						if (sei.hProcess == null) {
-							this.restarting = false;
-							return 0;
-						}
-						this.restart_proc = sei.hProcess;
-						GLib.Timeout.add(200, () => {
-							if (this.restart_proc == null) {
-								return false;
-							}
-							if (WaitForSingleObject(this.restart_proc, 0) != WAIT_OBJECT_0) {
-								return true;
-							}
-							var code = (uint32) 1;
-							GetExitCodeProcess(this.restart_proc, (void*) (&code));
-							CloseHandle(this.restart_proc);
-							this.restart_proc = null;
-							this.restarting = false;
-							if (code == 0) {
-								this.set_tip("Argus RM Agent");
-								var info = NotifyIcon() {
-									cb_size = (uint32) sizeof(NotifyIcon),
-									hwnd = this.hwnd,
-									id = 1,
-									flags = NIF_INFO,
-									info_flags = NIIF_INFO,
-								};
-								copy_wide(&info.info_title[0], g_utf8_to_utf16("Argus RM Agent"), 63);
-								info.info_title[63] = 0;
-								copy_wide(&info.info[0],
-									g_utf8_to_utf16("The agent service has been restarted."), 255);
-								info.info[255] = 0;
-								Shell_NotifyIconW(NIM_MODIFY, &info);
-								return false;
-							}
-							this.set_tip(this.tip_text != "" ? this.tip_text : "Disconnected");
-							if (!this.gtk_up) {
-								Adw.init();
-								this.gtk_up = true;
-							}
-							if (this.notice_up) {
-								return false;
-							}
-							var detail = "Restart exited with code %u.".printf(code);
-							switch (code) {
-								case 5:
-									detail = "Administrator access was not granted.";
-									break;
-
-								case 1060:
-									detail = "The Argus agent service is not installed.";
-									break;
-
-								default:
-									break;
-							}
-							this.status_notice = new Argus.Shared.Notice(
-								"Could not restart the Argus agent service", detail);
+						if (!this.notice_up) {
+							this.status_notice = new Argus.Shared.Notice(title, detail);
 							this.status_notice.title =
 								"Argus Remote Management Agent " + Argus.VERSION;
 							this.status_notice.add_response("ok", "OK");
@@ -520,26 +548,77 @@ namespace Argus.Agent.Win32
 								this.notice_up = false;
 							});
 							this.status_notice.present(null);
+						}
+						return 0;
+					}
+					this.restarting = true;
+					this.set_tip("Restarting agent…");
+					if (sei.hProcess == null) {
+						this.restarting = false;
+						return 0;
+					}
+					this.restart_proc = sei.hProcess;
+					GLib.Timeout.add(200, () => {
+						if (this.restart_proc == null) {
 							return false;
+						}
+						if (WaitForSingleObject(this.restart_proc, 0) != WAIT_OBJECT_0) {
+							return true;
+						}
+						var code = (uint32) 1;
+						GetExitCodeProcess(this.restart_proc, (void*) (&code));
+						CloseHandle(this.restart_proc);
+						this.restart_proc = null;
+						this.restarting = false;
+						if (code == 0) {
+							this.set_tip("Argus RM Agent");
+							this.balloon(
+								"Argus RM Agent",
+								"The agent service has been restarted.");
+							return false;
+						}
+						this.set_tip(this.tip_text != "" ? this.tip_text : "Disconnected");
+						if (!this.gtk_up) {
+							Adw.init();
+							this.gtk_up = true;
+						}
+						if (this.notice_up) {
+							return false;
+						}
+						var detail = "Restart exited with code %u.".printf(code);
+						switch (code) {
+							case 5:
+								detail = "Administrator access was not granted.";
+								break;
+
+							case 1060:
+								detail = "The Argus agent service is not installed.";
+								break;
+
+							default:
+								break;
+						}
+						this.status_notice = new Argus.Shared.Notice(
+							"Could not restart the Argus agent service", detail);
+						this.status_notice.title =
+							"Argus Remote Management Agent " + Argus.VERSION;
+						this.status_notice.add_response("ok", "OK");
+						this.notice_up = true;
+						this.status_notice.closed.connect(() => {
+							this.notice_up = false;
 						});
-						return 0;
+						this.status_notice.present(null);
+						return false;
+					});
+					return 0;
 
-					case 1002:
-						this.present();
-						return 0;
+				case 1002:
+					this.present();
+					return 0;
 
-					default:
-						break;
-				}
+				default:
+					return DefWindowProcW(hwnd, WM_COMMAND, wparam, lparam);
 			}
-			if (msg == WM_DESTROY) {
-				if (this.added) {
-					Shell_NotifyIconW(NIM_DELETE, &this.nid);
-					this.added = false;
-				}
-				return 0;
-			}
-			return DefWindowProcW(hwnd, msg, wparam, lparam);
 		}
 
 		/**
@@ -623,6 +702,70 @@ namespace Argus.Agent.Win32
 			this.nid.tip[127] = 0;
 			this.nid.flags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
 			Shell_NotifyIconW(NIM_MODIFY, &this.nid);
+		}
+
+		/**
+		 * Show a tray balloon.
+		 *
+		 * Same ''NIF_INFO'' modify as Snappr ''TrayKeeper.balloon''.
+		 *
+		 * @param title balloon title
+		 * @param body balloon text
+		 */
+		private void balloon(string title, string body)
+		{
+			if (!this.added) {
+				return;
+			}
+			var tip = NotifyIcon() {
+				cb_size = (uint32) sizeof(NotifyIcon),
+				hwnd = this.hwnd,
+				id = 1,
+				flags = NIF_INFO,
+				info_flags = NIIF_INFO,
+			};
+			try {
+				copy_wide(&tip.info_title[0], title.to_utf16(), 63);
+				tip.info_title[63] = 0;
+				copy_wide(&tip.info[0], body.to_utf16(), 255);
+			} catch (GLib.ConvertError e) {
+				return;
+			}
+			tip.info[255] = 0;
+			Shell_NotifyIconW(NIM_MODIFY, &tip);
+		}
+
+		/**
+		 * Ask before Remote Desktop is turned on.
+		 *
+		 * Half an hour with no keyboard or mouse calls
+		 * ''AgentService.allow'' without a question. Otherwise
+		 * a balloon asks. A click allows it. Ignoring the
+		 * balloon leaves it off.
+		 */
+		private void ask()
+		{
+			var last = LastInputInfo();
+			last.cb_size = (uint32) sizeof(LastInputInfo);
+			if (GetLastInputInfo(ref last) &&
+				GetTickCount() - last.time >= (uint32) (30 * 60 * 1000)) {
+				if (!this.rpc.connected) {
+					return;
+				}
+				try {
+					this.rpc.call_sync(new OLLMrpc.Request() {
+						method = "AgentService.allow",
+						args = OLLMrpc.args("b", true)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+				return;
+			}
+			this.asking = true;
+			this.balloon(
+				"An admin wants to take over",
+				"Your programs stay open, and you will not be logged off. Click to allow.");
 		}
 
 		/**

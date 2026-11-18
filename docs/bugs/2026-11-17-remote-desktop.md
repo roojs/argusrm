@@ -1,6 +1,6 @@
 # Remote desktop from the machine General tab
 
-**Status:** ⏳ critical — the server registers `Relay.join` and `Relay.write` on the app socket. The proof still uses the test listen: the first connection stays `App.ping`, the second connection streams, and the desk reaches `ACTIVATED`. The controller message that makes the server notify the agent is not written. Phases 3–6 are not written. Phase 7 waits until Windows works.
+**Status:** ⏳ critical — Phases 1–4 are signed off. The Windows agent can turn Remote Desktop on and ask at the tray. Phase 4's stream rules are signed off. Building that stream, Force, and the Disconnect notice are Phase 6.5. The viewer is Phase 5. Phase 7 waits until Windows works.
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, archived plan [5.12-MOVED-remote-desktop.md](../plans/done/5.12-MOVED-remote-desktop.md), [2026-11-17-FIXED-windows-command-session-job.md](done/2026-11-17-FIXED-windows-command-session-job.md), [2026-11-16-FIXED-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [`controller/tab/Asset/Machine/General.vala`](../../controller/tab/Asset/Machine/General.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`server/Net/Download.vala`](../../server/Net/Download.vala)
 
@@ -42,13 +42,14 @@
 
 - ✔️ **Phase 1 — Relay proof.** Framed RPC carried a FreeRDP session. Test binaries only.
 - ✔️ **Phase 2 — Second connection, same port.** No other port and no other listener. The server registers `Relay.join` and `Relay.write`. The proof still uses the test listen.
-- 🔷 ⏳ **Phase 3 — Enable Windows Remote Desktop.** Turn it on only when `supports_rdp()` is true. Otherwise do not show the button.
-- 🔷 ⏳ **Phase 4 — Start the flow.** The controller sends a message on its connection. The server notifies the agent. That notification is what starts the stream. Before the viewer.
+- ✔️ **Phase 3 — Enable Windows Remote Desktop.** Edition check, logged-in check, and the tray balloon are in. The button is Phase 5.
+- ✅ **Phase 4 — Start the flow.** Signed off. The agent streams. The server tells the controller. Bytes are dropped until the controller connects, then forwarded from the start of a connection. A late controller gets a new connection from the first byte.
 - 🔷 ⏳ **Phase 5 — Viewer.** The General-tab button and the desktop window.
 - 🔷 ⏳ **Phase 6 — Parked connections.** The X leaves the desktop running. **RDP connections** under Assets opens it again.
+- 🔷 ⏳ **Phase 6.5 — Takeover edges.** Build the Phase 4 stream. Force. The tray names who has the screen and can disconnect.
 - 💩 ⏳ **Phase 7 — Linux desktops.** After Windows works. GNOME Remote Desktop and xrdp speak this protocol.
 
-Phase 3 needs approval before the agent changes the Windows service. Phase 2 adds no port and no listener.
+Phase 2 adds no port and no listener.
 
 ---
 
@@ -76,7 +77,7 @@ Phase 3 needs approval before the agent changes the Windows service. Phase 2 add
 - 🚫 Another listen, or any new port. The download socket stays an HTTPS GET. `server/Net/Download.vala`.
 - ℹ️ The agent still dials out. The machine does not accept a new inbound port for this.
 - ℹ️ Streaming off is not dropping the desktop. Phase 6 parks the session on the agent and stops the bytes toward the server.
-- ℹ️ Phase 2 does not start the stream. The test opens the agent connection itself. Phase 4 is the message that starts it.
+- ℹ️ Phase 2 does not start the stream. The test opens the agent connection itself. Phase 4 is signed off. Phase 6.5 builds it.
 - 🔷 A new or changed `Request.add_class` method is written into `docs/rpc-commands.md` in the same change.
 - ✔️ The fences are applied. The server calls `Rdp.Relay.rpc_register()` and compiles `Relay.vala`. `listen()` stays the test's listen. The server does not call it.
 
@@ -84,83 +85,32 @@ Phase 3 needs approval before the agent changes the Windows service. Phase 2 add
 
 ## Phase 3 — Enable Windows Remote Desktop
 
-- 🔷 Show the button only when `supports_rdp()` is true. If it is false, show nothing.
-- 🔷 The agent does not change Windows when `supports_rdp()` is false.
+- 🔷 Show the button only when `supports_rdp()` is true. If it is false, show nothing. The button is Phase 5. It is not built.
+- ✔️ The agent does not change Windows when `supports_rdp()` is false.
 - ℹ️ The Windows name is `os_version.name`, for example `Microsoft Windows 11 Pro`. No name yet means no.
-- ℹ️ Windows turns this on with `fDenyTSConnections` = `0` and by starting `TermService`. That code is not written yet.
+- ✔️ After startup the Windows agent sets `fDenyTSConnections` to `0`, sets `UserAuthentication` to `1`, and starts `TermService`. The firewall group is left closed.
 - 🔷 Leave the Windows password prompt on. Argus does not store the password.
-- 🔷 Nobody is logged in: connect.
-- 🔷 The screen is locked, or the machine is idle: connect as that same user. Their programs stay.
-- 🔷 Someone is at the PC: the tray asks. Yes borrows their screen. No stops. Force is off unless the operator turns it on.
+- ✔️ Nobody is logged in: an active Windows session is absent, so Remote Desktop is turned on. No tray question.
+- ✔️ Someone is logged in: an active session is present. The service sends `agent.desktop`.
+- ✔️ The tray reads the last keyboard or mouse time. Half an hour idle allows Remote Desktop without asking. More recent input shows a balloon. A click allows it. Ignoring the balloon leaves it off.
+- ℹ️ The service cannot read that time. It runs in session 0. The tray runs in the signed-in session.
 - 🔷 Sign in as the person already logged in. A different account logs them off.
-- ℹ️ While we are connected the PC screen is locked. Their desktop is on the remote side. When we disconnect, that same desktop is still there.
-- 🔷 The tray says who from Argus has the screen, and offers Disconnect.
-- ℹ️ The person at the PC does not see the tray while the screen is locked. Signing in at the PC disconnects the remote side. Windows already does that. It does not say the Argus name.
+- ℹ️ Force, and the tray notice that names who has the screen, are Phase 6.5.
 - ℹ️ A machine that is really asleep has to wake before any of this.
 - 🚫 Do not patch Windows to invent a second screen, or to turn this on for Home.
-- ⏳ The fence below is not applied.
-
-### 1. `shared/OSQuery/OsVersion.vala` — `supports_rdp()`
-
-Why: one check for the button and for the agent. False means do nothing.
-
-Where: add the method immediately after `package_manager()`.
-
-Depends on: none.
-
-#### Add — after the closing brace of `package_manager()`
-
-Yes for Pro, Professional, Enterprise, Education, and Server. No for Home. No when the name is empty.
-
-```vala
-		/**
-		 * This Windows edition can accept Remote Desktop.
-		 *
-		 * False when ''platform'' is not ''windows'', when
-		 * ''name'' is empty, or when the caption is Home.
-		 * Pro, Professional, Enterprise, Education, and Server
-		 * are true.
-		 *
-		 * @return true when incoming Remote Desktop is supported
-		 */
-		public bool supports_rdp()
-		{
-			if (this.platform != "windows") {
-				return false;
-			}
-			var edition = this.name.down();
-			if (edition == "") {
-				return false;
-			}
-			if (edition.contains("home")) {
-				return false;
-			}
-			if (edition.contains("server")) {
-				return true;
-			}
-			if (edition.contains("pro")) {
-				return true;
-			}
-			if (edition.contains("enterprise")) {
-				return true;
-			}
-			if (edition.contains("education")) {
-				return true;
-			}
-			return false;
-		}
-```
 
 ---
 
 ## Phase 4 — Start the flow
 
-- 🔷 The controller sends a message to the server on the connection it already has. That message is not the desktop bytes.
-- 🔷 The server sends a notification to the agent on the agent's connection. That notification starts the flow.
-- 🔷 The agent then opens the second connection to the same port and starts streaming. The agent does not open that connection until the notification arrives.
-- 🔷 This is before the viewer. Phase 5 attaches to a flow the notification already started.
-- ⏳ Not in `meson test -C build rdp-relay`. That test starts the agent and the viewer itself. Nothing there sends a message or a notification.
-- 🔷 The message and the notification are written into `docs/rpc-commands.md` in the same change.
+- ✅ The agent opens the second connection and starts streaming once Remote Desktop is on.
+- ✅ The server tells the controller that this machine's stream has started. That notification is not the desktop bytes.
+- ✅ Until that controller connects, the server drops the stream bytes.
+- ✅ When the controller connects, the server forwards both ways.
+- ℹ️ Windows sends nothing until it receives the viewer's opening bytes. The controller's first bytes are the start of the connection.
+- ✅ A controller that arrives after a stream is already going does not join the middle. The agent closes that connection to Windows and opens a new one. Forwarding starts at the first byte of the new connection.
+- 🚫 The server does not read Remote Desktop messages to find a cut point. The cut is a new connection.
+- ℹ️ The build of this, including the notification in `docs/rpc-commands.md`, is Phase 6.5.
 
 ---
 
@@ -188,6 +138,17 @@ Yes for Pro, Professional, Enterprise, Education, and Server. No for Home. No wh
 
 ---
 
+## Phase 6.5 — Takeover edges
+
+- ⏳ 🔷 Build the Phase 4 stream. The agent opens the second connection once Remote Desktop is on. The server tells the controller. Bytes are dropped until the controller connects, then forwarded. A late controller gets a new connection from the first byte.
+- ⏳ 🔷 That notification is written into `docs/rpc-commands.md` in the same change.
+- ⏳ Not in `meson test -C build rdp-relay`. That test starts the agent and the viewer itself.
+- ⏳ 🔷 Force is off unless the operator turns it on.
+- ⏳ 🔷 The tray names who from Argus has the screen, and offers Disconnect.
+- ℹ️ While a connection is up the PC screen is locked. Signing in at the PC disconnects the remote side. Windows does that. It does not say the Argus name.
+
+---
+
 ## Phase 7 — Linux desktops
 
 - 💩 ⏳ After Windows works. GNOME Remote Desktop and xrdp speak this protocol, so the same stream could reach them. Nothing in Phases 2–6 turns a Linux service on.
@@ -210,11 +171,17 @@ Yes for Pro, Professional, Enterprise, Education, and Server. No for Home. No wh
 - ✔️ 2026-11-18: Phase 2 fences are removed from this bug. Phase 3 proposes `OsVersion.supports_rdp()`. Unknown and Home are not offered. A client edition has no supported second session. The service is not changed.
 - ✔️ 2026-11-18: Connect when nobody is logged in, or when the screen is locked or idle, as that same user. If someone is at the PC, the tray asks first. Force is off unless the operator turns it on. A different account logs them off.
 - ✔️ 2026-11-18: The tray names who has the screen and can disconnect. The person at the locked PC gets the screen back by signing in. Windows does that itself.
+- ✔️ 2026-11-18: `OsVersion.supports_rdp()` is in. After startup the Windows agent turns Remote Desktop on only when that is true, and leaves the password prompt on. Home and an unknown name do nothing. The button and the tray ask are not built.
+- ✔️ 2026-11-18: An active Windows session means someone is logged in. The tray asks before Remote Desktop is turned on. Allow turns it on. No leaves it off. Nobody logged in skips the question. Force, Disconnect, and the connection are not built. Lock versus a person at the keyboard is not detected.
+- ✔️ 2026-11-18: The tray allows Remote Desktop without asking when the keyboard and mouse have been idle for half an hour. The service cannot see that time.
+- ✔️ 2026-11-18: When the agent streams, the server tells the controller and drops the bytes until the controller connects. A late controller gets a new connection from the first byte. The server does not parse Remote Desktop.
+- ✔️ 2026-11-18: The tray ask is a balloon, the same call Snappr uses. A click allows Remote Desktop. Ignoring the balloon leaves it off.
+- ✅ 2026-11-18: Phase 4 is signed off. The agent streams, the server tells the controller, and bytes are dropped until the controller connects. A late controller gets a new connection from the first byte. Building that, Force, and the Disconnect notice are Phase 6.5.
 
 ## Next
 
-- ⏳ 🔷 Phase 4 is the start: controller message, server notification, agent opens the second connection. It comes before the viewer.
-- ⏳ 🔷 Phase 3 still needs approval before the agent enables Windows Remote Desktop.
+- ⏳ 🔷 Phase 5 is the viewer: the General-tab button and the desktop window.
+- ⏳ 🔷 Phase 6.5 builds the stream, Force, and the tray notice that names who has the screen.
 - ⏳ 💩 The proof listen is still `Relay.listen`. Phase 2 does not move it into `SslListen`.
 
 ## LLM notes

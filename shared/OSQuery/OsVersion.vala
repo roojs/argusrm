@@ -274,5 +274,25 @@ namespace Argus.Shared.OSQuery
 					return PackageManager.UNKNOWN;
 			}
 		}
+
+		/**
+		 * This Windows edition can accept Remote Desktop.
+		 *
+		 * False when ''platform'' is not ''windows'', when
+		 * ''name'' is empty, or when the caption is Home.
+		 * Pro, Professional, Enterprise, Education, and Server
+		 * are true.
+		 *
+		 * @return true when incoming Remote Desktop is supported
+		 */
+		public bool supports_rdp()
+		{
+			if (this.platform != "windows") {
+				return false;
+			}
+			return GLib.Regex.match_simple(
+				"(?!.*home).*(server|pro|enterprise|education)",
+				this.name, GLib.RegexCompileFlags.CASELESS);
+		}
 	}
 }

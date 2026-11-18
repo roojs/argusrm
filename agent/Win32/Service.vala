@@ -81,7 +81,8 @@ namespace Argus.Agent.Win32
 				"AgentService", typeof(Service),
 				"hello", "is",
 				"status", "",
-				"register", "ss"
+				"register", "ss",
+				"allow", "b"
 			);
 		}
 
@@ -195,25 +196,132 @@ namespace Argus.Agent.Win32
 				new GLib.Thread<int>("osquery-init", () => {
 					var init_code = new Argus.Agent.OSQuery.Initialize(this.application).run();
 					GLib.Idle.add(() => {
-						if (init_code != 0) {
-							return false;
-						}
-						if (this.application.connection == null) {
-							return false;
-						}
-						this.application.osquery.send_startup();
-						this.application.monitor =
-							new Argus.Agent.PackageMonitor(this.application);
-						this.application.monitor.start();
-						this.application.user_monitor =
-							new Argus.Agent.UserMonitor(this.application);
-						this.application.user_monitor.start();
+						this.initialize(init_code);
 						return false;
 					});
 					return 0;
 				});
 				return false;
 			});
+		}
+
+		/**
+		 * Start osquery, then the package and user monitors.
+		 *
+		 * Remote Desktop is turned on after the monitors when
+		 * this Windows edition supports it.
+		 *
+		 * @param init_code result of osquery init, 0 when it worked
+		 */
+		private void initialize(int init_code)
+		{
+			if (init_code != 0) {
+				return;
+			}
+			if (this.application.connection == null) {
+				return;
+			}
+			this.application.osquery.send_startup();
+			this.application.monitor = new Argus.Agent.PackageMonitor(this.application);
+			this.application.monitor.start();
+			this.application.user_monitor = new Argus.Agent.UserMonitor(this.application);
+			this.application.user_monitor.start();
+			if (!this.application.os_version.supports_rdp()) {
+				return;
+			}
+			if (argus_active_session() != (uint32) 0xFFFFFFFF) {
+				this.local_listen.broadcast(new OLLMrpc.Notification() {
+					method = "agent.desktop"
+				});
+				return;
+			}
+			this.desktop();
+		}
+
+		/**
+		 * Turn Remote Desktop on after the tray says yes.
+		 *
+		 * ''yes'' false does nothing. A Home edition does nothing.
+		 *
+		 * @param request inbound RPC from the tray
+		 * @param yes true when the person at the PC allowed it
+		 */
+		public void allow(OLLMrpc.Request request, bool yes)
+		{
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+			if (!yes) {
+				return;
+			}
+			if (!this.application.os_version.supports_rdp()) {
+				return;
+			}
+			this.desktop();
+		}
+
+		/**
+		 * Set Remote Desktop to accept connections and start it.
+		 *
+		 * The password prompt stays on. The firewall group is
+		 * left closed.
+		 */
+		private void desktop()
+		{
+			var term_key = (void*) null;
+			var term_open = Win32.RegOpenKeyExW(
+				Win32.argus_hkey_local_machine(),
+				Win32.g_utf8_to_utf16("SYSTEM\\CurrentControlSet\\Control\\Terminal Server"),
+				0, Win32.KEY_SET_VALUE, (void*) (&term_key));
+			if (term_open != 0) {
+				GLib.warning("remote desktop registry open failed %d", term_open);
+			}
+			if (term_open == 0) {
+				var deny = (uint32) 0;
+				Win32.RegSetValueExW(term_key,
+					Win32.g_utf8_to_utf16("fDenyTSConnections"),
+					0, Win32.REG_DWORD, (void*) (&deny), 4);
+				Win32.RegCloseKey(term_key);
+			}
+			var nla_key = (void*) null;
+			var nla_open = Win32.RegOpenKeyExW(
+				Win32.argus_hkey_local_machine(),
+				Win32.g_utf8_to_utf16("SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp"),
+				0, Win32.KEY_SET_VALUE, (void*) (&nla_key));
+			if (nla_open != 0) {
+				GLib.warning("remote desktop password prompt open failed %d", nla_open);
+			}
+			if (nla_open == 0) {
+				var nla = (uint32) 1;
+				Win32.RegSetValueExW(nla_key,
+					Win32.g_utf8_to_utf16("UserAuthentication"),
+					0, Win32.REG_DWORD, (void*) (&nla), 4);
+				Win32.RegCloseKey(nla_key);
+			}
+			var scm = Win32.OpenSCManagerW(null, null, Win32.SC_MANAGER_CONNECT);
+			if (scm == null) {
+				GLib.warning("remote desktop service manager %u", Win32.GetLastError());
+				return;
+			}
+			var svc = Win32.OpenServiceW(scm,
+				Win32.g_utf8_to_utf16("TermService"),
+				Win32.SERVICE_CHANGE_CONFIG | Win32.SERVICE_START);
+			if (svc == null) {
+				GLib.warning("remote desktop service open %u", Win32.GetLastError());
+				Win32.CloseServiceHandle(scm);
+				return;
+			}
+			if (!Win32.ChangeServiceConfigW(svc, Win32.SERVICE_NO_CHANGE,
+				Win32.SERVICE_AUTO_START, Win32.SERVICE_NO_CHANGE,
+				null, null, null, null, null, null, null)) {
+				GLib.warning("remote desktop service config %u", Win32.GetLastError());
+			}
+			if (!Win32.StartServiceW(svc, 0, null) &&
+				Win32.GetLastError() != Win32.ERROR_SERVICE_ALREADY_RUNNING) {
+				GLib.warning("remote desktop service start %u", Win32.GetLastError());
+			}
+			Win32.CloseServiceHandle(svc);
+			Win32.CloseServiceHandle(scm);
 		}
 
 		/**

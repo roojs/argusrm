@@ -32,6 +32,12 @@ static inline HANDLE argus_invalid_handle(void)
 	return INVALID_HANDLE_VALUE;
 }
 
+/* HKEY_LOCAL_MACHINE is a macro. Vala needs a real function. */
+static inline HKEY argus_hkey_local_machine(void)
+{
+	return HKEY_LOCAL_MACHINE;
+}
+
 /* _open_osfhandle takes intptr_t. The Vala side has a HANDLE. */
 static inline int argus_open_osfhandle(HANDLE handle, int flags)
 {
