@@ -31,7 +31,8 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the registration socket. The client certificate does not exist yet. The app socket stays on its certificate check.
 - Direction: agent calls the server.
-- Arguments `ssssbss`: the pin, certificate request PEM, requester, OS family, controller flag, username, and hostname.
+- Arguments `ssssbbss`: the pin, certificate request PEM, requester, OS family, controller flag, batch flag, username, and hostname.
+  - The batch flag with pin `0000`, while the registration window is open, appends `agent_pending` and replies `msg` `pending`. The reply array is the same as a finished registration. The issued number stays valid, and the app firewall is not changed. `0000` without the flag is `number rejected`.
   - Windows sends `windows`. Android sends `android`.
   - Linux reads `/etc/os-release` before the call, through `GLib.Environment.get_os_info` for `ID` and `ID_LIKE`. Debian and Ubuntu send `debian`. Fedora, RHEL, CentOS, and SUSE send `rpm`.
   - When that file does not decide, `dpkg` on `PATH` sends `debian` and `rpm` on `PATH` sends `rpm`.

@@ -44,7 +44,7 @@ namespace Argus.Server
 		{
 			OLLMrpc.Request.add_class(
 				"Agent", typeof(Agent),
-				"request_registration", "ssssbss",
+				"request_registration", "ssssbbss",
 				"offer", "",
 				"list", "i",
 				"remove", "i"
@@ -67,12 +67,19 @@ namespace Argus.Server
 		 * on the new row without its port. The allowlist is refreshed
 		 * and the firewall enabled again.
 		 *
+		 * Pin ''0000'' with the batch flag, while that window is
+		 * open, appends {@link Argus.Shared.AgentPending} and replies
+		 * ''pending'' with the signed certificate. The number stays
+		 * valid, the window stays up, and the app firewall is left
+		 * as it is. ''0000'' without the flag is ''number rejected''.
+		 *
 		 * @param request inbound RPC on the app socket
 		 * @param pin six digits from the offer
 		 * @param csr PEM certificate request
 		 * @param requester device string stored with the row
 		 * @param family ''debian'', ''rpm'', ''windows'', or ''android''
 		 * @param is_controller true for a controller certificate
+		 * @param batch true when the agent asked with pin ''0000''
 		 * @param username controller operating-system login name
 		 * @param hostname controller machine name
 		 */
@@ -83,6 +90,7 @@ namespace Argus.Server
 			string requester,
 			string family,
 			bool is_controller,
+			bool batch,
 			string username,
 			string hostname
 		) {
@@ -94,7 +102,8 @@ namespace Argus.Server
 				return;
 			}
 			var listen = this.app.register_listen;
-			if (pin != listen.pin || listen.pin == "") {
+			var queued = batch && pin == "0000" && !is_controller && listen.pin != "";
+			if (!queued && (pin != listen.pin || listen.pin == "")) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("number rejected")
 				});
@@ -248,23 +257,37 @@ namespace Argus.Server
 					GLib.warning("could not read registration address: %s", e.message);
 				}
 			}
-			var q = Argus.Shared.Agent.query(this.app.db);
-			q.insert(new Argus.Shared.Agent() {
-				fingerprint = fingerprint,
-				status = 1,
-				ip = peer,
-				created = new GLib.DateTime.now_utc().to_unix(),
-				requester = requester,
-				username = username,
-				hostname = hostname,
-				is_controller = is_controller
-			});
-			this.app.db.backupDB();
-			listen.pin = "";
-			this.app.publish.stop();
-			this.app.register_firewall.enable();
-			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
-			this.app.download_listen.listen();
+			if (queued) {
+				Argus.Shared.AgentPending.query(this.app.db).insert(
+					new Argus.Shared.AgentPending() {
+						fingerprint = fingerprint,
+						ip = peer,
+						created = new GLib.DateTime.now_utc().to_unix(),
+						requester = requester,
+						hostname = hostname,
+						certificate = crt_pem
+					});
+				this.app.db.backupDB();
+			}
+			if (!queued) {
+				var q = Argus.Shared.Agent.query(this.app.db);
+				q.insert(new Argus.Shared.Agent() {
+					fingerprint = fingerprint,
+					status = 1,
+					ip = peer,
+					created = new GLib.DateTime.now_utc().to_unix(),
+					requester = requester,
+					username = username,
+					hostname = hostname,
+					is_controller = is_controller
+				});
+				this.app.db.backupDB();
+				listen.pin = "";
+				this.app.publish.stop();
+				this.app.register_firewall.enable();
+				this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+				this.app.download_listen.listen();
+			}
 			var path = "";
 			if (!is_controller && family == "debian") {
 				path = "/osquery/osquery.deb";
@@ -304,14 +327,20 @@ namespace Argus.Server
 			for (var i = 0; i < packed.size; i++) {
 				reply[i] = packed.get(i);
 			}
+			var reply_msg = "ok";
+			if (queued) {
+				reply_msg = "pending";
+			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("as", reply),
-				msg = "ok"
+				msg = reply_msg
 			});
-			this.app.broadcast(new OLLMrpc.Notification() {
-				method = "event.pair",
-				action = "done"
-			});
+			if (!queued) {
+				this.app.broadcast(new OLLMrpc.Notification() {
+					method = "event.pair",
+					action = "done"
+				});
+			}
 		}
 
 		/**

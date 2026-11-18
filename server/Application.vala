@@ -367,6 +367,7 @@ namespace Argus.Server
 			SQT.rpc_register();
 			SQV.rpc_register();
 			Argus.Shared.Agent.init_db(this.db);
+			Argus.Shared.AgentPending.init_db(this.db);
 			Argus.Shared.OsReleases.init_db(this.db);
 			Argus.Shared.OSQuery.init_db(this.db);
 			Argus.Shared.SQT.init_db(this.db);

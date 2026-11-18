@@ -62,6 +62,7 @@ shared_sqv_sources = files(
 shared_sources = files(
 	'namespace.vala',
 	'Agent.vala',
+	'AgentPending.vala',
 	'OsReleases.vala',
 	'Register.vala',
 )

@@ -51,6 +51,7 @@ namespace Argus.Agent.Linux
 			opt_port = 0;
 			opt_server = "";
 			opt_pin = "";
+			opt_batch = false;
 			opt_service = false;
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -440,6 +441,14 @@ namespace Argus.Agent.Linux
 					return 1;
 				}
 			}
+			if (opt_batch && given_pin != "") {
+				command_line.printerr("batch registration does not take a pin\n");
+				return 1;
+			}
+			if (opt_batch && host == "") {
+				command_line.printerr("batch registration needs an IP address\n");
+				return 1;
+			}
 			var service = new ServiceManager();
 			try {
 				service.setup();
@@ -511,6 +520,35 @@ namespace Argus.Agent.Linux
 			var registration = new Argus.Shared.Register() {
 				data_dir = Argus.AGENT_DATA_DIR
 			};
+			if (opt_batch) {
+				registration.batch = true;
+				var started = GLib.get_monotonic_time();
+				while (true) {
+					var code = registration.try_connection(host, (uint16) port, "0000",
+						GLib.Environment.get_host_name());
+					if (code == 0) {
+						break;
+					}
+					if (code != (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR) {
+						command_line.printerr("Registration failed: %d\n", code);
+						return 1;
+					}
+					if (GLib.get_monotonic_time() - started >= 3 * 60 * 1000 * 1000) {
+						command_line.printerr("Registration failed: %d\n", code);
+						return 1;
+					}
+					command_line.print("Registration is not open.\n");
+					Posix.sleep(10);
+				}
+				try {
+					service.restart();
+				} catch (GLib.Error e) {
+					command_line.printerr("Registered, but could not restart the Argus agent service: %s\n", e.message);
+					return 1;
+				}
+				command_line.print("Registration succeeded. The Argus agent is running and connected.\n");
+				return 0;
+			}
 			if (given_pin != "") {
 				var code = registration.try_connection(host, (uint16) port, given_pin,
 					GLib.Environment.get_host_name());

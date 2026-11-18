@@ -24,8 +24,9 @@ namespace Argus.Shared
 	 * Adapts the registration half of ''FilesdClient.try_connection'':
 	 * a TLS connection, ''Agent.request_registration'', then
 	 * {@link OLLMrpc.Transport.Cert} files under the user data
-	 * directory ''argus''. The call includes the OS family and explicit
-	 * controller identity fields. The server uses the family to choose
+	 * directory ''argus''. The call includes the OS family, the batch
+	 * flag, and explicit controller identity fields. The server uses
+	 * the family to choose
 	 * the agent download. The reply string array is the client
 	 * certificate, the CA, the download URL path, then the app
 	 * socket listen addresses. The download address is the host
@@ -84,6 +85,15 @@ namespace Argus.Shared
 		public bool is_controller = false;
 
 		/**
+		 * True sends pin ''0000'' as a batch request.
+		 *
+		 * The Linux agent sets this for ''--batch''. An open
+		 * registration window queues that request and returns a
+		 * temporary certificate.
+		 */
+		public bool batch = false;
+
+		/**
 		 * Operating-system login name for a controller registration.
 		 *
 		 * Agents leave this empty.
@@ -101,7 +111,7 @@ namespace Argus.Shared
 		 * Register this machine while the Argus RM window is open.
 		 *
 		 * Sends ''pin'', the certificate request, ''requester'',
-		 * the OS family, and the controller identity fields.
+		 * the OS family, the batch flag, and the controller identity fields.
 		 * Windows sends ''windows''. Android sends ''android''. Linux asks
 		 * {@link GLib.Environment.get_os_info} for ''ID'' and
 		 * ''ID_LIKE''. That reads ''/etc/os-release''. Debian and
@@ -190,8 +200,8 @@ namespace Argus.Shared
 				};
 				response = connection.call(new OLLMrpc.Request() {
 					method = "Agent.request_registration",
-					args = OLLMrpc.args("ssssbss", pin, csr, requester,
-						family, this.is_controller, this.username, this.hostname)
+					args = OLLMrpc.args("ssssbbss", pin, csr, requester,
+						family, this.is_controller, this.batch, this.username, this.hostname)
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);

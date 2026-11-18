@@ -47,6 +47,7 @@ valadoc_sources = files(
   # shared sources (must come before agent, server, and controller)
   '../shared/namespace.vala',
   '../shared/Agent.vala',
+  '../shared/AgentPending.vala',
   '../shared/OsReleases.vala',
   '../shared/Registration/Data.vala',
   '../shared/Register.vala',
