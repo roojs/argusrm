@@ -129,6 +129,7 @@ valadoc_sources += files(
   '../server/OSQuery.vala',
   '../server/OsUpdate.vala',
   '../server/Command.vala',
+  '../server/Rdp/Relay.vala',
   '../server/SQT/namespace.vala',
   '../server/SQT/Script.vala',
   '../server/SQT/ScriptRepository.vala',

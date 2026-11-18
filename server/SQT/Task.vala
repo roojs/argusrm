@@ -619,17 +619,13 @@ namespace Argus.Server.SQT
 				ORDER BY
 					task_target.id DESC
 			", rows);
-			var live = new Gee.HashMap<int, bool>();
-			if (this.app != null && this.app.ssl_listen != null) {
-				foreach (var connection in this.app.ssl_listen.connections) {
-					if (!connection.running || connection.user.id < 1) {
-						continue;
-					}
-					live.set((int) connection.user.id, true);
-				}
-			}
+			// overlay if they are connected
 			foreach (var row in rows) {
-				row.agent_id_connected = live.has_key((int) row.agent_id);
+				row.agent_id_connected = false;
+				if (!this.app.ssl_listen.by_id.has_key((int) row.agent_id)) {
+					continue;
+				}
+				row.agent_id_connected = this.app.ssl_listen.by_id.get((int) row.agent_id).running;
 			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),

@@ -45,11 +45,20 @@ namespace Argus.Server.Net
 		private bool listening = false;
 
 		/**
-		 * App-socket connections. {@link Command} writes one
-		 * notification to the connection for that agent.
+		 * App-socket connections. {@link broadcast} writes to each one.
 		 */
 		internal Gee.ArrayList<SslConnection> connections {
 			get; set; default = new Gee.ArrayList<SslConnection>();
+		}
+
+		/**
+		 * The connection a notification for one agent is written to.
+		 *
+		 * Keyed by {@link Argus.Shared.Agent.id}. The first running
+		 * connection for that id stays until it stops.
+		 */
+		internal Gee.HashMap<int, SslConnection> by_id {
+			get; set; default = new Gee.HashMap<int, SslConnection>();
 		}
 
 		/**
@@ -181,6 +190,7 @@ namespace Argus.Server.Net
 						io = tls,
 						cert_fingerprint = fingerprint
 					};
+					rpc.set_data("argus-listen", this);
 					var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 					var int_binds = new Gee.HashMap<string, int>();
 					var text_binds = new Gee.HashMap<string, string>();
@@ -269,6 +279,7 @@ namespace Argus.Server.Net
 				connection.stop();
 			}
 			this.connections.clear();
+			this.by_id.clear();
 		}
 	}
 }

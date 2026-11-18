@@ -363,6 +363,7 @@ namespace Argus.Server
 			Daemon.rpc_register();
 			OSQuery.rpc_register();
 			Command.rpc_register();
+			Rdp.Relay.rpc_register();
 			SQT.rpc_register();
 			SQV.rpc_register();
 			Argus.Shared.Agent.init_db(this.db);

@@ -211,10 +211,8 @@ namespace Argus.Server
 			if (agent_id < 1 || this.app == null || this.app.ssl_listen == null) {
 				return false;
 			}
-			foreach (var connection in this.app.ssl_listen.connections) {
-				if (!connection.running || connection.user.id != agent_id) {
-					continue;
-				}
+			var connection = this.app.ssl_listen.by_id.get((int) agent_id);
+			if (connection != null && connection.running) {
 				var now = new GLib.DateTime.now_local();
 				var dir = GLib.Path.build_filename(Argus.LOG_DIR, "commands",
 					now.format("%Y"), now.format("%m"), now.format("%d"));

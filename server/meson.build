@@ -69,6 +69,7 @@ sources = files(
 	'Apt/CatalogImport.vala',
 	'Apt/CatalogRefresh.vala',
 	'Daemon.vala',
+	'Rdp/Relay.vala',
 )
 executable(
 	'argusrm-server',

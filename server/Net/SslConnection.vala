@@ -54,6 +54,17 @@ namespace Argus.Server.Net
 			GLib.Object(stream: stream, app: app);
 			this.notify["user"].connect(() => {
 				this.set_data("argus-user", this.user);
+				if (this.user.id < 1) {
+					return;
+				}
+				var listen = this.get_data<SslListen>("argus-listen");
+				if (listen == null || listen.registration) {
+					return;
+				}
+				var existing = listen.by_id.get((int) this.user.id);
+				if (existing == null || !existing.running) {
+					listen.by_id.set((int) this.user.id, this);
+				}
 			});
 		}
 
@@ -136,6 +147,15 @@ namespace Argus.Server.Net
 					action = "disconnected"
 				});
 			}
+			var listen = this.get_data<SslListen>("argus-listen");
+			if (listen == null) {
+				return;
+			}
+			listen.connections.remove(this);
+			if (this.user.id < 1 || listen.by_id.get((int) this.user.id) != this) {
+				return;
+			}
+			listen.by_id.unset((int) this.user.id);
 		}
 	}
 }

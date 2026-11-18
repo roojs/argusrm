@@ -19,6 +19,39 @@
 namespace Argus.Server
 {
 	/**
+	 * Ordinary RPC on the same listen as the desktop stream.
+	 *
+	 * The first connection calls ''App.ping'' and never joins the
+	 * stream. {@link Rdp.Relay} is the second connection.
+	 */
+	public class AppSession : GLib.Object
+	{
+		/**
+		 * Register ''App.ping''.
+		 */
+		public static void register()
+		{
+			OLLMrpc.Request.add_class(
+				"App", typeof(AppSession),
+				"ping", "");
+			OLLMrpc.Request.register("App", new AppSession());
+		}
+
+		/**
+		 * Reply to a normal call. This connection is not streaming.
+		 *
+		 * @param request inbound RPC
+		 */
+		public void ping(OLLMrpc.Request request)
+		{
+			stderr.printf("app ping\n");
+			request.reply(new OLLMrpc.Response() {
+				msg = "pong"
+			});
+		}
+	}
+
+	/**
 	 * Proves a FreeRDP session can cross {@link OLLMrpc.Transport.TlsClient}
 	 * and {@link OLLMrpc.Transport.Connection}.
 	 *
@@ -76,6 +109,23 @@ namespace Argus.Server
 				this.mutex.unlock();
 				return late;
 			}
+
+			public int count(string needle)
+			{
+				this.mutex.lock();
+				int n = 0;
+				int at = 0;
+				while (true) {
+					int hit = this.text.index_of(needle, at);
+					if (hit < 0) {
+						break;
+					}
+					n++;
+					at = hit + needle.length;
+				}
+				this.mutex.unlock();
+				return n;
+			}
 		}
 
 		static uint16 free_port() throws GLib.Error
@@ -116,7 +166,7 @@ namespace Argus.Server
 			})) {
 				return false;
 			}
-			string[] names = { "server", "agent", "view" };
+			string[] names = { "server", "agent", "view", "app" };
 			foreach (var name in names) {
 				var key = Path.build_filename(dir, name + ".key");
 				var csr = Path.build_filename(dir, name + ".csr");
@@ -175,6 +225,29 @@ namespace Argus.Server
 			return (string) buf[0:n];
 		}
 
+		public static void app(string dir, uint16 port) throws GLib.Error
+		{
+			var rpc = new OLLMrpc.Transport.TlsClient("127.0.0.1", port) {
+				tls_certificate = new GLib.TlsCertificate.from_files(
+					Path.build_filename(dir, "app.crt"),
+					Path.build_filename(dir, "app.key")),
+				tls_database = GLib.TlsFileDatabase.new(Path.build_filename(dir, "ca.crt"))
+			};
+			rpc.open();
+			stderr.printf("app opened\n");
+			while (true) {
+				var response = rpc.call(new OLLMrpc.Request() {
+					method = "App.ping"
+				});
+				if (response.error != null) {
+					stderr.printf("app ping failed: %s\n", response.error.message);
+					Process.exit(1);
+				}
+				stderr.printf("app pong\n");
+				Thread.usleep(200 * 1000);
+			}
+		}
+
 		public static int prove(string desk_bin, string sdl_bin)
 		{
 			try {
@@ -202,6 +275,14 @@ namespace Argus.Server
 					stop_children();
 					return 1;
 				}
+				var app = spawn({
+					self, "app", dir, relay_port.to_string()
+				});
+				if (!app.wait_for("app pong", 5)) {
+					stop_children();
+					stderr.printf("app rpc did not answer\n");
+					return 1;
+				}
 				spawn({
 					self, "agent", dir, relay_port.to_string(), desk_port.to_string()
 				});
@@ -220,13 +301,33 @@ namespace Argus.Server
 					"/cert:ignore", "+auth-only",
 					"/log-level:INFO"
 				});
+				if (!relay.wait_for("joined view", 20)) {
+					stop_children();
+					stderr.printf("stream did not join\n");
+					return 1;
+				}
+				var pongs = app.count("app pong");
 				var activated = desk.wait_for("ACTIVATED", 20);
+				var streaming_pong = false;
+				var deadline = GLib.get_monotonic_time() + 5 * 1000000;
+				while (GLib.get_monotonic_time() < deadline) {
+					if (app.count("app pong") > pongs) {
+						streaming_pong = true;
+						break;
+					}
+					GLib.Thread.usleep(50 * 1000);
+				}
 				stop_children();
 				if (!activated) {
 					stderr.printf("desktop did not activate\n");
 					return 1;
 				}
+				if (!streaming_pong) {
+					stderr.printf("app rpc stopped while the second connection streamed\n");
+					return 1;
+				}
 				stdout.printf("ok rdp relay activated\n");
+				stdout.printf("ok app rpc during stream\n");
 				return 0;
 			} catch (GLib.Error e) {
 				stderr.printf("%s\n", e.message);
@@ -245,7 +346,12 @@ int main(string[] args)
 			return Argus.Server.RdpRelayTest.prove(args[1], args[2]);
 		}
 		if (args.length == 4 && args[1] == "relay") {
+			Argus.Server.AppSession.register();
 			return new Argus.Server.Rdp.Relay().listen(args[2], (uint16) int.parse(args[3]));
+		}
+		if (args.length == 4 && args[1] == "app") {
+			Argus.Server.RdpRelayTest.app(args[2], (uint16) int.parse(args[3]));
+			return 0;
 		}
 		if (args.length == 5 && args[1] == "agent") {
 			new Argus.Agent.Rdp.Tunnel().run(

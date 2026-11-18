@@ -469,15 +469,9 @@ namespace Argus.Server
 			} else {
 				Argus.Shared.Agent.query(this.app.db).select("", rows);
 			}
-			var live = new Gee.HashMap<int, bool>();
-			foreach (var connection in this.app.ssl_listen.connections) {
-				if (!connection.running || connection.user.id < 1) {
-					continue;
-				}
-				live.set((int) connection.user.id, true);
-			}
 			foreach (var row in rows) {
-				row.connected = live.has_key((int) row.id);
+				var open = this.app.ssl_listen.by_id.get((int) row.id);
+				row.connected = open != null && open.running;
 			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),
@@ -514,14 +508,12 @@ namespace Argus.Server
 				return;
 			}
 			Argus.Shared.Agent.query(this.app.db).deleteId(id);
-			foreach (var connection in this.app.ssl_listen.connections) {
-				if (connection.user.id != id) {
-					continue;
-				}
-				connection.write(new OLLMrpc.Notification() {
+			var open = this.app.ssl_listen.by_id.get(id);
+			if (open != null) {
+				open.write(new OLLMrpc.Notification() {
 					method = "agent.removed"
 				});
-				connection.stop();
+				open.stop();
 			}
 			this.app.db.backupDB();
 			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));

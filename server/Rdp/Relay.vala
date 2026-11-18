@@ -25,8 +25,9 @@ namespace Argus.Server.Rdp
 	 * {@link Argus.Controller.Rdp.Viewer} each open a
 	 * {@link OLLMrpc.Transport.TlsClient}. ''Relay.join'' stores
 	 * that connection. ''Relay.write'' replies, then sends the
-	 * chunk to the other connection as ''relay.data''. The desktop
-	 * bytes stay off the app socket. This test is the only caller.
+	 * chunk to the other connection as ''relay.data''. The second
+	 * connection on the app socket calls these. {@link listen} is
+	 * the test listen.
 	 *
 	 * == Example ==
 	 *
@@ -41,6 +42,18 @@ namespace Argus.Server.Rdp
 		public OLLMrpc.Transport.Connection? view_conn;
 
 		/**
+		 * Register ''Relay.join'' and ''Relay.write''.
+		 */
+		public static void rpc_register()
+		{
+			OLLMrpc.Request.add_class(
+				"Relay", typeof(Relay),
+				"join", "s",
+				"write", "ay");
+			OLLMrpc.Request.register("Relay", new Relay());
+		}
+
+		/**
 		 * Register ''Relay.join'' and ''Relay.write'', then accept clients.
 		 *
 		 * A handshake is kept only when the peer certificate is signed
@@ -53,11 +66,7 @@ namespace Argus.Server.Rdp
 		 */
 		public int listen(string dir, uint16 port) throws GLib.Error
 		{
-			OLLMrpc.Request.add_class(
-				"Relay", typeof(Relay),
-				"join", "s",
-				"write", "ay");
-			OLLMrpc.Request.register("Relay", this);
+			Relay.rpc_register();
 			var server_cert = new GLib.TlsCertificate.from_files(
 				GLib.Path.build_filename(dir, "server.crt"),
 				GLib.Path.build_filename(dir, "server.key"));
@@ -134,8 +143,10 @@ namespace Argus.Server.Rdp
 		 */
 		public void write(OLLMrpc.Request request, GLib.Bytes chunk)
 		{
-			var other = request.connection == this.agent_conn
-				? this.view_conn : this.agent_conn;
+			var other = this.agent_conn;
+			if (request.connection == this.agent_conn) {
+				other = this.view_conn;
+			}
 			request.reply(new OLLMrpc.Response());
 			if (other == null || chunk.get_size() == 0) {
 				return;

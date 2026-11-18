@@ -453,6 +453,28 @@ The agent sends these on the app socket from `Command.run`. They are RPC calls.
 
 ---
 
+## Remote desktop
+
+Socket: the app socket. A second connection to that same port. No other listen.
+
+### `Relay.join`
+
+- 🔷 The second connection calls this to start streaming. Argument `s`: `agent` or `view`.
+- 🔷 Reply: empty success. The server stores that connection for the role.
+- 🚫 The first connection does not call this. Desktop bytes do not travel on this call.
+
+### `Relay.write`
+
+- 🔷 One desktop chunk from the stream connection. Argument `ay`: the bytes.
+- 🔷 Reply first, then notification `relay.data` on the other stream connection, with that `ay`.
+- 🚫 Not sent on the first connection. Not `agent.run`.
+
+### `relay.data`
+
+- 🔷 Notification on the other stream connection. Argument `ay`: the chunk from `Relay.write`.
+
+---
+
 ## Tasks
 
 Controller calls for the script library and tasks. Defined in [7.1](plans/7.1-tasks-implementation.md).
