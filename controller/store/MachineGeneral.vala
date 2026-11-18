@@ -275,5 +275,29 @@ namespace Argus.Controller.Store
 			}
 			return true;
 		}
+
+		/**
+		 * Ask the server to start this machine's desktop stream.
+		 *
+		 * Phase 5's screen button calls this on touch and hold.
+		 * ''relay.ready'' is the later notice that the stream is up.
+		 */
+		public void start_desktop()
+		{
+			if (this.loaded_agent < 1) {
+				return;
+			}
+			var agent_id = this.loaded_agent;
+			this.app.rpc.call.begin(new OLLMrpc.Request() {
+				method = "Relay.start",
+				args = OLLMrpc.args("i", agent_id)
+			}, (obj, res) => {
+				try {
+					this.app.rpc.call.end(res);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			});
+		}
 	}
 }

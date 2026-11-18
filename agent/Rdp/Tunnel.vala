@@ -132,5 +132,148 @@ namespace Argus.Agent.Rdp
 			});
 			new GLib.MainLoop().run();
 		}
+
+		private GLib.SocketClient dial;
+		private uint8[] buf { get; set; }
+		public GLib.SocketConnection? plain;
+		public OLLMrpc.Transport.TlsClient? rpc;
+		public bool again;
+
+		/**
+		 * Dial Windows on loopback and join the server as ''agent''.
+		 *
+		 * The app connection is not this socket. ''Relay.write''
+		 * carries bytes read from port 3389. ''relay.data'' is
+		 * written back to that port.
+		 *
+		 * @param rpc the agent's second connection
+		 */
+		public void open_windows(OLLMrpc.Transport.TlsClient rpc) throws GLib.Error
+		{
+			this.dial = new GLib.SocketClient();
+			this.dial.timeout = 10;
+			this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
+			try {
+				this.plain.socket.set_option(6, 1, 1);
+			} catch (GLib.Error e) {
+				GLib.warning("nodelay: %s", e.message);
+			}
+			this.rpc = rpc;
+			this.rpc.notification.connect((notif) => {
+				if (notif.method != "relay.data" || notif.args.size < 1 || this.plain == null) {
+					return;
+				}
+				var blob = (GLib.Bytes) notif.args.get(0).get_boxed();
+				unowned uint8[] data = blob.get_data();
+				if (data == null) {
+					return;
+				}
+				size_t off = 0;
+				while (off < data.length) {
+					try {
+						off += this.plain.output_stream.write(data[off:data.length]);
+					} catch (GLib.Error e) {
+						GLib.warning("desktop write: %s", e.message);
+						return;
+					}
+				}
+			});
+			var joined = this.rpc.call(new OLLMrpc.Request() {
+				method = "Relay.join",
+				args = OLLMrpc.args("s", "agent")
+			});
+			if (joined.error != null) {
+				GLib.warning("join: %s", joined.error.message);
+				return;
+			}
+			this.rpc.watch();
+			new GLib.Thread<int>("desktop", () => {
+				this.buf = new uint8[16384];
+				while (this.handle_stream()) {
+				}
+				return 0;
+			});
+		}
+
+		/**
+		 * Read one chunk from Windows and write it to the server.
+		 *
+		 * A cut dials port 3389 again and calls ''Relay.fresh''.
+		 * That chunk is not copied.
+		 *
+		 * @return true when the desktop thread should read again
+		 */
+		private bool handle_stream()
+		{
+			ssize_t n = 0;
+			try {
+				n = this.plain.input_stream.read(this.buf);
+			} catch (GLib.Error e) {
+				if (!this.again) {
+					GLib.warning("desktop read: %s", e.message);
+					return false;
+				}
+			}
+			if (this.again) {
+				this.again = false;
+				try {
+					this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
+				} catch (GLib.Error e) {
+					GLib.warning("desktop: %s", e.message);
+					return false;
+				}
+				try {
+					var mark = this.rpc.call(new OLLMrpc.Request() {
+						method = "Relay.fresh"
+					});
+					if (mark.error != null) {
+						GLib.warning("fresh: %s", mark.error.message);
+						return false;
+					}
+				} catch (GLib.Error e) {
+					GLib.warning("fresh: %s", e.message);
+					return false;
+				}
+				return true;
+			}
+			if (n <= 0) {
+				return false;
+			}
+			var chunk = new uint8[n];
+			GLib.Memory.copy((uint8[]) chunk, this.buf, n);
+			var held = GLib.Value(typeof(GLib.Bytes));
+			held.set_boxed(new GLib.Bytes(chunk));
+			var request = new OLLMrpc.Request() {
+				method = "Relay.write"
+			};
+			request.args.add(held);
+			try {
+				var response = this.rpc.call(request);
+				if (response.error != null) {
+					GLib.warning("desktop write: %s", response.error.message);
+					return false;
+				}
+			} catch (GLib.Error e) {
+				GLib.warning("desktop call: %s", e.message);
+				return false;
+			}
+			return true;
+		}
+
+		/**
+		 * Close the Windows socket so the read dials a new one.
+		 */
+		public void reopen()
+		{
+			this.again = true;
+			if (this.plain == null) {
+				return;
+			}
+			try {
+				this.plain.close();
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+		}
 	}
 }

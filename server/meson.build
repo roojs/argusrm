@@ -69,6 +69,7 @@ sources = files(
 	'Apt/CatalogImport.vala',
 	'Apt/CatalogRefresh.vala',
 	'Daemon.vala',
+	'Rdp/Seat.vala',
 	'Rdp/Relay.vala',
 )
 executable(
@@ -185,3 +186,5 @@ executable(
 	],
 	install: false,
 )
+server_sources = sources
+server_deps = deps

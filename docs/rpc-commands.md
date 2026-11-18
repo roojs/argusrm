@@ -475,6 +475,40 @@ Socket: the app socket. A second connection to that same port. No other listen.
 
 - 🔷 Notification on the other stream connection. Argument `ay`: the chunk from `Relay.write`.
 
+### `Relay.start`
+
+- 🔷 Socket: the app socket. The first connection.
+- 🔷 Direction: controller calls the server.
+- 🔷 Argument `i`: `agent.id`.
+- 🔷 The server writes notification `relay.start` on that agent's app connection. No arguments. That is not the desktop.
+- 🔷 Reply: empty success. An unknown or disconnected agent is `unknown agent`. A caller that is not a controller is `controller only`.
+- 🔷 When that agent has already joined, the reply is followed by notification `relay.ready` on this controller connection.
+
+### `relay.start`
+
+- 🔷 Notification on the agent's app connection. No arguments. The agent opens the second connection once Remote Desktop is on.
+
+### `relay.ready`
+
+- 🔷 Notification on the controller connection that called `Relay.start`. Argument `i`: `agent.id`. The stream has started. This is not the desktop bytes.
+
+### `Relay.view`
+
+- 🔷 Socket: the controller's second connection to the same port.
+- 🔷 Argument `i`: `agent.id`.
+- 🔷 Reply: empty success, then both sides are forwarded.
+- 🔷 A view that arrives after a byte has already been forwarded gets no reply until `Relay.fresh`. The server writes notification `relay.cut` on that agent's app connection.
+
+### `relay.cut`
+
+- 🔷 Notification on the agent's app connection. No arguments. The agent closes its connection to Windows and opens a new one, then calls `Relay.fresh`.
+
+### `Relay.fresh`
+
+- 🔷 Socket: the agent stream connection. No arguments.
+- 🔷 Reply: empty success. The held `Relay.view` is answered. Forwarding starts at the next byte, which is the first byte of the new Windows connection.
+- 🚫 The server does not read Remote Desktop messages to find this cut.
+
 ---
 
 ## Tasks

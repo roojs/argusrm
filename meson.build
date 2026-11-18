@@ -130,6 +130,9 @@ subdir('agent')
 subdir('controller')
 if host_machine.system() == 'linux'
 	subdir('server')
+endif
+subdir('tests')
+if host_machine.system() == 'linux'
 	freerdp = dependency('freerdp3', required: false)
 	freerdp_server = dependency('freerdp-server3', required: false)
 	winpr = dependency('winpr3', required: false)
@@ -165,26 +168,16 @@ if host_machine.system() == 'linux'
 		)
 		rdp_relay_test = executable(
 			'argus-rdp-relay-test',
+			server_sources,
 			files(
-				'server/Rdp/Relay.vala',
 				'agent/Rdp/Tunnel.vala',
 				'controller/Rdp/Viewer.vala',
 				'server/tests/rdp-relay.vala',
 			),
-			dependencies: [
-				dependency('glib-2.0'),
-				dependency('gobject-2.0'),
-				dependency('gio-2.0'),
-				dependency('gee-0.8'),
-				dependency('json-glib-1.0'),
-				dependency('libsoup-3.0'),
-				cc.find_library('ocrpc'),
-			],
+			dependencies: server_deps,
+			c_args: ocsqlite_c_args,
 			export_dynamic: true,
-			vala_args: [
-				'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
-				'--pkg', 'ocrpc', '--pkg', 'posix',
-			],
+			vala_args: server_vala_args,
 			install: false,
 		)
 		test(

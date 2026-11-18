@@ -79,6 +79,7 @@ if host_machine.system() == 'windows'
 		'Win32/UserMonitor.vala',
 		'Win32/UpdatesAvailable.vala',
 		'Win32/main.vala',
+		'Rdp/Tunnel.vala',
 	)
 	vala_args += [
 		'--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32',
@@ -152,77 +153,5 @@ else
 			c_args: c_args,
 			install: true,
 		)
-	endif
-	watch_test = executable(
-		'argus-agent-watch',
-		files('tests/watch.vala', 'tests/TlsClient.vala'),
-		dependencies: [
-			dependency('glib-2.0'),
-			dependency('gio-2.0'),
-			dependency('gee-0.8'),
-			dependency('json-glib-1.0'),
-			dependency('libsoup-3.0'),
-			ocrpc_dep,
-		],
-		vala_args: ocrpc_vala_args + [
-			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
-		],
-		install: false,
-	)
-	test('agent-watch', watch_test, timeout: 10)
-	sync_lag_test = executable(
-		'argus-agent-sync-lag',
-		files('tests/sync-lag.vala', 'tests/TlsClient.vala'),
-		dependencies: [
-			dependency('glib-2.0'),
-			dependency('gio-2.0'),
-			dependency('gee-0.8'),
-			dependency('json-glib-1.0'),
-			dependency('libsoup-3.0'),
-			ocrpc_dep,
-		],
-		vala_args: ocrpc_vala_args + [
-			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
-		],
-		install: false,
-	)
-	test('agent-sync-lag', sync_lag_test, timeout: 15)
-	if host_machine.system() == 'linux'
-		command_test = executable(
-			'argus-agent-command',
-			files('tests/command.vala', 'linux/Command.vala'),
-			dependencies: [
-				dependency('glib-2.0'),
-				dependency('gio-2.0'),
-				dependency('gio-unix-2.0'),
-				dependency('gee-0.8'),
-				dependency('json-glib-1.0'),
-				dependency('libsoup-3.0'),
-				ocrpc_dep,
-			],
-			vala_args: ocrpc_vala_args + [
-				'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0',
-				'--pkg', 'libsoup-3.0', '--pkg', 'gio-unix-2.0', '--pkg', 'posix',
-			],
-			install: false,
-		)
-		test('agent-command', command_test, timeout: 8, is_parallel: false)
-		apt_history_test = executable(
-			'argus-apt-history-test',
-			files('tests/apt-history.vala', 'linux/Apt/History.vala'),
-			dependencies: [
-				dependency('glib-2.0'),
-				dependency('gobject-2.0'),
-				dependency('gio-2.0'),
-				dependency('gee-0.8'),
-				shared_cli_dep,
-				ocrpc_dep,
-			],
-			vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
-				'--pkg', 'gee-0.8', '--pkg', 'gio-2.0', '--pkg', 'sqlite3',
-			],
-			install: false,
-		)
-		test('apt-history', apt_history_test, timeout: 30)
 	endif
 endif

@@ -217,6 +217,60 @@ namespace Argus.Agent
 		}
 
 		/**
+		 * Open another connection to the same server.
+		 *
+		 * {@link connection} stays the app session. This socket
+		 * is the desktop stream. The certificate files are the
+		 * ones {@link open_connection} uses.
+		 *
+		 * @return the stream, or null when the server file or the handshake fails
+		 */
+		internal OLLMrpc.Transport.TlsClient? stream_connection()
+		{
+#if LINUX
+			var dir = Argus.AGENT_DATA_DIR;
+#else
+			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
+#endif
+			var text = "";
+			try {
+				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return null;
+			}
+			text = text.strip();
+			var mark = text.last_index_of(":");
+			if (text == "" || mark < 1) {
+				return null;
+			}
+			var host = text.substring(0, mark);
+			var port = int.parse(text.substring(mark + 1));
+			if (port <= 0 || port > 65535) {
+				return null;
+			}
+			var tls_files = new OLLMrpc.Transport.Cert() {
+				dir = dir,
+				cert_pem = "client.pem",
+				key_pem = "client-key.pem",
+				cn = "argus-agent",
+			};
+			tls_files.ensure();
+			var opened = new OLLMrpc.Transport.TlsClient(host, (uint16) port) {
+				accept_any = true,
+				tls_certificate = tls_files.certificate
+			};
+			opened.timeout = 5;
+			try {
+				opened.open();
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return null;
+			}
+			return opened;
+		}
+
+		/**
 		 * Keep {@link connection} open.
 		 *
 		 * The first call starts a thirty-second retry. The connection
@@ -590,6 +644,25 @@ namespace Argus.Agent
 					}
 					var command = (Command) obj;
 					command.run(this.connection);
+					return;
+				case "relay.start":
+#if WINDOWS
+					if (Win32.Service.current != null) {
+						Win32.Service.current.relay_start();
+					}
+#endif
+					return;
+				case "relay.cut":
+#if WINDOWS
+					if (Win32.Service.current == null) {
+						return;
+					}
+					if (Win32.Service.current.tunnel == null) {
+						Win32.Service.current.relay_start();
+						return;
+					}
+					Win32.Service.current.tunnel.reopen();
+#endif
 					return;
 				default:
 					return;

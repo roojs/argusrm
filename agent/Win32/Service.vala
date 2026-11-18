@@ -55,7 +55,7 @@ namespace Argus.Agent.Win32
 		 * One process runs one service. The dispatcher function pointers
 		 * have no context argument, so they use this.
 		 */
-		private static Service current;
+		internal static Service current;
 
 		private static LPSERVICE_MAIN_FUNCTIONW main_proc = (argc, argv) => {
 			Service.current.service_main();
@@ -71,6 +71,9 @@ namespace Argus.Agent.Win32
 		private Argus.Agent.Application application;
 		private OLLMrpc.Transport.TcpListen local_listen;
 		private int ticks = 0;
+		private bool desktop_on = false;
+		private bool start_asked = false;
+		internal Argus.Agent.Rdp.Tunnel? tunnel;
 
 		/**
 		 * Register ''AgentService'' RPC methods on {@link OLLMrpc.Request}.
@@ -316,12 +319,49 @@ namespace Argus.Agent.Win32
 				null, null, null, null, null, null, null)) {
 				GLib.warning("remote desktop service config %u", Win32.GetLastError());
 			}
-			if (!Win32.StartServiceW(svc, 0, null) &&
-				Win32.GetLastError() != Win32.ERROR_SERVICE_ALREADY_RUNNING) {
+			var started = Win32.StartServiceW(svc, 0, null) ||
+				Win32.GetLastError() == Win32.ERROR_SERVICE_ALREADY_RUNNING;
+			if (!started) {
 				GLib.warning("remote desktop service start %u", Win32.GetLastError());
 			}
 			Win32.CloseServiceHandle(svc);
 			Win32.CloseServiceHandle(scm);
+			if (!started) {
+				return;
+			}
+			this.desktop_on = true;
+			if (this.start_asked) {
+				this.relay_start();
+			}
+		}
+
+		/**
+		 * Open the desktop stream once Remote Desktop is on.
+		 *
+		 * A start that arrives earlier waits for {@link desktop}.
+		 * A tunnel that is already open is left as it is.
+		 */
+		internal void relay_start()
+		{
+			if (!this.desktop_on) {
+				this.start_asked = true;
+				return;
+			}
+			this.start_asked = false;
+			if (this.tunnel != null) {
+				return;
+			}
+			var rpc = this.application.stream_connection();
+			if (rpc == null) {
+				return;
+			}
+			this.tunnel = new Argus.Agent.Rdp.Tunnel();
+			try {
+				this.tunnel.open_windows(rpc);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				this.tunnel = null;
+			}
 		}
 
 		/**

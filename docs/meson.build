@@ -95,6 +95,7 @@ valadoc_sources += files(
   # agent sources
   '../agent/namespace.vala',
   '../agent/Application.vala',
+  '../agent/Rdp/Tunnel.vala',
   '../agent/Download.vala',
   '../agent/OSQuery/Initialize.vala',
   '../agent/OSQuery/Execute.vala',
@@ -129,6 +130,7 @@ valadoc_sources += files(
   '../server/OSQuery.vala',
   '../server/OsUpdate.vala',
   '../server/Command.vala',
+  '../server/Rdp/Seat.vala',
   '../server/Rdp/Relay.vala',
   '../server/SQT/namespace.vala',
   '../server/SQT/Script.vala',
