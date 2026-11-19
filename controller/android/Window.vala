@@ -336,7 +336,7 @@ namespace Argus.Controller
 			this.reconnecting = true;
 			rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
-				args = OLLMrpc.args("is", 1, "argus-controller")
+				args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)
 			}, null, (obj, res) => {
 				this.reconnecting = false;
 				if (this.closed) {

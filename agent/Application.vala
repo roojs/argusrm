@@ -66,9 +66,31 @@ namespace Argus.Agent
 		}
 
 		/**
-		 * Server connection. Null until {@link open_connection}.
+		 * TLS session and reconnect loop for the management server.
 		 */
-		internal OLLMrpc.Transport.TlsClient? connection { get; private set; }
+		internal Connection server { get; private set; }
+
+		/**
+		 * Management TLS socket when the link is up.
+		 *
+		 * Calls {@link Connection.client}. Prefer `server.client()` in new code.
+		 */
+		internal OLLMrpc.Transport.TlsClient? connection {
+			get { return this.server.client(); }
+		}
+
+		/**
+		 * Directory with ``server``, client certificates, and download paths.
+		 */
+		internal string data_dir {
+			get {
+#if LINUX
+				return Argus.AGENT_DATA_DIR;
+#else
+				return GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
+#endif
+			}
+		}
 
 		/**
 		 * Osquery runner for this process.
@@ -106,11 +128,10 @@ namespace Argus.Agent
 		internal UserMonitor user_monitor;
 
 		/**
-		 * True when {@link connection} is down.
+		 * True when the management link has no live session.
 		 *
-		 * Set when {@link open_connection} fails, or when
-		 * {@link OLLMrpc.Transport.TlsClient.closed} fires.
-		 * {@link attach_connection} tries again on the next retry.
+		 * Set by {@link Connection} in link state handlers.
+		 * 💩 Replace with link {@code state} when call sites are migrated.
 		 */
 		internal static bool connection_down = false;
 
@@ -124,8 +145,7 @@ namespace Argus.Agent
 		 */
 		internal string status_notice = "";
 
-		private uint connection_check_id = 0;
-		private bool connecting = false;
+		private bool inventory_started = false;
 
 		protected static bool opt_debug;
 		protected static bool opt_debug_critical;
@@ -151,184 +171,78 @@ namespace Argus.Agent
 		};
 
 		/**
-		 * Create the process.
+		 * Management TLS client from the link state machine.
 		 *
-		 * The id is ''org.roojs.ArgusAgent''. Flags are
-		 * {@link GLib.ApplicationFlags.HANDLES_COMMAND_LINE} and
-		 * {@link GLib.ApplicationFlags.NON_UNIQUE}, as in ''ollmfilesd''.
-		 * Service mode is not used: it rejects arguments.
-		 */
-		/**
-		 * Open the server connection from the stored server and certificate.
+		 * Non-null only when {@link Argus.Agent.Connection.State.CONNECTED}.
 		 *
-		 * A second call returns the connection already open.
-		 * Registration wrote those certificate files. The socket
-		 * waits five seconds, then the open fails.
-		 *
-		 * @return the connection, or null when it cannot be opened
+		 * @return the live session, or null
 		 */
 		internal OLLMrpc.Transport.TlsClient? open_connection()
 		{
-			if (this.connection != null) {
-				return this.connection;
-			}
-#if LINUX
-			var dir = Argus.AGENT_DATA_DIR;
-#else
-			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
-#endif
-			var text = "";
-			try {
-				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return null;
-			}
-			text = text.strip();
-			var mark = text.last_index_of(":");
-			if (text == "" || mark < 1) {
-				return null;
-			}
-			var host = text.substring(0, mark);
-			var port = int.parse(text.substring(mark + 1));
-			if (port <= 0 || port > 65535) {
-				return null;
-			}
-			var tls_files = new OLLMrpc.Transport.Cert() {
-				dir = dir,
-				cert_pem = "client.pem",
-				key_pem = "client-key.pem",
-				cn = "argus-agent",
-			};
-			tls_files.ensure();
-			var opened = new OLLMrpc.Transport.TlsClient(host, (uint16) port) {
-				accept_any = true,
-				tls_certificate = tls_files.certificate
-			};
-			opened.timeout = 5;
-			try {
-				opened.open();
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return null;
-			}
-			this.connection = opened;
-			return this.connection;
+			return this.server.client();
 		}
 
 		/**
-		 * Open another connection to the same server.
+		 * Second TLS socket for the Windows RDP relay.
 		 *
-		 * {@link connection} stays the app session. This socket
-		 * is the desktop stream. The certificate files are the
-		 * ones {@link open_connection} uses.
+		 * 💩 Not implemented until the spec covers a stream socket
+		 * apart from the management link.
 		 *
-		 * @return the stream, or null when the server file or the handshake fails
+		 * @return always null for now
 		 */
 		internal OLLMrpc.Transport.TlsClient? stream_connection()
 		{
-#if LINUX
-			var dir = Argus.AGENT_DATA_DIR;
-#else
-			var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
-#endif
-			var text = "";
-			try {
-				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return null;
+			return null;
+		}
+
+		internal void start_inventory_once()
+		{
+			if (this.inventory_started) {
+				return;
 			}
-			text = text.strip();
-			var mark = text.last_index_of(":");
-			if (text == "" || mark < 1) {
-				return null;
-			}
-			var host = text.substring(0, mark);
-			var port = int.parse(text.substring(mark + 1));
-			if (port <= 0 || port > 65535) {
-				return null;
-			}
-			var tls_files = new OLLMrpc.Transport.Cert() {
-				dir = dir,
-				cert_pem = "client.pem",
-				key_pem = "client-key.pem",
-				cn = "argus-agent",
-			};
-			tls_files.ensure();
-			var opened = new OLLMrpc.Transport.TlsClient(host, (uint16) port) {
-				accept_any = true,
-				tls_certificate = tls_files.certificate
-			};
-			opened.timeout = 5;
-			try {
-				opened.open();
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return null;
-			}
-			return opened;
+			this.inventory_started = true;
+			new GLib.Thread<int>("osquery-init", () => {
+				var code = new OSQuery.Initialize(this).run();
+				GLib.Idle.add(() => {
+					if (code != 0 || this.connection == null || Application.connection_down) {
+						return false;
+					}
+					this.osquery.send_startup();
+					this.monitor = new PackageMonitor(this);
+					this.monitor.start();
+					this.user_monitor = new UserMonitor(this);
+					this.user_monitor.start();
+					return false;
+				});
+				return 0;
+			});
 		}
 
 		/**
 		 * Keep {@link connection} open.
 		 *
-		 * The first call starts a two-second retry. The connection
-		 * that is still up is left as it is. A dropped connection
-		 * is dialed again at once. The old client still has the
-		 * name table from the server that went away.
+		 * See ``docs/plans/2.6.1-agent-server-connection-spec.md``.
 		 */
 		internal void attach_connection()
 		{
-			if (this.connection_check_id == 0) {
-				this.connection_check_id = GLib.Timeout.add_seconds(2, () => {
-					if (this.connection != null && !Application.connection_down) {
-						return true;
-					}
-					this.attach_connection();
-					return true;
-				});
-			}
-			if (this.connecting) {
-				return;
-			}
-			if (this.connection != null && Application.connection_down) {
-				this.connection = null;
-			}
-			if (this.connection != null && !Application.connection_down) {
-				return;
-			}
-			this.connecting = true;
-			var opened = this.open_connection();
-			if (opened != null) {
-				opened.closed.connect(() => {
-					Application.connection_down = true;
-					this.state_changed();
-					this.attach_connection();
-				});
-				opened.notification.connect(this.notification);
-			}
-			this.connecting = false;
-			if (opened == null) {
-				Application.connection_down = true;
-				this.state_changed();
-				return;
-			}
-			opened.watch();
-			if (Application.connection_down) {
-				return;
-			}
-			Application.connection_down = false;
-			GLib.debug("watching the server connection");
-			this.state_changed();
+			this.server = new Connection(this);
 		}
 
+		/**
+		 * Create the process.
+		 *
+		 * The id is ''org.roojs.ArgusAgent''. Flags are
+		 * {@link GLib.ApplicationFlags.HANDLES_COMMAND_LINE} and
+		 * {@link GLib.ApplicationFlags.NON_UNIQUE}, as in ''ollmfilesd''.
+		 * Constructs {@link server} once for the process lifetime.
+		 */
 		public Application()
 		{
 			Object(
 				application_id: "org.roojs.ArgusAgent",
 				flags: GLib.ApplicationFlags.HANDLES_COMMAND_LINE | GLib.ApplicationFlags.NON_UNIQUE
 			);
+			this.server = new Connection(this);
 			GLib.Log.set_default_handler((dom, lvl, msg) => {
 				Application.debug_log(dom, lvl, msg);
 			});
@@ -477,7 +391,6 @@ namespace Argus.Agent
 #if LINUX
 			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				this.attach_connection();
 				if (this.connection != null && !Application.connection_down) {
 					new OSQuery.Initialize(this).start();
 					this.osquery.send_startup();
@@ -509,62 +422,6 @@ namespace Argus.Agent
 				this.hold();
 				return 0;
 			}
-			GLib.Idle.add(() => {
-				this.attach_connection();
-				if (this.connection == null) {
-					this.status_notice = "Could not reach the management server.";
-					this.state_changed();
-					return false;
-				}
-				try {
-					var response = this.connection.call(new OLLMrpc.Request() {
-						method = "RPC-Daemon.hello",
-						args = OLLMrpc.args("is", 1, "argus-agent")
-					});
-					if (response.error != null && response.error.code == (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
-						if (this.connection_check_id != 0) {
-							GLib.Source.remove(this.connection_check_id);
-							this.connection_check_id = 0;
-						}
-						this.connection = null;
-						Application.connection_down = true;
-						var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
-						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"));
-						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
-						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
-						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
-						this.status_notice = "Not registered with the management server.";
-						GLib.debug("registration cleared");
-						this.state_changed();
-						return false;
-					}
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-					Application.connection_down = true;
-					this.connection = null;
-					this.status_notice = "Could not reach the management server.";
-					this.state_changed();
-					return false;
-				}
-				this.status_notice = "";
-				this.state_changed();
-				new GLib.Thread<int>("osquery-init", () => {
-					var code = new OSQuery.Initialize(this).run();
-					GLib.Idle.add(() => {
-						if (code != 0 || this.connection == null) {
-							return false;
-						}
-						this.osquery.send_startup();
-						this.monitor = new PackageMonitor(this);
-						this.monitor.start();
-						this.user_monitor = new UserMonitor(this);
-						this.user_monitor.start();
-						return false;
-					});
-					return 0;
-				});
-				return false;
-			});
 #endif
 			this.hold();
 			return 0;

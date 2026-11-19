@@ -18,12 +18,16 @@
 
 namespace Argus.Server
 {
+	[CCode (cname = "strverscmp", cheader_filename = "string.h", feature_test_macro = "_GNU_SOURCE")]
+	extern int strverscmp (string s1, string s2);
+
 	/**
 	 * Local handshake for the controller.
 	 *
-	 * ''RPC-Daemon.hello'' is the first call on the Unix socket,
-	 * the same hello ''ollmfilesd'' answers. The reply is ''ok''.
-	 * The controller does not read a daemon object.
+	 * ''RPC-Daemon.hello'' is the first call on the Unix socket
+	 * and on the app socket, the same hello ''ollmfilesd'' answers.
+	 * The client sends its version. The reply carries this server's
+	 * version. A newer client is refused. An older client is warned.
 	 *
 	 * == Example ==
 	 *
@@ -40,22 +44,44 @@ namespace Argus.Server
 		{
 			OLLMrpc.Request.add_class(
 				"RPC-Daemon", typeof(Daemon),
-				"hello", "is"
+				"hello", "iss"
 			);
 		}
 
 		/**
-		 * Answer the controller's first call.
+		 * Answer the first call from a controller or an agent.
 		 *
-		 * @param request inbound RPC on the Unix socket
+		 * The client version is compared with {@link Argus.VERSION}.
+		 * A missing version is an older client. A newer client is
+		 * refused. An older client is warned and still accepted.
+		 * The reply value is this server's version.
+		 *
+		 * @param request inbound RPC
 		 * @param protocol client protocol number
 		 * @param client client name
+		 * @param version client {@link Argus.VERSION}, or null from an older client
 		 */
-		public void hello(OLLMrpc.Request request, int protocol, string client)
+		public void hello(OLLMrpc.Request request, int protocol, string client, string? version = null)
 		{
-			GLib.debug("hello %s %d", client, protocol);
+			var theirs = (version == null || version == "") ? "0.0.0" : version;
+			GLib.debug("hello %s %d %s", client, protocol, theirs);
+			var mine = Argus.VERSION;
+			var notice = "ok";
+			var order = strverscmp(theirs, mine);
+			if (order > 0) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_PARAMS(
+						"The server is " + mine + ". This client is " + theirs + ".")
+				});
+				return;
+			}
+			if (order < 0) {
+				notice = "This client is " + theirs + ". The server is " + mine + ".";
+				GLib.warning("%s", notice);
+			}
 			request.reply(new OLLMrpc.Response() {
-				msg = "ok"
+				msg = notice,
+				retval = OLLMrpc.val("s", mine)
 			});
 		}
 	}

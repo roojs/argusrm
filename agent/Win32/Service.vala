@@ -129,7 +129,8 @@ namespace Argus.Agent.Win32
 				tip = "Connected to management server";
 			}
 			if (registered && !connected) {
-				tip = "Disconnected";
+				tip = this.application.status_notice != "" ?
+					this.application.status_notice : "Disconnected";
 			}
 			string[] reply = {
 				registered ? "1" : "0",
@@ -530,7 +531,8 @@ namespace Argus.Agent.Win32
 					tip = "Connected to management server";
 				}
 				if (registered && !connected) {
-					tip = "Disconnected";
+					tip = this.application.status_notice != "" ?
+						this.application.status_notice : "Disconnected";
 				}
 				this.local_listen.broadcast(new OLLMrpc.Notification() {
 					method = "agent.status",

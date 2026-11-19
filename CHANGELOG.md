@@ -8,6 +8,31 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.35] - Unreleased
+
+### Fixed
+
+- The Windows agent dials the server off the main loop so the connect countdown ticks and times out instead of freezing.
+
+## [0.1.34] - Unreleased
+
+### Fixed
+
+- The Windows tray no longer sticks on Connecting; each attempt is capped at eight seconds, then the five-second retry countdown runs again.
+
+## [0.1.33] - Unreleased
+
+### Fixed
+
+- The Windows agent sends `RPC-Daemon.hello` on every reconnect, not only at startup.
+- The tray shows a five-second countdown while it retries after a drop.
+
+## [0.1.32] - Unreleased
+
+### Changed
+
+- The Windows agent sends its version when it connects, and it disconnects when the server is older.
+
 ## [0.1.31] - Unreleased
 
 ### Added

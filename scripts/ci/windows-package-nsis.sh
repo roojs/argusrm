@@ -12,6 +12,12 @@ stage="${ROOT}/dist-windows/Argus"
 out_dir="${ROOT}/dist-windows"
 version="$(scripts/release/changelog.sh packaging-version)"
 out_name="ArgusAgent-${version}-Setup.exe"
+out_path="${out_dir}/${out_name}"
+if [[ -f "${out_path}" ]]; then
+	echo "${out_name} already exists." >&2
+	echo "Bump the first version in CHANGELOG.md and meson.build, reconfigure, rebuild argus-agent.exe, then package again." >&2
+	exit 1
+fi
 exe="${build_dir}/agent/argus-agent.exe"
 icon="${ROOT}/packaging/windows/argusrm.ico"
 

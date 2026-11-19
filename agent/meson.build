@@ -9,6 +9,7 @@ deps = [
 sources = files(
 	'namespace.vala',
 	'Application.vala',
+	'Connection.vala',
 	'Download.vala',
 )
 vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
@@ -123,6 +124,7 @@ else
 			files(
 				'namespace.vala',
 				'Application.vala',
+				'Connection.vala',
 				'Download.vala',
 				'OSQuery/Initialize.vala',
 				'OSQuery/Execute.vala',

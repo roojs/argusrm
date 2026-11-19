@@ -197,7 +197,7 @@ namespace Argus.Controller
 			this.code = 1;
 			this.rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
-				args = OLLMrpc.args("is", 1, "argus-controller")
+				args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)
 			}, null, this.on_connect);
 			this.loop.run();
 			return this.code;

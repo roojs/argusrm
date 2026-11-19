@@ -19,7 +19,9 @@
 /**
  * The program that runs on a managed machine.
  *
- * {@link Application} is the service process. On Windows the file
+ * {@link Application} is the service process.
+ * {@link Connection} keeps the TLS session and reconnect loop.
+ * On Windows the file
  * name chooses which one. ''argus-agent'' is the service, started
  * through {@link Win32.Service}. ''argus-tray'' is the window and
  * the tray, {@link Win32.Tray}. The service starts that process in

@@ -97,6 +97,7 @@ valadoc_sources += files(
   # agent sources
   '../agent/namespace.vala',
   '../agent/Application.vala',
+  '../agent/Connection.vala',
   '../agent/Rdp/Tunnel.vala',
   '../agent/Download.vala',
   '../agent/OSQuery/Initialize.vala',

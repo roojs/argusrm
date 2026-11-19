@@ -181,7 +181,7 @@ namespace Argus.Controller
 			this.cli.print("Connecting to the local Argus Remote Manager server...\n");
 			this.rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
-				args = OLLMrpc.args("is", 1, "argus-controller")
+				args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)
 			}, null, this.on_connect);
 			this.loop.run();
 			return this.code;

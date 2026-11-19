@@ -220,26 +220,41 @@ namespace Argus.Agent.Linux
 			}
 			var certificate = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(certificate, GLib.FileTest.EXISTS)) {
-				var rejected = false;
 				OLLMrpc.rpc_register();
 				var opened = this.open_connection();
-				if (opened != null) {
-					try {
-						var response = opened.call(new OLLMrpc.Request() {
-							method = "RPC-Daemon.hello",
-							args = OLLMrpc.args("is", 1, "argus-agent")
-						});
-						if (response.error != null &&
-							response.error.code == (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
-							rejected = true;
-						}
-					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
-					}
+				if (opened == null) {
+					command_line.printerr("Could not reach the management server.\n");
+					return 1;
 				}
-				if (!rejected) {
+				OLLMrpc.Response response;
+				try {
+					response = opened.call(new OLLMrpc.Request() {
+						method = "RPC-Daemon.hello",
+						args = OLLMrpc.args("iss", 1, "argus-agent", Argus.VERSION)
+					});
+				} catch (GLib.Error e) {
+					command_line.printerr("%s\n", e.message);
+					return 1;
+				}
+				if (response.error == null) {
+					var server_version = "0.0.0";
+					if (response.retval.holds(typeof(string)) && response.retval.get_string() != "") {
+						server_version = response.retval.get_string();
+					}
+					var order = GLib.strcmp(Argus.VERSION.collate_key_for_filename(), server_version.collate_key_for_filename());
+					if (order > 0) {
+						command_line.printerr("The server is %s. This client is %s.\n", server_version, Argus.VERSION);
+						return 1;
+					}
+					if (order < 0) {
+						GLib.warning("This client is %s. The server is %s.", Argus.VERSION, server_version);
+					}
 					command_line.print("Argus agent is already registered.\n");
 					return 0;
+				}
+				if (response.error.code != (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
+					command_line.printerr("%s\n", response.error.message);
+					return 1;
 				}
 				GLib.FileUtils.remove(certificate);
 				GLib.debug("certificate rejected");

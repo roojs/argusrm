@@ -173,7 +173,7 @@ int main(string[] args)
 	app.code = 1;
 	app.rpc.connect.begin(new OLLMrpc.Request() {
 		method = "RPC-Daemon.hello",
-		args = OLLMrpc.args("is", 1, "argus-controller")
+		args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)
 	}, null, (obj, res) => {
 		var opened = app.rpc.connect.end(res);
 		if (!opened) {

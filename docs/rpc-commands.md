@@ -93,10 +93,13 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 ### `RPC-Daemon.hello`
 
-- Socket: the Unix socket.
-- Direction: controller calls the server. This is the first call on that socket.
-- Arguments `is`: the protocol number, then the client name. The controller sends `1` and `argus-controller`.
-- Reply `msg`: `ok`. There is no return value.
+- Socket: the Unix socket, or the app socket.
+- Direction: a controller or an agent calls the server. This is the first call on that socket.
+- Arguments `iss`: the protocol number, the client name, and the client version (`Argus.VERSION`). The controller sends `1`, `argus-controller`, and its version. The agent sends `1`, `argus-agent`, and its version. An older client may omit the version (defaults to `0.0.0`).
+- A client newer than the server is refused. The error says both versions.
+- A client older than the server, or a client that omitted the version, is accepted. `msg` is the warning sentence. The server also logs that warning.
+- Reply `msg`: `ok` when the versions match, otherwise the warning sentence.
+- Reply `retval` `s`: the server version. A missing or empty reply is `0.0.0`. The client refuses when that version is older than its own, with the same sentence. An older client still connects and logs the warning.
 - ℹ️ The method is `server/Daemon.vala`.
 
 ### `Agent.list`

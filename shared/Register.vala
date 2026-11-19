@@ -369,17 +369,42 @@ namespace Argus.Shared
 					tls_certificate = tls_files.certificate
 				};
 				opened.timeout = 5;
+				var connected = false;
 				try {
 					opened.open();
-					var response = opened.call(new OLLMrpc.Request() {
-						method = "RPC-Daemon.hello",
-						args = OLLMrpc.args("is", 1, "argus-agent")
-					});
-					if (response.error == null) {
-						approved = true;
-					}
+					connected = true;
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
+				}
+				OLLMrpc.Response? response = null;
+				if (connected) {
+					try {
+						response = opened.call(new OLLMrpc.Request() {
+							method = "RPC-Daemon.hello",
+							args = OLLMrpc.args("iss", 1, "argus-agent", Argus.VERSION)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
+				if (response != null && response.error != null) {
+					GLib.warning("%s", response.error.message);
+				} else if (response != null) {
+					var server_version = "0.0.0";
+					if (response.retval.holds(typeof(string)) && response.retval.get_string() != "") {
+						server_version = response.retval.get_string();
+					}
+					var order = GLib.strcmp(Argus.VERSION.collate_key_for_filename(), server_version.collate_key_for_filename());
+					if (order > 0) {
+						GLib.stdout.printf("\n");
+						GLib.stderr.printf("The server is %s. This client is %s.\n", server_version, Argus.VERSION);
+						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+						return 1;
+					}
+					if (order < 0) {
+						GLib.warning("This client is %s. The server is %s.", Argus.VERSION, server_version);
+					}
+					approved = true;
 				}
 				if (approved) {
 					break;
