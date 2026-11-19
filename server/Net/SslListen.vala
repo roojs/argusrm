@@ -23,7 +23,8 @@ namespace Argus.Server.Net
 	 *
 	 * The app listener requires a client certificate. A
 	 * {@link registration} listener accepts a handshake without one
-	 * while {@link pin} is set. Commands stay on the app listener.
+	 * while {@link pin} or {@link accepting} is set. Commands stay
+	 * on the app listener.
 	 * Same product CA as {@link Download}.
 	 *
 	 * == Example ==
@@ -73,16 +74,26 @@ namespace Argus.Server.Net
 		 * True when this listener is only for registration.
 		 *
 		 * The handshake then asks for a certificate and continues
-		 * without one while {@link pin} is set. The app listener
+		 * without one while {@link pin} or {@link accepting} is
+		 * set. The app listener
 		 * leaves this false and always requires a certificate.
 		 */
 		public bool registration { get; set; default = false; }
 
 		/**
 		 * Six digits from {@link Agent.offer}. Empty unless
-		 * the registration window is open.
+		 * the registration window is still in number mode.
 		 */
 		public string pin { get; set; default = ""; }
+
+		/**
+		 * True after the first pending registration.
+		 *
+		 * The issued number is cleared. The handshake still
+		 * continues without a client certificate, and a flagged
+		 * ''0000'' request still queues.
+		 */
+		public bool accepting { get; set; default = false; }
 
 		public SslListen(Application app)
 		{
@@ -98,7 +109,8 @@ namespace Argus.Server.Net
 		 * is set. Returns false when that port is outside 1–65535.
 		 * Bind failure logs a warning and returns false. The app
 		 * listener requires a client certificate. A registration
-		 * listener continues without one while {@link pin} is set.
+		 * listener continues without one while {@link pin} is set
+		 * or {@link accepting} is set.
 		 * A bad identity flag alone is ignored, the same as
 		 * ''ollmfilesd''.
 		 *
@@ -166,7 +178,7 @@ namespace Argus.Server.Net
 				}
 				tls.accept_certificate.connect((peer_cert, errors) => {
 					if (this.registration) {
-						return this.pin != "";
+						return this.pin != "" || this.accepting;
 					}
 					if (peer_cert == null) {
 						return false;

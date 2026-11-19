@@ -41,6 +41,12 @@ namespace Argus.Shared
 		public string certificate { get; set; default = ""; }
 		public string requester { get; set; default = ""; }
 		public int64 created { get; set; default = 0; }
+		/**
+		 * True when the tick on this row is on.
+		 *
+		 * The registration list sets this. It is not a column.
+		 */
+		public bool picked { get; set; default = false; }
 
 		/**
 		 * Rows in ''agent_pending''.

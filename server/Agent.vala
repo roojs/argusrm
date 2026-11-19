@@ -69,9 +69,12 @@ namespace Argus.Server
 		 *
 		 * Pin ''0000'' with the batch flag, while that window is
 		 * open, appends {@link Argus.Shared.AgentPending} and replies
-		 * ''pending'' with the signed certificate. The number stays
-		 * valid, the window stays up, and the app firewall is left
-		 * as it is. ''0000'' without the flag is ''number rejected''.
+		 * ''pending'' with the signed certificate. The first of
+		 * those clears the issued number and broadcasts
+		 * ''event.pair'' / ''pending''. The socket stays up. A
+		 * typed pin is then ''number rejected''. The app firewall
+		 * is left as it is. ''0000'' without the flag is
+		 * ''number rejected''.
 		 *
 		 * @param request inbound RPC on the app socket
 		 * @param pin six digits from the offer
@@ -102,7 +105,8 @@ namespace Argus.Server
 				return;
 			}
 			var listen = this.app.register_listen;
-			var queued = batch && pin == "0000" && !is_controller && listen.pin != "";
+			var open = listen.pin != "" || listen.accepting;
+			var queued = batch && pin == "0000" && !is_controller && open;
 			if (!queued && (pin != listen.pin || listen.pin == "")) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("number rejected")
@@ -257,17 +261,20 @@ namespace Argus.Server
 					GLib.warning("could not read registration address: %s", e.message);
 				}
 			}
+			var pending_id = (int64) 0;
 			if (queued) {
-				Argus.Shared.AgentPending.query(this.app.db).insert(
-					new Argus.Shared.AgentPending() {
-						fingerprint = fingerprint,
-						ip = peer,
-						created = new GLib.DateTime.now_utc().to_unix(),
-						requester = requester,
-						hostname = hostname,
-						certificate = crt_pem
-					});
+				var row = new Argus.Shared.AgentPending() {
+					fingerprint = fingerprint,
+					ip = peer,
+					created = new GLib.DateTime.now_utc().to_unix(),
+					requester = requester,
+					hostname = hostname,
+					certificate = crt_pem
+				};
+				pending_id = Argus.Shared.AgentPending.query(this.app.db).insert(row);
 				this.app.db.backupDB();
+				listen.pin = "";
+				listen.accepting = true;
 			}
 			if (!queued) {
 				var q = Argus.Shared.Agent.query(this.app.db);
@@ -283,6 +290,7 @@ namespace Argus.Server
 				});
 				this.app.db.backupDB();
 				listen.pin = "";
+				listen.accepting = false;
 				this.app.publish.stop();
 				this.app.register_firewall.enable();
 				this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
@@ -335,6 +343,17 @@ namespace Argus.Server
 				retval = OLLMrpc.val("as", reply),
 				msg = reply_msg
 			});
+			if (queued) {
+				var name = hostname;
+				if (name == "") {
+					name = requester;
+				}
+				this.app.broadcast(new OLLMrpc.Notification() {
+					method = "event.pair",
+					action = "pending",
+					args = OLLMrpc.args("iss", (int) pending_id, peer, name)
+				});
+			}
 			if (!queued) {
 				this.app.broadcast(new OLLMrpc.Notification() {
 					method = "event.pair",
@@ -369,6 +388,7 @@ namespace Argus.Server
 			var n = GLib.Random.int_range(0, 1000000);
 			var issued = "%06d".printf(n);
 			var listen = this.app.register_listen;
+			listen.accepting = false;
 			listen.pin = issued;
 			if (!listen.listen()) {
 				listen.pin = "";
@@ -412,13 +432,14 @@ namespace Argus.Server
 				return false;
 			});
 			GLib.Timeout.add(250, () => {
-				if (listen.pin != issued) {
+				if (listen.pin != issued && !listen.accepting) {
 					return false;
 				}
 				if (owner.running) {
 					return true;
 				}
 				listen.pin = "";
+				listen.accepting = false;
 				this.app.publish.stop();
 				this.app.register_firewall.enable();
 				listen.stop();

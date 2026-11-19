@@ -28,6 +28,7 @@
  * or logged-in user.
  * {@link Upgrade} filters the upgrade-all grid by platform tab
  * and by machine name or logged-in user.
+ * {@link Pairing} filters the registration list by address.
  *
  * == Example ==
  *

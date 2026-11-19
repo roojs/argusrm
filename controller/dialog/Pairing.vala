@@ -19,14 +19,14 @@
 namespace Argus.Controller.Dialog
 {
 	/**
-	 * One-minute window that shows a PIN while a machine pairs.
+	 * Registration window. It opens on a six-digit number.
 	 *
 	 * {@link open} asks the controller's server connection for
 	 * a six-digit number and counts down from sixty seconds.
-	 * The window opens that connection again after a drop.
-	 * ''event.pair'' says ''number rejected'' or closes after one
-	 * machine pairs. The title bar closes the dialog and clears
-	 * the number. {@link pairing} is true while the dialog is open.
+	 * A typed number still closes this dialog. The first
+	 * ''event.pair'' / ''pending'' stops that countdown and
+	 * shows {@link Argus.Controller.Tab.Pairing}. Further pending
+	 * requests append a row. The title bar closes the dialog.
 	 *
 	 * == Example ==
 	 *
@@ -42,11 +42,14 @@ namespace Argus.Controller.Dialog
 		private Gtk.Label pin_label;
 		private Gtk.Label note;
 		private Gtk.ProgressBar line;
+		private Gtk.Stack pages;
+		private Argus.Controller.Tab.Pairing queue;
 		private uint tick_id = 0;
 		private int remaining = 60;
 		private int generation = 0;
 		private bool finished = false;
 		private bool wired = false;
+		private bool listing = false;
 
 		/**
 		 * True while this dialog is counting down.
@@ -91,7 +94,16 @@ namespace Argus.Controller.Dialog
 				css_classes = { "dim-label" }
 			};
 			body.append(this.note);
-			box.append(body);
+			this.queue = new Argus.Controller.Tab.Pairing();
+			this.pages = new Gtk.Stack() {
+				hexpand = true,
+				vexpand = true,
+				transition_type = Gtk.StackTransitionType.NONE
+			};
+			this.pages.add_named(body, "number");
+			this.pages.add_named(this.queue, "queue");
+			this.pages.visible_child_name = "number";
+			box.append(this.pages);
 			this.set_child(box);
 			this.closed.connect(() => {
 				this.pairing = false;
@@ -131,34 +143,65 @@ namespace Argus.Controller.Dialog
 			if (rpc == null || !rpc.connected || this.pairing) {
 				return;
 			}
-			if (!this.wired) {
-				this.wired = true;
-				rpc.notification.connect((notification) => {
-					if (this.finished || notification.method != "event.pair") {
-						return;
-					}
-					if (notification.action == "rejected") {
-						this.note.label = "number rejected";
-						return;
-					}
-					if (notification.action != "done") {
-						return;
-					}
-					this.finished = true;
-					this.close();
-				});
-			}
 			this.pin_label.label = "";
 			this.note.label = "";
 			this.remaining = 60;
 			this.line.fraction = 1;
 			this.finished = false;
+			this.listing = false;
+			this.queue.clear();
+			this.pages.visible_child_name = "number";
 			this.pairing = true;
 			this.title = "Register " + Argus.VERSION;
 			this.title_label.label = "Register " + Argus.VERSION;
 			this.generation++;
 			this.present(this.window);
 			this.arm();
+			if (this.wired) {
+				return;
+			}
+			this.wired = true;
+			rpc.notification.connect((notification) => {
+				if (this.finished) {
+					return;
+				}
+				if (notification.method != "event.pair") {
+					return;
+				}
+				if (notification.action == "rejected") {
+					this.note.label = "number rejected";
+					return;
+				}
+				if (notification.action == "done") {
+					this.finished = true;
+					this.close();
+					return;
+				}
+				if (notification.action != "pending") {
+					return;
+				}
+				if (notification.args.size < 2 || !this.pairing) {
+					return;
+				}
+				var id = (int64) notification.args.get(0).get_int();
+				var ip = notification.args.get(1).get_string();
+				var name = "";
+				if (notification.args.size > 2) {
+					name = notification.args.get(2).get_string();
+				}
+				if (this.listing) {
+					this.queue.add_machine(id, ip, name);
+					return;
+				}
+				this.listing = true;
+				if (this.tick_id != 0) {
+					GLib.Source.remove(this.tick_id);
+					this.tick_id = 0;
+				}
+				this.generation++;
+				this.pages.visible_child_name = "queue";
+				this.queue.add_machine(id, ip, name);
+			});
 		}
 
 		/**

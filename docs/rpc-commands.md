@@ -32,7 +32,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Socket: the registration socket. The client certificate does not exist yet. The app socket stays on its certificate check.
 - Direction: agent calls the server.
 - Arguments `ssssbbss`: the pin, certificate request PEM, requester, OS family, controller flag, batch flag, username, and hostname.
-  - The batch flag with pin `0000`, while the registration window is open, appends `agent_pending` and replies `msg` `pending`. The reply array is the same as a finished registration. The issued number stays valid, and the app firewall is not changed. `0000` without the flag is `number rejected`.
+  - The batch flag with pin `0000`, while the registration window is open, appends `agent_pending` and replies `msg` `pending`. The reply array is the same as a finished registration. The first of those clears the issued number and broadcasts `event.pair` with action `pending`. The registration socket stays open, and a later flagged `0000` still queues. A typed pin after that is `number rejected`. The app firewall is not changed. `0000` without the flag is `number rejected`.
   - Windows sends `windows`. Android sends `android`.
   - Linux reads `/etc/os-release` before the call, through `GLib.Environment.get_os_info` for `ID` and `ID_LIKE`. Debian and Ubuntu send `debian`. Fedora, RHEL, CentOS, and SUSE send `rpm`.
   - When that file does not decide, `dpkg` on `PATH` sends `debian` and `rpm` on `PATH` sends `rpm`.
@@ -44,7 +44,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - The download address is not in the reply. The agent writes `download` as the host it connected to and `Argus.DOWNLOAD_PORT`.
 - A controller that already has an active row for that username and hostname is refused with `This machine is already registered.`
 - ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
-- A matching pin broadcasts `event.pair` with action `done`. A rejected pin broadcasts `event.pair` with action `rejected`.
+- A matching pin broadcasts `event.pair` with action `done`. A rejected pin broadcasts `event.pair` with action `rejected`. A queued `0000` broadcasts `event.pair` with action `pending`.
 
 ### `Agent.offer`
 
@@ -345,7 +345,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 ### `event.pair`
 
 - 🔷 Broadcast. `Agent.request_registration` sends it.
-- 💩 Action `done` means the pin was accepted. Action `rejected` means the pin was refused.
+- 💩 Action `done` means the pin was accepted. Action `rejected` means the pin was refused. Action `pending` means a flagged `0000` was queued. Its arguments are the `agent_pending` id, the peer address, and the machine name.
 - ℹ️ The pairing dialog and `argusrm-controller --pin` listen for it. The agent page reloads on `done`.
 
 ### `event.agent`

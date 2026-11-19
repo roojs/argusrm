@@ -1,6 +1,6 @@
 # Batch registration for Linux agents
 
-**Status:** ⏳ Phases 1–4 are in the tree. Phases 5–7 wait. Each phase is one step of the flow, and the next phase waits until this one is reviewed.
+**Status:** ⏳ Phases 1–5 are in the tree. Phases 6–7 wait. Each phase is one step of the flow, and the next phase waits until this one is reviewed.
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md` (`Agent.offer`, `Agent.request_registration`), [`controller/dialog/Pairing.vala`](../../controller/dialog/Pairing.vala), [`controller/tab/Agent.vala`](../../controller/tab/Agent.vala), [`server/Agent.vala`](../../server/Agent.vala), [`server/Net/SslListen.vala`](../../server/Net/SslListen.vala), [`agent/Application.vala`](../../agent/Application.vala)
 
@@ -32,7 +32,7 @@
 - ✔️ **Phase 2 — Server queues the request.** An open window appends `agent_pending` and returns a temporary certificate. The app firewall stays unchanged. The dialog stays in number mode.
 - ✔️ **Phase 3 — Agent stores the certificate.** A pending reply is written to the certificate files. The agent stops calling the registration port.
 - ✔️ **Phase 4 — Agent polls the normal port.** Every twenty seconds, fifteen times. One status line is rewritten in place. If none connects, the agent deletes the certificate and fails out.
-- 🔷 ⏳ **Phase 5 — Controller shows the list.** The dialog flips to the existing tick list. Number mode stops. Search and **Select all** are that dialog's bar. No **Reject** and no **Accept** yet.
+- ✔️ **Phase 5 — Controller shows the list.** The first pending request flips the dialog to the tick list. Number mode stops. Search and **Select all** are that dialog's bar. No **Reject** and no **Accept** yet.
 - 🔷 ⏳ **Phase 6 — Reject and the header X.** **Reject** drops the ticked rows. The X ends the window and drops whatever is still queued.
 - 🔷 ⏳ **Phase 7 — Accept.** **Accept** makes the ticked certificates permanent and rebuilds the app firewall. The next poll on the normal port connects.
 
@@ -107,16 +107,16 @@ Review is the five minutes after the certificate is stored. Accept does not exis
 
 Review is the dialog. The queue from Phase 2 is what it shows. **Reject** and **Accept** are absent.
 
-- 🔷 Same dialog as the six-digit number. It opens in number mode.
-- 🔷 A typed six-digit registration works while the dialog is still in number mode. One success still closes the dialog, as it does today.
-- 🔷 The first pending `0000` request flips it out of number mode. Number mode stops. The issued number is cleared, the sixty second countdown stops, and a typed pin is `number rejected`. The dialog does not return to the number.
-- 🔷 The list is the existing tick dialog. `controller/dialog/Distribute.vala`. The header bar is the title. Search and **Select all** are the bar those dialogs already use. Further requests append while it stays open.
-- 🔷 The registration socket stays open for flagged `0000` requests. Stopping number mode does not close that socket.
-- 💩 Search filters the address text. The entry is `hexpand`, and **Select all** is `halign` end on that same bar.
-- 💩 The body is the same stack: spinner, scrolled column view (`min_content_height` 240), and an empty label.
-- 💩 The dialog already listens for `event.pair`. A pending request broadcasts `event.pair` with action `pending` and the address, so the open dialog appends a row. It does not broadcast `done`. `done` closes this dialog after a typed number, which only happens before the flip.
-- 💩 **Select all** ticks every row in the filtered list, which is what `Distribute` does. A row hidden by the search stays as it was. A row that arrives after **Select all** is unticked. `Upgrade` renames the button to **Select none** once every listed row is ticked. This dialog does the same.
-- 💩 With the hostname column the row text is `192.168.88.14    web-03`, and search matches that text too.
+- ✔️ Same dialog as the six-digit number. It opens in number mode.
+- ✔️ A typed six-digit registration works while the dialog is still in number mode. One success still closes the dialog, as it does today.
+- ✔️ The first pending `0000` request flips it out of number mode. Number mode stops. The issued number is cleared, the sixty second countdown stops, and a typed pin is `number rejected`. The dialog does not return to the number.
+- ✔️ The list is the existing tick dialog. `controller/tab/Pairing.vala` draws it. `controller/store/Pairing.vala` holds the rows. `controller/filter/Pairing.vala` is the search. The pairing dialog only switches to that tab. The header bar is the title. Search and **Select all** are the bar those dialogs already use. Further requests append while it stays open.
+- ✔️ The registration socket stays open for flagged `0000` requests. Stopping number mode does not close that socket. `SslListen.accepting` keeps the handshake open after the number is cleared.
+- ✔️ Search filters the address text. The entry is `hexpand`, and **Select all** is `halign` end on that same bar.
+- ✔️ The body is the same stack: spinner, scrolled column view (`min_content_height` 240), and an empty label.
+- ✔️ The dialog listens for `event.pair`. A pending request broadcasts `event.pair` with action `pending`, the `agent_pending` id, the address, and the machine name. The open dialog appends a row. It does not broadcast `done`. `done` closes this dialog after a typed number, which only happens before the flip.
+- ✔️ **Select all** ticks every row in the filtered list. A row hidden by the search stays as it was. A row that arrives after **Select all** is unticked. The button is **Select none** once every listed row is ticked.
+- ✔️ With a machine name the row text is `192.168.88.14    web-03`, and search matches that text too. The name is the registration hostname, or the requester when that is empty.
 - 🚫 **Reject** and **Accept** in this phase.
 - 🚫 A new arrangement of these controls.
 - 🚫 Closing the dialog on the first pending request.
@@ -193,6 +193,5 @@ Review is the permanent certificate and the app firewall. The agent's next poll 
 
 ## Next
 
-- 🔷 ⏳ Phase 5. The dialog flips to the tick list. Number mode stops. `agent_pending` stores `hostname` beside the address.
-- 🔷 ⏳ Phase 6. **Reject** and the header X.
+- 🔷 ⏳ Phase 6. **Reject** and the header X. `agent_pending` stores `hostname` beside the address. The header X does not end the server window yet.
 - 🔷 ⏳ Phase 7. **Accept** and the app firewall.
