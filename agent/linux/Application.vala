@@ -26,6 +26,7 @@ namespace Argus.Agent.Linux
 	internal class Application : Argus.Agent.Application, ServiceManagerInterface
 	{
 		private uint bus_owner = 0;
+		private static bool opt_request;
 
 		private bool is_desktop = false;
 
@@ -37,9 +38,10 @@ namespace Argus.Agent.Linux
 			this.is_desktop = (display != null && display != "") || (wayland != null && wayland != "");
 			var args = command_line.get_arguments();
 			var service_mode = false;
+			var help = false;
 			foreach (var arg in args) {
 				if (arg == "--help" || arg == "-h") {
-					return base.command_line(command_line);
+					help = true;
 				}
 				if (arg == "--service") {
 					service_mode = true;
@@ -51,11 +53,20 @@ namespace Argus.Agent.Linux
 			opt_port = 0;
 			opt_server = "";
 			opt_pin = "";
-			opt_batch = false;
+			opt_request = false;
 			opt_service = false;
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
 			opt_context.add_main_entries(app_options, null);
+			GLib.OptionEntry[] request_option = {
+				{ "request", 0, 0, GLib.OptionArg.NONE, ref opt_request, "Register with server approval", null },
+				{ null }
+			};
+			opt_context.add_main_entries(request_option, null);
+			if (help) {
+				command_line.print("%s", opt_context.get_help(true, null));
+				return 0;
+			}
 			unowned string[] leftover = args;
 			try {
 				opt_context.parse(ref leftover);
@@ -389,7 +400,9 @@ namespace Argus.Agent.Linux
 		 *
 		 * ''--server'' is the management IP. ''--pin'' uses that
 		 * number instead of asking. Both together register in one
-		 * step. No address browses, then asks for the PIN.
+		 * step. ''--request'' calls
+		 * {@link Argus.Shared.Register.try_batch}. No address
+		 * browses, then asks for the PIN.
 		 * An existing certificate is checked with
 		 * ''RPC-Daemon.hello''. A certificate the server rejects
 		 * is removed and registration continues. A server that
@@ -441,12 +454,12 @@ namespace Argus.Agent.Linux
 					return 1;
 				}
 			}
-			if (opt_batch && given_pin != "") {
-				command_line.printerr("batch registration does not take a pin\n");
+			if (opt_request && given_pin != "") {
+				command_line.printerr("--request does not take a pin\n");
 				return 1;
 			}
-			if (opt_batch && host == "") {
-				command_line.printerr("batch registration needs an IP address\n");
+			if (opt_request && host == "") {
+				command_line.printerr("--request needs an IP address\n");
 				return 1;
 			}
 			var service = new ServiceManager();
@@ -520,25 +533,11 @@ namespace Argus.Agent.Linux
 			var registration = new Argus.Shared.Register() {
 				data_dir = Argus.AGENT_DATA_DIR
 			};
-			if (opt_batch) {
-				registration.batch = true;
-				var started = GLib.get_monotonic_time();
-				while (true) {
-					var code = registration.try_connection(host, (uint16) port, "0000",
-						GLib.Environment.get_host_name());
-					if (code == 0) {
-						break;
-					}
-					if (code != (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR) {
-						command_line.printerr("Registration failed: %d\n", code);
-						return 1;
-					}
-					if (GLib.get_monotonic_time() - started >= 3 * 60 * 1000 * 1000) {
-						command_line.printerr("Registration failed: %d\n", code);
-						return 1;
-					}
-					command_line.print("Registration is not open.\n");
-					Posix.sleep(10);
+			if (opt_request) {
+				var code = registration.try_batch(host, (uint16) port,
+					GLib.Environment.get_host_name());
+				if (code != 0) {
+					return 1;
 				}
 				try {
 					service.restart();

@@ -1,6 +1,6 @@
 # Batch registration for Linux agents
 
-**Status:** ⏳ Phases 1 and 2 are in the tree. Phases 3–7 wait. Each phase is one step of the flow, and the next phase waits until this one is reviewed.
+**Status:** ⏳ Phases 1–4 are in the tree. Phases 5–7 wait. Each phase is one step of the flow, and the next phase waits until this one is reviewed.
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md` (`Agent.offer`, `Agent.request_registration`), [`controller/dialog/Pairing.vala`](../../controller/dialog/Pairing.vala), [`controller/tab/Agent.vala`](../../controller/tab/Agent.vala), [`server/Agent.vala`](../../server/Agent.vala), [`server/Net/SslListen.vala`](../../server/Net/SslListen.vala), [`agent/Application.vala`](../../agent/Application.vala)
 
@@ -28,10 +28,10 @@
 
 ## Phases
 
-- ✔️ **Phase 1 — Agent asks.** `argusrm-agent --batch` sends pin `0000` and the batch flag. A closed registration port is tried again every ten seconds for about three minutes.
+- ✔️ **Phase 1 — Agent asks.** `argusrm-agent --request` sends pin `0000` and the batch flag. A closed registration port is tried again every ten seconds for about three minutes.
 - ✔️ **Phase 2 — Server queues the request.** An open window appends `agent_pending` and returns a temporary certificate. The app firewall stays unchanged. The dialog stays in number mode.
-- 🔷 ⏳ **Phase 3 — Agent stores the certificate.** A pending reply is written to the certificate files. The agent stops calling the registration port. It does not dial the normal port yet.
-- 🔷 ⏳ **Phase 4 — Agent polls the normal port.** Every twenty seconds, for about five minutes. If none of those connects, the agent deletes the certificate and fails out.
+- ✔️ **Phase 3 — Agent stores the certificate.** A pending reply is written to the certificate files. The agent stops calling the registration port.
+- ✔️ **Phase 4 — Agent polls the normal port.** Every twenty seconds, fifteen times. One status line is rewritten in place. If none connects, the agent deletes the certificate and fails out.
 - 🔷 ⏳ **Phase 5 — Controller shows the list.** The dialog flips to the existing tick list. Number mode stops. Search and **Select all** are that dialog's bar. No **Reject** and no **Accept** yet.
 - 🔷 ⏳ **Phase 6 — Reject and the header X.** **Reject** drops the ticked rows. The X ends the window and drops whatever is still queued.
 - 🔷 ⏳ **Phase 7 — Accept.** **Accept** makes the ticked certificates permanent and rebuilds the app firewall. The next poll on the normal port connects.
@@ -40,10 +40,10 @@
 
 ## Phase 1 — Agent asks
 
-Review is `argusrm-agent --batch` with a server address. A typed `--pin` is unchanged. The server accepts the new flag and still requires the issued number, so `0000` is `number rejected` until Phase 2.
+Review is `argusrm-agent --request` with a server address. A typed `--pin` is unchanged. The server accepts the new flag and still requires the issued number, so `0000` is `number rejected` until Phase 2.
 
-- ✔️ `--batch` sends pin `0000` and `Register.batch`. The call is `ssssbbss`: pin, certificate request, requester, OS family, controller flag, batch flag, username, hostname.
-- ✔️ `--batch` needs `--server` or `--host`. It does not take `--pin`.
+- ✔️ `--request` sends pin `0000` and `Register.batch`. The call is `ssssbbss`: pin, certificate request, requester, OS family, controller flag, batch flag, username, hostname.
+- ✔️ `--request` needs `--server` or `--host`. It does not take `--pin`.
 - ✔️ A failed connect is tried again every ten seconds for about three minutes, then the process exits non-zero. A reply from the server stops the retry. `number rejected` is a reply.
 - ✔️ The same path is on `argusrm-agent-gtk` when that program is run as root with the option. The install command is `argusrm-agent`.
 - ℹ️ A closed window does not answer RPC. The registration firewall is an empty allowlist, and the socket is stopped when the offer ends. `Register.try_connection` returns `INTERNAL_ERROR` for that failure.
@@ -79,11 +79,11 @@ Review is one open registration window and several flagged `0000` calls. Each ca
 
 ## Phase 3 — Agent stores the certificate
 
-Review is the agent after a pending reply. The files are on disk. The process has not dialed the normal port.
+Review is the agent after a pending reply. The files are on disk. The registration port is not called again.
 
-- 🔷 The agent writes the temporary certificate from the pending reply.
-- 🔷 It stops calling the registration port.
-- 🔷 It does not treat pending as a finished registration, and it does not dial `Argus.SOCKET_PORT`.
+- ✔️ `Register.try_connection` writes the certificate, the CA, the download path, and the normal-port address from a `pending` reply, and sets `Register.pending`.
+- ✔️ The batch retry stops. It does not call the registration port again.
+- ✔️ A pending reply does not restart the service by itself. The normal-port poll is Phase 4.
 - 🚫 Another call on the registration port after the certificate is stored.
 
 ---
@@ -92,11 +92,13 @@ Review is the agent after a pending reply. The files are on disk. The process ha
 
 Review is the five minutes after the certificate is stored. Accept does not exist yet, so every poll fails and the certificate is deleted.
 
-- 🔷 The agent addresses the normal port, `Argus.SOCKET_PORT`. It does not go back to the registration port.
-- 🔷 It polls that port with the temporary certificate. Every twenty seconds, for about five minutes.
-- 🔷 Those attempts fail until Phase 7. The app firewall does not list that address yet, so the connection does not arrive. A refused connect during the five minutes is the poll, and the agent tries again.
-- 🔷 If the five minutes end without a connection, the agent deletes the temporary certificate and fails out.
-- 💩 The poll is a connect with the temporary certificate. It is not a second registration call. No new method, unless a later approval adds one, in which case `docs/rpc-commands.md` gets it in that change.
+- ✔️ `Register.try_batch` does the closed-port retry and this poll. The Linux CLI calls it, then restarts the service when it returns zero.
+- ✔️ The agent addresses the normal port stored with the certificate. It does not go back to the registration port.
+- ✔️ It tries at once, then every twenty seconds, fifteen times. That is about five minutes.
+- ✔️ Stdout is one line, rewritten in place: `Waiting for registration to be approved, try 1 of 15`.
+- ✔️ A refused connect, a timeout, or a hello that does not succeed is the next try. `RPC-Daemon.hello` with no error is the approval. The service restarts, and the process prints the success line.
+- ✔️ If the fifteen tries end without that, the agent deletes `client.pem` and exits non-zero. It prints `Registration was not approved.`
+- 💩 The poll is `RPC-Daemon.hello` on that connection. It is not a second registration call. No new RPC method.
 - 🚫 After the temporary certificate, another call on the registration port.
 
 ---
@@ -191,8 +193,6 @@ Review is the permanent certificate and the app firewall. The agent's next poll 
 
 ## Next
 
-- 🔷 ⏳ Phase 3, after Phase 2 is reviewed. The agent writes the pending certificate and stops. `agent_pending` stores `hostname` beside the address.
-- 🔷 ⏳ Phase 4. The normal-port poll, and deleting the certificate when it fails.
-- 🔷 ⏳ Phase 5. The dialog flips to the tick list. Number mode stops.
+- 🔷 ⏳ Phase 5. The dialog flips to the tick list. Number mode stops. `agent_pending` stores `hostname` beside the address.
 - 🔷 ⏳ Phase 6. **Reject** and the header X.
 - 🔷 ⏳ Phase 7. **Accept** and the app firewall.

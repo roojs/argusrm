@@ -133,7 +133,6 @@ namespace Argus.Agent
 		protected static int opt_port;
 		protected static string opt_server;
 		protected static string opt_pin;
-		protected static bool opt_batch;
 		protected static bool opt_service;
 		protected static bool debug_on;
 		protected static bool debug_critical_enabled;
@@ -147,7 +146,6 @@ namespace Argus.Agent
 			{ "port", 0, 0, GLib.OptionArg.INT, ref opt_port, "Argus Remote Manager port", "PORT" },
 			{ "server", 0, 0, GLib.OptionArg.STRING, ref opt_server, "Argus Remote Manager server IP address", "IP" },
 			{ "pin", 0, 0, GLib.OptionArg.STRING, ref opt_pin, "Number from the registration window", "PIN" },
-			{ "batch", 0, 0, GLib.OptionArg.NONE, ref opt_batch, "Register without typing a number", null },
 			{ "service", 0, 0, GLib.OptionArg.NONE, ref opt_service, "Run as managed service", null },
 			{ null }
 		};
@@ -379,7 +377,6 @@ namespace Argus.Agent
 			opt_port = 0;
 			opt_server = "";
 			opt_pin = "";
-			opt_batch = false;
 			opt_service = false;
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
