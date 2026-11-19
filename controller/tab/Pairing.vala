@@ -36,7 +36,11 @@ namespace Argus.Controller.Tab
 	 */
 	public class Pairing : Gtk.Box
 	{
-		private Argus.Controller.Store.Pairing store;
+		/**
+		 * Waiting machines. {@link Argus.Controller.Store.Pairing.picked}
+		 * is the ticked rows.
+		 */
+		public Argus.Controller.Store.Pairing store { get; private set; }
 		private Argus.Controller.Filters.Pairing filter;
 		private Gtk.FilterListModel listed;
 		private Gtk.SearchEntry search;

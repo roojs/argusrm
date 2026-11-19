@@ -1,6 +1,6 @@
 # Batch registration for Linux agents
 
-**Status:** ⏳ Phases 1–5 are in the tree. Phases 6–7 wait. Each phase is one step of the flow, and the next phase waits until this one is reviewed.
+**Status:** ✔️ Phases 1–7 are in the tree. Reject and Accept are one step.
 
 **Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md` (`Agent.offer`, `Agent.request_registration`), [`controller/dialog/Pairing.vala`](../../controller/dialog/Pairing.vala), [`controller/tab/Agent.vala`](../../controller/tab/Agent.vala), [`server/Agent.vala`](../../server/Agent.vala), [`server/Net/SslListen.vala`](../../server/Net/SslListen.vala), [`agent/Application.vala`](../../agent/Application.vala)
 
@@ -33,8 +33,7 @@
 - ✔️ **Phase 3 — Agent stores the certificate.** A pending reply is written to the certificate files. The agent stops calling the registration port.
 - ✔️ **Phase 4 — Agent polls the normal port.** Every twenty seconds, fifteen times. One status line is rewritten in place. If none connects, the agent deletes the certificate and fails out.
 - ✔️ **Phase 5 — Controller shows the list.** The first pending request flips the dialog to the tick list. Number mode stops. Search and **Select all** are that dialog's bar. No **Reject** and no **Accept** yet.
-- 🔷 ⏳ **Phase 6 — Reject and the header X.** **Reject** drops the ticked rows. The X ends the window and drops whatever is still queued.
-- 🔷 ⏳ **Phase 7 — Accept.** **Accept** makes the ticked certificates permanent and rebuilds the app firewall. The next poll on the normal port connects.
+- ✔️ **Phase 6 and 7 — Reject, Accept, and the header X.** **Reject** drops the ticked rows. **Accept** makes the ticked certificates permanent and rebuilds the app firewall. The X ends the window and drops whatever is still queued.
 
 ---
 
@@ -137,42 +136,18 @@ Review is the dialog. The queue from Phase 2 is what it shows. **Reject** and **
 
 ---
 
-## Phase 6 — Reject and the header X
+## Phase 6 and 7 — Reject, Accept, and the header X
 
-Review is the list with **Reject**, and the X. **Accept** is still absent, so this phase cannot open the app firewall.
+Review is the list with both buttons, then the X. Accept opens the app firewall for the ticked machines. The agent's next poll on the normal port connects.
 
-- 🔷 **Reject** drops the ticked rows. Those certificates never become permanent. The app firewall is unchanged.
-- 🔷 The X on the dialog header dismisses it. There is no Close button.
-- 🔷 The X ends the open window. The registration firewall comes back. Rows still in the queue are dropped and are not accepted.
-- 💩 **Reject** sits on the bottom action row, end-aligned.
-- 💩 Reject with nothing ticked does nothing.
+- ✔️ **Reject** drops the ticked rows. Those certificates never become permanent. The app firewall is unchanged. The registration window stays open.
+- ✔️ **Accept** keeps the ticked rows. Each becomes an `agent` row with `status = 1`, that fingerprint, and that address. The app firewall is rebuilt from the allowlist. Those rows leave the queue. The registration window stays open.
+- ✔️ The agent's next poll on the normal port is an ordinary agent connection.
+- ✔️ **Reject** is flush left on the bottom row. **Accept** is flush right. **Accept** is `suggested-action`.
+- ✔️ Reject with nothing ticked does nothing. Accept with nothing ticked does nothing.
+- ✔️ The X on the dialog header dismisses it. There is no Close button.
+- ✔️ The X ends the open window. The registration firewall comes back. Rows still in the queue are dropped and are not accepted.
 - 🚫 A Close button. The header X is the close.
-- 🚫 **Accept** in this phase.
-
-```
-+--------------------------------------------------+
-| Register                                       X |
-+--------------------------------------------------+
-| [ Search________________________ ] [ Select all ]|
-|                                                  |
-| [ ]  192.168.88.12                               |
-| [x]  192.168.88.14                               |
-| [x]  192.168.88.21                               |
-|                                                  |
-|                                         [ Reject ]|
-+--------------------------------------------------+
-```
-
----
-
-## Phase 7 — Accept
-
-Review is the permanent certificate and the app firewall. The agent's next poll on the normal port connects.
-
-- 🔷 **Accept** keeps the ticked rows. It makes each ticked certificate permanent: an `agent` row with `status = 1`, that fingerprint, and that address. Then the app firewall is rebuilt from the allowlist. Those rows leave the queue.
-- 🔷 The agent's next poll on the normal port is an ordinary agent connection.
-- 💩 **Accept** sits to the right of **Reject**. **Accept** is `suggested-action`.
-- 💩 Accept with nothing ticked does nothing.
 - 🚫 Opening the app firewall before Accept.
 
 ```
@@ -185,7 +160,7 @@ Review is the permanent certificate and the app firewall. The agent's next poll 
 | [x]  192.168.88.14                               |
 | [x]  192.168.88.21                               |
 |                                                  |
-|                             [ Reject ] [ Accept ] |
+| [ Reject ]                             [ Accept ]|
 +--------------------------------------------------+
 ```
 
@@ -193,5 +168,4 @@ Review is the permanent certificate and the app firewall. The agent's next poll 
 
 ## Next
 
-- 🔷 ⏳ Phase 6. **Reject** and the header X. `agent_pending` stores `hostname` beside the address. The header X does not end the server window yet.
-- 🔷 ⏳ Phase 7. **Accept** and the app firewall.
+- ✔️ The batch registration flow is in the tree.

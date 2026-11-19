@@ -53,7 +53,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments: none.
 - Opens the registration socket and publishes that port. The app socket stays as it is.
 - Reply `retval` `as`: index 0 is the six digits. Index 1 is the public IPv4 address, or empty when that lookup fails.
-- The number lasts sixty seconds, until `Agent.request_registration` accepts it, or until this connection closes.
+- The number lasts sixty seconds, until `Agent.request_registration` accepts it, until `Agent.stop`, or until this connection closes.
 - A caller that is not a controller is `controller only`.
 - The registration socket failing to bind is `registration socket did not bind`.
 - ℹ️ The method is `server/Agent.vala`. The controller calls it from `controller/dialog/Pairing.vala` and `controller/cli/Pin.vala`.
@@ -119,6 +119,34 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments `i`: `agent.id`.
 - Deletes that row, writes `agent.removed` on its app socket, closes that socket, and refreshes the address allowlist.
 - An unknown id is `unknown machine`. A caller that is not a controller is `controller only`.
+
+### `Agent.reject`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `ai`: the ticked `agent_pending.id` values.
+- Deletes those rows. The registration window stays open. The app firewall is not changed.
+- An empty list is `nothing selected`. A caller that is not a controller is `controller only`.
+- ℹ️ The method is `server/Agent.vala`. The pairing dialog calls it from **Reject**.
+
+### `Agent.accept`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `ai`: the ticked `agent_pending.id` values.
+- Each row becomes an `agent` row with `status` `1`, that fingerprint, and that address. The pending row is deleted. The app firewall is rebuilt from the allowlist. The registration window stays open.
+- Broadcasts `event.agent` with action `accepted`.
+- An empty list is `nothing selected`. A caller that is not a controller is `controller only`.
+- ℹ️ The method is `server/Agent.vala`. The pairing dialog calls it from **Accept**.
+
+### `Agent.stop`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments: none.
+- Clears the issued number, stops the registration socket, and enables the registration firewall. Deletes every `agent_pending` row. Those certificates are not accepted. The app firewall is not changed.
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `server/Agent.vala`. The pairing dialog calls it when the header X closes the window.
 
 ### `OSQuery.sync`
 
@@ -351,8 +379,8 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 ### `event.agent`
 
 - 🔷 Broadcast. The app socket sends it.
-- 💩 Action `connected` is a known certificate joining. Action `disconnected` is that socket stopping.
-- ℹ️ The agent page reloads on either action.
+- 💩 Action `connected` is a known certificate joining. Action `disconnected` is that socket stopping. Action `accepted` is `Agent.accept` making a pending certificate permanent.
+- ℹ️ The agent page reloads on this notification.
 
 ### `event.task`
 

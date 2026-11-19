@@ -47,7 +47,10 @@ namespace Argus.Server
 				"request_registration", "ssssbbss",
 				"offer", "",
 				"list", "i",
-				"remove", "i"
+				"remove", "i",
+				"reject", "ai",
+				"accept", "ai",
+				"stop", ""
 			);
 		}
 
@@ -372,7 +375,8 @@ namespace Argus.Server
 		 * download socket opens from {@link request_registration},
 		 * after the machine is registered. That call is the machine
 		 * that types the number. The number lasts sixty seconds,
-		 * or until that call, or until this connection closes.
+		 * or until that call, or until {@link stop}, or until
+		 * this connection closes.
 		 * The registration firewall is disabled while the window
 		 * runs and enabled when it ends. The public address is
 		 * read after the window is open, without blocking this
@@ -567,6 +571,141 @@ namespace Argus.Server
 			}
 			this.app.db.backupDB();
 			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Drop ticked pending registrations.
+		 *
+		 * The dialog calls this with the ''agent_pending'' ids
+		 * that are ticked. Those rows are deleted. The
+		 * registration window stays open. The app firewall is
+		 * not changed. An empty list is ''nothing selected''.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param ids ''agent_pending.id'' values
+		 */
+		public void reject(OLLMrpc.Request request, int[] ids)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			if (ids.length < 1) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("nothing selected")
+				});
+				return;
+			}
+			foreach (var id in ids) {
+				Argus.Shared.AgentPending.query(this.app.db).deleteId(id);
+			}
+			this.app.db.backupDB();
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * Make ticked pending certificates permanent.
+		 *
+		 * Each id becomes an ''agent'' row with status 1, that
+		 * fingerprint, and that address. The pending row is
+		 * deleted. The app firewall is rebuilt from the
+		 * allowlist. The registration window stays open.
+		 * An empty list is ''nothing selected''.
+		 *
+		 * @param request inbound RPC from a controller
+		 * @param ids ''agent_pending.id'' values
+		 */
+		public void accept(OLLMrpc.Request request, int[] ids)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			if (ids.length < 1) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("nothing selected")
+				});
+				return;
+			}
+			var changed = false;
+			foreach (var id in ids) {
+				var rows = new Gee.ArrayList<Argus.Shared.AgentPending>();
+				var int_binds = new Gee.HashMap<string, int>();
+				var text_binds = new Gee.HashMap<string, string>();
+				int_binds.set("id", id);
+				Argus.Shared.AgentPending.query(this.app.db).selectWhere(
+					"WHERE id = $id", int_binds, text_binds, rows);
+				if (rows.size < 1) {
+					continue;
+				}
+				var row = rows.get(0);
+				var existing = new Gee.ArrayList<Argus.Shared.Agent>();
+				var have_int = new Gee.HashMap<string, int>();
+				var have_text = new Gee.HashMap<string, string>();
+				have_text.set("fingerprint", row.fingerprint);
+				Argus.Shared.Agent.query(this.app.db).selectWhere(
+					"WHERE fingerprint = $fingerprint",
+					have_int, have_text, existing);
+				if (existing.size < 1) {
+					Argus.Shared.Agent.query(this.app.db).insert(new Argus.Shared.Agent() {
+						fingerprint = row.fingerprint,
+						status = 1,
+						ip = row.ip,
+						created = new GLib.DateTime.now_utc().to_unix(),
+						requester = row.requester,
+						hostname = row.hostname
+					});
+				}
+				Argus.Shared.AgentPending.query(this.app.db).deleteId(row.id);
+				changed = true;
+			}
+			if (!changed) {
+				request.reply(new OLLMrpc.Response() {
+					msg = "ok"
+				});
+				return;
+			}
+			this.app.db.backupDB();
+			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			this.app.broadcast(new OLLMrpc.Notification() {
+				method = "event.agent",
+				action = "accepted"
+			});
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+		}
+
+		/**
+		 * End the registration window.
+		 *
+		 * The dialog header X calls this. The issued number is
+		 * cleared, the registration socket stops, and the
+		 * registration firewall is enabled. Every
+		 * ''agent_pending'' row is deleted. Those certificates
+		 * are not accepted. The app firewall is not changed.
+		 *
+		 * @param request inbound RPC from a controller
+		 */
+		public void stop(OLLMrpc.Request request)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var listen = this.app.register_listen;
+			listen.pin = "";
+			listen.accepting = false;
+			this.app.publish.stop();
+			this.app.register_firewall.enable();
+			listen.stop();
+			var binds = new Gee.HashMap<string, int>();
+			binds.set("floor", 0);
+			Argus.Shared.AgentPending.query(this.app.db).deleteWhere(
+				"WHERE id > $floor", binds, null);
+			this.app.db.backupDB();
 			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
 			});

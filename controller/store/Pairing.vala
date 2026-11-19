@@ -25,8 +25,8 @@ namespace Argus.Controller.Store
 	 * {@link items} is the backing list. {@link picked} is the ticked
 	 * rows, keyed by {@link Argus.Shared.AgentPending.id}. A tick
 	 * puts the row in that map. Clearing the tick takes it out.
-	 * {@link append} adds one pending request. {@link clear} drops
-	 * the list and the map.
+	 * {@link append} adds one pending request. {@link drop} takes
+	 * one row off the list. {@link clear} drops the list and the map.
 	 *
 	 * == Example ==
 	 *
@@ -96,6 +96,27 @@ namespace Argus.Controller.Store
 			this.picked.clear();
 			this.items_store.clear();
 			this.items_changed(0, removed, 0);
+		}
+
+		/**
+		 * Take one machine off the list.
+		 *
+		 * The row leaves {@link items} and {@link picked}.
+		 * An unknown id does nothing.
+		 *
+		 * @param id ''agent_pending.id''
+		 */
+		public void drop(int64 id)
+		{
+			this.picked.unset(id);
+			for (var i = 0; i < this.items_store.size; i++) {
+				if (this.items_store.get(i).id != id) {
+					continue;
+				}
+				this.items_store.remove_at(i);
+				this.items_changed((uint) i, 1, 0);
+				return;
+			}
 		}
 
 		/**

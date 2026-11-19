@@ -26,7 +26,9 @@ namespace Argus.Controller.Dialog
 	 * A typed number still closes this dialog. The first
 	 * ''event.pair'' / ''pending'' stops that countdown and
 	 * shows {@link Argus.Controller.Tab.Pairing}. Further pending
-	 * requests append a row. The title bar closes the dialog.
+	 * requests append a row. Reject drops the ticked rows.
+	 * Accept makes them permanent. The title bar closes the
+	 * dialog, ends the window, and drops whatever is still queued.
 	 *
 	 * == Example ==
 	 *
@@ -95,6 +97,86 @@ namespace Argus.Controller.Dialog
 			};
 			body.append(this.note);
 			this.queue = new Argus.Controller.Tab.Pairing();
+			var reject = new Gtk.Button.with_label("Reject") {
+				halign = Gtk.Align.START
+			};
+			var accept = new Gtk.Button.with_label("Accept") {
+				halign = Gtk.Align.END,
+				css_classes = { "suggested-action" }
+			};
+			this.queue.append(new Gtk.CenterBox() {
+				hexpand = true,
+				start_widget = reject,
+				end_widget = accept
+			});
+			reject.clicked.connect(() => {
+				if (this.queue.store.picked.size < 1) {
+					return;
+				}
+				var rpc = this.window.app.rpc;
+				if (rpc == null || !rpc.connected) {
+					return;
+				}
+				int[] ids = new int[this.queue.store.picked.size];
+				var n = 0;
+				foreach (var row in this.queue.store.picked.values) {
+					ids[n] = (int) row.id;
+					n++;
+				}
+				rpc.call.begin(new OLLMrpc.Request() {
+					method = "Agent.reject",
+					args = OLLMrpc.args("ai", ids, ids.length)
+				}, (obj, res) => {
+					OLLMrpc.Response response;
+					try {
+						response = rpc.call.end(res);
+					} catch (GLib.Error e) {
+						this.refuse(e.message);
+						return;
+					}
+					if (response.error != null) {
+						this.refuse(response.error.message);
+						return;
+					}
+					for (var i = 0; i < ids.length; i++) {
+						this.queue.store.drop((int64) ids[i]);
+					}
+				});
+			});
+			accept.clicked.connect(() => {
+				if (this.queue.store.picked.size < 1) {
+					return;
+				}
+				var rpc = this.window.app.rpc;
+				if (rpc == null || !rpc.connected) {
+					return;
+				}
+				int[] ids = new int[this.queue.store.picked.size];
+				var n = 0;
+				foreach (var row in this.queue.store.picked.values) {
+					ids[n] = (int) row.id;
+					n++;
+				}
+				rpc.call.begin(new OLLMrpc.Request() {
+					method = "Agent.accept",
+					args = OLLMrpc.args("ai", ids, ids.length)
+				}, (obj, res) => {
+					OLLMrpc.Response response;
+					try {
+						response = rpc.call.end(res);
+					} catch (GLib.Error e) {
+						this.refuse(e.message);
+						return;
+					}
+					if (response.error != null) {
+						this.refuse(response.error.message);
+						return;
+					}
+					for (var i = 0; i < ids.length; i++) {
+						this.queue.store.drop((int64) ids[i]);
+					}
+				});
+			});
 			this.pages = new Gtk.Stack() {
 				hexpand = true,
 				vexpand = true,
@@ -115,6 +197,19 @@ namespace Argus.Controller.Dialog
 					return;
 				}
 				this.finished = true;
+				var rpc = this.window.app.rpc;
+				if (rpc == null || !rpc.connected) {
+					return;
+				}
+				rpc.call.begin(new OLLMrpc.Request() {
+					method = "Agent.stop"
+				}, (obj, res) => {
+					try {
+						rpc.call.end(res);
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				});
 			});
 		}
 
