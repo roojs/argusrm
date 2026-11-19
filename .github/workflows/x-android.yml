@@ -57,7 +57,9 @@ jobs:
           PIXIEWOOD_USE_PIXIE: "1"
           PIXIEWOOD_MANIFEST: ${{ github.workspace }}/argusrm/packaging/android/pixiewood-argus.xml
         run: |
+          bash packaging/android/check-pixie-only.sh prebuild
           PIXIEWOOD_PHASE=setup scripts/android/build-pixiewood-apk.sh
+          bash packaging/android/check-pixie-only.sh post-init
           PIXIEWOOD_PHASE=configure scripts/android/build-pixiewood-apk.sh
 
       - name: Build APK

@@ -57,10 +57,7 @@ if host_machine.system() == 'android'
 	if not meson.version().version_compare('>=1.8.0')
 		error('Android requires Meson >= 1.8.0 for android_exe_type')
 	endif
-	gioopenssl_dep = dependency('gioopenssl')
-	if gioopenssl_dep.type_name() == 'pkgconfig'
-		gioopenssl_dep = dependency('gioopenssl', static: true)
-	endif
+	gioopenssl_dep = dependency('gioopenssl', static: true, allow_fallback: false)
 	deps += gioopenssl_dep
 	controller_vala_args += [
 		'-D', 'ANDROID',

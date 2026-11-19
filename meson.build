@@ -25,15 +25,31 @@ if host_machine.system() == 'android'
 	# libocsqlite/meson.build compiles a typelib only when this is found.
 	g_ir_compiler = disabler()
 	valac_exe = find_program('valac')
-	if not dependency('gioopenssl', required: false).found()
-		subproject('glib-networking')
-	endif
-	gee_vapi_dir = meson.project_source_root() / 'subprojects' / 'libgee-0.20.8' / 'gee'
-	gee_dep = dependency('gee-0.8')
-	if gee_dep.type_name() == 'pkgconfig'
-		gee_vapi_dir = gee_dep.get_variable(pkgconfig: 'prefix') / 'share' / 'vala' / 'vapi'
-		add_project_arguments(['--vapidir', gee_vapi_dir], language: 'vala')
-	endif
+	pixie_deps = [
+		'glib-2.0',
+		'gobject-2.0',
+		'gio-2.0',
+		'gee-0.8',
+		'json-glib-1.0',
+		'libsoup-3.0',
+		'sqlite3',
+		'gtk4',
+		'libadwaita-1',
+		'gioopenssl',
+	]
+	foreach dep_name : pixie_deps
+		dep = dependency(dep_name, allow_fallback: false, required: false)
+		if not dep.found() or dep.type_name() != 'pkgconfig'
+			error(
+				'ILLEGAL CHANGE HAS BEEN DONE — DO NOT BUILD THIS. ' +
+				'Android dependency "' + dep_name + '" is not provided by Pixie pkg-config. ' +
+				'Report to the user: Pixie packages need updating at source, not here.'
+			)
+		endif
+	endforeach
+	gee_dep = dependency('gee-0.8', allow_fallback: false)
+	gee_vapi_dir = gee_dep.get_variable(pkgconfig: 'prefix') / 'share' / 'vala' / 'vapi'
+	add_project_arguments(['--vapidir', gee_vapi_dir], language: 'vala')
 	if not fs.exists(meson.project_source_root() / 'vendor' / 'libocrpc' / 'meson.build')
 		error('Android builds require vendor/libocrpc staged from the pinned OLLMchat revision')
 	endif

@@ -16,6 +16,8 @@ fi
 export PIXIEWOOD_MANIFEST="${PIXIEWOOD_MANIFEST:-$ARGUS_ROOT/packaging/android/pixiewood-argus.xml}"
 export PIXIEWOOD_USE_PIXIE="${PIXIEWOOD_USE_PIXIE:-1}"
 
+bash "$ARGUS_ROOT/packaging/android/check-pixie-only.sh" prebuild
+
 runner="$(mktemp -p "$ARGUS_ROOT/scripts/android" argus-pixiewood-build.XXXXXX.sh)"
 trap 'rm -f "$runner"' EXIT
 
@@ -108,6 +110,7 @@ patch_argus_manifest() {
 # symlink stays. Only jniLibs is copied off its symlink.
 run_argus_pixiewood_build() {
   init_pixiewood_env
+  bash "$ROOT_DIR/packaging/android/check-pixie-only.sh" post-init
   maybe_download_meson_subprojects "$MESON_FOR_ANDROID"
 
   echo "Reconfiguring Pixiewood Meson build."
@@ -134,6 +137,7 @@ run_argus_pixiewood_build() {
   install_shared_mime_to_assets
   install_argus_java
   patch_argus_manifest
+  bash "$ROOT_DIR/packaging/android/check-pixie-only.sh" jnilibs
   run_pixiewood_gradle_assemble
 }
 
