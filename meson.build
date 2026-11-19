@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.28',
+	version: '0.1.31',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -203,6 +203,25 @@ if host_machine.system() == 'linux'
 			timeout: 60,
 		)
 	endif
+	rdp_seat_test = executable(
+		'argus-rdp-seat-test',
+		files('server/Rdp/Seat.vala', 'server/tests/rdp-seat.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			dependency('libsoup-3.0'),
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
+			'--pkg', 'posix',
+		],
+		install: false,
+	)
+	test('rdp-seat', rdp_seat_test, args: ['prove'], timeout: 30)
 endif
 
 if host_machine.system() == 'linux'

@@ -8,6 +8,24 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.31] - Unreleased
+
+### Added
+
+- The Windows agent reports each step while it opens the desktop.
+
+## [0.1.30] - Unreleased
+
+### Fixed
+
+- The Windows agent dials the server again as soon as the connection drops, then every two seconds until it is back.
+
+## [0.1.29] - Unreleased
+
+### Fixed
+
+- The Windows agent opens a fresh server connection after a restart, so a desktop request is understood.
+
 ## [0.1.28] - Unreleased
 
 ### Changed

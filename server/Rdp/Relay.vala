@@ -44,7 +44,7 @@ namespace Argus.Server.Rdp
 
 		/**
 		 * Register ''Relay.join'', ''Relay.write'', ''Relay.start'',
-		 * ''Relay.view'', and ''Relay.fresh''.
+		 * ''Relay.view'', ''Relay.fresh'', and ''Relay.report''.
 		 */
 		public static void rpc_register()
 		{
@@ -54,7 +54,8 @@ namespace Argus.Server.Rdp
 				"write", "ay",
 				"start", "i",
 				"view", "i",
-				"fresh", "");
+				"fresh", "",
+				"report", "ii");
 			OLLMrpc.Request.register("Relay", new Relay());
 		}
 
@@ -106,31 +107,105 @@ namespace Argus.Server.Rdp
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
 			}
+			var seat = this.seat(agent_id < 1 ? 0 : agent_id);
+			seat.agent_id = agent_id;
+			seat.watcher = request.connection;
 			var ssl = request.connection as Net.SslConnection;
 			if (ssl == null || agent_id < 1) {
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.FAIL_BAD_SOCKET.to_string(), 0);
+				seat.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.FAIL_BAD_SOCKET, 0)
+				});
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
+					error = new OLLMrpc.Error.INVALID_REQUEST(Argus.Rdp.State.FAIL_BAD_SOCKET.to_string())
 				});
 				return;
 			}
+			GLib.debug("relay.status %s %d", Argus.Rdp.State.REQUEST_CHECK_MACHINE_CONNECTED.to_string(), 0);
+			seat.watcher.write(new OLLMrpc.Notification() {
+				method = "relay.status",
+				args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.REQUEST_CHECK_MACHINE_CONNECTED, 0)
+			});
 			var agent = ssl.app.ssl_listen.by_id.get(agent_id);
 			if (agent == null || !agent.running) {
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.RETRY_MACHINE_DOWN.to_string(), 1);
+				seat.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.RETRY_MACHINE_DOWN, 1)
+				});
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
+					error = new OLLMrpc.Error.INVALID_REQUEST(Argus.Rdp.State.RETRY_MACHINE_DOWN.to_string())
 				});
 				return;
 			}
-			var seat = this.seat(agent_id);
+			GLib.debug("relay.status %s %d", Argus.Rdp.State.SUCCESS_MACHINE_CONNECTED.to_string(), 0);
+			seat.watcher.write(new OLLMrpc.Notification() {
+				method = "relay.status",
+				args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.SUCCESS_MACHINE_CONNECTED, 0)
+			});
 			if (seat.agent_conn != null) {
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.SUCCESS_DESKTOP_ALREADY_OPEN.to_string(), 0);
+				seat.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.SUCCESS_DESKTOP_ALREADY_OPEN, 0)
+				});
 				request.reply(new OLLMrpc.Response());
-				seat.ready(request.connection, agent_id);
+				request.connection.write(new OLLMrpc.Notification() {
+					method = "relay.ready",
+					args = OLLMrpc.args("i", agent_id)
+				});
 				return;
 			}
 			seat.asked = request.connection;
+			GLib.debug("relay.status %s %d", Argus.Rdp.State.REQUEST_ASK_MACHINE.to_string(), 0);
+			seat.watcher.write(new OLLMrpc.Notification() {
+				method = "relay.status",
+				args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.REQUEST_ASK_MACHINE, 0)
+			});
 			agent.write(new OLLMrpc.Notification() {
 				method = "relay.start"
 			});
+			GLib.debug("relay.status %s %d", Argus.Rdp.State.SUCCESS_ASKED_MACHINE.to_string(), 0);
+			seat.watcher.write(new OLLMrpc.Notification() {
+				method = "relay.status",
+				args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.SUCCESS_ASKED_MACHINE, 0)
+			});
 			request.reply(new OLLMrpc.Response());
+		}
+
+		/**
+		 * Forward one desktop step to the controller that asked.
+		 *
+		 * The caller is the agent app connection. The reply is empty.
+		 * The controller hears notification ''relay.status''.
+		 *
+		 * @param request inbound RPC
+		 * @param state {@link Argus.Rdp.State} as an int
+		 * @param attempt zero the first time, then the retry count
+		 */
+		public void report(OLLMrpc.Request request, int state, int attempt)
+		{
+			var ssl = request.connection as Net.SslConnection;
+			if (ssl == null || ssl.user.id < 1 || ssl.user.is_controller) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("The desktop report did not arrive on the agent's socket.")
+				});
+				return;
+			}
+			request.reply(new OLLMrpc.Response());
+			var id = (int) ssl.user.id;
+			var seat = this.seat(id);
+			seat.agent_id = id;
+			if (seat.watcher == null) {
+				return;
+			}
+			var told = (Argus.Rdp.State) state;
+			GLib.debug("relay.status %s %d", told.to_string(), attempt);
+			seat.watcher.write(new OLLMrpc.Notification() {
+				method = "relay.status",
+				args = OLLMrpc.args("iii", seat.agent_id, state, attempt)
+			});
 		}
 
 		/**
@@ -149,19 +224,43 @@ namespace Argus.Server.Rdp
 			}
 			var ssl = request.connection as Net.SslConnection;
 			if (ssl == null || agent_id < 1) {
+				var missing = this.seat(agent_id < 1 ? 0 : agent_id);
+				if (missing.watcher != null) {
+					GLib.debug("relay.status %s %d", Argus.Rdp.State.FAIL_BAD_SOCKET.to_string(), 0);
+					missing.watcher.write(new OLLMrpc.Notification() {
+						method = "relay.status",
+						args = OLLMrpc.args("iii", missing.agent_id, (int) Argus.Rdp.State.FAIL_BAD_SOCKET, 0)
+					});
+				}
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
+					error = new OLLMrpc.Error.INVALID_REQUEST(Argus.Rdp.State.FAIL_BAD_SOCKET.to_string())
 				});
 				return;
 			}
 			var seat = this.seat(agent_id);
-			if (!seat.attach(request)) {
+			seat.agent_id = agent_id;
+			var waiting = seat.attach(request);
+			if (seat.watcher != null) {
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.SUCCESS_CONTROLLER_JOINED_RELAY.to_string(), 0);
+				seat.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.SUCCESS_CONTROLLER_JOINED_RELAY, 0)
+				});
+			}
+			if (!waiting) {
 				return;
 			}
 			var agent = ssl.app.ssl_listen.by_id.get(agent_id);
 			if (agent == null || !agent.running) {
+				if (seat.watcher != null) {
+					GLib.debug("relay.status %s %d", Argus.Rdp.State.RETRY_CONTROLLER_JOIN_RELAY.to_string(), 1);
+					seat.watcher.write(new OLLMrpc.Notification() {
+						method = "relay.status",
+						args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.RETRY_CONTROLLER_JOIN_RELAY, 1)
+					});
+				}
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("unknown agent")
+					error = new OLLMrpc.Error.INVALID_REQUEST(Argus.Rdp.State.RETRY_MACHINE_DOWN.to_string())
 				});
 				return;
 			}

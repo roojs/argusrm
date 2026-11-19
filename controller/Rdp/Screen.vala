@@ -36,12 +36,22 @@ namespace Argus.Controller.Rdp
 	{
 		/**
 		 * The picture for this machine.
+		 *
+		 * It stays at the desktop's pixel size. The remote desktop
+		 * page scrolls it when that is larger than the view.
 		 */
 		public Gtk.Picture picture { get; private set; }
 		/**
 		 * True after ''relay.ready'' has started this picture.
 		 */
 		public bool started = false;
+		/**
+		 * Why this picture did not start. Empty while it is waiting
+		 * or showing the desktop.
+		 */
+		public string problem { get; set; default = ""; }
+		private bool stopping = false;
+		private bool rendered = false;
 		private static Gee.ArrayList<Screen> live = new Gee.ArrayList<Screen>();
 		private Argus.Controller.Window window;
 		private int agent_id;
@@ -58,10 +68,10 @@ namespace Argus.Controller.Rdp
 			this.window = window;
 			this.agent_id = agent_id;
 			this.picture = new Gtk.Picture() {
-				hexpand = true,
-				vexpand = true,
-				can_shrink = true,
-				content_fit = Gtk.ContentFit.CONTAIN
+				can_shrink = false,
+				content_fit = Gtk.ContentFit.SCALE_DOWN,
+				halign = Gtk.Align.START,
+				valign = Gtk.Align.START
 			};
 		}
 
@@ -70,6 +80,8 @@ namespace Argus.Controller.Rdp
 		 */
 		public void begin()
 		{
+			this.window.rdp.note(
+				this.agent_id, Argus.Rdp.State.REQUEST_CONTROLLER_JOIN_RELAY, 0);
 			var pem = this.window.issued.client_certificate + "\n" + this.window.issued.private_key;
 			GLib.TlsCertificate certificate;
 			GLib.TlsDatabase trust;
@@ -84,10 +96,17 @@ namespace Argus.Controller.Rdp
 				trust = GLib.TlsFileDatabase.new(
 					GLib.Path.build_filename(dir, "argusrm-ca.pem"));
 			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
+				GLib.debug("%s", e.message);
+				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
+				this.window.rdp.note(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
 				return;
 			}
 			var viewer = new Viewer();
+			viewer.failed.connect((message) => {
+				GLib.debug("%s", message);
+				this.window.rdp.note(
+					this.agent_id, Argus.Rdp.State.RETRY_CONTROLLER_JOIN_RELAY, 1);
+			});
 			try {
 				viewer.serve(
 					this.window.host,
@@ -96,12 +115,17 @@ namespace Argus.Controller.Rdp
 					trust,
 					this.agent_id);
 			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
+				GLib.debug("%s", e.message);
+				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
+				this.window.rdp.note(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
 				return;
 			}
+			this.window.rdp.note(
+				this.agent_id, Argus.Rdp.State.REQUEST_RENDER_DESKTOP, 0);
 			this.instance = new FreeRDP.Instance();
 			if (!this.instance.context_new()) {
-				GLib.warning("desktop context");
+				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
+				this.window.rdp.note(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
 				return;
 			}
 			this.instance.PostConnect = Screen.connected;
@@ -122,12 +146,26 @@ namespace Argus.Controller.Rdp
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
 			settings.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
+			settings.set_bool(FreeRDP.SettingsBool.BitmapCacheEnabled, true);
+			settings.set_bool(FreeRDP.SettingsBool.BitmapCacheV3Enabled, true);
+			settings.set_bool(FreeRDP.SettingsBool.RemoteFxCodec, true);
+			settings.set_bool(FreeRDP.SettingsBool.NSCodec, true);
+			settings.set_bool(FreeRDP.SettingsBool.SurfaceCommandsEnabled, true);
+			settings.set_bool(FreeRDP.SettingsBool.SupportGraphicsPipeline, true);
+			settings.set_bool(FreeRDP.SettingsBool.GfxH264, true);
+			settings.set_bool(FreeRDP.SettingsBool.GfxAVC444, true);
+			settings.set_bool(FreeRDP.SettingsBool.GfxAVC444v2, true);
 			settings.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
 			settings.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
 			settings.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
 			new GLib.Thread<int>("screen", () => {
 				if (!this.instance.connect()) {
-					GLib.warning("desktop connect failed");
+					GLib.Idle.add(() => {
+						this.problem = Argus.Rdp.State.RETRY_RENDER_CONNECT.to_string();
+						this.window.rdp.note(
+							this.agent_id, Argus.Rdp.State.RETRY_RENDER_CONNECT, 1);
+						return false;
+					});
 					return 0;
 				}
 				while (!this.instance.shall_disconnect()) {
@@ -136,6 +174,14 @@ namespace Argus.Controller.Rdp
 					}
 					this.publish();
 				}
+				GLib.Idle.add(() => {
+					if (this.stopping) {
+						return false;
+					}
+					this.window.rdp.note(
+						this.agent_id, Argus.Rdp.State.RETRY_DESKTOP_DISCONNECTED, 1);
+					return false;
+				});
 				return 0;
 			});
 		}
@@ -146,6 +192,7 @@ namespace Argus.Controller.Rdp
 		 */
 		public void stop()
 		{
+			this.stopping = true;
 			Screen.live.remove(this);
 			if (this.instance == null) {
 				return;
@@ -173,6 +220,11 @@ namespace Argus.Controller.Rdp
 				var texture = new Gdk.MemoryTexture(
 					width, height, Gdk.MemoryFormat.B8G8R8A8, bytes, (uint) stride);
 				this.picture.set_paintable(texture);
+				if (!this.rendered) {
+					this.rendered = true;
+					this.window.rdp.note(
+						this.agent_id, Argus.Rdp.State.SUCCESS_DESKTOP_RENDERED, 0);
+				}
 				return false;
 			});
 		}

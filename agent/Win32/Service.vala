@@ -298,6 +298,16 @@ namespace Argus.Agent.Win32
 			var scm = Win32.OpenSCManagerW(null, null, Win32.SC_MANAGER_CONNECT);
 			if (scm == null) {
 				GLib.warning("remote desktop service manager %u", Win32.GetLastError());
+				if (this.start_asked && this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
 				return;
 			}
 			var svc = Win32.OpenServiceW(scm,
@@ -306,6 +316,16 @@ namespace Argus.Agent.Win32
 			if (svc == null) {
 				GLib.warning("remote desktop service open %u", Win32.GetLastError());
 				Win32.CloseServiceHandle(scm);
+				if (this.start_asked && this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
 				return;
 			}
 			if (!Win32.ChangeServiceConfigW(svc, Win32.SERVICE_NO_CHANGE,
@@ -321,10 +341,30 @@ namespace Argus.Agent.Win32
 			Win32.CloseServiceHandle(svc);
 			Win32.CloseServiceHandle(scm);
 			if (!started) {
+				if (this.start_asked && this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
 				return;
 			}
 			this.desktop_on = true;
 			if (this.start_asked) {
+				if (this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.SUCCESS_REMOTE_DESKTOP_ENABLED, 0)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
 				this.relay_start();
 			}
 		}
@@ -338,6 +378,20 @@ namespace Argus.Agent.Win32
 		internal void relay_start()
 		{
 			if (!this.desktop_on) {
+				if (this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_ENABLE_REMOTE_DESKTOP, 0)
+						});
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
 				this.start_asked = true;
 				return;
 			}
@@ -347,15 +401,55 @@ namespace Argus.Agent.Win32
 			}
 			var rpc = this.application.stream_connection();
 			if (rpc == null) {
+				if (this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_MACHINE_JOIN_RELAY, 0)
+						});
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_SECOND_CONNECTION, 1)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
 				return;
 			}
+			if (this.application.connection != null) {
+				try {
+					this.application.connection.call(new OLLMrpc.Request() {
+						method = "Relay.report",
+						args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_CONNECT_LOCAL_RDP, 0)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			}
 			this.tunnel = new Argus.Agent.Rdp.Tunnel();
+			this.tunnel.app = this.application;
+			var refused = false;
 			try {
 				this.tunnel.open_windows(rpc);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
-				this.tunnel = null;
+				refused = true;
 			}
+			if (!refused) {
+				return;
+			}
+			if (this.application.connection != null) {
+				try {
+					this.application.connection.call(new OLLMrpc.Request() {
+						method = "Relay.report",
+						args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_LOCAL_RDP_REFUSED, 1)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			}
+			this.tunnel = null;
 		}
 
 		/**

@@ -114,8 +114,26 @@ namespace Argus.Controller.Tab.Asset.Machine
 			screen.confirmed.connect(() => {
 				var agent_id = this.store.loaded_agent;
 				var name = this.store.hostname;
-				this.window.open_desktop(agent_id, name);
-				this.store.start_desktop();
+				if (agent_id < 1) {
+					this.store.failed(
+						"Desktop",
+						Argus.Rdp.State.FAIL_NO_MACHINE.to_string());
+					return;
+				}
+				this.window.rdp.armed.add(agent_id);
+				this.window.rdp.note(agent_id, Argus.Rdp.State.REQUEST_TAKE_CONTROL, 0);
+				this.window.rdp.note(agent_id, Argus.Rdp.State.SUCCESS_TAKE_CONTROL, 0);
+				this.window.rdp.note(agent_id, Argus.Rdp.State.REQUEST_START_DESKTOP, 0);
+				this.store.start_desktop.begin((obj, res) => {
+					if (!this.store.start_desktop.end(res)) {
+						this.window.rdp.forget(agent_id);
+						return;
+					}
+					this.window.rdp.note(
+						agent_id, Argus.Rdp.State.SUCCESS_START_DESKTOP, 0);
+					this.window.rdp.open(agent_id, name);
+					this.window.tabs.show_rdp();
+				});
 			});
 			bar.append(screen);
 			this.store.notify["desktop"].connect(() => {

@@ -2,7 +2,7 @@
 
 **Status:** ⏳ critical — Phases 1–5 are in the tree. The controller compiled. None of this is verified on a machine. Phase 6 is the session tabs. Phase 6.5 is Force and the Disconnect notice. Phase 7 waits until Windows works.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, archived plan [5.12-MOVED-remote-desktop.md](../plans/done/5.12-MOVED-remote-desktop.md), [2026-11-17-FIXED-windows-command-session-job.md](done/2026-11-17-FIXED-windows-command-session-job.md), [2026-11-16-FIXED-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [`controller/tab/Asset/Machine/General.vala`](../../controller/tab/Asset/Machine/General.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`server/Net/Download.vala`](../../server/Net/Download.vala)
+**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, archived plan [5.12-MOVED-remote-desktop.md](../plans/done/5.12-MOVED-remote-desktop.md), [2026-11-17-FIXED-windows-command-session-job.md](done/2026-11-17-FIXED-windows-command-session-job.md), [2026-11-16-FIXED-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md) (silent Waiting, missing `relay.status`, server broadcast abort, Windows cert wipe), [`controller/tab/Asset/Machine/General.vala`](../../controller/tab/Asset/Machine/General.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`server/Net/Download.vala`](../../server/Net/Download.vala)
 
 ---
 
@@ -1416,11 +1416,17 @@ controller_vala_args += [
 - ✔️ 2026-11-18: `server.log` at 18:06: `Relay.start` from the controller, then `no handler for 'Relay'`. The running `argusrm-server` started 17 Nov 17:38. The binary on disk is 18 Nov 18:04. The desktop never left the controller.
 - ✔️ 2026-11-18: After the server restart, `Relay.start` at 18:16 has no handler error. The Windows agent exe is still 17 Nov 17:29, 1175091 bytes. Its log at 18:16:11 is `name-ref token 21 alias mismatch`. `ArgusAgent-0.1.27-Setup.exe` is in `C:\msys64\tmp\argusrm\dist-windows` and is not installed.
 - ✔️ 2026-11-18: After installing 0.1.27, `argus-agent.exe` and `argus-tray.exe` are 18:24, 1198463 bytes. At 18:30:10 the server received `Relay.start` and the agent logged `relay.start`. There is no `AgentService.allow`, no `Relay.join`, and no `relay.ready`. Windows 10 Pro, `fDenyTSConnections` is 0, and TermService is running. The picture waits for `relay.ready`.
-- ✔️ 2026-11-18: The tray ask is what stopped that stream. `initialize` turns Remote Desktop on without sending `agent.desktop`. The ask, and telling the controller that the page is waiting for authorization, are Phase 6.5.
+- ✔️ 2026-11-19: The tray ask is what stopped that stream. `initialize` turns Remote Desktop on without sending `agent.desktop`. The ask, and telling the controller that the page is waiting for authorization, are Phase 6.5.
+- ✔️ 2026-11-19: `meson test -C build rdp-seat` passes. A TLS listener accepts controller, agent, and view connections. `Seat.joined` sends `relay.ready 42` to the controller. `Seat.attach` + `Seat.forward` sends `relay.data 5` to the view. This is the notification flow without `SslConnection` or the database.
+- ✔️ 2026-11-19: After 0.1.29, the server received `Relay.start` at 12:14:23 with no `name-ref` error. The agent log has no `relay.start`. The agent dropped at 12:14:09 and reconnected at 12:14:26 — three seconds after `Relay.start`. `by_id.get` returned null, the server replied "unknown agent", and the controller showed a grey screen. The agent was not connected when the button was pressed. That gap is not the tick-on Waiting case; see [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md).
+- ✔️ 2026-11-19: `MachineGeneral.start_desktop` only caught `GLib.Error` (transport), not `response.error`. Every other `call.end` in the controller checks `response.error`. The call now returns false on that error, the notice uses `failed`, and the desktop page opens only after a successful reply.
+- ✔️ 2026-11-19: The click at 12:14 failed because the machine was not connected. The server called that `unknown agent`, so the notice did not say what was wrong. `Relay.start` now replies `The machine is not connected.` The notice heading is the hostname and the body is that sentence. The desktop page says `Waiting for Remote Desktop on <name>.` until `relay.ready`, and a FreeRDP failure replaces that sentence. `meson test -C build rdp-start` requires the new sentence.
+
+- ✔️ 2026-11-19: After 0.1.28, `Relay.start` at 11:52:31 and the agent log `name-ref token 21 alias mismatch`. The server had restarted at 11:52:15. The agent called `open` on the same client, so the old name table stayed. `/tmp/argus-nameref` prints `stale name-ref token 1 alias mismatch` and `fresh relay.start`. A dropped connection is now a new client.
 
 ## Next
 
-- ⏳ 🔷 Phase 5 is not verified on a machine. The Windows agent installer for that try is 0.1.28. Phase 6 is the session tabs.
+- ⏳ 🔷 Phase 5 is not verified on a machine. The Windows agent installer for that try is 0.1.29. Phase 6 is the session tabs.
 - ⏳ 🔷 Phase 6.5 is the tray ask, the controller notice while that ask is open, Force, and the tray notice that names who has the screen.
 - ⏳ 💩 The proof listen is still `Relay.listen`. Phase 2 does not move it into `SslListen`.
 

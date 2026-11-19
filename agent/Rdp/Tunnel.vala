@@ -137,7 +137,33 @@ namespace Argus.Agent.Rdp
 		private uint8[] buf { get; set; }
 		public GLib.SocketConnection? plain;
 		public OLLMrpc.Transport.TlsClient? rpc;
+		public Argus.Agent.Application? app;
 		public bool again;
+		private bool streaming;
+
+		/**
+		 * Send one step on the main loop.
+		 *
+		 * The desktop thread cannot call the app connection.
+		 * ''Relay.report'' runs from idle.
+		 *
+		 * @param state the step
+		 * @param attempt zero the first time, then the retry count
+		 */
+		private void report(Argus.Rdp.State state, int attempt)
+		{
+			GLib.Idle.add(() => {
+				try {
+					this.app.connection.call(new OLLMrpc.Request() {
+						method = "Relay.report",
+						args = OLLMrpc.args("ii", (int) state, attempt)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+				return false;
+			});
+		}
 
 		/**
 		 * Dial Windows on loopback and join the server as ''agent''.
@@ -153,6 +179,14 @@ namespace Argus.Agent.Rdp
 			this.dial = new GLib.SocketClient();
 			this.dial.timeout = 10;
 			this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
+			try {
+				this.app.connection.call(new OLLMrpc.Request() {
+					method = "Relay.report",
+					args = OLLMrpc.args("ii", (int) Argus.Rdp.State.SUCCESS_LOCAL_RDP_CONNECTED, 0)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
 			try {
 				this.plain.socket.set_option(6, 1, 1);
 			} catch (GLib.Error e) {
@@ -178,13 +212,37 @@ namespace Argus.Agent.Rdp
 					}
 				}
 			});
+			try {
+				this.app.connection.call(new OLLMrpc.Request() {
+					method = "Relay.report",
+					args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_MACHINE_JOIN_RELAY, 0)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
 			var joined = this.rpc.call(new OLLMrpc.Request() {
 				method = "Relay.join",
 				args = OLLMrpc.args("s", "agent")
 			});
 			if (joined.error != null) {
 				GLib.warning("join: %s", joined.error.message);
+				try {
+					this.app.connection.call(new OLLMrpc.Request() {
+						method = "Relay.report",
+						args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_MACHINE_JOIN_REFUSED, 1)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
 				return;
+			}
+			try {
+				this.app.connection.call(new OLLMrpc.Request() {
+					method = "Relay.report",
+					args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_MACHINE_STREAM_DATA, 0)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
 			}
 			this.rpc.watch();
 			new GLib.Thread<int>("desktop", () => {
@@ -211,6 +269,7 @@ namespace Argus.Agent.Rdp
 			} catch (GLib.Error e) {
 				if (!this.again) {
 					GLib.warning("desktop read: %s", e.message);
+					this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, 1);
 					return false;
 				}
 			}
@@ -220,6 +279,7 @@ namespace Argus.Agent.Rdp
 					this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
 				} catch (GLib.Error e) {
 					GLib.warning("desktop: %s", e.message);
+					this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
 					return false;
 				}
 				try {
@@ -228,15 +288,18 @@ namespace Argus.Agent.Rdp
 					});
 					if (mark.error != null) {
 						GLib.warning("fresh: %s", mark.error.message);
+						this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
 						return false;
 					}
 				} catch (GLib.Error e) {
 					GLib.warning("fresh: %s", e.message);
+					this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
 					return false;
 				}
 				return true;
 			}
 			if (n <= 0) {
+				this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, 1);
 				return false;
 			}
 			var chunk = new uint8[n];
@@ -251,11 +314,17 @@ namespace Argus.Agent.Rdp
 				var response = this.rpc.call(request);
 				if (response.error != null) {
 					GLib.warning("desktop write: %s", response.error.message);
+					this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, 1);
 					return false;
 				}
 			} catch (GLib.Error e) {
 				GLib.warning("desktop call: %s", e.message);
+				this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, 1);
 				return false;
+			}
+			if (!this.streaming) {
+				this.streaming = true;
+				this.report(Argus.Rdp.State.SUCCESS_MACHINE_STREAMING, 0);
 			}
 			return true;
 		}

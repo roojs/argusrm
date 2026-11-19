@@ -54,9 +54,15 @@ namespace Argus.Controller
 			get; set; default = new Argus.Shared.Registration.Data();
 		}
 		public string host { get; set; default = ""; }
-		private TabList tabs;
+		/**
+		 * Sidebar places for this window.
+		 */
+		public TabList tabs;
 		private Gtk.Stack pages;
-		private Tab.Rdp rdp;
+		/**
+		 * Remote desktop page for this window.
+		 */
+		public Tab.Rdp rdp;
 		/**
 		 * Header of the page on the right.
 		 */
@@ -79,6 +85,8 @@ namespace Argus.Controller
 		private uint connection_check_id = 0;
 		private bool reconnecting = false;
 		private bool was_connected = true;
+		private bool told_offline = false;
+		private bool told_wait = false;
 		private bool closed = false;
 		private int64 next_reconnect = 0;
 
@@ -263,9 +271,22 @@ namespace Argus.Controller
 			if (connected) {
 				this.title_label.label = "Argus RM " + Argus.VERSION;
 				this.title_label.css_classes = { "title" };
+				if (this.told_offline) {
+					foreach (var agent_id in this.rdp.screens.keys) {
+						this.rdp.note(agent_id, Argus.Rdp.State.SUCCESS_SERVER_RECONNECTED, 0);
+					}
+					this.told_offline = false;
+					this.told_wait = false;
+				}
 			} else {
 				this.title_label.label = "Offline";
 				this.title_label.css_classes = { "title", "offline-title" };
+				if (!this.told_offline) {
+					foreach (var agent_id in this.rdp.screens.keys) {
+						this.rdp.note(agent_id, Argus.Rdp.State.RETRY_SERVER_DISCONNECTED, 1);
+					}
+					this.told_offline = true;
+				}
 			}
 			if (connected || rpc == null || this.reconnecting) {
 				if (connected) {
@@ -275,8 +296,15 @@ namespace Argus.Controller
 			}
 			var now = GLib.get_monotonic_time();
 			if (!this.was_connected && now < this.next_reconnect) {
+				if (!this.told_wait) {
+					foreach (var agent_id in this.rdp.screens.keys) {
+						this.rdp.note(agent_id, Argus.Rdp.State.RETRY_SERVER_CONNECT_REFUSED, 1);
+					}
+					this.told_wait = true;
+				}
 				return true;
 			}
+			this.told_wait = false;
 			this.was_connected = false;
 			/* Monotonic time is microseconds. Try the connection again in 30 seconds. */
 			this.next_reconnect = now + (int64) 30 * 1000000;
@@ -298,28 +326,5 @@ namespace Argus.Controller
 			return true;
 		}
 
-		/**
-		 * Open this machine on the RDP page.
-		 *
-		 * A machine that already has a tab is selected.
-		 * A new machine adds a tab. The sidebar row is shown.
-		 *
-		 * @param agent_id ''agent.id'' of the machine
-		 * @param name tab title, the hostname
-		 */
-		public void open_desktop(int agent_id, string name)
-		{
-			this.rdp.open(agent_id, name);
-			this.tabs.show_rdp();
-		}
-
-		/**
-		 * Hide the RDP row. {@link Tab.Rdp.drop} calls this
-		 * when the last tab is gone.
-		 */
-		public void tabs_hide_rdp()
-		{
-			this.tabs.hide_rdp();
-		}
 	}
 }

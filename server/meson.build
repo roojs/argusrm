@@ -170,6 +170,18 @@ apt_depends_test = executable(
 	install: false,
 )
 test('apt-depends', apt_depends_test, timeout: 30)
+rdp_start_test = executable(
+	'argus-rdp-start-test',
+	files('Rdp/Relay.vala', 'Rdp/Seat.vala', 'tests/rdp-start.vala'),
+	dependencies: shared_deps + [shared_server_dep],
+	c_args: ocsqlite_c_args,
+	vala_args: shared_vala_args + [
+		'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
+		'--pkg', 'gio-2.0', '--pkg', 'posix',
+	],
+	install: false,
+)
+test('rdp-start', rdp_start_test, args: ['prove'], timeout: 30)
 executable(
 	'argus-nftables-test',
 	files('tests/nftables.vala', 'Net/NFTables.vala'),

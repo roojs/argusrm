@@ -32,10 +32,37 @@ namespace Argus.Controller.Tab
 	 */
 	public class Rdp : Gtk.Box
 	{
-		private Argus.Controller.Window window;
+		private class Step : GLib.Object
+		{
+			public Argus.Rdp.State state;
+			public int attempt;
+
+			public Step(Argus.Rdp.State state, int attempt)
+			{
+				this.state = state;
+				this.attempt = attempt;
+			}
+		}
+
+		public Argus.Controller.Window window { get; construct; }
 		private Gtk.Stack pictures;
 		private Gtk.Box tabs;
-		private Gee.HashMap<int, Argus.Controller.Rdp.Screen> screens;
+		private Adw.ToastOverlay toasts;
+		internal Gee.HashMap<int, Argus.Controller.Rdp.Screen> screens {
+			get; set; default = new Gee.HashMap<int, Argus.Controller.Rdp.Screen>();
+		}
+		private Gee.HashMap<int, Gtk.Label> status {
+			get; set; default = new Gee.HashMap<int, Gtk.Label>();
+		}
+		private Gee.HashMap<int, Gee.ArrayList<Step>> pending {
+			get; set; default = new Gee.HashMap<int, Gee.ArrayList<Step>>();
+		}
+		internal Gee.HashSet<int> armed {
+			get; set; default = new Gee.HashSet<int>();
+		}
+		private Gee.HashSet<int> ready {
+			get; set; default = new Gee.HashSet<int>();
+		}
 
 		/**
 		 * Build the picture stack and the tab bar.
@@ -44,11 +71,13 @@ namespace Argus.Controller.Tab
 		 */
 		public Rdp(Argus.Controller.Window window)
 		{
-			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
-			this.window = window;
-			this.hexpand = true;
-			this.vexpand = true;
-			this.screens = new Gee.HashMap<int, Argus.Controller.Rdp.Screen>();
+			Object(
+				orientation: Gtk.Orientation.VERTICAL,
+				spacing: 0,
+				hexpand: true,
+				vexpand: true,
+				window: window
+			);
 			this.pictures = new Gtk.Stack() {
 				hexpand = true,
 				vexpand = true
@@ -58,23 +87,104 @@ namespace Argus.Controller.Tab
 				hexpand = true,
 				halign = Gtk.Align.FILL
 			};
-			this.append(this.pictures);
-			this.append(this.tabs);
+			var column = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
+				hexpand = true,
+				vexpand = true
+			};
+			column.append(this.pictures);
+			column.append(this.tabs);
+			this.toasts = new Adw.ToastOverlay() {
+				child = column,
+				hexpand = true,
+				vexpand = true
+			};
+			this.append(this.toasts);
 			this.window.app.rpc.notification.connect((notification) => {
+				if (notification.method == "relay.status" && notification.args.size >= 3) {
+					var agent_id = notification.args.get(0).get_int();
+					var state = (Argus.Rdp.State) notification.args.get(1).get_int();
+					var attempt = notification.args.get(2).get_int();
+					this.note(agent_id, state, attempt);
+					return;
+				}
 				if (notification.method != "relay.ready" || notification.args.size < 1) {
 					return;
 				}
-				var agent_id = notification.args.get(0).get_int();
-				if (!this.screens.has_key(agent_id)) {
+				var id = notification.args.get(0).get_int();
+				if (!this.screens.has_key(id)) {
+					if (!this.armed.contains(id)) {
+						return;
+					}
+					this.ready.add(id);
 					return;
 				}
-				var screen = this.screens.get(agent_id);
+				var screen = this.screens.get(id);
 				if (screen.started) {
 					return;
 				}
 				screen.started = true;
 				screen.begin();
+				var label = this.status.get(id);
+				if (label != null && screen.problem != "") {
+					label.label = screen.problem;
+					label.visible = true;
+				}
 			});
+		}
+
+		/**
+		 * Drop steps that arrived before the page opened.
+		 *
+		 * An open page is left as it is.
+		 *
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		public void forget(int agent_id)
+		{
+			this.pending.unset(agent_id);
+			this.ready.remove(agent_id);
+			if (this.screens.has_key(agent_id)) {
+				return;
+			}
+			this.armed.remove(agent_id);
+		}
+
+		/**
+		 * Toast this step, and leave it on the waiting label.
+		 *
+		 * The sentence is {@link Argus.Rdp.State.line}. The log
+		 * line is that same sentence. A step that arrives
+		 * before {@link open} waits.
+		 *
+		 * @param agent_id ''agent.id'' of the machine
+		 * @param state the step
+		 * @param attempt zero the first time, then the retry count
+		 */
+		public void note(int agent_id, Argus.Rdp.State state, int attempt)
+		{
+			if (!this.screens.has_key(agent_id)) {
+				if (!this.armed.contains(agent_id)) {
+					return;
+				}
+				if (!this.pending.has_key(agent_id)) {
+					this.pending.set(agent_id, new Gee.ArrayList<Step>());
+				}
+				this.pending.get(agent_id).add(new Step(state, attempt));
+				return;
+			}
+			var text = state.line(attempt);
+			this.toasts.add_toast(new Adw.Toast(text));
+			GLib.debug("relay.status %s %d", state.to_string(), attempt);
+			var label = this.status.get(agent_id);
+			if (label == null) {
+				return;
+			}
+			if (state == Argus.Rdp.State.SUCCESS_DESKTOP_RENDERED) {
+				label.visible = false;
+				return;
+			}
+			label.label = text;
+			label.visible = true;
 		}
 
 		/**
@@ -85,21 +195,57 @@ namespace Argus.Controller.Tab
 		 */
 		public void open(int agent_id, string name)
 		{
+			this.armed.add(agent_id);
 			var key = agent_id.to_string();
 			if (this.screens.has_key(agent_id)) {
 				var existing = this.tabs.get_first_child();
 				while (existing != null) {
-					if (existing.name == key) {
-						((Gtk.ToggleButton) existing).active = true;
-						return;
+					if (existing.name != key) {
+						existing = existing.get_next_sibling();
+						continue;
 					}
-					existing = existing.get_next_sibling();
+					((Gtk.ToggleButton) existing).active = true;
+					if (this.pending.has_key(agent_id)) {
+						var list = this.pending.get(agent_id);
+						this.pending.unset(agent_id);
+						foreach (var step in list) {
+							this.note(agent_id, step.state, step.attempt);
+						}
+					}
+					return;
 				}
 				return;
 			}
 			var screen = new Argus.Controller.Rdp.Screen(this.window, agent_id);
 			this.screens.set(agent_id, screen);
-			this.pictures.add_named(screen.picture, key);
+			var waiting = new Gtk.Label("Waiting for Remote Desktop on " + name + ".") {
+				wrap = true,
+				wrap_mode = Pango.WrapMode.WORD_CHAR,
+				halign = Gtk.Align.CENTER,
+				valign = Gtk.Align.CENTER,
+				margin_start = 24,
+				margin_end = 24
+			};
+			this.status.set(agent_id, waiting);
+			screen.notify["problem"].connect(() => {
+				if (screen.problem == "") {
+					return;
+				}
+				waiting.label = screen.problem;
+				waiting.visible = true;
+			});
+			var scroll = new Gtk.ScrolledWindow() {
+				child = screen.picture,
+				hexpand = true,
+				vexpand = true
+			};
+			var overlay = new Gtk.Overlay() {
+				child = scroll,
+				hexpand = true,
+				vexpand = true
+			};
+			overlay.add_overlay(waiting);
+			this.pictures.add_named(overlay, key);
 			var close = new Gtk.Button.from_icon_name("window-close-symbolic") {
 				css_classes = { "flat", "rdp-tab-close" },
 				valign = Gtk.Align.CENTER,
@@ -133,6 +279,28 @@ namespace Argus.Controller.Tab
 			});
 			this.tabs.append(tab);
 			tab.active = true;
+			if (this.pending.has_key(agent_id)) {
+				var list = this.pending.get(agent_id);
+				this.pending.unset(agent_id);
+				foreach (var step in list) {
+					this.note(agent_id, step.state, step.attempt);
+				}
+			}
+			if (!this.ready.contains(agent_id)) {
+				return;
+			}
+			this.ready.remove(agent_id);
+			if (screen.started) {
+				return;
+			}
+			screen.started = true;
+			screen.begin();
+			var label = this.status.get(agent_id);
+			if (label == null || screen.problem == "") {
+				return;
+			}
+			label.label = screen.problem;
+			label.visible = true;
 		}
 
 		/**
@@ -151,6 +319,10 @@ namespace Argus.Controller.Tab
 			}
 			var screen = this.screens.get(agent_id);
 			this.screens.unset(agent_id);
+			this.status.unset(agent_id);
+			this.pending.unset(agent_id);
+			this.ready.remove(agent_id);
+			this.armed.remove(agent_id);
 			screen.stop();
 			var key = agent_id.to_string();
 			var child = this.pictures.get_child_by_name(key);
@@ -169,7 +341,7 @@ namespace Argus.Controller.Tab
 			if (this.screens.size > 0) {
 				return;
 			}
-			this.window.tabs_hide_rdp();
+			this.window.tabs.hide_rdp();
 		}
 	}
 }

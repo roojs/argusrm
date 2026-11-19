@@ -43,9 +43,15 @@ namespace Argus.Controller
 			get; set; default = new Argus.Shared.Registration.Data();
 		}
 		public string host { get; set; default = ""; }
-		private TabList tabs;
+		/**
+		 * Sidebar places for this window.
+		 */
+		public TabList tabs;
 		private Gtk.Stack pages;
-		private Tab.Rdp rdp;
+		/**
+		 * Remote desktop page for this window.
+		 */
+		public Tab.Rdp rdp;
 		/**
 		 * Header of the active page.
 		 */
@@ -345,28 +351,5 @@ namespace Argus.Controller
 			return true;
 		}
 
-		/**
-		 * Open this machine on the RDP page.
-		 *
-		 * A machine that already has a tab is selected.
-		 * A new machine adds a tab. The sidebar row is shown.
-		 *
-		 * @param agent_id ''agent.id'' of the machine
-		 * @param name tab title, the hostname
-		 */
-		public void open_desktop(int agent_id, string name)
-		{
-			this.rdp.open(agent_id, name);
-			this.tabs.show_rdp();
-		}
-
-		/**
-		 * Hide the RDP row. {@link Tab.Rdp.drop} calls this
-		 * when the last tab is gone.
-		 */
-		public void tabs_hide_rdp()
-		{
-			this.tabs.hide_rdp();
-		}
 	}
 }

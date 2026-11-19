@@ -46,6 +46,7 @@ valadoc_clean = custom_target('valadoc-clean',
 valadoc_sources = files(
   # shared sources (must come before agent, server, and controller)
   '../shared/namespace.vala',
+  '../shared/Rdp.vala',
   '../shared/Agent.vala',
   '../shared/AgentPending.vala',
   '../shared/OsReleases.vala',

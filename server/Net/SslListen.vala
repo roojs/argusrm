@@ -269,7 +269,14 @@ namespace Argus.Server.Net
 		 */
 		public void broadcast(GLib.Object notification)
 		{
-			foreach (var connection in this.connections) {
+			/* stop() removes from this.connections. A live foreach
+			 * then reads past the end and aborts the process. */
+			var snapshot = new Gee.ArrayList<SslConnection>();
+			snapshot.add_all(this.connections);
+			foreach (var connection in snapshot) {
+				if (!connection.running) {
+					continue;
+				}
 				connection.write(notification);
 			}
 		}
@@ -287,7 +294,9 @@ namespace Argus.Server.Net
 			this.listening = false;
 			this.service.stop();
 			this.service = new GLib.SocketService();
-			foreach (var connection in this.connections) {
+			var snapshot = new Gee.ArrayList<SslConnection>();
+			snapshot.add_all(this.connections);
+			foreach (var connection in snapshot) {
 				connection.stop();
 			}
 			this.connections.clear();

@@ -510,7 +510,7 @@ Socket: the app socket. A second connection to that same port. No other listen.
 - 🔷 Direction: controller calls the server.
 - 🔷 Argument `i`: `agent.id`.
 - 🔷 The server writes notification `relay.start` on that agent's app connection. No arguments. That is not the desktop.
-- 🔷 Reply: empty success. An unknown or disconnected agent is `unknown agent`. A caller that is not a controller is `controller only`.
+- 🔷 Reply: empty success. A disconnected agent is `The machine is not connected.` A request that is not on the machine socket is `The desktop request did not arrive on the server's machine socket.` A caller that is not a controller is `controller only`.
 - 🔷 When that agent has already joined, the reply is followed by notification `relay.ready` on this controller connection.
 
 ### `relay.start`
@@ -520,6 +520,20 @@ Socket: the app socket. A second connection to that same port. No other listen.
 ### `relay.ready`
 
 - 🔷 Notification on the controller connection that called `Relay.start`. Argument `i`: `agent.id`. The stream has started. This is not the desktop bytes.
+
+### `Relay.report`
+
+- 🔷 Socket: the app socket. The agent's first connection, or the server for a step it already knows. The server calls the same forward without this RPC.
+- 🔷 Direction: agent calls the server.
+- 🔷 Arguments `ii`: `Argus.Rdp.State`, then the attempt. Attempt `0` is the first time. Attempt `1` is "Trying 1 of 3".
+- 🔷 Reply: empty success. A caller that is not that agent is `The desktop report did not arrive on the agent's socket.`
+- 🔷 The server writes notification `relay.status` on the controller connection that called `Relay.start`. That write is that one socket. It is not `Application.broadcast`.
+
+### `relay.status`
+
+- 🔷 Notification written on the controller connection that called `Relay.start`. Arguments `iii`: `agent.id`, `Argus.Rdp.State`, attempt. Other controllers and the agent do not receive it.
+- 🔷 The sentence is `Argus.Rdp.State.line` on the controller. The wire value is the enum, not the sentence.
+- 🔷 The server log line is `relay.status` plus `Argus.Rdp.State.to_string`. The last line is how far down the desktop flow that run got.
 
 ### `Relay.view`
 

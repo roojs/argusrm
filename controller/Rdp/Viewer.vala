@@ -38,6 +38,15 @@ namespace Argus.Controller.Rdp
 	public class Viewer : GLib.Object
 	{
 		public uint16 view_port { get; private set; }
+		/**
+		 * The second connection could not be opened.
+		 *
+		 * A refused ''Relay.view'' is reported by the server. This
+		 * signal is the case the server never saw.
+		 *
+		 * @param message the transport error
+		 */
+		public signal void failed(string message);
 		private OLLMrpc.Transport.TlsClient rpc;
 		private GLib.SocketConnection? plain;
 		/**
@@ -218,6 +227,11 @@ namespace Argus.Controller.Rdp
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
+				var message = e.message;
+				GLib.Idle.add(() => {
+					this.failed(message);
+					return false;
+				});
 				return;
 			}
 			if (joined.error != null) {

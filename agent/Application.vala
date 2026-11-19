@@ -273,16 +273,15 @@ namespace Argus.Agent
 		/**
 		 * Keep {@link connection} open.
 		 *
-		 * The first call starts a thirty-second retry. The connection
-		 * that is still up is left as it is. A failed open, or
-		 * {@link OLLMrpc.Transport.TlsClient.closed}, is tried again
-		 * on the next retry.
+		 * The first call starts a two-second retry. The connection
+		 * that is still up is left as it is. A dropped connection
+		 * is dialed again at once. The old client still has the
+		 * name table from the server that went away.
 		 */
 		internal void attach_connection()
 		{
 			if (this.connection_check_id == 0) {
-				/* Retry 30 seconds after the previous try. */
-				this.connection_check_id = GLib.Timeout.add_seconds(30, () => {
+				this.connection_check_id = GLib.Timeout.add_seconds(2, () => {
 					if (this.connection != null && !Application.connection_down) {
 						return true;
 					}
@@ -293,41 +292,34 @@ namespace Argus.Agent
 			if (this.connecting) {
 				return;
 			}
+			if (this.connection != null && Application.connection_down) {
+				this.connection = null;
+			}
 			if (this.connection != null && !Application.connection_down) {
 				return;
 			}
 			this.connecting = true;
-			var opened = this.connection;
-			if (opened == null) {
-				opened = this.open_connection();
-				if (opened != null) {
-					opened.closed.connect(() => {
-						Application.connection_down = true;
-						this.state_changed();
-					});
-					opened.notification.connect(this.notification);
-				}
-			} else {
-				try {
-					opened.open();
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
+			var opened = this.open_connection();
+			if (opened != null) {
+				opened.closed.connect(() => {
 					Application.connection_down = true;
-					this.connecting = false;
 					this.state_changed();
-					return;
-				}
+					this.attach_connection();
+				});
+				opened.notification.connect(this.notification);
 			}
+			this.connecting = false;
 			if (opened == null) {
 				Application.connection_down = true;
-				this.connecting = false;
 				this.state_changed();
 				return;
 			}
 			opened.watch();
+			if (Application.connection_down) {
+				return;
+			}
 			Application.connection_down = false;
 			GLib.debug("watching the server connection");
-			this.connecting = false;
 			this.state_changed();
 		}
 
@@ -355,10 +347,11 @@ namespace Argus.Agent
 		 * window, and the box says this phone is already registered.
 		 * A registered process starts
 		 * {@link OSQuery.Initialize} and watches the server connection.
-		 * A failed open waits and is tried again every thirty seconds.
-		 * On Windows a stored certificate that cannot reach the
-		 * server, or that the server does not accept, is removed
-		 * and the registration window is offered again.
+		 * A failed open is tried again every two seconds. A drop
+		 * dials again at once.
+		 * On Windows a certificate the server refuses is removed
+		 * and the registration window is offered again. A server
+		 * that does not answer keeps the certificate.
 		 * The Android {@link OSQuery.Initialize} does not query.
 		 * With none of those, the process browses and stays up.
 		 *
@@ -511,68 +504,67 @@ namespace Argus.Agent
 				}
 			}
 #else
-			var cert = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus", "client.pem");
-			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
-				GLib.Idle.add(() => {
-					this.attach_connection();
-					var rejected = this.connection == null;
-					var notice = "Could not reach the management server.";
-					if (this.connection != null) {
-						try {
-							var response = this.connection.call(new OLLMrpc.Request() {
-								method = "RPC-Daemon.hello",
-								args = OLLMrpc.args("is", 1, "argus-agent")
-							});
-							if (response.error != null) {
-								rejected = true;
-								if (response.error.code ==
-									(int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
-									notice = "Not registered with the management server.";
-								}
-							}
-						} catch (GLib.Error e) {
-							GLib.warning("%s", e.message);
-							rejected = true;
-						}
-					}
-					if (rejected) {
+			var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
+			if (!GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
+				this.hold();
+				return 0;
+			}
+			GLib.Idle.add(() => {
+				this.attach_connection();
+				if (this.connection == null) {
+					this.status_notice = "Could not reach the management server.";
+					this.state_changed();
+					return false;
+				}
+				try {
+					var response = this.connection.call(new OLLMrpc.Request() {
+						method = "RPC-Daemon.hello",
+						args = OLLMrpc.args("is", 1, "argus-agent")
+					});
+					if (response.error != null && response.error.code == (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED) {
 						if (this.connection_check_id != 0) {
 							GLib.Source.remove(this.connection_check_id);
 							this.connection_check_id = 0;
 						}
 						this.connection = null;
 						Application.connection_down = true;
-						var dir = GLib.Path.build_filename(
-							GLib.Environment.get_user_data_dir(), "argus");
+						var dir = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus");
 						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"));
 						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
 						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
 						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
-						this.status_notice = notice;
+						this.status_notice = "Not registered with the management server.";
 						GLib.debug("registration cleared");
 						this.state_changed();
 						return false;
 					}
-					this.status_notice = "";
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					Application.connection_down = true;
+					this.connection = null;
+					this.status_notice = "Could not reach the management server.";
 					this.state_changed();
-					new GLib.Thread<int>("osquery-init", () => {
-						var code = new OSQuery.Initialize(this).run();
-						GLib.Idle.add(() => {
-							if (code == 0 && this.connection != null) {
-								this.osquery.send_startup();
-								this.monitor = new PackageMonitor(this);
-								this.monitor.start();
-								this.user_monitor = new UserMonitor(this);
-								this.user_monitor.start();
-							}
-							return false;
-						});
-						return 0;
-					});
 					return false;
+				}
+				this.status_notice = "";
+				this.state_changed();
+				new GLib.Thread<int>("osquery-init", () => {
+					var code = new OSQuery.Initialize(this).run();
+					GLib.Idle.add(() => {
+						if (code != 0 || this.connection == null) {
+							return false;
+						}
+						this.osquery.send_startup();
+						this.monitor = new PackageMonitor(this);
+						this.monitor.start();
+						this.user_monitor = new UserMonitor(this);
+						this.user_monitor.start();
+						return false;
+					});
+					return 0;
 				});
-			}
+				return false;
+			});
 #endif
 			this.hold();
 			return 0;

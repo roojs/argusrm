@@ -297,24 +297,51 @@ namespace Argus.Controller.Store
 		 * Ask the server to start this machine's desktop stream.
 		 *
 		 * Phase 5's screen button calls this on touch and hold.
-		 * ''relay.ready'' is the later notice that the stream is up.
+		 * The caller opens the desktop page only when this returns
+		 * true. ''relay.ready'' is the later notice that the stream
+		 * is up.
+		 *
+		 * @return false when the server rejects the start
 		 */
-		public void start_desktop()
+		public async bool start_desktop()
 		{
 			if (this.loaded_agent < 1) {
-				return;
+				this.failed("Desktop", Argus.Rdp.State.FAIL_NO_MACHINE.to_string());
+				return false;
 			}
 			var agent_id = this.loaded_agent;
-			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Relay.start",
-				args = OLLMrpc.args("i", agent_id)
-			}, (obj, res) => {
-				try {
-					this.app.rpc.call.end(res);
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
+			var heading = this.hostname;
+			if (heading == "") {
+				heading = "Desktop";
+			}
+			OLLMrpc.Response response;
+			try {
+				response = yield this.app.rpc.call(new OLLMrpc.Request() {
+					method = "Relay.start",
+					args = OLLMrpc.args("i", agent_id)
+				});
+			} catch (GLib.Error e) {
+				GLib.debug("%s", e.message);
+				this.failed(
+					heading,
+					Argus.Rdp.State.RETRY_SERVER_UNREACHABLE.line(1));
+				return false;
+			}
+			if (response.error != null) {
+				var state = Argus.Rdp.State.FAIL_SERVER_REFUSED;
+				var attempt = 0;
+				var message = response.error.message;
+				if (message == Argus.Rdp.State.RETRY_MACHINE_DOWN.to_string()) {
+					state = Argus.Rdp.State.RETRY_MACHINE_DOWN;
+					attempt = 1;
+				} else if (message == Argus.Rdp.State.FAIL_BAD_SOCKET.to_string()) {
+					state = Argus.Rdp.State.FAIL_BAD_SOCKET;
 				}
-			});
+				GLib.debug("%s", message);
+				this.failed(heading, state.line(attempt));
+				return false;
+			}
+			return true;
 		}
 	}
 }

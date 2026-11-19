@@ -40,22 +40,12 @@ namespace Argus.Server.Rdp
 		internal OLLMrpc.Transport.Connection? agent_conn;
 		internal OLLMrpc.Transport.Connection? view_conn;
 		internal OLLMrpc.Transport.Connection? asked;
+		internal OLLMrpc.Transport.Connection? watcher;
 		internal OLLMrpc.Request? holding;
+		internal int agent_id;
 		private bool begun;
-
-		/**
-		 * Tell this controller the stream is up.
-		 *
-		 * @param caller the controller connection
-		 * @param agent_id ''agent.id'' of the machine
-		 */
-		public void ready(OLLMrpc.Transport.Connection caller, int agent_id)
-		{
-			caller.write(new OLLMrpc.Notification() {
-				method = "relay.ready",
-				args = OLLMrpc.args("i", agent_id)
-			});
-		}
+		private bool forwarded;
+		private bool dropped;
 
 		/**
 		 * Store the agent stream and answer the controller that asked.
@@ -66,11 +56,32 @@ namespace Argus.Server.Rdp
 		public void joined(OLLMrpc.Request request, int agent_id)
 		{
 			this.agent_conn = request.connection;
+			this.agent_id = agent_id;
 			request.reply(new OLLMrpc.Response());
+			if (this.watcher != null) {
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.SUCCESS_MACHINE_JOINED_RELAY.to_string(), 0);
+				this.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", this.agent_id, (int) Argus.Rdp.State.SUCCESS_MACHINE_JOINED_RELAY, 0)
+				});
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.REQUEST_SERVER_AWAIT_VIEW.to_string(), 0);
+				this.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", this.agent_id, (int) Argus.Rdp.State.REQUEST_SERVER_AWAIT_VIEW, 0)
+				});
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.SUCCESS_SERVER_AWAITING_VIEW.to_string(), 0);
+				this.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", this.agent_id, (int) Argus.Rdp.State.SUCCESS_SERVER_AWAITING_VIEW, 0)
+				});
+			}
 			if (this.asked == null) {
 				return;
 			}
-			this.ready(this.asked, agent_id);
+			this.asked.write(new OLLMrpc.Notification() {
+				method = "relay.ready",
+				args = OLLMrpc.args("i", agent_id)
+			});
 			this.asked = null;
 		}
 
@@ -128,6 +139,18 @@ namespace Argus.Server.Rdp
 				other = this.view_conn;
 			}
 			if (other == null || chunk.get_size() == 0) {
+				if (!this.begun || other != null || this.dropped) {
+					return;
+				}
+				this.dropped = true;
+				if (this.watcher == null) {
+					return;
+				}
+				GLib.debug("relay.status %s %d", Argus.Rdp.State.RETRY_RELAY_FORWARDING_DROPPED.to_string(), 1);
+				this.watcher.write(new OLLMrpc.Notification() {
+					method = "relay.status",
+					args = OLLMrpc.args("iii", this.agent_id, (int) Argus.Rdp.State.RETRY_RELAY_FORWARDING_DROPPED, 1)
+				});
 				return;
 			}
 			var held = GLib.Value(typeof(GLib.Bytes));
@@ -138,6 +161,16 @@ namespace Argus.Server.Rdp
 			note.args.add(held);
 			other.write(note);
 			this.begun = true;
+			if (this.forwarded || this.watcher == null) {
+				this.forwarded = true;
+				return;
+			}
+			this.forwarded = true;
+			GLib.debug("relay.status %s %d", Argus.Rdp.State.SUCCESS_RELAY_FORWARDING.to_string(), 0);
+			this.watcher.write(new OLLMrpc.Notification() {
+				method = "relay.status",
+				args = OLLMrpc.args("iii", this.agent_id, (int) Argus.Rdp.State.SUCCESS_RELAY_FORWARDING, 0)
+			});
 		}
 	}
 }
