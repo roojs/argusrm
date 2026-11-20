@@ -37,6 +37,8 @@ namespace Argus.Controller
 	{
 		public static string give_certificate;
 		public static string deregister_name;
+		/** Set by ''--server-socket'' for CLI registration RPC. */
+		public static string opt_server_socket = "";
 		/**
 		 * Agent id for {@link Command.run}.
 		 *
@@ -62,6 +64,8 @@ namespace Argus.Controller
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
 			{ "give-me-a-certificate", 0, 0, GLib.OptionArg.STRING, ref give_certificate, "Issue a local controller certificate", "USERNAME" },
 			{ "deregister", 0, 0, GLib.OptionArg.STRING, ref deregister_name, "Username or fingerprint to deregister", "NAME" },
+			{ "server-socket", 0, 0, GLib.OptionArg.STRING, ref opt_server_socket,
+				"Unix socket for registration RPC (default: server data dir)", "PATH" },
 			{ null }
 		};
 		public GLib.ApplicationCommandLine cli { get; set; }
@@ -142,6 +146,7 @@ namespace Argus.Controller
 			Argus.Controller.Command.rpc_register();
 			give_certificate = "";
 			deregister_name = "";
+			opt_server_socket = "";
 			opt_debug = false;
 			opt_debug_critical = false;
 			var args = command_line.get_arguments();
@@ -195,6 +200,7 @@ namespace Argus.Controller
 					error = "root is required"
 				};
 				command_line.print("%s\n", Json.gobject_to_data(data, null));
+				Posix._exit(1);
 				return 1;
 			}
 #else
@@ -205,9 +211,12 @@ namespace Argus.Controller
 			return 1;
 #endif
 			this.cli = command_line;
-			this.rpc = new OLLMrpc.Client("", "",
-				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
-				live_handles = true
+			var unix_sock = Application.opt_server_socket != ""
+				? Application.opt_server_socket
+				: GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock");
+			this.rpc = new OLLMrpc.Client("", "", unix_sock) {
+				live_handles = true,
+				call_timeout_seconds = 5
 			};
 			this.rpc.debug = false;
 			this.loop = new GLib.MainLoop();
@@ -217,6 +226,7 @@ namespace Argus.Controller
 				args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)
 			}, null, this.on_connect);
 			this.loop.run();
+			Posix._exit(this.code);
 			return this.code;
 		}
 

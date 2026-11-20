@@ -294,6 +294,10 @@ namespace Argus.Agent.Linux
 				host = hostport.substring(0, colon);
 				port = announced;
 			}
+			if (!this.ensure_client_db()) {
+				command_line.printerr("registration needs the agent data directory\n");
+				return 1;
+			}
 			var registration = new Argus.Shared.Register() {
 				data_dir = this.data_dir,
 				client_db = this.client_db,

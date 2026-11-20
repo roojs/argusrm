@@ -197,6 +197,12 @@ namespace Argus.Server
 			if (host == "0.0.0.0") {
 				addresses_text = string.joinv("\n", OLLMrpc.Transport.TcpListen.ifaces());
 			}
+			if (addresses_text == "" || host == "127.0.0.1") {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INTERNAL_ERROR("no routable management addresses")
+				});
+				return;
+			}
 			var data = new Argus.Shared.SQT.Server() {
 				pem_private_key = (string) private_key_buf,
 				pem_client_certificate = (string) certificate_buf,
@@ -236,6 +242,7 @@ namespace Argus.Server
 				return;
 			}
 			this.app.db.backupDB();
+			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", data),
 				msg = "ok"

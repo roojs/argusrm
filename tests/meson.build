@@ -93,4 +93,64 @@ if host_machine.system() == 'linux'
 		install: false,
 	)
 	test('apt-history', apt_history_test, timeout: 30)
+	registration_wire_test = executable(
+		'argus-registration-wire',
+		files('registration-wire.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_cli_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
+	test('registration-wire', registration_wire_test, timeout: 30)
+	store_server_src = files('StoreServer.vala')
+	registration_enroll_test = executable(
+		'argus-registration-enroll',
+		store_server_src,
+		files('registration-enroll.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_cli_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
+	test('registration-enroll', registration_enroll_test, timeout: 30)
+	registration_bootstrap_test = executable(
+		'argus-registration-bootstrap',
+		store_server_src,
+		files('registration-bootstrap.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_cli_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
+	test('registration-bootstrap', registration_bootstrap_test, timeout: 30)
 endif

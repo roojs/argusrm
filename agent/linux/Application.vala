@@ -372,6 +372,18 @@ namespace Argus.Agent.Linux
 		 */
 		private void present_registration(ServiceManager service)
 		{
+			if (!this.ensure_client_db()) {
+				var failed = new Argus.Shared.Notice(
+					"Could not open the agent database",
+					"Run this application as administrator.");
+				failed.title = "Argus Remote Management Agent " + Argus.VERSION;
+				failed.add_response("ok", "OK");
+				failed.closed.connect(() => {
+					this.quit();
+				});
+				failed.present(null);
+				return;
+			}
 			var window = new Argus.Shared.RegisterWindow() {
 				data_dir = this.data_dir,
 				client_db = this.client_db
@@ -557,6 +569,10 @@ namespace Argus.Agent.Linux
 				}
 				host = hostport.substring(0, colon);
 				port = announced;
+			}
+			if (!this.ensure_client_db()) {
+				command_line.printerr("registration needs the agent data directory\n");
+				return 1;
 			}
 			var registration = new Argus.Shared.Register() {
 				data_dir = this.data_dir,

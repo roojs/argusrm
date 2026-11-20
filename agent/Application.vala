@@ -252,18 +252,41 @@ namespace Argus.Agent
 				Application.debug_log(dom, lvl, msg);
 			});
 			this.osquery = new OSQuery.Execute(this);
+			this.shutdown.connect(() => {
+				if (this.client_db == null || !this.client_db.is_dirty) {
+					return;
+				}
+				this.client_db.backup_real();
+			});
+		}
+
+		/**
+		 * Open {@link client_db} under {@link data_dir}.
+		 *
+		 * State lives in {@link Argus.AGENT_DATA_DIR}; only root
+		 * (service or pkexec registration) may open it. Short-lived
+		 * launches (help, gtk elevation shell) must not call this.
+		 *
+		 * @return false when the directory could not be opened
+		 */
+		internal bool ensure_client_db()
+		{
+			if (this.client_db != null) {
+				return true;
+			}
+#if LINUX
+			if (Posix.geteuid() != 0) {
+				return false;
+			}
+#endif
 			if (GLib.DirUtils.create_with_parents(this.data_dir, 0700) != 0) {
 				GLib.warning("Could not create the data directory");
-			} else {
-				var path = GLib.Path.build_filename(this.data_dir, "server.sqlite");
-				this.client_db = new SQ.Database(path, true);
-				Argus.Shared.SQT.Server.init_db(this.client_db);
+				return false;
 			}
-			this.shutdown.connect(() => {
-				if (this.client_db != null) {
-					this.client_db.backup_real();
-				}
-			});
+			var path = GLib.Path.build_filename(this.data_dir, "server.sqlite");
+			this.client_db = new SQ.Database(path, true);
+			Argus.Shared.SQT.Server.init_db(this.client_db);
+			return true;
 		}
 
 		/**
@@ -351,6 +374,10 @@ namespace Argus.Agent
 					return 1;
 				}
 				GLib.debug("registering %s:%d", this.host, this.port);
+				if (!this.ensure_client_db()) {
+					command_line.printerr("registration needs the agent data directory\n");
+					return 1;
+				}
 				var registration = new Argus.Shared.Register() {
 					data_dir = this.data_dir,
 					client_db = this.client_db,
@@ -406,6 +433,10 @@ namespace Argus.Agent
 						return false;
 					}
 					GLib.debug("registering %s:%d", this.host, this.port);
+					if (!this.ensure_client_db()) {
+						GLib.printerr("registration needs the agent data directory\n");
+						return false;
+					}
 					var registration = new Argus.Shared.Register() {
 						data_dir = this.data_dir,
 						client_db = this.client_db,
@@ -428,6 +459,7 @@ namespace Argus.Agent
 			}
 			GLib.debug("staying up");
 #if LINUX
+			this.ensure_client_db();
 			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				if (this.connection != null && !Application.connection_down) {

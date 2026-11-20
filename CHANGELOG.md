@@ -8,6 +8,16 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.36] - Unreleased
+
+### Changed
+
+- Local controller registration uses the saved server row JSON shape end to end (`SQT.Server` wire, pkexec, and Bootstrap).
+
+### Added
+
+- Meson test `registration-local-login` (root): temp server, real `argusrm-controller --give-me-a-certificate`, Bootstrap JSON, TCP probe, and TLS hello. Unit tests `registration-*` support it but are not a substitute.
+
 ## [0.1.35] - Unreleased
 
 ### Fixed

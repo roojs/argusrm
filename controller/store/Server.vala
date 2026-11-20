@@ -46,8 +46,10 @@ namespace Argus.Controller.Store
 		public Gee.ArrayList<Argus.Controller.SQT.Server> list() throws GLib.Error
 		{
 			var rows = new Gee.ArrayList<Argus.Controller.SQT.Server>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
 			Argus.Controller.SQT.Server.query(this.app.client_db).selectWhere(
-				"WHERE deleted_dt = 0", null, null, rows);
+				"WHERE deleted_dt = 0", int_binds, text_binds, rows);
 			foreach (var row in rows) {
 				row.load_certificates();
 			}

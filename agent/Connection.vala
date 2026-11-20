@@ -87,9 +87,11 @@ namespace Argus.Agent
 				return;
 			}
 			var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
 			try {
 				Argus.Agent.SQT.Server.query(this.app.client_db).selectWhere(
-					"WHERE deleted_dt = 0", null, null, rows);
+					"WHERE deleted_dt = 0", int_binds, text_binds, rows);
 			} catch (GLib.Error e) {
 				return;
 			}
@@ -167,8 +169,10 @@ namespace Argus.Agent
 					throw new GLib.IOError.FAILED("client database is not open");
 				}
 				var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+				var int_binds = new Gee.HashMap<string, int>();
+				var text_binds = new Gee.HashMap<string, string>();
 				Argus.Agent.SQT.Server.query(this.app.client_db).selectWhere(
-					"WHERE deleted_dt = 0", null, null, rows);
+					"WHERE deleted_dt = 0", int_binds, text_binds, rows);
 				if (rows.size < 1) {
 					throw new GLib.IOError.FAILED("no saved server");
 				}
@@ -384,8 +388,10 @@ namespace Argus.Agent
 			if (wipe_registration && this.app.client_db != null) {
 				try {
 					var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+					var int_binds = new Gee.HashMap<string, int>();
+					var text_binds = new Gee.HashMap<string, string>();
 					Argus.Agent.SQT.Server.query(this.app.client_db).selectWhere(
-						"WHERE deleted_dt = 0", null, null, rows);
+						"WHERE deleted_dt = 0", int_binds, text_binds, rows);
 					if (rows.size > 0) {
 						var row = rows.get(0);
 						row.data_dir = this.app.data_dir;

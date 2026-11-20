@@ -123,6 +123,9 @@ namespace Argus.Shared.SQT
 						if (mark > 0) {
 							host = text.substring(0, mark);
 						}
+						if (host == "127.0.0.1" || host == "::1") {
+							continue;
+						}
 						if (!Argus.Shared.Net.Route.can_route_to(host)) {
 							continue;
 						}
@@ -272,10 +275,11 @@ namespace Argus.Shared.SQT
 				return;
 			}
 			var existing = new Gee.ArrayList<Server>();
+			var int_binds = new Gee.HashMap<string, int>();
 			var text_binds = new Gee.HashMap<string, string>();
 			text_binds.set("name", this.name);
 			q.selectWhere(
-				"WHERE name = $name AND deleted_dt = 0", null, text_binds, existing);
+				"WHERE name = $name AND deleted_dt = 0", int_binds, text_binds, existing);
 			if (existing.size > 0) {
 				this.id = existing.get(0).id;
 				this.added_dt = existing.get(0).added_dt;
@@ -333,6 +337,57 @@ namespace Argus.Shared.SQT
 			this.pem_private_key = "";
 			this.pem_client_certificate = "";
 			this.pem_ca_certificate = "";
+		}
+
+		public override void bin_write_prop(
+			OLLMrpc.Bin.Stream ctx,
+			GLib.ParamSpec prop
+		) throws GLib.Error
+		{
+			if ((prop.flags & GLib.ParamFlags.READWRITE) != GLib.ParamFlags.READWRITE) {
+				return;
+			}
+			this.bin_default_write_prop(ctx, prop);
+		}
+
+		public override void bin_read_prop(
+			OLLMrpc.Bin.Stream ctx,
+			GLib.ParamSpec prop,
+			uint8 type_byte
+		) throws GLib.Error
+		{
+			if ((prop.flags & GLib.ParamFlags.WRITABLE) == 0) {
+				OLLMrpc.Bin.StreamValue.read(ctx, type_byte);
+				return;
+			}
+			this.bin_default_read_prop(ctx, prop, type_byte);
+		}
+
+		public override Json.Node serialize_property(
+			string property_name,
+			GLib.Value value,
+			GLib.ParamSpec pspec
+		)
+		{
+			if ((pspec.flags & GLib.ParamFlags.READWRITE) != GLib.ParamFlags.READWRITE) {
+				return (Json.Node) null;
+			}
+			return this.default_serialize_property(property_name, value, pspec);
+		}
+
+		public override bool deserialize_property(
+			string property_name,
+			out GLib.Value value,
+			GLib.ParamSpec pspec,
+			Json.Node property_node
+		)
+		{
+			if ((pspec.flags & GLib.ParamFlags.WRITABLE) == 0) {
+				value = GLib.Value(pspec.value_type);
+				return false;
+			}
+			return this.default_deserialize_property(
+				property_name, out value, pspec, property_node);
 		}
 
 		/**

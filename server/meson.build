@@ -169,6 +169,40 @@ apt_depends_test = executable(
 	install: false,
 )
 test('apt-depends', apt_depends_test, timeout: 30)
+registration_certificate_test = executable(
+	'argus-registration-certificate',
+	sources,
+	files('tests/registration-certificate.vala'),
+	dependencies: deps,
+	c_args: ocsqlite_c_args,
+	export_dynamic: true,
+	vala_args: server_vala_args,
+	install: false,
+)
+test(
+	'registration-certificate',
+	registration_certificate_test,
+	timeout: 30,
+	is_parallel: false,
+)
+registration_local_login_test = executable(
+	'argus-registration-local-login',
+	sources,
+	files('tests/registration-local-login.vala'),
+	dependencies: deps,
+	c_args: ocsqlite_c_args,
+	export_dynamic: true,
+	vala_args: server_vala_args,
+	install: false,
+)
+controller_for_test = join_paths(meson.project_build_root(), 'controller', 'argusrm-controller')
+test(
+	'registration-local-login',
+	registration_local_login_test,
+	args: [controller_for_test],
+	timeout: 30,
+	is_parallel: false,
+)
 rdp_start_test = executable(
 	'argus-rdp-start-test',
 	files('Rdp/Relay.vala', 'Rdp/Seat.vala', 'tests/rdp-start.vala'),

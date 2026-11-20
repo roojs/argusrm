@@ -82,6 +82,41 @@ namespace Argus.Server.SQT
 		}
 
 		/**
+		 * Ensure ''scripts/'' is a git repository (server startup only).
+		 *
+		 * Uses the ''git'' program when ''.git'' is missing. Existing repos
+		 * are left unchanged (script RPC opens them with Ggit). A broken
+		 * ''.git'' must be removed by hand; we do not call libgit here
+		 * (avoids GLib ''g_file_test'' assertions on bad trees).
+		 *
+		 * @param scripts_dir absolute scripts directory under {@link Argus.SERVER_DATA_DIR}
+		 */
+		public static void check_repo(string scripts_dir)
+		{
+			if (scripts_dir == "" || !GLib.Path.is_absolute(scripts_dir)) {
+				GLib.warning("scripts git: invalid directory %s", scripts_dir);
+				return;
+			}
+			var dot_git = GLib.Path.build_filename(scripts_dir, ".git");
+			if (GLib.FileUtils.test(dot_git, GLib.FileTest.EXISTS)) {
+				return;
+			}
+			var git = GLib.Environment.find_program_in_path("git");
+			if (git == null) {
+				GLib.warning("scripts git: git not in PATH");
+				return;
+			}
+			try {
+				var proc = new GLib.Subprocess.newv(
+					{ git, "-C", scripts_dir, "init" },
+					GLib.SubprocessFlags.STDERR_MERGE | GLib.SubprocessFlags.STDOUT_SILENCE);
+				proc.wait_check(null);
+			} catch (GLib.Error e) {
+				GLib.warning("scripts git init at %s: %s", scripts_dir, e.message);
+			}
+		}
+
+		/**
 		 * Register the row types and script calls.
 		 */
 		public static new void rpc_register()

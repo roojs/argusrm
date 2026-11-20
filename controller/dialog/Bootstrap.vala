@@ -438,7 +438,15 @@ namespace Argus.Controller.Dialog
 			try {
 				executable = GLib.FileUtils.read_link("/proc/self/exe");
 			} catch (GLib.FileError e) {
-				this.page("Could not resolve argusrm-controller", e.message, {}, {});
+				executable = "";
+			}
+			if (executable == ""
+				|| !GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
+				executable = Argus.CONTROLLER_EXECUTABLE;
+			}
+			if (!GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
+				this.page("Could not resolve argusrm-controller",
+					"argusrm-controller is missing.", {}, {});
 				return;
 			}
 			this.page(waiting, "", {}, {});
@@ -508,7 +516,8 @@ namespace Argus.Controller.Dialog
 						{ "register", "remote" });
 					return;
 				}
-				if (data.error != "" || data.name == "" || data.port < 1 || !data.has_certificate) {
+				if (data.error != "" || data.name == "" || data.port < 1
+					|| data.addresses == "" || !data.has_certificate) {
 					var message = data.error;
 					if (message == "") {
 						message = "The server did not return a connection.";
@@ -609,6 +618,7 @@ namespace Argus.Controller.Dialog
 				this.servers.add(row);
 			}
 			this.page("Server registered", row.name, {}, {});
+			this.prefer = row.name;
 			GLib.Timeout.add_seconds(2, () => {
 				if (!this.running || this.opened) {
 					return false;
@@ -794,7 +804,8 @@ namespace Argus.Controller.Dialog
 			}
 			var rpc = new OLLMrpc.Client("", "",
 				"tcp://" + host + ":" + server.port.to_string()) {
-				live_handles = true
+				live_handles = true,
+				call_timeout_seconds = 5
 			};
 			rpc.debug = false;
 			rpc.configure_tls.connect((tls) => {

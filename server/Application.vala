@@ -93,7 +93,7 @@ namespace Argus.Server
 		 * builds it, applies {@link Agent.allowlist}, and enables it
 		 * before that socket accepts connections.
 		 */
-		public Net.NFTables firewall { get; private set; }
+		public Net.NFTables firewall { get; internal set; }
 
 		/**
 		 * Firewall for the registration socket. It stays enabled,
@@ -143,6 +143,11 @@ namespace Argus.Server
 		private static string opt_socket;
 		private static string opt_download;
 		private static string opt_register;
+		public static string opt_data_dir;
+		/**
+		 * Skip scripts git init and other slow paths (integration tests only).
+		 */
+		public static bool opt_test_minimal = false;
 		private static bool debug_on;
 		private static bool debug_critical_enabled;
 		private static GLib.FileStream? debug_log_file;
@@ -154,6 +159,7 @@ namespace Argus.Server
 			{ "socket", 0, 0, GLib.OptionArg.STRING, ref opt_socket, "App socket host:port", "HOST:PORT" },
 			{ "download", 0, 0, GLib.OptionArg.STRING, ref opt_download, "Download socket host:port", "HOST:PORT" },
 			{ "register", 0, 0, GLib.OptionArg.STRING, ref opt_register, "Registration socket host:port", "HOST:PORT" },
+			{ "data-dir", 0, 0, GLib.OptionArg.STRING, ref opt_data_dir, "Server state directory", "DIR" },
 			{ null }
 		};
 
@@ -179,34 +185,26 @@ namespace Argus.Server
 			};
 			this.download_listen = new Net.Download(this);
 			this.interfaces = new Net.Interfaces();
-			if (!GLib.FileUtils.test(Argus.SERVER_DATA_DIR, GLib.FileTest.IS_DIR)) {
-				GLib.DirUtils.create_with_parents(Argus.SERVER_DATA_DIR, 0700);
+			var data_dir = opt_data_dir != "" ? opt_data_dir : Argus.SERVER_DATA_DIR;
+			if (!GLib.FileUtils.test(data_dir, GLib.FileTest.IS_DIR)) {
+				GLib.DirUtils.create_with_parents(data_dir, 0700);
 			}
-			GLib.FileUtils.chmod(Argus.SERVER_DATA_DIR, 0700);
-			var git_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "git");
-			var scripts_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "scripts");
+			GLib.FileUtils.chmod(data_dir, 0700);
+			var git_dir = GLib.Path.build_filename(data_dir, "git");
+			var scripts_dir = GLib.Path.build_filename(data_dir, "scripts");
 			if (!GLib.FileUtils.test(git_dir, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(git_dir, 0700);
 			}
 			if (!GLib.FileUtils.test(scripts_dir, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(scripts_dir, 0700);
 			}
-			Ggit.init();
-			if (!GLib.FileUtils.test(GLib.Path.build_filename(scripts_dir, ".git"),
-				GLib.FileTest.EXISTS)) {
-				try {
-					Ggit.Repository.init_repository(GLib.File.new_for_path(scripts_dir), false);
-				} catch (GLib.Error e) {
-					GLib.warning("scripts git init: %s", e.message);
-				}
-			}
 			this.db = new SQ.Database(
-				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sqlite"), true);
+				GLib.Path.build_filename(data_dir, "argus.sqlite"), true);
 			this.scheduler = new SQT.Scheduler(this);
 			this.os_update = new OsUpdate(this);
 			this.catalog_refresh = new Apt.CatalogRefresh(this);
 			this.listen = new OLLMrpc.Transport.SocketListen(
-				GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock")) {
+				GLib.Path.build_filename(data_dir, "argus.sock")) {
 				live_handles = true
 			};
 			this.publish.failed.connect(() => {
@@ -245,7 +243,9 @@ namespace Argus.Server
 		 * {@link Initialize.fetch_osquery}
 		 * fetches the osquery installers into {@link Argus.SERVER_DATA_DIR}
 		 * before the sockets bind. {@link Agent.offer} on the
-		 * Unix socket opens the registration window.
+		 * The Unix socket binds before nftables so local certificate
+		 * issue still works when the firewall step fails. Unix socket
+		 * opens the registration window.
 		 *
 		 * @param command_line arguments for this launch
 		 * @return zero when both sockets are up or help was printed,
@@ -259,6 +259,7 @@ namespace Argus.Server
 			opt_socket = "";
 			opt_download = "";
 			opt_register = "";
+			opt_data_dir = "";
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -323,7 +324,21 @@ namespace Argus.Server
 				this.registration = "0.0.0.0:" + Argus.REGISTER_PORT.to_string();
 			}
 			this.register_listen.endpoint = this.registration;
-			var tls_dir = GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "tls");
+			var data_dir = opt_data_dir != "" ? opt_data_dir : Argus.SERVER_DATA_DIR;
+			var unix_sock = GLib.Path.build_filename(data_dir, "argus.sock");
+			if (this.listen.socket_path != unix_sock) {
+				this.listen = new OLLMrpc.Transport.SocketListen(unix_sock) {
+					live_handles = true
+				};
+			}
+			var scripts_dir = GLib.Path.build_filename(data_dir, "scripts");
+			if (!GLib.FileUtils.test(scripts_dir, GLib.FileTest.IS_DIR)) {
+				GLib.DirUtils.create_with_parents(scripts_dir, 0700);
+			}
+			if (!Application.opt_test_minimal) {
+				SQT.Script.check_repo(scripts_dir);
+			}
+			var tls_dir = GLib.Path.build_filename(data_dir, "tls");
 			if (!GLib.FileUtils.test(tls_dir, GLib.FileTest.IS_DIR)) {
 				GLib.DirUtils.create_with_parents(tls_dir, 0700);
 			}
@@ -383,51 +398,61 @@ namespace Argus.Server
 			SQT.register(this);
 			SQV.register(this);
 			if (!(new Initialize()).fetch_osquery()) {
-				command_line.printerr("error: download store was not created\n");
+				command_line.printerr(
+					"warning: download store was not created; registration stays up\n");
+			}
+			if (!this.listen.start()) {
+				command_line.printerr("error: local socket did not bind at %s\n", unix_sock);
 				return 1;
 			}
+			command_line.print("unix registration socket at %s\n", unix_sock);
+
 			var colon = this.socket.last_index_of(":");
 			var port = Argus.SOCKET_PORT;
 			if (colon > 0 && !int.try_parse(this.socket.substring(colon + 1), out port)) {
+				this.listen.stop();
 				command_line.printerr("error: app socket port is invalid\n");
 				return 1;
 			}
 			if (port < 1 || port > 65535) {
+				this.listen.stop();
 				command_line.printerr("error: app socket port is invalid\n");
 				return 1;
 			}
 			this.firewall = new Net.NFTables((uint16) port);
 			if (!this.firewall.apply(Agent.allowlist(this.db, this.interfaces))) {
+				this.listen.stop();
 				command_line.printerr("error: firewall allowlist was not applied\n");
 				return 1;
 			}
 			this.firewall.enable();
 			if (!this.firewall.enabled) {
+				this.listen.stop();
 				command_line.printerr("error: firewall was not enabled\n");
 				return 1;
 			}
 			var register_colon = this.registration.last_index_of(":");
 			var register_port = Argus.REGISTER_PORT;
 			if (register_colon > 0 && !int.try_parse(this.registration.substring(register_colon + 1), out register_port)) {
+				this.listen.stop();
 				command_line.printerr("error: registration socket port is invalid\n");
 				return 1;
 			}
 			if (register_port < 1 || register_port > 65535) {
+				this.listen.stop();
 				command_line.printerr("error: registration socket port is invalid\n");
 				return 1;
 			}
 			this.register_firewall = new Net.NFTables((uint16) register_port);
 			if (!this.register_firewall.apply(new Gee.ArrayList<GLib.InetAddress>())) {
+				this.listen.stop();
 				command_line.printerr("error: registration firewall was not applied\n");
 				return 1;
 			}
 			this.register_firewall.enable();
 			if (!this.register_firewall.enabled) {
+				this.listen.stop();
 				command_line.printerr("error: registration firewall was not enabled\n");
-				return 1;
-			}
-			if (!this.listen.start()) {
-				command_line.printerr("error: local socket did not bind\n");
 				return 1;
 			}
 			if (!this.ssl_listen.listen()) {
@@ -436,10 +461,8 @@ namespace Argus.Server
 				return 1;
 			}
 			if (!this.download_listen.listen()) {
-				this.ssl_listen.stop();
-				this.listen.stop();
-				command_line.printerr("error: download socket did not bind\n");
-				return 1;
+				command_line.printerr(
+					"warning: download socket did not bind; registration and management stay up\n");
 			}
 			this.scheduler.start();
 			this.os_update.start();

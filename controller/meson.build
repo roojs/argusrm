@@ -197,7 +197,7 @@ if host_machine.system() == 'android'
 		install_dir: get_option('libdir'),
 	)
 else
-	executable(
+	argusrm_controller = executable(
 		'argusrm-controller',
 		sources,
 		controller_resources,
@@ -210,6 +210,23 @@ else
 	)
 endif
 if host_machine.system() == 'linux'
+	registration_controller_cli_test = executable(
+		'argus-registration-controller-cli',
+		files('tests/registration-controller-cli.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gio-2.0'),
+		],
+		install: false,
+	)
+	test(
+		'registration-controller-cli',
+		registration_controller_cli_test,
+		args: [argusrm_controller.full_path()],
+		depends: argusrm_controller,
+		timeout: 60,
+		is_parallel: false,
+	)
 	command_test = executable(
 		'argus-controller-command',
 		files('tests/command.vala', 'Command.vala'),

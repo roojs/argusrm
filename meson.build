@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.35',
+	version: '0.1.36',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -114,6 +114,7 @@ paths_vala = configure_file(
 		'AGENT_SYSVINIT': sysconfdir / 'init.d' / 'argusrm-agent',
 		'SERVER_SYSCONFDIR': sysconfdir / 'argusrm',
 		'SERVER_DATA_DIR': localstatedir / 'lib' / 'argusrm',
+		'CONTROLLER_EXECUTABLE': bindir / 'argusrm-controller',
 		'LOG_DIR': localstatedir / 'log' / 'argusrm',
 		'SOCKET_PORT': get_option('socket_port').to_string(),
 		'DOWNLOAD_PORT': get_option('download_port').to_string(),
