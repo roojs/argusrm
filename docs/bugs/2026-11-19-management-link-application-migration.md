@@ -1,8 +1,10 @@
 # Management link — Application and call-site migration (post–Connection shape)
 
-**Status:** ⏳ open — **`agent/Connection.vala` state machine treated as stable**; legacy **`Application`** and peripheral code not migrated
+**Status:** ⏳ open — **`agent/Connection.vala` state machine treated as stable**; legacy **`Application`** and peripheral code not migrated. **Paused** until local registration store lands (prerequisite).
 
 **Pointer:** `docs/bug-fix-process.md`, [2.6.1-management-client-link-spec.md](../plans/2.6.1-management-client-link-spec.md) (**§ Outstanding (after link shape)**), [2.6-management-connection.md](../plans/2.6-management-connection.md), [`agent/Connection.vala`](../../agent/Connection.vala), [`agent/Application.vala`](../../agent/Application.vala)
+
+**Blocked by (do first):** [2026-11-20-local-registration-data-store.md](2026-11-20-local-registration-data-store.md) — `SQT.Server` row + **`Controller.Store.Servers`** (controller only; agent separate); not `argusrm-server`.
 
 **Related:** [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md) (`stream_connection()` stub and RDP second socket)
 
@@ -87,18 +89,34 @@
 
 ---
 
+## Prerequisite — local registration store
+
+- 🔷 **[2026-11-20-local-registration-data-store.md](2026-11-20-local-registration-data-store.md)** is **in scope before** most items below. Without it, **`checking_config`** stays duplicated in **`agent/Connection`**, controller **`Bootstrap`**, and future controller link code.
+- 🔷 Items **directly gated** by [client registration store](2026-11-20-local-registration-data-store.md) (`Controller.Store.Servers` on controller; not raw SQLite in link code):
+  - **L3** — registration hand-off when material appears after ctor (store notify or single construct reading **`get_active()`**).
+  - **R6 in store log** — agent **`on_checking_config`** / cert wipe → store API only.
+  - **X1** — controller management link + **server flip** via same interface as agent; drop `Bootstrap.use()` / `Window` inline TLS.
+- ℹ️ Agent **`mark_down()`** (L1) and tray **`notify::state`** (A2–A3, C1–C3) can proceed in parallel only if they **do not** add new config-read paths; prefer **after** shared **`validate()`** exists.
+
+---
+
 ## Conclusions
 
 - **Root issue** is not the link state machine — it is **unfinished migration** of **`Application`**, tray, gtk, monitors, and RDP to the access rules in the spec.
+- **Earlier root issue** for connection work: **no shared local registration store** — see [2026-11-20-local-registration-data-store.md](2026-11-20-local-registration-data-store.md).
 - **Do not** re-add deleted **`Application`** connect helpers or static TLS helpers on **`Connection`** to close gaps; update this log and the plan § Outstanding instead.
+- **Do not** implement controller link **`checking_config`** by copying **`Bootstrap.use()`** TLS assembly; wait for store **`material_for_tls()`**.
 - **RDP second connection** is a **product** gap tied to [desktop-status](2026-11-19-desktop-status-and-reconnect.md) until the stream socket owner is spec’d.
 
 ---
 
-## Next steps (after spec approval)
+## Next steps (after store R1–R3 and spec approval)
 
-1. Implement **`Connection.mark_down()`** (L1).
-2. Migrate **`Win32.Service`** and gtk status to **`server.state`** + **`notify::state`** (A2–A3, C1–C3).
-3. Resolve registration hand-off (L3, A1) without double **`Connection`** schedulers.
-4. Spec and implement second TLS for RDP (R1, A6) — **not** on **`Application`**.
-5. Single inventory-start hook (A7) per spec § Agent inventory.
+1. Complete [local registration store](2026-11-20-local-registration-data-store.md) cutover (SQLite only; no import from `connections.json` or agent file layout).
+2. Refactor agent **`Connection`** `checking_config` / dead wipe to store (store log R6).
+3. Implement **`Connection.mark_down()`** (L1).
+4. Migrate **`Win32.Service`** and gtk status to **`server.state`** + **`notify::state`** (A2–A3, C1–C3).
+5. Resolve registration hand-off (L3, A1) without double **`Connection`** schedulers.
+6. Controller link + **`Window`** reconnect (X1) via store material.
+7. Spec and implement second TLS for RDP (R1, A6) — **not** on **`Application`**.
+8. Single inventory-start hook (A7) per spec § Agent inventory.

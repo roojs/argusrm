@@ -52,6 +52,7 @@ shared_sqt_sources = files(
 	'SQT/AptUrl.vala',
 	'SQT/AptPkg.vala',
 	'SQT/AptPkgDepends.vala',
+	'SQT/Server.vala',
 )
 shared_sqv_sources = files(
 	'SQV/namespace.vala',

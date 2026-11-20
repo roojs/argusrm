@@ -89,6 +89,7 @@ valadoc_sources += files(
   '../shared/SQT/AptUrl.vala',
   '../shared/SQT/AptPkg.vala',
   '../shared/SQT/AptPkgDepends.vala',
+  '../shared/SQT/Server.vala',
   '../shared/SQV/namespace.vala',
   '../shared/SQV/DistributeMachine.vala',
   '../shared/SQV/PackageMachine.vala',

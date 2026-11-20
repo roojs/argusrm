@@ -27,6 +27,8 @@
  * {@link DistributableVersion} is one uploaded file for that product.
  * {@link AptUrl}, {@link AptPkg}, and {@link AptPkgDepends} are the
  * Debian repository dependency catalog.
+ * {@link Server} is a client-local saved management-server row;
+ * it is not created by {@link init_db} on the management server.
  *
  * == Example ==
  *
