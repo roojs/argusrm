@@ -40,6 +40,10 @@ namespace Argus.Controller
 		public static string command = "";
 		public OLLMrpc.Client rpc { get; set; }
 		/**
+		 * Local ''server.sqlite'' for this process.
+		 */
+		public SQ.Database client_db { get; private set; }
+		/**
 		 * Main window opened after a connection answers.
 		 */
 		public Window window { get; set; }
@@ -85,12 +89,25 @@ namespace Argus.Controller
 				}
 				debug_log_in_progress = false;
 			});
+			var dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_config_dir(), "argusrm");
+			if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
+				GLib.warning("Could not create the configuration directory");
+			} else {
+				var path = GLib.Path.build_filename(dir, "server.sqlite");
+				this.client_db = new SQ.Database(path, true);
+				Argus.Shared.SQT.Server.init_db(this.client_db);
+			}
+			this.shutdown.connect(() => {
+				if (this.client_db != null) {
+					this.client_db.backup_real();
+				}
+			});
 			this.activate.connect(() => {
 				OLLMrpc.rpc_register();
 				Argus.Shared.Agent.rpc_register();
 				Argus.Shared.OSQuery.rpc_register();
 				Argus.Shared.OsReleases.rpc_register();
-				Argus.Shared.Registration.Data.rpc_register();
 				Argus.Shared.SQT.rpc_register();
 				Argus.Shared.SQV.rpc_register();
 				Argus.Controller.Command.rpc_register();

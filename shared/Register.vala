@@ -19,19 +19,12 @@
 namespace Argus.Shared
 {
 	/**
-	 * Certificate registration with Argus.
+	 * Certificate registration and deregistration with Argus.
 	 *
-	 * Adapts the registration half of ''FilesdClient.try_connection'':
-	 * a TLS connection, ''Agent.request_registration'', then
-	 * {@link OLLMrpc.Transport.Cert} files under the user data
-	 * directory ''argus''. The call includes the OS family, the batch
-	 * flag, and explicit controller identity fields. The server uses
-	 * the family to choose
-	 * the agent download. The reply string array is the client
-	 * certificate, the CA, the download URL path, then the app
-	 * socket listen addresses. The download address is the host
-	 * this call used and {@link Argus.DOWNLOAD_PORT}. ''server''
-	 * is that host and the port from the first of those addresses.
+	 * {@link try_connection} and {@link try_batch} enroll a machine;
+	 * {@link save} persists the outcome to SQLite. {@link remove} and
+	 * {@link remove_local} drop a saved management-server row (controller
+	 * deregister).
 	 *
 	 * == Example ==
 	 *
@@ -51,31 +44,20 @@ namespace Argus.Shared
 		public string data_dir = "";
 
 		/**
-		 * Download socket, ''host:port''.
+		 * Client SQLite for {@link save}.
 		 *
-		 * The host is the one {@link try_connection} connected to.
-		 * The port is {@link Argus.DOWNLOAD_PORT}. Empty until
-		 * registration stores it. Also written as ''download'' next
-		 * to the certificate files.
+		 * The agent or controller sets this before {@link save}.
 		 */
-		public string download = "";
+		public SQ.Database? client_db = null;
 
 		/**
-		 * Download URL path from the registration reply.
+		 * Device or host name for {@link try_connection} and {@link save}.
 		 *
-		 * Empty until a reply stores it. Also written as
-		 * ''download-path'' next to the certificate files. The
-		 * path includes the extension for the OS family this call
-		 * sent. The server chooses it.
+		 * Agents set this to {@link GLib.Environment.get_host_name}. When
+		 * empty, that name is used at RPC time. Controllers use
+		 * {@link hostname} for the management identity fields instead.
 		 */
-		public string download_path = "";
-
-		/**
-		 * Listen addresses from the registration reply, one per line.
-		 *
-		 * Empty when the reply has none after the download URL path.
-		 */
-		public string addresses = "";
+		public string host_name = "";
 
 		/**
 		 * True stores this registration as a control client.
@@ -117,6 +99,29 @@ namespace Argus.Shared
 		public string hostname = "";
 
 		/**
+		 * Reply material from the last successful {@link try_connection}.
+		 * Null until a success path assigns it. Persist with
+		 * {@link save} on a platform subclass instance.
+		 */
+		public Argus.Shared.SQT.Server? server_row { get; set; }
+
+		/**
+		 * Deregister could not complete.
+		 */
+		public signal void remove_failed(string message);
+
+		/**
+		 * {@link Registration.deregister} did not complete (timeout or transport).
+		 * UI may still call {@link remove_local}.
+		 */
+		public signal void remove_server_unreachable(string message);
+
+		/**
+		 * The saved server row was removed from {@link client_db}.
+		 */
+		public signal void remove_row_deleted();
+
+		/**
 		 * Register this machine while the Argus RM window is open.
 		 *
 		 * Sends ''pin'', the certificate request, ''requester'',
@@ -142,9 +147,17 @@ namespace Argus.Shared
 		 * @return zero when the files are stored, otherwise an
 		 *   {@link OLLMrpc.RpcErrorCode} value
 		 */
-		public int try_connection(string host, uint16 port, string pin, string requester)
+		public int try_connection(string host, uint16 port, string pin, string requester = "")
 		{
+			this.server_row = null;
 			this.pending = false;
+			var device = requester;
+			if (device == "") {
+				device = this.host_name;
+			}
+			if (device == "") {
+				device = GLib.Environment.get_host_name();
+			}
 			GLib.debug("registering %s:%u", host, (uint) port);
 			OLLMrpc.rpc_register();
 			var dir = this.data_dir;
@@ -212,7 +225,7 @@ namespace Argus.Shared
 				};
 				response = connection.call(new OLLMrpc.Request() {
 					method = "Agent.request_registration",
-					args = OLLMrpc.args("ssssbbss", pin, csr, requester,
+					args = OLLMrpc.args("ssssbbss", pin, csr, device,
 						family, this.is_controller, this.batch, this.username, this.hostname)
 				});
 			} catch (GLib.Error e) {
@@ -229,31 +242,6 @@ namespace Argus.Shared
 			if (packed.length < 3) {
 				return (int) OLLMrpc.RpcErrorCode.INVALID_REQUEST;
 			}
-			try {
-				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "client.pem"), packed[0]);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			try {
-				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"), packed[1]);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			try {
-				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "download"),
-					host + ":" + Argus.DOWNLOAD_PORT.to_string());
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
-			try {
-				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "download-path"), packed[2]);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			}
 			var stored_port = port.to_string();
 			if (packed.length > 3) {
 				var listed = packed[3];
@@ -262,19 +250,28 @@ namespace Argus.Shared
 					stored_port = listed.substring(listed_mark + 1);
 				}
 			}
+			var key_pem = "";
 			try {
-				GLib.FileUtils.set_contents(GLib.Path.build_filename(dir, "server"),
-					host + ":" + stored_port);
+				GLib.FileUtils.get_contents(
+					GLib.Path.build_filename(dir, "client-key.pem"), out key_pem);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			tls_files.ensure();
-			this.download = host + ":" + Argus.DOWNLOAD_PORT.to_string();
-			this.download_path = packed[2];
+			var listen = "";
 			if (packed.length > 3) {
-				this.addresses = string.joinv("\n", packed[3:packed.length]);
+				listen = string.joinv("\n", packed[3:packed.length]);
 			}
+			this.server_row = new Argus.Shared.SQT.Server() {
+				name = device,
+				port = int.parse(stored_port),
+				addresses = listen,
+				download = host + ":" + Argus.DOWNLOAD_PORT.to_string(),
+				download_path = packed[2],
+				pem_private_key = key_pem.strip(),
+				pem_client_certificate = packed[0].strip(),
+				pem_ca_certificate = packed[1].strip()
+			};
 			if (response.msg == "pending") {
 				this.pending = true;
 			}
@@ -298,9 +295,16 @@ namespace Argus.Shared
 		 *   an {@link OLLMrpc.RpcErrorCode} value, or 1 when the
 		 *   wait ends without approval
 		 */
-		public int try_batch(string host, uint16 port, string requester)
+		public int try_batch(string host, uint16 port, string requester = "")
 		{
 			this.batch = true;
+			var device = requester;
+			if (device == "") {
+				device = this.host_name;
+			}
+			if (device == "") {
+				device = GLib.Environment.get_host_name();
+			}
 			var dir = this.data_dir;
 			if (dir == "") {
 				dir = GLib.Path.build_filename(
@@ -308,7 +312,7 @@ namespace Argus.Shared
 			}
 			var started = GLib.get_monotonic_time();
 			while (true) {
-				var code = this.try_connection(host, port, "0000", requester);
+				var code = this.try_connection(host, port, "0000", device);
 				if (code == 0) {
 					break;
 				}
@@ -327,34 +331,28 @@ namespace Argus.Shared
 			if (!this.pending) {
 				return 0;
 			}
-			var text = "";
+			if (this.server_row == null || !this.server_row.has_certificate) {
+				GLib.stderr.printf("Registration was not approved.\n");
+				return 1;
+			}
+			GLib.InetSocketAddress poll;
 			try {
-				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
+				poll = this.server_row.socket(0);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
 				GLib.stderr.printf("Registration was not approved.\n");
 				return 1;
 			}
-			text = text.strip();
-			var mark = text.last_index_of(":");
-			var poll_port = 0;
-			if (mark > 0) {
-				poll_port = int.parse(text.substring(mark + 1));
-			}
-			if (text == "" || mark < 1 || poll_port <= 0 || poll_port > 65535) {
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+			var poll_host = poll.get_address().to_string();
+			var poll_port = poll.get_port();
+			GLib.TlsCertificate tls_cert;
+			try {
+				tls_cert = this.server_row.tls_certificate();
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
 				GLib.stderr.printf("Registration was not approved.\n");
 				return 1;
 			}
-			var poll_host = text.substring(0, mark);
-			var tls_files = new OLLMrpc.Transport.Cert() {
-				dir = dir,
-				cert_pem = "client.pem",
-				key_pem = "client-key.pem",
-				cn = "argus-agent",
-			};
-			tls_files.ensure();
 			var approved = false;
 			var attempt = 0;
 			var polled = GLib.get_monotonic_time();
@@ -366,7 +364,7 @@ namespace Argus.Shared
 				GLib.stdout.flush();
 				var opened = new OLLMrpc.Transport.TlsClient(poll_host, (uint16) poll_port) {
 					accept_any = true,
-					tls_certificate = tls_files.certificate
+					tls_certificate = tls_cert
 				};
 				opened.timeout = 5;
 				var connected = false;
@@ -398,7 +396,7 @@ namespace Argus.Shared
 					if (order > 0) {
 						GLib.stdout.printf("\n");
 						GLib.stderr.printf("The server is %s. This client is %s.\n", server_version, Argus.VERSION);
-						GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+						this.server_row = null;
 						return 1;
 					}
 					if (order < 0) {
@@ -422,11 +420,149 @@ namespace Argus.Shared
 			GLib.stdout.printf("\n");
 			GLib.stdout.flush();
 			if (!approved) {
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
+				this.server_row = null;
 				GLib.stderr.printf("Registration was not approved.\n");
 				return 1;
 			}
 			return 0;
+		}
+
+		/**
+		 * Copy {@link server_row} into a platform {@link Argus.Shared.SQT.Server}
+		 * subclass and {@link Argus.Shared.SQT.Server.save} to the client database.
+		 *
+		 * The caller constructs ''row'' (for example
+		 * {@link Argus.Agent.SQT.Server} with {@link Argus.Agent.SQT.Server.data_dir}
+		 * set). Column fields and PEM strings come from {@link server_row}.
+		 * When ''row.name'' is still empty, ''default_name'' is used if the
+		 * reply name is empty.
+		 *
+		 * Controllers usually persist through
+		 * {@link Argus.Controller.Dialog.Bootstrap.finish_registration} (CA policy on
+		 * Linux). Agents may call {@link save} directly.
+		 *
+		 * @param row agent or controller {@link Argus.Shared.SQT.Server} subclass
+		 * @return false when there is no row, certificates are incomplete, or save failed
+		 */
+		public bool save(Argus.Shared.SQT.Server row) {
+			var src = this.server_row;
+			var db = this.client_db;
+			if (db == null || row == null || src == null || !src.has_certificate) {
+				return false;
+			}
+			if (row.name == "") {
+				if (src.name != "") {
+					row.name = src.name;
+				} else if (this.host_name != "") {
+					row.name = this.host_name;
+				} else {
+					row.name = GLib.Environment.get_host_name();
+				}
+			}
+			row.port = src.port;
+			row.addresses = src.addresses;
+			row.download = src.download;
+			row.download_path = src.download_path;
+			row.pem_private_key = src.pem_private_key;
+			row.pem_client_certificate = src.pem_client_certificate;
+			row.pem_ca_certificate = src.pem_ca_certificate;
+			try {
+				row.save(db);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return false;
+			}
+			return true;
+		}
+
+		/**
+		 * Ask the management server to drop this certificate, then remove the
+		 * local {@link Argus.Shared.SQT.Server} row.
+		 *
+		 * Uses the TLS {@link OLLMrpc.Client} already open for this
+		 * registration. Emits {@link remove_server_unreachable}, {@link remove_failed},
+		 * or {@link remove_row_deleted}. {@link client_db} must be set.
+		 */
+		public void remove(Argus.Shared.SQT.Server row, OLLMrpc.Client rpc)
+		{
+			if (this.client_db == null) {
+				this.remove_failed("The client database is not set.");
+				return;
+			}
+			if (row.pem_client_certificate == "") {
+				this.remove_failed("The saved server has no certificate.");
+				return;
+			}
+			GLib.TlsCertificate cert;
+			try {
+				cert = new GLib.TlsCertificate.from_pem(
+					row.pem_client_certificate, row.pem_client_certificate.length);
+			} catch (GLib.Error e) {
+				this.remove_failed(e.message);
+				return;
+			}
+			var fingerprint = GLib.Checksum.compute_for_data(
+				GLib.ChecksumType.SHA256, cert.certificate.data);
+			if (!rpc.connected) {
+				this.remove_server_unreachable("The server did not answer.");
+				return;
+			}
+			var settled = false;
+			uint wait = 0;
+			wait = GLib.Timeout.add_seconds(5, () => {
+				if (settled) {
+					return false;
+				}
+				settled = true;
+				wait = 0;
+				this.remove_server_unreachable("The server did not answer.");
+				return false;
+			});
+			rpc.call.begin(new OLLMrpc.Request() {
+				method = "Registration.deregister",
+				args = OLLMrpc.args("s", fingerprint)
+			}, (call_obj, call_res) => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				if (wait != 0) {
+					GLib.Source.remove(wait);
+					wait = 0;
+				}
+				var response = new OLLMrpc.Response();
+				try {
+					response = rpc.call.end(call_res);
+				} catch (GLib.Error e) {
+					this.remove_server_unreachable(e.message);
+					return;
+				}
+				if (response.error != null) {
+					this.remove_failed(response.error.message);
+					return;
+				}
+				rpc.disconnect();
+				this.remove_local(row);
+			});
+		}
+
+		/**
+		 * Remove the local row only (after {@link remove_server_unreachable}).
+		 */
+		public void remove_local(Argus.Shared.SQT.Server row)
+		{
+			var db = this.client_db;
+			if (db == null) {
+				this.remove_failed("The client database is not set.");
+				return;
+			}
+			try {
+				row.remove(db);
+			} catch (GLib.Error e) {
+				this.remove_failed(e.message);
+				return;
+			}
+			this.remove_row_deleted();
 		}
 	}
 }

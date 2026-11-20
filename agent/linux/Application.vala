@@ -373,11 +373,24 @@ namespace Argus.Agent.Linux
 		private void present_registration(ServiceManager service)
 		{
 			var window = new Argus.Shared.RegisterWindow() {
-				data_dir = Argus.AGENT_DATA_DIR
+				data_dir = this.data_dir,
+				client_db = this.client_db
 			};
 			window.title = "Argus Remote Management Agent " + Argus.VERSION;
 			window.show_add();
 			window.certificate_received.connect(() => {
+				var reg = window.registration;
+				if (reg == null) {
+					window.error_occurred("registration failed: could not save");
+					return;
+				}
+				var row = new Argus.Agent.SQT.Server() {
+					data_dir = reg.data_dir != "" ? reg.data_dir : this.data_dir,
+				};
+				if (!reg.save(row)) {
+					window.error_occurred("registration failed: could not save");
+					return;
+				}
 				try {
 					service.restart();
 				} catch (GLib.Error e) {
@@ -546,12 +559,20 @@ namespace Argus.Agent.Linux
 				port = announced;
 			}
 			var registration = new Argus.Shared.Register() {
-				data_dir = Argus.AGENT_DATA_DIR
+				data_dir = this.data_dir,
+				client_db = this.client_db,
+				host_name = GLib.Environment.get_host_name(),
 			};
 			if (opt_request) {
-				var code = registration.try_batch(host, (uint16) port,
-					GLib.Environment.get_host_name());
+				var code = registration.try_batch(host, (uint16) port);
 				if (code != 0) {
+					return 1;
+				}
+				var row = new Argus.Agent.SQT.Server() {
+					data_dir = registration.data_dir != "" ? registration.data_dir : this.data_dir,
+				};
+				if (!registration.save(row)) {
+					command_line.printerr("registration failed: could not save\n");
 					return 1;
 				}
 				try {
@@ -564,10 +585,16 @@ namespace Argus.Agent.Linux
 				return 0;
 			}
 			if (given_pin != "") {
-				var code = registration.try_connection(host, (uint16) port, given_pin,
-					GLib.Environment.get_host_name());
+				var code = registration.try_connection(host, (uint16) port, given_pin);
 				if (code != 0) {
 					command_line.printerr("Registration failed: %d\n", code);
+					return 1;
+				}
+				var row = new Argus.Agent.SQT.Server() {
+					data_dir = registration.data_dir != "" ? registration.data_dir : this.data_dir,
+				};
+				if (!registration.save(row)) {
+					command_line.printerr("registration failed: could not save\n");
 					return 1;
 				}
 				try {
@@ -592,11 +619,17 @@ namespace Argus.Agent.Linux
 					command_line.printerr("Enter the six digits.\n");
 					continue;
 				}
-				var code = registration.try_connection(host, (uint16) port, pin,
-					GLib.Environment.get_host_name());
+				var code = registration.try_connection(host, (uint16) port, pin);
 				if (code != 0) {
 					command_line.printerr("Registration failed: %d\n", code);
 					continue;
+				}
+				var row = new Argus.Agent.SQT.Server() {
+					data_dir = registration.data_dir != "" ? registration.data_dir : this.data_dir,
+				};
+				if (!registration.save(row)) {
+					command_line.printerr("registration failed: could not save\n");
+					return 1;
 				}
 				try {
 					service.restart();

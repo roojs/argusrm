@@ -11,6 +11,7 @@ sources = files(
 	'Application.vala',
 	'Connection.vala',
 	'Download.vala',
+	'SQT/Server.vala',
 )
 vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'gtk4', '--pkg', 'libadwaita-1', '--pkg', 'libsoup-3.0',
@@ -126,6 +127,7 @@ else
 				'Application.vala',
 				'Connection.vala',
 				'Download.vala',
+				'SQT/Server.vala',
 				'OSQuery/Initialize.vala',
 				'OSQuery/Execute.vala',
 				'OSQuery/LoggedInUsers.vala',

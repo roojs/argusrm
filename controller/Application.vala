@@ -67,6 +67,10 @@ namespace Argus.Controller
 		public GLib.ApplicationCommandLine cli { get; set; }
 		public OLLMrpc.Client rpc { get; set; }
 		/**
+		 * Local ''server.sqlite'' for this process.
+		 */
+		public SQ.Database client_db { get; private set; }
+		/**
 		 * Main window opened after a connection answers.
 		 */
 		public Window window { get; set; }
@@ -96,6 +100,20 @@ namespace Argus.Controller
 			GLib.Log.set_default_handler((dom, lvl, msg) => {
 				Application.debug_log(dom, lvl, msg);
 			});
+			var dir = GLib.Path.build_filename(
+				GLib.Environment.get_user_config_dir(), "argusrm");
+			if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
+				GLib.warning("Could not create the configuration directory");
+			} else {
+				var path = GLib.Path.build_filename(dir, "server.sqlite");
+				this.client_db = new SQ.Database(path, true);
+				Argus.Shared.SQT.Server.init_db(this.client_db);
+			}
+			this.shutdown.connect(() => {
+				if (this.client_db != null) {
+					this.client_db.backup_real();
+				}
+			});
 		}
 
 		/**
@@ -119,7 +137,6 @@ namespace Argus.Controller
 			Argus.Shared.Agent.rpc_register();
 			Argus.Shared.OSQuery.rpc_register();
 			Argus.Shared.OsReleases.rpc_register();
-			Argus.Shared.Registration.Data.rpc_register();
 			Argus.Shared.SQT.rpc_register();
 			Argus.Shared.SQV.rpc_register();
 			Argus.Controller.Command.rpc_register();
@@ -174,14 +191,14 @@ namespace Argus.Controller
 			}
 #if LINUX
 			if (Posix.geteuid() != 0) {
-				var data = new Argus.Shared.Registration.Data() {
+				var data = new Argus.Shared.SQT.Server() {
 					error = "root is required"
 				};
 				command_line.print("%s\n", Json.gobject_to_data(data, null));
 				return 1;
 			}
 #else
-			var data = new Argus.Shared.Registration.Data() {
+			var data = new Argus.Shared.SQT.Server() {
 				error = "local certificate issue is Linux only"
 			};
 			command_line.print("%s\n", Json.gobject_to_data(data, null));
@@ -213,7 +230,7 @@ namespace Argus.Controller
 		{
 			var opened = this.rpc.connect.end(res);
 			if (!opened) {
-				var data = new Argus.Shared.Registration.Data() {
+				var data = new Argus.Shared.SQT.Server() {
 					error = this.rpc.connect_error
 				};
 				this.cli.print("%s\n", Json.gobject_to_data(data, null));
@@ -233,7 +250,7 @@ namespace Argus.Controller
 				try {
 					var response = this.rpc.call.end(call_res);
 					if (response.error != null) {
-						var data = new Argus.Shared.Registration.Data() {
+						var data = new Argus.Shared.SQT.Server() {
 							error = response.error.message
 						};
 						this.cli.print("%s\n", Json.gobject_to_data(data, null));
@@ -241,14 +258,14 @@ namespace Argus.Controller
 						return;
 					}
 					if (deregister_name != "") {
-						this.cli.print("%s\n", Json.gobject_to_data(new Argus.Shared.Registration.Data(), null));
+						this.cli.print("%s\n", Json.gobject_to_data(new Argus.Shared.SQT.Server(), null));
 						this.code = 0;
 						this.loop.quit();
 						return;
 					}
-					this.cli.print("%s\n", Json.gobject_to_data((Argus.Shared.Registration.Data) response.retval, null));
+					this.cli.print("%s\n", Json.gobject_to_data((Argus.Shared.SQT.Server) response.retval, null));
 				} catch (GLib.Error e) {
-					var data = new Argus.Shared.Registration.Data() {
+					var data = new Argus.Shared.SQT.Server() {
 						error = e.message
 					};
 					this.cli.print("%s\n", Json.gobject_to_data(data, null));

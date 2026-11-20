@@ -72,6 +72,7 @@ shared_sources += paths_vala
 shared_sources += shared_osquery_sources
 shared_sources += shared_sqt_sources
 shared_sources += shared_sqv_sources
+shared_sources += files('linux/Net/Route.vala')
 shared_vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 	'--pkg', 'sqlite3',
 ]
@@ -82,7 +83,6 @@ shared_ui_deps = [
 	dependency('libadwaita-1'),
 ]
 shared_ui_sources = files(
-	'Registration/Data.vala',
 	'RegisterWindow.vala',
 	'Notice.vala',
 )
@@ -117,6 +117,17 @@ else
 endif
 
 if host_machine.system() == 'linux'
+	libnl = dependency('libnl-3.0')
+	nl_route = meson.get_compiler('c').find_library('nl-route-3', required: false)
+	if not nl_route.found()
+		nl_route = declare_dependency(link_args: ['-l:libnl-route-3.so.200'])
+	endif
+	shared_deps += [libnl, nl_route]
+	shared_vala_args += [
+		'-D', 'LINUX', '--pkg', 'posix',
+		'--vapidir', meson.project_source_root() / 'server/vapi',
+		'--pkg', 'libnl-3.0',
+	]
 	shared_ui_deps += dependency('libsecret-1')
 	shared_ui_vala_args += ['-D', 'LINUX', '--pkg', 'libsecret-1']
 endif

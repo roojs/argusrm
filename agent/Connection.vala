@@ -83,9 +83,24 @@ namespace Argus.Agent
 				this.enter_state(State.CHECKING_CONFIG);
 				return true;
 			});
-			if (!GLib.FileUtils.test(
-				GLib.Path.build_filename(this.app.data_dir, "client.pem"),
-				GLib.FileTest.EXISTS)) {
+			if (this.app.client_db == null) {
+				return;
+			}
+			var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+			try {
+				Argus.Agent.SQT.Server.query(this.app.client_db).selectWhere(
+					"WHERE deleted_dt = 0", null, null, rows);
+			} catch (GLib.Error e) {
+				return;
+			}
+			if (rows.size < 1) {
+				return;
+			}
+			var row = rows.get(0);
+			row.data_dir = this.app.data_dir;
+			try {
+				row.load_certificates();
+			} catch (GLib.Error e) {
 				return;
 			}
 			this.reconnect_at = GLib.get_monotonic_time();
@@ -146,41 +161,39 @@ namespace Argus.Agent
 
 		private void on_checking_config()
 		{
-			var dir = this.app.data_dir;
-			string host = "";
-			uint16 port = 0;
-			var text = "";
+			Argus.Agent.SQT.Server row;
 			try {
-				GLib.FileUtils.get_contents(GLib.Path.build_filename(dir, "server"), out text);
+				if (this.app.client_db == null) {
+					throw new GLib.IOError.FAILED("client database is not open");
+				}
+				var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+				Argus.Agent.SQT.Server.query(this.app.client_db).selectWhere(
+					"WHERE deleted_dt = 0", null, null, rows);
+				if (rows.size < 1) {
+					throw new GLib.IOError.FAILED("no saved server");
+				}
+				row = rows.get(0);
+				row.data_dir = this.app.data_dir;
+				row.load_certificates();
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				this.schedule_retry(false);
 				return;
 			}
-			text = text.strip();
-			var mark = text.last_index_of(":");
-			if (text == "" || mark < 1) {
-				this.schedule_retry(false);
-				return;
-			}
-			host = text.substring(0, mark);
-			var parsed = int.parse(text.substring(mark + 1));
-			if (parsed < 1 || parsed > 65535) {
-				this.schedule_retry(false);
-				return;
-			}
-			port = (uint16) parsed;
-			var ca = GLib.Path.build_filename(dir, "ollmrpc-ca.pem");
-			var cert = GLib.Path.build_filename(dir, "client.pem");
-			var key = GLib.Path.build_filename(dir, "client-key.pem");
-			if (!GLib.FileUtils.test(ca, GLib.FileTest.EXISTS) ||
-				!GLib.FileUtils.test(cert, GLib.FileTest.EXISTS) ||
-				!GLib.FileUtils.test(key, GLib.FileTest.EXISTS)) {
+			if (!row.has_certificate) {
 				this.enter_dead("No certificate for the management server.", false);
 				return;
 			}
-			this.attempt_host = host;
-			this.attempt_port = port;
+			GLib.InetSocketAddress endpoint;
+			try {
+				endpoint = row.socket(0);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				this.schedule_retry(false);
+				return;
+			}
+			this.attempt_host = endpoint.get_address().to_string();
+			this.attempt_port = endpoint.get_port();
 			this.enter_state(State.CONNECTING);
 		}
 
@@ -368,12 +381,20 @@ namespace Argus.Agent
 
 		private void enter_dead(string detail, bool wipe_registration)
 		{
-			if (wipe_registration) {
-				var dir = this.app.data_dir;
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"));
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.pem"));
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client-key.pem"));
-				GLib.FileUtils.remove(GLib.Path.build_filename(dir, "client.csr"));
+			if (wipe_registration && this.app.client_db != null) {
+				try {
+					var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+					Argus.Agent.SQT.Server.query(this.app.client_db).selectWhere(
+						"WHERE deleted_dt = 0", null, null, rows);
+					if (rows.size > 0) {
+						var row = rows.get(0);
+						row.data_dir = this.app.data_dir;
+						row.load_certificates();
+						row.remove(this.app.client_db);
+					}
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
 				GLib.debug("registration cleared");
 			}
 			this.failure_detail = detail;

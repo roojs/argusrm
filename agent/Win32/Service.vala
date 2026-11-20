@@ -179,9 +179,12 @@ namespace Argus.Agent.Win32
 			var port = colon >= 1 ? int.parse(target.substring(colon + 1)) : 0;
 			var code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			if (host != "" && port > 0) {
-				var registration = new Argus.Shared.Register();
-				code = registration.try_connection(host, (uint16) port,
-					pin.strip(), GLib.Environment.get_host_name());
+				var registration = new Argus.Shared.Register() {
+					data_dir = this.application.data_dir,
+					client_db = this.application.client_db,
+					host_name = GLib.Environment.get_host_name(),
+				};
+				code = registration.try_connection(host, (uint16) port, pin.strip());
 				GLib.debug("registration %d", code);
 			}
 			request.reply(new OLLMrpc.Response() {
@@ -189,6 +192,16 @@ namespace Argus.Agent.Win32
 				msg = "ok"
 			});
 			if (code != 0) {
+				return;
+			}
+			var row = new Argus.Agent.SQT.Server() {
+				data_dir = registration.data_dir != "" ? registration.data_dir : this.application.data_dir,
+			};
+			if (!registration.save(row)) {
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("i", (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR),
+					msg = "ok"
+				});
 				return;
 			}
 			this.application.status_notice = "";

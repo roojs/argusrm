@@ -8,11 +8,11 @@ This documentation covers the Argus server, agent, controller, and the code they
 
   * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Register.html|Register]]'' sends the certificate registration call. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Browse.html|Browse]]'' finds the ''_rpc._tcp'' broadcast. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.RegisterWindow.html|RegisterWindow]]'' is the six-digit dialog.
 
-  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Registration.html|Registration]]'' — ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Registration.Data.html|Data]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Agent.html|Agent]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Notice.html|Notice]]''.
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Agent.html|Agent]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.Notice.html|Notice]]''.
 
   * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.html|OSQuery]]'' — one osquery row. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.Row.html|Row]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.SystemInfo.html|SystemInfo]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.CpuInfo.html|CpuInfo]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.LoggedInUsers.html|LoggedInUsers]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.OSQuery.InterfaceAddresses.html|InterfaceAddresses]]''.
 
-  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.html|SQT]]'' — task and script tables. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.Task.html|Task]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.TaskTarget.html|TaskTarget]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.Script.html|Script]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.ScriptAgent.html|ScriptAgent]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.ScriptRepository.html|ScriptRepository]]''.
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.html|SQT]]'' — task and script tables. ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.Server.html|Server]]'' (saved connection row; local registration JSON). ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.Task.html|Task]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.TaskTarget.html|TaskTarget]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.Script.html|Script]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.ScriptAgent.html|ScriptAgent]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Shared.SQT.ScriptRepository.html|ScriptRepository]]''.
 
 == Agent ==
 
@@ -38,7 +38,7 @@ This documentation covers the Argus server, agent, controller, and the code they
 
 * controller — namespace: ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.html|Argus.Controller]]''. Desktop and local administration.
 
-  * ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Application.html|Application]]'' hellos on the Unix socket. ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Bootstrap.html|Bootstrap]]'' may open ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Window.html|Window]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Pin.html|Pin]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Agents.html|Agents]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Command.html|Command]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Connection.html|Connection]]'', ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.PairingDialog.html|PairingDialog]]''.
+  * ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Application.html|Application]]'' hellos on the Unix socket. ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Bootstrap.html|Bootstrap]]'' may open ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Window.html|Window]]''. Saved rows: ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.SQT.Server.html|Controller.SQT.Server]]'' and ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.Store.Server.html|Controller.Store.Server]]''. ''[[https://roojs.github.io/argusrm/argus/Argus.Controller.PairingDialog.html|PairingDialog]]''.
 
 == Reference ==
 

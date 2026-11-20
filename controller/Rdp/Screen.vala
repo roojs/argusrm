@@ -82,11 +82,10 @@ namespace Argus.Controller.Rdp
 		{
 			this.window.rdp.note(
 				this.agent_id, Argus.Rdp.State.REQUEST_CONTROLLER_JOIN_RELAY, 0);
-			var pem = this.window.issued.client_certificate + "\n" + this.window.issued.private_key;
 			GLib.TlsCertificate certificate;
 			GLib.TlsDatabase trust;
 			try {
-				certificate = new GLib.TlsCertificate.from_pem(pem, pem.length);
+				certificate = this.window.server.tls_certificate();
 #if ANDROID
 				var dir = GLib.Path.build_filename(
 					GLib.Environment.get_user_config_dir(), "argusrm");
@@ -110,7 +109,7 @@ namespace Argus.Controller.Rdp
 			try {
 				viewer.serve(
 					this.window.host,
-					(uint16) this.window.connection.port,
+					(uint16) this.window.server.port,
 					certificate,
 					trust,
 					this.agent_id);

@@ -76,8 +76,10 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments `s`: the controller user's operating-system login name.
 - The server requires Unix peer uid `0`.
 - An active controller row for the same login and hostname is refused with `This machine is already registered.`
-- Reply `retval` `o`: `Argus.Shared.Registration.Data`.
-  - It contains the private key, client certificate, CA certificate, server name, addresses, and TLS port.
+- Reply `retval` `o`: `Argus.Shared.SQT.Server`.
+  - PEM fields are `pem_private_key`, `pem_client_certificate`, `pem_ca_certificate`.
+  - `addresses` is one host per line (newline-separated text), not a JSON array.
+  - On failure the controller may print JSON with `error` set and other fields empty.
   - The server stores a pending controller row with `status = 0`.
 - ℹ️ The method is `server/Registration.vala`.
 

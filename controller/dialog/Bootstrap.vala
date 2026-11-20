@@ -55,14 +55,11 @@ namespace Argus.Controller.Dialog
 		private Gtk.Label heading;
 		private Gtk.Label body;
 		private Gtk.Box actions;
-		private Gee.ArrayList<Connection> connections {
-			get; set; default = new Gee.ArrayList<Connection>();
+		private Gee.ArrayList<Argus.Controller.SQT.Server> servers {
+			get; set; default = new Gee.ArrayList<Argus.Controller.SQT.Server>();
 		}
-		private Gee.ArrayList<Connection> reached {
-			get; set; default = new Gee.ArrayList<Connection>();
-		}
-		private Gee.HashMap<string, Argus.Shared.Registration.Data> credentials {
-			get; set; default = new Gee.HashMap<string, Argus.Shared.Registration.Data>();
+		private Gee.ArrayList<Argus.Controller.SQT.Server> reached {
+			get; set; default = new Gee.ArrayList<Argus.Controller.SQT.Server>();
 		}
 		private Gee.HashMap<string, string> answered {
 			get; set; default = new Gee.HashMap<string, string>();
@@ -172,27 +169,44 @@ namespace Argus.Controller.Dialog
 		}
 
 		/**
-		 * Load ''connections.json'' and try each saved server.
+		 * Load saved servers from SQLite and try each address.
 		 *
-		 * A missing or empty file offers ''Log in to register''.
-		 * An unreadable file offers retry and registration.
+		 * An empty list offers ''Log in to register''.
+		 * An unreadable store offers retry and registration.
 		 */
 		private void check()
 		{
 			this.generation++;
 			var ticket = this.generation;
-			this.connections.clear();
+			this.servers.clear();
 			this.reached.clear();
-			this.credentials.clear();
 			this.answered.clear();
 			this.next = 0;
 			this.address_index = 0;
 			if (!this.adding) {
 				this.page("Checking connections", "", {}, {});
 			}
-			var path = GLib.Path.build_filename(
-				GLib.Environment.get_user_config_dir(), "argusrm", "connections.json");
-			if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
+			try {
+				var store = new Argus.Controller.Store.Server(this.app);
+				this.servers = store.list();
+			} catch (GLib.Error e) {
+#if ANDROID
+				this.page("Could not connect", e.message,
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
+				this.page("Could not connect", e.message,
+					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
+				return;
+			}
+			var with_pem = new Gee.ArrayList<Argus.Controller.SQT.Server>();
+			foreach (var row in this.servers) {
+				if (row.has_certificate) {
+					with_pem.add(row);
+				}
+			}
+			this.servers = with_pem;
+			if (this.servers.size < 1 || this.adding) {
 #if ANDROID
 				this.page("Argus Remote Manager", "",
 					{ "Connect a remote machine" }, { "remote" });
@@ -200,134 +214,6 @@ namespace Argus.Controller.Dialog
 				this.page("Argus Remote Manager", "",
 					{ "Log in to local machine", "Connect a remote machine" },
 					{ "register", "remote" });
-#endif
-				return;
-			}
-			var text = "";
-			try {
-				GLib.FileUtils.get_contents(path, out text);
-			} catch (GLib.Error e) {
-#if ANDROID
-				this.page("Could not connect", "The saved connections could not be read.",
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-#else
-				this.page("Could not connect", "The saved connections could not be read.",
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-#endif
-				return;
-			}
-			var parser = new Json.Parser();
-			try {
-				parser.load_from_data(text);
-			} catch (GLib.Error e) {
-#if ANDROID
-				this.page("Could not connect", "The saved connections could not be read.",
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-#else
-				this.page("Could not connect", "The saved connections could not be read.",
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-#endif
-				return;
-			}
-			var root = parser.get_root();
-			if (root == null || root.get_node_type() != Json.NodeType.ARRAY) {
-#if ANDROID
-				this.page("Could not connect", "The saved connections could not be read.",
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-#else
-				this.page("Could not connect", "The saved connections could not be read.",
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-#endif
-				return;
-			}
-			var list = root.get_array();
-			var count = list.get_length();
-			for (var i = 0; i < (int) count; i++) {
-				var element = list.get_element(i);
-				if (element.get_node_type() != Json.NodeType.OBJECT) {
-					continue;
-				}
-				var obj = Json.gobject_deserialize(typeof(Connection), element);
-				if (obj == null) {
-					continue;
-				}
-				this.connections.add((Connection) obj);
-			}
-			if (this.connections.size < 1 || this.adding) {
-#if ANDROID
-				this.page("Argus Remote Manager", "",
-					{ "Connect a remote machine" }, { "remote" });
-#else
-				this.page("Argus Remote Manager", "",
-					{ "Log in to local machine", "Connect a remote machine" },
-					{ "register", "remote" });
-#endif
-				return;
-			}
-#if LINUX
-			var types = new GLib.HashTable<string, Secret.SchemaAttributeType>(GLib.str_hash, GLib.str_equal);
-			types.insert("service", Secret.SchemaAttributeType.STRING);
-			types.insert("server", Secret.SchemaAttributeType.STRING);
-			types.insert("name", Secret.SchemaAttributeType.STRING);
-			var schema = new Secret.Schema.newv("org.roojs.ArgusController", Secret.SchemaFlags.NONE, types);
-			foreach (var connection in this.connections) {
-				var attrs = new GLib.HashTable<string, string>(GLib.str_hash, GLib.str_equal);
-				attrs.insert("service", "argusrm");
-				attrs.insert("name", connection.name);
-				var secret = "";
-				try {
-					var found = Secret.password_lookupv_sync(schema, attrs, null);
-					if (found != null) {
-						secret = found;
-					}
-				} catch (GLib.Error e) {
-					this.page("Could not connect", e.message,
-						{ "Retry", "Log in to register" }, { "retry", "register" });
-					return;
-				}
-				if (secret == "") {
-					continue;
-				}
-				try {
-					var parsed = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), secret)
-						as Argus.Shared.Registration.Data;
-					if (parsed == null || parsed.private_key == "" || parsed.client_certificate == "") {
-						continue;
-					}
-					this.credentials.set(connection.name, parsed);
-				} catch (GLib.Error e) {
-					continue;
-				}
-			}
-#elif ANDROID
-			var cred_dir = GLib.Path.build_filename(
-				GLib.Environment.get_user_config_dir(), "argusrm", "credentials");
-			foreach (var connection in this.connections) {
-				var cred_path = GLib.Path.build_filename(cred_dir, connection.name + ".json");
-				if (!GLib.FileUtils.test(cred_path, GLib.FileTest.EXISTS)) {
-					continue;
-				}
-				var secret = "";
-				try {
-					GLib.FileUtils.get_contents(cred_path, out secret);
-					var parsed = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), secret)
-						as Argus.Shared.Registration.Data;
-					if (parsed == null || parsed.private_key == "" || parsed.client_certificate == "") {
-						continue;
-					}
-					this.credentials.set(connection.name, parsed);
-				} catch (GLib.Error e) {
-					continue;
-				}
-			}
-#endif
-			if (this.credentials.size < 1) {
-#if ANDROID
-				this.page("Could not connect", "The saved server has no certificate.",
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-#else
-				this.page("Could not connect", "The saved server has no certificate.",
-					{ "Retry", "Log in to register" }, { "retry", "register" });
 #endif
 				return;
 			}
@@ -345,25 +231,29 @@ namespace Argus.Controller.Dialog
 			if (ticket != this.generation || !this.running) {
 				return;
 			}
-			while (this.next < this.connections.size) {
-				var connection = this.connections.get(this.next);
-				if (this.prefer != "" && connection.name != this.prefer) {
+			while (this.next < this.servers.size) {
+				var row = this.servers.get(this.next);
+				if (this.prefer != "" && row.name != this.prefer) {
 					this.next++;
 					this.address_index = 0;
 					continue;
 				}
-				if (!this.credentials.has_key(connection.name) ||
-					connection.port < 1 || connection.port > 65535 ||
-					this.address_index >= connection.addresses.length) {
+				if (!row.has_certificate) {
+					this.next++;
+					this.address_index = 0;
+					continue;
+				}
+				var hosts = row.address_list();
+				if (this.address_index >= hosts.size) {
 					this.next++;
 					this.address_index = 0;
 					continue;
 				}
 				var client = new GLib.SocketClient();
 				client.set_timeout(3);
-				var host = connection.addresses[this.address_index];
+				var host = hosts[this.address_index];
 				this.address_index++;
-				client.connect_to_host_async.begin(host, (uint16) connection.port, null, (obj, res) => {
+				client.connect_to_host_async.begin(host, (uint16) row.port, null, (obj, res) => {
 					if (ticket != this.generation || !this.running) {
 						return;
 					}
@@ -379,10 +269,10 @@ namespace Argus.Controller.Dialog
 					} catch (GLib.Error e) {
 						GLib.warning("%s", e.message);
 					}
-					this.reached.add(connection);
-					this.answered.set(connection.name, host);
-					if (this.prefer != "" && connection.name == this.prefer) {
-						this.use(connection);
+					this.reached.add(row);
+					this.answered.set(row.name, host);
+					if (this.prefer != "" && row.name == this.prefer) {
+						this.use(row);
 						return;
 					}
 					this.next++;
@@ -398,9 +288,9 @@ namespace Argus.Controller.Dialog
 			if (this.reached.size > 0) {
 				string[] labels = {};
 				string[] responses = {};
-				foreach (var connection in this.reached) {
-					labels += connection.name;
-					responses += connection.name;
+				foreach (var row in this.reached) {
+					labels += row.name;
+					responses += row.name;
 				}
 				if (this.choose) {
 					labels += "Add a connection";
@@ -518,7 +408,7 @@ namespace Argus.Controller.Dialog
 		 *
 		 * ''option'' is ''--give-me-a-certificate'' or
 		 * ''--deregister''. Standard output is
-		 * {@link Argus.Shared.Registration.Data}. A certificate
+		 * {@link Argus.Shared.SQT.Server}. A certificate
 		 * is stored by {@link finish_registration}. A deregister
 		 * with an empty error returns to the local-or-remote page.
 		 * ''prior_error'' is shown when the command itself succeeds.
@@ -590,12 +480,12 @@ namespace Argus.Controller.Dialog
 						{ "Retry", "Log in to register" }, { "retry", "register" });
 					return;
 				}
-				var data = new Argus.Shared.Registration.Data() {
+				var data = new Argus.Shared.SQT.Server() {
 					error = "The command failed."
 				};
 				try {
-					var parsed = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), output)
-						as Argus.Shared.Registration.Data;
+					var parsed = Json.gobject_from_data(typeof(Argus.Shared.SQT.Server), output)
+						as Argus.Shared.SQT.Server;
 					if (parsed != null) {
 						data = parsed;
 					}
@@ -618,7 +508,7 @@ namespace Argus.Controller.Dialog
 						{ "register", "remote" });
 					return;
 				}
-				if (data.error != "" || data.name == "" || data.port < 1) {
+				if (data.error != "" || data.name == "" || data.port < 1 || !data.has_certificate) {
 					var message = data.error;
 					if (message == "") {
 						message = "The server did not return a connection.";
@@ -632,7 +522,14 @@ namespace Argus.Controller.Dialog
 						{ "Retry", "Log in to register" }, { "retry", "register" });
 					return;
 				}
-				this.finish_registration(data);
+				var reg = new Argus.Shared.Register() {
+					client_db = this.app.client_db,
+					server_row = data
+				};
+				var row = new Argus.Controller.SQT.Server() {
+					name = data.name
+				};
+				this.finish_registration(reg, row);
 			});
 #else
 			this.page("Could not request administrator access",
@@ -643,151 +540,75 @@ namespace Argus.Controller.Dialog
 		/**
 		 * Save one registration, then probe its addresses.
 		 *
-		 * The keyring holds the certificate. ''connections.json''
-		 * holds the name, addresses, and port. Two seconds later
-		 * the same probe used at startup records the address that
-		 * answers and opens the main window.
-		 *
-		 * @param data certificate and listen addresses
+		 * @param reg enroll outcome with {@link Argus.Shared.Register.server_row}
+		 * @param row controller row to persist (often name only before {@link Argus.Shared.Register.save})
 		 */
-		private void finish_registration(Argus.Shared.Registration.Data data)
+		private void finish_registration(
+			Argus.Shared.Register reg,
+			Argus.Controller.SQT.Server row)
 		{
-			var saved = new Connection() {
-				name = data.name,
-				addresses = data.addresses,
-				port = data.port
-			};
+#if LINUX
+			var ca_pem = "";
+			if (reg.server_row != null && reg.server_row.pem_ca_certificate != "") {
+				ca_pem = reg.server_row.pem_ca_certificate;
+			} else if (row.pem_ca_certificate != "") {
+				ca_pem = row.pem_ca_certificate;
+			}
+			if (ca_pem != "") {
+			try {
+				var ca_cert = new GLib.TlsCertificate.from_pem(ca_pem, ca_pem.length);
+				var fingerprint = GLib.Checksum.compute_for_data(
+					GLib.ChecksumType.SHA256, ca_cert.certificate.data);
+				var store = new Argus.Controller.Store.Server(this.app);
+				foreach (var existing in store.list()) {
+					if (existing.name != row.name || existing.pem_ca_certificate == "") {
+						continue;
+					}
+					var old_ca = new GLib.TlsCertificate.from_pem(
+						existing.pem_ca_certificate, existing.pem_ca_certificate.length);
+					var old_fp = GLib.Checksum.compute_for_data(
+						GLib.ChecksumType.SHA256, old_ca.certificate.data);
+					if (old_fp != fingerprint) {
+						this.page("Could not register",
+							"The saved server certificate does not match.",
+							{ "Retry", "Log in to register" }, { "retry", "register" });
+						return;
+					}
+					break;
+				}
+			} catch (GLib.Error e) {
+				this.page("Could not register", e.message,
+					{ "Retry", "Log in to register" }, { "retry", "register" });
+				return;
+			}
+			}
+#endif
+			reg.client_db = this.app.client_db;
+			if (!reg.save(row)) {
+#if ANDROID
+				this.page("Could not register",
+					"The registration could not be saved.",
+					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
+#else
+				this.page("Could not register",
+					"The registration could not be saved.",
+					{ "Retry", "Log in to register" }, { "retry", "register" });
+#endif
+				return;
+			}
 			var replaced = false;
-			foreach (var row in this.connections) {
-				if (row.name != saved.name) {
+			for (var i = 0; i < this.servers.size; i++) {
+				if (this.servers.get(i).name != row.name) {
 					continue;
 				}
-				row.addresses = saved.addresses;
-				row.port = saved.port;
+				this.servers.set(i, row);
 				replaced = true;
+				break;
 			}
 			if (!replaced) {
-				this.connections.add(saved);
+				this.servers.add(row);
 			}
-			var parts = new Gee.ArrayList<string>();
-			foreach (var row in this.connections) {
-				parts.add(Json.gobject_to_data(row, null));
-			}
-			var json = "[\n" + string.joinv(",\n", parts.to_array()) + "\n]\n";
-			var dir = GLib.Path.build_filename(GLib.Environment.get_user_config_dir(), "argusrm");
-			var path = GLib.Path.build_filename(dir, "connections.json");
-#if LINUX
-			GLib.TlsCertificate ca_cert;
-			try {
-				ca_cert = new GLib.TlsCertificate.from_pem(data.ca_certificate, data.ca_certificate.length);
-			} catch (GLib.Error e) {
-				this.page("Could not register", e.message,
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-				return;
-			}
-			var fingerprint = GLib.Checksum.compute_for_data(GLib.ChecksumType.SHA256, ca_cert.certificate.data);
-			var types = new GLib.HashTable<string, Secret.SchemaAttributeType>(GLib.str_hash, GLib.str_equal);
-			types.insert("service", Secret.SchemaAttributeType.STRING);
-			types.insert("server", Secret.SchemaAttributeType.STRING);
-			types.insert("name", Secret.SchemaAttributeType.STRING);
-			var schema = new Secret.Schema.newv("org.roojs.ArgusController", Secret.SchemaFlags.NONE, types);
-			var attrs = new GLib.HashTable<string, string>(GLib.str_hash, GLib.str_equal);
-			attrs.insert("service", "argusrm");
-			attrs.insert("name", data.name);
-			var existing_secret = "";
-			try {
-				var found = Secret.password_lookupv_sync(schema, attrs, null);
-				if (found != null) {
-					existing_secret = found;
-				}
-			} catch (GLib.Error e) {
-				this.page("Could not register", e.message,
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-				return;
-			}
-			if (existing_secret != "") {
-				var existing_fingerprint = "";
-				try {
-					var existing = Json.gobject_from_data(typeof(Argus.Shared.Registration.Data), existing_secret)
-						as Argus.Shared.Registration.Data;
-					if (existing != null && existing.ca_certificate != "") {
-						var existing_ca = new GLib.TlsCertificate.from_pem(
-							existing.ca_certificate, existing.ca_certificate.length);
-						existing_fingerprint = GLib.Checksum.compute_for_data(
-							GLib.ChecksumType.SHA256, existing_ca.certificate.data);
-					}
-				} catch (GLib.Error e) {
-					this.page("Could not register", e.message,
-						{ "Retry", "Log in to register" }, { "retry", "register" });
-					return;
-				}
-				if (existing_fingerprint != "" && existing_fingerprint != fingerprint) {
-					this.page("Could not register", "The saved server certificate does not match.",
-						{ "Retry", "Log in to register" }, { "retry", "register" });
-					return;
-				}
-			}
-			attrs.insert("server", fingerprint);
-			var secret = new Argus.Shared.Registration.Data() {
-				private_key = data.private_key,
-				client_certificate = data.client_certificate,
-				ca_certificate = data.ca_certificate
-			};
-			try {
-				Secret.password_storev_sync(schema, attrs, Secret.COLLECTION_DEFAULT,
-					data.name, Json.gobject_to_data(secret, null), null);
-			} catch (GLib.Error e) {
-				this.page("Could not register", e.message,
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-				return;
-			}
-#elif ANDROID
-			var cred_dir = GLib.Path.build_filename(dir, "credentials");
-			if (GLib.DirUtils.create_with_parents(cred_dir, 0700) != 0) {
-				this.page("Could not register", "Could not create the credentials directory",
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-				return;
-			}
-			var secret = new Argus.Shared.Registration.Data() {
-				private_key = data.private_key,
-				client_certificate = data.client_certificate,
-				ca_certificate = data.ca_certificate
-			};
-			var cred_path = GLib.Path.build_filename(cred_dir, data.name + ".json");
-			try {
-				GLib.FileUtils.set_contents(cred_path, Json.gobject_to_data(secret, null));
-				GLib.FileUtils.chmod(cred_path, 0600);
-			} catch (GLib.Error e) {
-				this.page("Could not register", e.message,
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-				return;
-			}
-#endif
-			this.credentials.set(data.name, data);
-			if (GLib.DirUtils.create_with_parents(dir, 0700) != 0) {
-#if ANDROID
-				this.page("Could not register", "Could not create the configuration directory",
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-#else
-				this.page("Could not register", "Could not create the configuration directory",
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-#endif
-				return;
-			}
-			try {
-				GLib.FileUtils.set_contents(path, json);
-				GLib.FileUtils.chmod(path, 0600);
-			} catch (GLib.Error e) {
-#if ANDROID
-				this.page("Could not register", e.message,
-					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
-#else
-				this.page("Could not register", e.message,
-					{ "Retry", "Log in to register" }, { "retry", "register" });
-#endif
-				return;
-			}
-			this.page("Server registered", saved.name, {}, {});
+			this.page("Server registered", row.name, {}, {});
 			GLib.Timeout.add_seconds(2, () => {
 				if (!this.running || this.opened) {
 					return false;
@@ -814,21 +635,24 @@ namespace Argus.Controller.Dialog
 		{
 			this.generation++;
 			var local_error = "";
-			foreach (var connection in this.connections) {
-				var data = new Argus.Shared.Registration.Data() {
-					name = connection.name
-				};
-				try {
-					data.clear_saved_login();
-				} catch (GLib.Error e) {
-					if (local_error == "") {
-						local_error = e.message;
+			try {
+				var store = new Argus.Controller.Store.Server(this.app);
+				foreach (var row in store.list()) {
+					try {
+						row.remove(this.app.client_db);
+					} catch (GLib.Error e) {
+						if (local_error == "") {
+							local_error = e.message;
+						}
 					}
 				}
+			} catch (GLib.Error e) {
+				if (local_error == "") {
+					local_error = e.message;
+				}
 			}
-			this.connections.clear();
+			this.servers.clear();
 			this.reached.clear();
-			this.credentials.clear();
 #if ANDROID
 			if (local_error != "") {
 				this.page("Could not deregister", local_error,
@@ -875,7 +699,8 @@ namespace Argus.Controller.Dialog
 			var done = false;
 			window.certificate_received.connect(() => {
 				done = true;
-				if (window.issued == null) {
+				var reg = window.registration;
+				if (reg == null || reg.server_row == null || !reg.server_row.has_certificate) {
 #if ANDROID
 					this.page("Could not register",
 						"The server did not return a connection.",
@@ -888,7 +713,11 @@ namespace Argus.Controller.Dialog
 #endif
 					return;
 				}
-				this.finish_registration(window.issued);
+				reg.client_db = this.app.client_db;
+				var row = new Argus.Controller.SQT.Server() {
+					name = window.registration_name,
+				};
+				this.finish_registration(reg, row);
 				window.close();
 			});
 			window.dialog_closed.connect(() => {
@@ -913,19 +742,14 @@ namespace Argus.Controller.Dialog
 		 *
 		 * @param connection the server to use
 		 */
-		private void use(Connection connection)
+		private void use(Argus.Controller.SQT.Server server)
 		{
 			if (this.opened) {
 				return;
 			}
 			this.generation++;
 			this.opened = true;
-			var issued = new Argus.Shared.Registration.Data();
-			if (this.credentials.has_key(connection.name)) {
-				issued = this.credentials.get(connection.name);
-			}
-			issued.name = connection.name;
-			var host = this.answered.get(connection.name);
+			var host = this.answered.get(server.name);
 			if (host == null || host == "") {
 				this.opened = false;
 #if ANDROID
@@ -942,8 +766,7 @@ namespace Argus.Controller.Dialog
 			GLib.TlsCertificate certificate;
 			GLib.TlsDatabase trust;
 			try {
-				var pem = issued.client_certificate + "\n" + issued.private_key;
-				certificate = new GLib.TlsCertificate.from_pem(pem, pem.length);
+				certificate = server.tls_certificate();
 #if ANDROID
 				var dir = GLib.Path.build_filename(
 					GLib.Environment.get_user_config_dir(), "argusrm");
@@ -955,7 +778,7 @@ namespace Argus.Controller.Dialog
 						"Could not create the runtime directory");
 				}
 				var ca_path = GLib.Path.build_filename(dir, "argusrm-ca.pem");
-				GLib.FileUtils.set_contents(ca_path, issued.ca_certificate);
+				GLib.FileUtils.set_contents(ca_path, server.pem_ca_certificate);
 				GLib.FileUtils.chmod(ca_path, 0600);
 				trust = GLib.TlsFileDatabase.@new(ca_path);
 			} catch (GLib.Error e) {
@@ -970,7 +793,7 @@ namespace Argus.Controller.Dialog
 				return;
 			}
 			var rpc = new OLLMrpc.Client("", "",
-				"tcp://" + host + ":" + connection.port.to_string()) {
+				"tcp://" + host + ":" + server.port.to_string()) {
 				live_handles = true
 			};
 			rpc.debug = false;
@@ -1008,14 +831,14 @@ namespace Argus.Controller.Dialog
 				app.rpc = rpc;
 #if ANDROID
 				app.running_window = true;
-				app.window.open(connection, issued, host);
+				app.window.open(server, host);
 				this.close();
 #else
 				var previous = app.window;
 				if (replace) {
 					previous.leaving = true;
 				}
-				var window = new Window(app, connection, issued, host);
+				var window = new Window(app, server, host);
 				app.running_window = true;
 				app.window = window;
 				window.present();

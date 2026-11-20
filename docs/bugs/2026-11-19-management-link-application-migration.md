@@ -1,10 +1,10 @@
 # Management link — Application and call-site migration (post–Connection shape)
 
-**Status:** ⏳ open — **`agent/Connection.vala` state machine treated as stable**; legacy **`Application`** and peripheral code not migrated. **Paused** until local registration store lands (prerequisite).
+**Status:** ⏳ open — **`agent/Connection.vala` state machine treated as stable**; legacy **`Application`** and peripheral code not migrated. **Registration cutover** closed — see [remainder](2026-11-20-local-registration-cutover-remainder.md) (**R2** / config) before large link migrations.
 
 **Pointer:** `docs/bug-fix-process.md`, [2.6.1-management-client-link-spec.md](../plans/2.6.1-management-client-link-spec.md) (**§ Outstanding (after link shape)**), [2.6-management-connection.md](../plans/2.6-management-connection.md), [`agent/Connection.vala`](../../agent/Connection.vala), [`agent/Application.vala`](../../agent/Application.vala)
 
-**Blocked by (do first):** [2026-11-20-local-registration-data-store.md](2026-11-20-local-registration-data-store.md) — `SQT.Server` row + **`Controller.Store.Servers`** (controller only; agent separate); not `argusrm-server`.
+**Blocked by (do first):** [2026-11-20-local-registration-cutover.md](2026-11-20-local-registration-cutover.md) — Bootstrap/Register/link call sites; scaffold is in [done/2026-11-20-FIXED-local-registration-data-store.md](done/2026-11-20-FIXED-local-registration-data-store.md).
 
 **Related:** [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md) (`stream_connection()` stub and RDP second socket)
 
@@ -91,8 +91,8 @@
 
 ## Prerequisite — local registration store
 
-- 🔷 **[2026-11-20-local-registration-data-store.md](2026-11-20-local-registration-data-store.md)** is **in scope before** most items below. Without it, **`checking_config`** stays duplicated in **`agent/Connection`**, controller **`Bootstrap`**, and future controller link code.
-- 🔷 Items **directly gated** by [client registration store](2026-11-20-local-registration-data-store.md) (`Controller.Store.Servers` on controller; not raw SQLite in link code):
+- 🔷 **[2026-11-20-local-registration-cutover.md](2026-11-20-local-registration-cutover.md)** is **in scope before** most items below. Without it, **`checking_config`** stays duplicated in **`agent/Connection`**, controller **`Bootstrap`**, and future controller link code.
+- 🔷 Items **directly gated** by [client registration cutover](2026-11-20-local-registration-cutover.md) (`Controller.Store.Server` on controller; not raw SQLite in link code):
   - **L3** — registration hand-off when material appears after ctor (store notify or single construct reading **`get_active()`**).
   - **R6 in store log** — agent **`on_checking_config`** / cert wipe → store API only.
   - **X1** — controller management link + **server flip** via same interface as agent; drop `Bootstrap.use()` / `Window` inline TLS.
@@ -103,7 +103,7 @@
 ## Conclusions
 
 - **Root issue** is not the link state machine — it is **unfinished migration** of **`Application`**, tray, gtk, monitors, and RDP to the access rules in the spec.
-- **Earlier root issue** for connection work: **no shared local registration store** — see [2026-11-20-local-registration-data-store.md](2026-11-20-local-registration-data-store.md).
+- **Earlier root issue** for connection work: **no shared local registration store** — scaffold **done**; cutover **open** — [2026-11-20-local-registration-cutover.md](2026-11-20-local-registration-cutover.md).
 - **Do not** re-add deleted **`Application`** connect helpers or static TLS helpers on **`Connection`** to close gaps; update this log and the plan § Outstanding instead.
 - **Do not** implement controller link **`checking_config`** by copying **`Bootstrap.use()`** TLS assembly; wait for store **`material_for_tls()`**.
 - **RDP second connection** is a **product** gap tied to [desktop-status](2026-11-19-desktop-status-and-reconnect.md) until the stream socket owner is spec’d.
@@ -112,7 +112,7 @@
 
 ## Next steps (after store R1–R3 and spec approval)
 
-1. Complete [local registration store](2026-11-20-local-registration-data-store.md) cutover (SQLite only; no import from `connections.json` or agent file layout).
+1. Finish [local registration cutover remainder](2026-11-20-local-registration-cutover-remainder.md) where it blocks config reads; then continue link migration here.
 2. Refactor agent **`Connection`** `checking_config` / dead wipe to store (store log R6).
 3. Implement **`Connection.mark_down()`** (L1).
 4. Migrate **`Win32.Service`** and gtk status to **`server.state`** + **`notify::state`** (A2–A3, C1–C3).

@@ -48,7 +48,7 @@ namespace Argus.Server
 		 */
 		public static void rpc_register()
 		{
-			RegistrationData.rpc_register();
+			Argus.Shared.SQT.Server.rpc_register();
 			OLLMrpc.Request.add_class("Registration", typeof(Registration),
 				"certificate", "s", "deregister", "s");
 		}
@@ -189,26 +189,25 @@ namespace Argus.Server
 				});
 				return;
 			}
-			var data = new RegistrationData() {
-				private_key = (string) private_key_buf,
-				client_certificate = (string) certificate_buf,
-				ca_certificate = ca_pem,
-				name = hostname
-			};
 			var colon = this.app.socket.last_index_of(":");
 			var host = this.app.socket.substring(0, colon);
 			var port = 0;
 			int.try_parse(this.app.socket.substring(colon + 1), out port);
-			data.port = port;
+			var addresses_text = host;
 			if (host == "0.0.0.0") {
-				data.addresses = OLLMrpc.Transport.TcpListen.ifaces();
+				addresses_text = string.joinv("\n", OLLMrpc.Transport.TcpListen.ifaces());
 			}
-			if (host != "0.0.0.0") {
-				string[] addresses = { host };
-				data.addresses = addresses;
-			}
+			var data = new Argus.Shared.SQT.Server() {
+				pem_private_key = (string) private_key_buf,
+				pem_client_certificate = (string) certificate_buf,
+				pem_ca_certificate = ca_pem,
+				name = hostname,
+				port = port,
+				addresses = addresses_text
+			};
 			try {
-				var issued = new GLib.TlsCertificate.from_pem(data.client_certificate, data.client_certificate.length);
+				var issued = new GLib.TlsCertificate.from_pem(
+					data.pem_client_certificate, data.pem_client_certificate.length);
 				var fingerprint = GLib.Checksum.compute_for_data(GLib.ChecksumType.SHA256, issued.certificate.data);
 				var int_binds = new Gee.HashMap<string, int>();
 				var text_binds = new Gee.HashMap<string, string>();

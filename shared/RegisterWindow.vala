@@ -38,7 +38,15 @@ namespace Argus.Shared
 		 *
 		 * Null until {@link certificate_received}.
 		 */
-		public Argus.Shared.Registration.Data? issued { get; private set; }
+		/**
+		 * Successful {@link Register.try_connection} outcome for this dialog.
+		 * Null until {@link remember} succeeds.
+		 */
+		public Register? registration { get; private set; }
+		/**
+		 * Row {@link Argus.Shared.SQT.Server.name} — connected registration host.
+		 */
+		public string registration_name { get; private set; default = ""; }
 
 		/**
 		 * {{{tcp://host:port}}} that answered hello. Null until then.
@@ -61,6 +69,11 @@ namespace Argus.Shared
 		 * Empty keeps the current-user default.
 		 */
 		public string data_dir { get; set; default = ""; }
+
+		/**
+		 * Client SQLite for {@link Argus.Shared.Register.save} on the agent.
+		 */
+		public SQ.Database? client_db = null;
 
 		public Gtk.Label listen_label;
 		private Gtk.Spinner service_spinner;
@@ -427,7 +440,8 @@ namespace Argus.Shared
 		public void show_add()
 		{
 			if (this.use_pipe && !this.service_spinner.spinning) {
-				this.issued = null;
+				this.registration = null;
+				this.registration_name = "";
 				this.registered_url = null;
 				this.registered_addresses = "";
 				this.server_id = "";
@@ -449,7 +463,8 @@ namespace Argus.Shared
 				this.service_spinner.stop();
 				this.service_spinner.visible = false;
 			}
-			this.issued = null;
+			this.registration = null;
+			this.registration_name = "";
 			this.registered_url = null;
 			this.registered_addresses = "";
 			this.server_id = "";
@@ -604,6 +619,7 @@ namespace Argus.Shared
 			}
 			var registration = new Register() {
 				data_dir = this.data_dir,
+				client_db = this.client_db,
 				is_controller = this.is_controller,
 				username = this.username,
 				hostname = this.hostname
@@ -638,7 +654,7 @@ namespace Argus.Shared
 					return;
 				}
 				var app_port = (int) port;
-				var lines = registration.addresses.split("\n");
+				var lines = registration.server_row.addresses.split("\n");
 				if (lines.length > 0) {
 					var listed = lines[0].strip();
 					var mark = listed.last_index_of(":");
@@ -647,8 +663,10 @@ namespace Argus.Shared
 					}
 				}
 				this.registered_url = "tcp://" + host + ":" + app_port.to_string();
-				this.registered_addresses = registration.addresses;
-				if (!this.remember(host, app_port, registration.addresses)) {
+				this.registered_addresses = registration.server_row.addresses;
+				if (!this.remember(
+					registration, host, registration.server_row.port,
+					registration.server_row.addresses)) {
 					return;
 				}
 				this.registration_succeeded();
@@ -657,37 +675,16 @@ namespace Argus.Shared
 		}
 
 		/**
-		 * Build {@link issued} from the files this window just wrote.
+		 * Record a successful registration for the controller handoff.
 		 *
-		 * ''addresses'' is one ''host:port'' per line. The connected
-		 * host is included when the reply did not list it.
-		 *
+		 * @param registration successful {@link Register} outcome
 		 * @param host address that accepted the registration
 		 * @param port app socket port
 		 * @param addresses listen addresses from the reply
-		 * @return false when the files or the address could not be read
+		 * @return false when the row has no certificate
 		 */
-		private bool remember(string host, int port, string addresses)
+		private bool remember(Register registration, string host, int port, string addresses)
 		{
-			var dir = this.data_dir;
-			if (dir == "") {
-				dir = GLib.Path.build_filename(
-					GLib.Environment.get_user_data_dir(), "argus");
-			}
-			var client = "";
-			var key = "";
-			var ca = "";
-			try {
-				GLib.FileUtils.get_contents(
-					GLib.Path.build_filename(dir, "client.pem"), out client);
-				GLib.FileUtils.get_contents(
-					GLib.Path.build_filename(dir, "client-key.pem"), out key);
-				GLib.FileUtils.get_contents(
-					GLib.Path.build_filename(dir, "ollmrpc-ca.pem"), out ca);
-			} catch (GLib.Error e) {
-				this.error_occurred(e.message);
-				return false;
-			}
 			string[] hosts = {};
 			foreach (var line in addresses.split("\n")) {
 				var text = line.strip();
@@ -718,14 +715,12 @@ namespace Argus.Shared
 				this.error_occurred("The server did not return a connection.");
 				return false;
 			}
-			this.issued = new Argus.Shared.Registration.Data() {
-				name = host,
-				port = port,
-				addresses = hosts,
-				private_key = key,
-				client_certificate = client,
-				ca_certificate = ca
-			};
+			if (registration.server_row == null || !registration.server_row.has_certificate) {
+				this.error_occurred("The server did not return a connection.");
+				return false;
+			}
+			this.registration = registration;
+			this.registration_name = host;
 			return true;
 		}
 

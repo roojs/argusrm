@@ -47,7 +47,6 @@ sources = files(
 	'Initialize.vala',
 	'GitHub.vala',
 	'Agent.vala',
-	'RegistrationData.vala',
 	'Registration.vala',
 	'OSQuery.vala',
 	'OsUpdate.vala',

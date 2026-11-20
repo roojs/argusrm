@@ -80,6 +80,11 @@ namespace Argus.Agent
 		}
 
 		/**
+		 * Local ''server.sqlite'' under {@link data_dir}.
+		 */
+		internal SQ.Database client_db { get; private set; }
+
+		/**
 		 * Directory with ``server``, client certificates, and download paths.
 		 */
 		internal string data_dir {
@@ -247,6 +252,18 @@ namespace Argus.Agent
 				Application.debug_log(dom, lvl, msg);
 			});
 			this.osquery = new OSQuery.Execute(this);
+			if (GLib.DirUtils.create_with_parents(this.data_dir, 0700) != 0) {
+				GLib.warning("Could not create the data directory");
+			} else {
+				var path = GLib.Path.build_filename(this.data_dir, "server.sqlite");
+				this.client_db = new SQ.Database(path, true);
+				Argus.Shared.SQT.Server.init_db(this.client_db);
+			}
+			this.shutdown.connect(() => {
+				if (this.client_db != null) {
+					this.client_db.backup_real();
+				}
+			});
 		}
 
 		/**
@@ -334,12 +351,26 @@ namespace Argus.Agent
 					return 1;
 				}
 				GLib.debug("registering %s:%d", this.host, this.port);
-				var registration = new Argus.Shared.Register();
-				var code = registration.try_connection(this.host, (uint16) this.port,
-					this.pin, GLib.Environment.get_host_name());
+				var registration = new Argus.Shared.Register() {
+					data_dir = this.data_dir,
+					client_db = this.client_db,
+					host_name = GLib.Environment.get_host_name(),
+				};
+				var code = registration.try_connection(this.host, (uint16) this.port, this.pin);
 				if (code != 0) {
 					command_line.printerr("registration failed: %d\n", code);
 					return code;
+				}
+				var row = new Argus.Agent.SQT.Server() {
+					data_dir = registration.data_dir != "" ? registration.data_dir : this.data_dir,
+				};
+				if (!registration.save(row)) {
+					if (registration.server_row == null || !registration.server_row.has_certificate) {
+						command_line.printerr("registration failed: no row\n");
+					} else {
+						command_line.printerr("registration failed: could not save\n");
+					}
+					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				}
 				this.attach_connection();
 				GLib.debug("staying up");
@@ -375,14 +406,22 @@ namespace Argus.Agent
 						return false;
 					}
 					GLib.debug("registering %s:%d", this.host, this.port);
-					var registration = new Argus.Shared.Register();
-					var code = registration.try_connection(this.host, (uint16) this.port,
-						this.pin, GLib.Environment.get_host_name());
+					var registration = new Argus.Shared.Register() {
+						data_dir = this.data_dir,
+						client_db = this.client_db,
+						host_name = GLib.Environment.get_host_name(),
+					};
+					var code = registration.try_connection(this.host, (uint16) this.port, this.pin);
 					if (code != 0) {
 						GLib.printerr("registration failed: %d\n", code);
 					}
 					if (code == 0) {
-						this.attach_connection();
+						var row = new Argus.Agent.SQT.Server() {
+							data_dir = registration.data_dir != "" ? registration.data_dir : this.data_dir,
+						};
+						if (registration.save(row)) {
+							this.attach_connection();
+						}
 					}
 					return false;
 				});

@@ -53,6 +53,7 @@ namespace Argus.Shared.SQT
 		ScriptRepository.rpc_register();
 		Distributable.rpc_register();
 		DistributableVersion.rpc_register();
+		Server.rpc_register();
 	}
 
 	/**

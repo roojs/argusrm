@@ -25,19 +25,13 @@ columnview > listview > row:nth-child(even):not(:selected) {
 	color: #ffffff;
 }
 
-.hold-button.holding,
-.hold-disconnect.holding,
-row.hold-disconnect.holding {
+.hold-button.holding {
 	background-color: #c01c28;
 	color: #ffffff;
 }
 
 .hold-button.holding label,
-.hold-button.holding image,
-.hold-disconnect.holding label,
-row.hold-disconnect.holding label,
-.hold-disconnect.holding image,
-row.hold-disconnect.holding image {
+.hold-button.holding image {
 	color: #ffffff;
 }
 

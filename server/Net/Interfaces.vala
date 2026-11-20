@@ -24,8 +24,8 @@ namespace Argus.Server.Net
 	 * {@link Application} holds the one instance.
 	 *
 	 * Construction reads the addresses on this machine and marks each
-	 * one public or internal. {@link route} asks netlink which of those
-	 * addresses the kernel would use as the source and remembers the answer.
+	 * one public or internal. {@link route} uses {@link Argus.Shared.Net.Route}
+	 * for the kernel preferred source, then maps it to one of {@link addresses}.
 	 * {@link public_ip} connects to {{{https://ifconfig.me}}} over IPv4.
 	 *
 	 * == Example ==
@@ -136,45 +136,11 @@ namespace Argus.Server.Net
 			if (this.unrouted.contains(key) || !this.ready) {
 				return null;
 			}
-			var af = Posix.AF_INET;
-			if (address.get_family() == GLib.SocketFamily.IPV6) {
-				af = Posix.AF_INET6;
-			} else if (address.get_family() != GLib.SocketFamily.IPV4) {
+			var inet = Argus.Shared.Net.Route.preferred_source(address);
+			if (inet == null) {
 				this.unrouted.add(key);
 				return null;
 			}
-			var length = 4;
-			if (af == Posix.AF_INET6) {
-				length = 16;
-			}
-			var raw = new uint8[length];
-			uint8* packed = raw;
-			if (Posix.inet_pton(af, key, packed) != 1) {
-				this.unrouted.add(key);
-				return null;
-			}
-			var destination = new Nl.Address(af, raw);
-			unowned Nl.Route? found = null;
-			if (Nl.Route.lookup(this.sock, destination, out found) != 0 || found == null) {
-				this.unrouted.add(key);
-				return null;
-			}
-			unowned Nl.Address? source = found.get_pref_src();
-			if (source == null || (source.get_family() != Posix.AF_INET &&
-				source.get_family() != Posix.AF_INET6) ||
-				(source.get_len() != 4 && source.get_len() != 16)) {
-				found.unref();
-				this.unrouted.add(key);
-				return null;
-			}
-			var family = GLib.SocketFamily.IPV4;
-			if (source.get_family() == Posix.AF_INET6) {
-				family = GLib.SocketFamily.IPV6;
-			}
-			var copy = new uint8[(int) source.get_len()];
-			GLib.Memory.copy((void*) copy, source.binary(), source.get_len());
-			found.unref();
-			var inet = new GLib.InetAddress.from_bytes(copy, family);
 			foreach (var item in this.addresses) {
 				if (!item.address.equal(inet)) {
 					continue;

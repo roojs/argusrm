@@ -38,9 +38,11 @@ namespace Argus.Controller
 	public class Window : Adw.ApplicationWindow
 	{
 		public Application app;
-		public Connection connection { get; set; default = new Connection(); }
-		public Argus.Shared.Registration.Data issued {
-			get; set; default = new Argus.Shared.Registration.Data();
+		public Argus.Controller.SQT.Server server {
+			get; set; default = new Argus.Controller.SQT.Server();
+		}
+		private Argus.Shared.Register registration {
+			get; set; default = new Argus.Shared.Register();
 		}
 		public string host { get; set; default = ""; }
 		/**
@@ -110,8 +112,7 @@ namespace Argus.Controller
 			this.reconnecting = false;
 			this.was_connected = true;
 			this.next_reconnect = 0;
-			this.connection = new Connection();
-			this.issued = new Argus.Shared.Registration.Data();
+			this.server = new Argus.Controller.SQT.Server();
 			this.title = "Argus Remote Manager " + Argus.VERSION;
 			var host_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 16) {
 				margin_top = 48,
@@ -144,8 +145,7 @@ namespace Argus.Controller
 		 * @param host the server that answered
 		 */
 		public void open(
-			Connection connection,
-			Argus.Shared.Registration.Data issued,
+			Argus.Controller.SQT.Server server,
 			string host
 		) {
 			if (this.connection_check_id != 0) {
@@ -155,17 +155,8 @@ namespace Argus.Controller
 			this.reconnecting = false;
 			this.was_connected = true;
 			this.next_reconnect = 0;
-			this.connection = connection;
-			this.issued = issued;
+			this.server = server;
 			this.host = host;
-			this.issued.name = connection.name;
-			this.issued.finished.connect((removed) => {
-				if (removed) {
-					this.app.quit();
-					return;
-				}
-				this.deregister_action.set_enabled(true);
-			});
 			this.title = "Argus RM " + Argus.VERSION;
 			var header = new Adw.HeaderBar();
 			this.title_label = new Gtk.Label("Argus RM " + Argus.VERSION) {
@@ -191,9 +182,39 @@ namespace Argus.Controller
 			this.pairing_dialog = new Dialog.Pairing(this);
 			var actions = new GLib.SimpleActionGroup();
 			this.deregister_action = new GLib.SimpleAction("deregister", null);
+			this.registration.remove_failed.connect((message) => {
+				this.deregister_action.set_enabled(true);
+				var failed = new Argus.Shared.Notice("Could not deregister", message);
+				failed.add_response("ok", "OK");
+				failed.present(this);
+			});
+			this.registration.remove_server_unreachable.connect((message) => {
+				this.deregister_action.set_enabled(true);
+				var down = new Argus.Shared.Notice("Could not deregister", message);
+				down.add_response("cancel", "Cancel");
+				down.add_response("local", "Deregister locally");
+				down.responded.connect((response) => {
+					if (response != "local") {
+						return;
+					}
+					this.deregister_action.set_enabled(false);
+					this.registration.client_db = this.app.client_db;
+					this.registration.remove_local(this.server);
+				});
+				down.present(this);
+			});
+			this.registration.remove_row_deleted.connect(() => {
+				var done = new Argus.Shared.Notice("Deleted okay", "");
+				done.add_response("ok", "OK");
+				done.closed.connect(() => {
+					this.app.quit();
+				});
+				done.present(this);
+			});
 			this.deregister_action.activate.connect(() => {
 				this.deregister_action.set_enabled(false);
-				this.issued.deregister(this, this.app.rpc);
+				this.registration.client_db = this.app.client_db;
+				this.registration.remove(this.server, this.app.rpc);
 			});
 			var register_action = new GLib.SimpleAction("register", null);
 			register_action.activate.connect(() => {
@@ -216,10 +237,7 @@ namespace Argus.Controller
 				tooltip_text = "Menu"
 			};
 			this.content_header.pack_start(menu_button);
-			var host_name = connection.name;
-			if (host_name == "" && connection.addresses.length > 0) {
-				host_name = connection.addresses[0];
-			}
+			var host_name = server.title;
 			if (host_name == "") {
 				host_name = "Argus RM";
 			}

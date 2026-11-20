@@ -73,11 +73,11 @@ namespace Argus.Controller.Tab
 				this.activate_action("win.register", null);
 			});
 			this.column_grid(this.store, true);
-			if (window.issued.client_certificate != "") {
+			if (window.server.pem_client_certificate != "") {
 				try {
 					var cert = new GLib.TlsCertificate.from_pem(
-						window.issued.client_certificate,
-						window.issued.client_certificate.length);
+						window.server.pem_client_certificate,
+						window.server.pem_client_certificate.length);
 					var mine = GLib.Checksum.compute_for_data(
 						GLib.ChecksumType.SHA256, cert.certificate.data);
 					this.grid.set_data("argus-controller-fingerprint", mine);
