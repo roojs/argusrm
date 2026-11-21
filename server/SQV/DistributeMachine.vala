@@ -112,6 +112,8 @@ namespace Argus.Server.SQV
 						AND
 							programs.name = $name
 						AND
+							programs.source = 'programs'
+						AND
 							programs.deleted_dt = 0
 						ORDER BY
 							programs.id DESC

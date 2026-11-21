@@ -85,7 +85,7 @@ namespace Argus.Controller.Tab.Asset
 				if (row == null) {
 					return;
 				}
-				this.store.load_machines(row.name);
+				this.store.load_machines(row.name, row.source);
 			});
 			this.store.machines_loaded.connect((name, rows) => {
 				var grouped = new Gee.HashMap<string, Gee.ArrayList<int32>>();

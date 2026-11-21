@@ -12,25 +12,13 @@
  */
 class RegistrationEnrollTest
 {
-	static int failures = 0;
-
-	static void note(bool ok, string message)
-	{
-		if (ok) {
-			GLib.print("ok %s\n", message);
-			return;
-		}
-		failures++;
-		GLib.printerr("fail %s\n", message);
-	}
-
 	static int main()
 	{
 		var root = "";
 		try {
 			root = GLib.DirUtils.make_tmp("argus-reg-enroll-XXXXXX");
 		} catch (GLib.Error e) {
-			GLib.printerr("fail temp dir: %s\n", e.message);
+			GLib.printerr("temp dir: %s\n", e.message);
 			return 1;
 		}
 		var db_path = GLib.Path.build_filename(root, "server.sqlite");
@@ -53,30 +41,37 @@ class RegistrationEnrollTest
 			name = reply.name,
 			store_dir = store_dir
 		};
-		note(reg.save(row), "Register.save succeeds");
-		var loaded = new Gee.ArrayList<Argus.Shared.SQT.Server>();
-		var int_binds = new Gee.HashMap<string, int>();
-		int_binds.set("deleted_dt", 0);
-		var text_binds = new Gee.HashMap<string, string>();
-		Argus.Shared.SQT.Server.query(db).selectWhere(
-			"WHERE deleted_dt = $deleted_dt", int_binds, text_binds, loaded);
-		note(loaded.size == 1, "one server row in SQLite");
-		note(loaded.size > 0 && loaded.get(0).port == reply.port, "SQLite port");
-		note(loaded.size > 0 && loaded.get(0).addresses == reply.addresses, "SQLite addresses");
-		var cred_path = GLib.Path.build_filename(store_dir, "certs.json");
-		note(GLib.FileUtils.test(cred_path, GLib.FileTest.EXISTS), "credential file written");
-		note(row.pem_private_key == reply.pem_private_key, "PEM kept on row after save");
-		var active = new Gee.ArrayList<Argus.Shared.SQT.Server>();
-		var empty_int = new Gee.HashMap<string, int>();
-		var empty_text = new Gee.HashMap<string, string>();
-		try {
-			Argus.Shared.SQT.Server.query(db).selectWhere(
-				"WHERE deleted_dt = 0", empty_int, empty_text, active);
-			note(true, "selectWhere with empty bind maps");
-		} catch (GLib.Error e) {
-			note(false, "selectWhere with empty bind maps (" + e.message + ")");
+		if (!reg.save(row)) {
+			GLib.printerr("Register.save failed\n");
+			return 1;
 		}
-		note(active.size == 1, "list active rows without bind placeholders");
-		return failures == 0 ? 0 : 1;
+		var reload = new SQ.Database(db_path, true);
+		Argus.Shared.SQT.Server.init_db(reload);
+		var on_disk = new Gee.ArrayList<Argus.Shared.SQT.Server>();
+		var disk_int = new Gee.HashMap<string, int>();
+		var disk_text = new Gee.HashMap<string, string>();
+		Argus.Shared.SQT.Server.query(reload).selectWhere(
+			"WHERE deleted_dt = 0", disk_int, disk_text, on_disk);
+		if (on_disk.size != 1) {
+			GLib.printerr(
+				"expected one server row on disk after backupDB, got %u\n",
+				on_disk.size);
+			return 1;
+		}
+		if (on_disk.get(0).port != reply.port ||
+				on_disk.get(0).addresses != reply.addresses) {
+			GLib.printerr("reloaded row does not match registration reply\n");
+			return 1;
+		}
+		var cred_path = GLib.Path.build_filename(store_dir, "certs.json");
+		if (!GLib.FileUtils.test(cred_path, GLib.FileTest.EXISTS)) {
+			GLib.printerr("credential file was not written\n");
+			return 1;
+		}
+		if (row.pem_private_key != reply.pem_private_key) {
+			GLib.printerr("PEM not kept on row after save\n");
+			return 1;
+		}
+		return 0;
 	}
 }

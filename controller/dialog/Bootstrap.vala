@@ -535,8 +535,13 @@ namespace Argus.Controller.Dialog
 						message = "The server did not return a connection.";
 					}
 					if (message == "This machine is already registered.") {
-						this.page(failed, message,
-							{ "Deregister locally", "Retry" }, { "local", "retry" });
+						this.page(
+							failed,
+							message + "\n\nThe server still lists this machine. " +
+								"Delete it from the agent list in Remote Manager, " +
+								"or clear the registration on this server.",
+							{ "Deregister locally", "Retry" },
+							{ "local", "retry" });
 						return;
 					}
 					this.page(failed, message,

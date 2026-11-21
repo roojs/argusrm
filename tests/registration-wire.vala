@@ -76,6 +76,25 @@ class RegistrationWireTest
 			as Argus.Shared.SQT.Server;
 		note(fail_parsed != null && fail_parsed.error == failure.error, "failure error round-trip");
 		note(!bootstrap_ready(fail_parsed), "Bootstrap rejects error row");
+		var hyphen_json = """
+{
+  "name" : "regtest-hyphen",
+  "port" : 817,
+  "addresses" : "127.0.0.1",
+  "error" : "",
+  "pem-private-key" : "-----BEGIN PRIVATE KEY-----\\ntest\\n-----END PRIVATE KEY-----\\n",
+  "pem-client-certificate" : "-----BEGIN CERTIFICATE-----\\ntest\\n-----END CERTIFICATE-----\\n",
+  "pem-ca-certificate" : "-----BEGIN CERTIFICATE-----\\nca\\n-----END CERTIFICATE-----\\n"
+}""";
+		Argus.Shared.SQT.Server? hyphen = null;
+		try {
+			hyphen = Json.gobject_from_data(typeof(Argus.Shared.SQT.Server), hyphen_json)
+				as Argus.Shared.SQT.Server;
+		} catch (GLib.Error e) {
+			note(false, "server-shaped kebab PEM JSON deserializes");
+		}
+		note(hyphen != null && hyphen.has_certificate,
+			"server-shaped kebab PEM JSON has_certificate");
 		var packed = OLLMrpc.val("o", issued);
 		var row = packed as Argus.Shared.SQT.Server;
 		note(row != null && row.pem_ca_certificate == issued.pem_ca_certificate,

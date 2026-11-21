@@ -1,8 +1,8 @@
 # Linux agent Gtk setup notice
 
-**Status:** ✅ closed 2026-11-21 — Phase 1 notice rules, loopback `probe_local`, Phase 4 actions landed; **Connect locally** calls `enroll_local_certificate`.
+**Status:** ✅ closed 2026-11-21 — Phase 1 notice rules, loopback `probe_local`, Phase 4 actions landed; **Connect locally** → [`LocalRegistration`](../../../agent/linux/LocalRegistration.vala).
 
-**Pointer:** [`agent/linux/Application.vala`](../../../agent/linux/Application.vala), [`shared/RegisterWindow.vala`](../../../shared/RegisterWindow.vala), [`agent/Connection.vala`](../../../agent/Connection.vala), [local registration certificate](2026-11-21-FIXED-local-agent-registration-certificate.md) (enroll API).
+**Pointer:** [`agent/linux/Application.vala`](../../../agent/linux/Application.vala), [`agent/linux/LocalRegistration.vala`](../../../agent/linux/LocalRegistration.vala), [`shared/RegisterWindow.vala`](../../../shared/RegisterWindow.vala), [2026-11-21-FIXED-agent-local-enroll-double-pkexec.md](2026-11-21-FIXED-agent-local-enroll-double-pkexec.md), [local registration certificate](2026-11-21-FIXED-local-agent-registration-certificate.md).
 
 **Polkit / docs:** [2026-11-21-FIXED-local-registration-docs-polkit.md](2026-11-21-FIXED-local-registration-docs-polkit.md) — ✔️ server Polkit + `docs/setup.md` §3.2.
 
@@ -14,7 +14,7 @@
 
 - ✔️ Setup **Notice** follows saved `server` row + link state (not `client.pem` alone); **Close**/**Restart** rules match the proposal tables.
 - ✔️ **Retry** / **Reconfigure** / service **Restart** via `ServiceManager`; no duplicate management hello on the Gtk path.
-- ✔️ **Connect locally** when loopback registration is up → `Register.enroll_local_certificate`.
+- ✔️ **Connect locally** when loopback management port is up → `LocalRegistration` (see double-pkexec fix log).
 
 ---
 

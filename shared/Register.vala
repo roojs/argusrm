@@ -19,6 +19,13 @@
 namespace Argus.Shared
 {
 	/**
+	 * Local enroll and related Gtk flows (not RPC numeric codes).
+	 */
+	public errordomain RegistrationError {
+		ALREADY_REGISTERED
+	}
+
+	/**
 	 * Certificate registration and deregistration with Argus.
 	 *
 	 * {@link try_connection} and {@link try_batch} enroll a machine;
@@ -170,7 +177,8 @@ namespace Argus.Shared
 		public string server_id { get; private set; default = ""; }
 
 		/**
-		 * ''127.0.0.1'' registration port is accepting TCP.
+		 * Co-located {@link Argus.SERVER_EXECUTABLE} and loopback
+		 * management port accept TCP.
 		 */
 		public bool local_registration { get; private set; default = false; }
 
@@ -199,15 +207,18 @@ namespace Argus.Shared
 		 */
 		public void probe_local()
 		{
+			this.local_registration = false;
+			if (!GLib.FileUtils.test(Argus.SERVER_EXECUTABLE, GLib.FileTest.IS_EXECUTABLE)) {
+				return;
+			}
 			GLib.SocketConnection conn;
 			try {
 				var client = new GLib.SocketClient() {
 					timeout = 2
 				};
 				conn = client.connect_to_host(
-					"127.0.0.1", (uint16) Argus.REGISTER_PORT, null);
+					"127.0.0.1", (uint16) Argus.SOCKET_PORT, null);
 			} catch (GLib.Error e) {
-				this.local_registration = false;
 				return;
 			}
 			try {
@@ -768,6 +779,7 @@ namespace Argus.Shared
 				GLib.warning("%s", e.message);
 				return false;
 			}
+			db.backupDB();
 			return true;
 		}
 

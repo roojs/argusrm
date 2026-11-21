@@ -184,15 +184,16 @@ namespace Argus.Controller.Store
 		 * replacing {@link items}.
 		 *
 		 * @param name exact ''programs.name''
+		 * @param source ''programs.source'', or empty for every source
 		 */
-		public void load_machines(string name)
+		public void load_machines(string name, string source = "")
 		{
 			if (name == "") {
 				return;
 			}
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
 				method = "Programs.machines",
-				args = OLLMrpc.args("s", name)
+				args = OLLMrpc.args("ss", name, source)
 			}, (obj, res) => {
 				OLLMrpc.Response response;
 				try {

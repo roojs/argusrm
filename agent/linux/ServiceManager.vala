@@ -131,7 +131,15 @@ namespace Argus.Agent.Linux
 			}
 		}
 
-		public void restart() throws GLib.Error
+		/**
+		 * Restart the agent service.
+		 *
+		 * @param wait_for_connected when true, block until DBus status is
+		 *   {@link ServiceStatus.CONNECTED} (controller-style). Gtk local
+		 *   registration passes false: cert save is enough; the service
+		 *   connects on its own schedule.
+		 */
+		public void restart(bool wait_for_connected = true) throws GLib.Error
 		{
 			string[] command = {};
 			if (this.systemctl != "") {
@@ -150,8 +158,9 @@ namespace Argus.Agent.Linux
 				throw new GLib.IOError.FAILED(
 					"Could not restart the Argus Remote Manager agent service");
 			}
+			var attempts = wait_for_connected ? 40 : 20;
 			var status = ServiceStatus.STOPPED;
-			for (var attempt = 0; attempt < 40; attempt++) {
+			for (var attempt = 0; attempt < attempts; attempt++) {
 				try {
 					status = this.status();
 				} catch (GLib.Error e) {
@@ -166,17 +175,24 @@ namespace Argus.Agent.Linux
 						status = ServiceStatus.STOPPED;
 					}
 				}
-				if (status == ServiceStatus.CONNECTED) {
-					return;
+				if (wait_for_connected && status != ServiceStatus.CONNECTED) {
+					GLib.Thread.usleep(250000);
+					continue;
 				}
-				GLib.Thread.usleep(250000);
+				if (!wait_for_connected && status == ServiceStatus.STOPPED) {
+					GLib.Thread.usleep(250000);
+					continue;
+				}
+				return;
 			}
 			if (status == ServiceStatus.STOPPED) {
 				throw new GLib.IOError.TIMED_OUT(
 					"Argus Remote Manager agent service did not start");
 			}
-			throw new GLib.IOError.TIMED_OUT(
-				"Argus Remote Manager agent service did not connect to the management server");
+			if (wait_for_connected) {
+				throw new GLib.IOError.TIMED_OUT(
+					"Argus Remote Manager agent service did not connect to the management server");
+			}
 		}
 	}
 }

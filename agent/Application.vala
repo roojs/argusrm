@@ -253,10 +253,10 @@ namespace Argus.Agent
 			});
 			this.osquery = new OSQuery.Execute(this);
 			this.shutdown.connect(() => {
-				if (this.client_db == null || !this.client_db.is_dirty) {
+				if (this.client_db == null) {
 					return;
 				}
-				this.client_db.backup_real();
+				this.client_db.backupDB();
 			});
 		}
 
@@ -286,6 +286,9 @@ namespace Argus.Agent
 			var path = GLib.Path.build_filename(this.data_dir, "server.sqlite");
 			this.client_db = new SQ.Database(path, true);
 			Argus.Shared.SQT.Server.init_db(this.client_db);
+			if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
+				this.client_db.backupDB();
+			}
 			return true;
 		}
 

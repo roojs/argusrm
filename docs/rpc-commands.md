@@ -86,7 +86,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: controller calls the server.
 - Arguments `s`: a SHA256 fingerprint, or a username on the Unix socket.
 - On the app socket the string must be that connection's certificate fingerprint. The matching controller row is deleted. A missing row is still success.
-- On the Unix socket the peer uid must be `0`. Sixty four lowercase hex digits delete that fingerprint. Anything else is a username, and only rows with a blank `ip` or `127.0.0.1` are deleted.
+- On the Unix socket the peer uid must be `0`. The literal `agent` deletes active managed-agent rows (`is_controller = 0`, `status = 1`) for this host's hostname (Gtk **Remove on server** after local data was cleared). Sixty four lowercase hex digits delete that fingerprint. Any other string is a username, and only controller rows with a blank `ip` or `127.0.0.1` are deleted.
 - An empty string is `fingerprint is required`. A Unix caller that is not root is `root is required`. A TLS fingerprint that is not the peer certificate is `fingerprint is required`.
 - ℹ️ The method is `server/Registration.vala`.
 
@@ -287,7 +287,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: controller calls the server.
 - Arguments `ii`: `agent_id`, `since`. `agent_id` zero is every agent, one row per program name. Greater than zero is that agent's stored rows, and the added-up columns are not filled. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
 - Reply `retval` `o`: an array of `Programs` rows. A host whose `agent_id` is not in `agent` is left out.
-- When `agent_id` and `since` are zero, the reply fills `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `min_version`, `max_version`, `installed`, and `uninstall_count`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
+- When `agent_id` and `since` are zero, the reply fills `source`, `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `architecture`, `scope`, `user_account`, `extra`, `min_version`, `max_version`, `installed`, and `uninstall_count`. Rows are grouped by `source` and `name`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
@@ -295,8 +295,8 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments `s`: exact `programs.name`.
-- Reply `retval` `o`: an array of live `Programs` rows (`deleted_dt = 0`) for that `name` whose `agent_id` is in `agent`, ordered by `agent_id`, with `uninstall_count` set to `1` when `uninstall_string` is non-empty.
+- Arguments `ss`: exact `programs.name`, then `programs.source`. An empty `source` matches every source.
+- Reply `retval` `o`: an array of live `Programs` rows (`deleted_dt = 0`) for that `name` and `source` whose `agent_id` is in `agent`, ordered by `agent_id`, with `uninstall_count` set to `1` when `uninstall_string` is non-empty.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Programs.vala`.
 

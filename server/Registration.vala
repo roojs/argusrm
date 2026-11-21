@@ -344,6 +344,33 @@ namespace Argus.Server
 					});
 					return;
 				}
+				if (fingerprint == "agent") {
+					var hostname = GLib.Environment.get_host_name();
+					var agent_binds = new Gee.HashMap<string, int>();
+					var agent_text = new Gee.HashMap<string, string>();
+					agent_binds.set("status", 1);
+					agent_binds.set("is_controller", 0);
+					agent_text.set("hostname", hostname);
+					try {
+						Argus.Shared.Agent.query(this.app.db).deleteWhere(
+							"WHERE status = $status AND is_controller = $is_controller " +
+								"AND hostname = $hostname",
+							agent_binds, agent_text);
+					} catch (GLib.Error e) {
+						request.reply(new OLLMrpc.Response() {
+							error = new OLLMrpc.Error.INTERNAL_ERROR(
+								"could not remove the agent registration")
+						});
+						return;
+					}
+					this.app.db.backupDB();
+					this.app.firewall.apply(
+						Agent.allowlist(this.app.db, this.app.interfaces));
+					request.reply(new OLLMrpc.Response() {
+						msg = "ok"
+					});
+					return;
+				}
 				var int_binds = new Gee.HashMap<string, int>();
 				var text_binds = new Gee.HashMap<string, string>();
 				int_binds.set("is_controller", 1);

@@ -54,6 +54,20 @@ namespace Argus.Agent
 
 		internal bool client_newer { get; private set; default = false; }
 
+		/**
+		 * Stop the reconnect loop (Gtk registration UI must not dial TLS).
+		 */
+		internal void stand_down()
+		{
+			this.attempt_generation++;
+			this.pending_tls_client = null;
+			this.tls_client = null;
+			if (this.scheduler_source_id != 0) {
+				GLib.Source.remove(this.scheduler_source_id);
+				this.scheduler_source_id = 0;
+			}
+		}
+
 		public Connection(Application application)
 		{
 			Object();

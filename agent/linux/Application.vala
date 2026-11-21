@@ -87,6 +87,8 @@ namespace Argus.Agent.Linux
 			}
 			debug_on = opt_debug;
 			debug_critical_enabled = opt_debug_critical;
+			OLLMrpc.rpc_register();
+			Argus.Shared.SQT.Server.rpc_register();
 			if (leftover.length > 1) {
 				command_line.printerr("argusrm-agent-gtk does not accept registration arguments.\n");
 				return 1;
@@ -204,27 +206,32 @@ namespace Argus.Agent.Linux
 			var session_wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
 			var session_runtime = GLib.Environment.get_variable("XDG_RUNTIME_DIR");
 			var session_xauth = GLib.Environment.get_variable("XAUTHORITY");
-			var env_bin = GLib.Environment.find_program_in_path("env");
-			string[] argv = { pkexec };
-			if (env_bin != null) {
-				argv += env_bin;
-				if (session_display != null && session_display != "") {
-					argv += "DISPLAY=" + session_display;
-				}
-				if (session_wayland != null && session_wayland != "") {
-					argv += "WAYLAND_DISPLAY=" + session_wayland;
-				}
-				if (session_runtime != null && session_runtime != "") {
-					argv += "XDG_RUNTIME_DIR=" + session_runtime;
-				}
-				if (session_xauth != null && session_xauth != "") {
-					argv += "XAUTHORITY=" + session_xauth;
-				}
+			var launcher = new GLib.SubprocessLauncher(GLib.SubprocessFlags.NONE);
+			if (session_display != null && session_display != "") {
+				launcher.setenv("DISPLAY", session_display, true);
 			}
-			argv += executable;
+			if (session_wayland != null && session_wayland != "") {
+				launcher.setenv("WAYLAND_DISPLAY", session_wayland, true);
+			}
+			if (session_runtime != null && session_runtime != "") {
+				launcher.setenv("XDG_RUNTIME_DIR", session_runtime, true);
+			}
+			if (session_xauth != null && session_xauth != "") {
+				launcher.setenv("XAUTHORITY", session_xauth, true);
+			}
+			if (debug_on) {
+				launcher.setenv("ARGUS_LOG_DIR", "/var/log/argusrm", true);
+			}
+			var argv = new string[] { pkexec, executable };
+			if (debug_on) {
+				argv += "--debug";
+			}
+			if (debug_critical_enabled) {
+				argv += "--debug-critical";
+			}
 			GLib.Subprocess proc;
 			try {
-				proc = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.NONE);
+				proc = launcher.spawnv(argv);
 			} catch (GLib.Error e) {
 				var failed = new Argus.Shared.Notice("Could not request administrator access", e.message);
 				failed.title = "Argus Remote Management Agent " + Argus.VERSION;
@@ -276,47 +283,6 @@ namespace Argus.Agent.Linux
 			return false;
 		}
 
-		private async void enroll_local_certificate(
-			ServiceManager service,
-			Argus.Shared.Register reg) throws GLib.Error
-		{
-			var pkexec = GLib.Environment.find_program_in_path("pkexec");
-			if (pkexec == null) {
-				throw new GLib.IOError.FAILED("pkexec was not found");
-			}
-			var executable = Argus.SERVER_EXECUTABLE;
-			if (!GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
-				throw new GLib.IOError.FAILED("argusrm-server is missing");
-			}
-			var launcher = new GLib.SubprocessLauncher(
-				GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
-			var proc = launcher.spawnv({
-				pkexec, executable,
-				"--give-me-a-certificate", "agent"
-			});
-			string? stdout_text = null;
-			string? stderr_text = null;
-			yield proc.communicate_utf8_async(null, null, out stdout_text, out stderr_text);
-			var output = stdout_text != null ? stdout_text.strip() : "";
-			if (output == "") {
-				throw new GLib.IOError.FAILED(
-					stderr_text != null && stderr_text != "" ?
-						stderr_text.strip() : "Administrator access was not granted.");
-			}
-			var data = Json.gobject_from_data(typeof(Argus.Shared.SQT.Server), output)
-				as Argus.Shared.SQT.Server;
-			if (data == null || data.error != "" || !data.has_certificate) {
-				throw new GLib.IOError.FAILED(
-					data != null && data.error != "" ? data.error : "Registration failed");
-			}
-			reg.server_row = data;
-			var row = new Argus.Agent.SQT.Server() { data_dir = this.data_dir };
-			if (!reg.save(row)) {
-				throw new GLib.IOError.FAILED("Could not save the server row");
-			}
-			service.restart();
-		}
-
 		/**
 		 * Register this machine from the desktop.
 		 *
@@ -330,6 +296,7 @@ namespace Argus.Agent.Linux
 		 */
 		private int registration()
 		{
+			this.server.stand_down();
 			var service = new ServiceManager();
 			try {
 				service.setup();
@@ -402,6 +369,12 @@ namespace Argus.Agent.Linux
 			if (saved_server && status == ServiceStatus.STOPPED) {
 				heading = "Argus agent is not running";
 				detail = "The Argus agent service is not running.";
+			}
+			if (saved_server && status == ServiceStatus.RUNNING && !client_newer) {
+				detail +=
+					"\n\nThe server still lists this machine. Delete it from the " +
+					"agent list in Remote Manager, or clear the registration " +
+					"on this server.";
 			}
 			var notice = new Argus.Shared.Notice(heading, detail);
 			notice.title = "Argus Remote Management Agent " + Argus.VERSION;
@@ -506,27 +479,7 @@ namespace Argus.Agent.Linux
 				return;
 			}
 			if (open == RegistrationOpen.LOCAL) {
-				var waiting = new Argus.Shared.Notice(
-					"Registering with the local management server", "");
-				waiting.title = "Argus Remote Management Agent " + Argus.VERSION;
-				waiting.present(null);
-				this.enroll_local_certificate.begin(service, reg, (obj, res) => {
-					try {
-						this.enroll_local_certificate.end(res);
-						waiting.close();
-						this.quit();
-					} catch (GLib.Error e) {
-						waiting.close();
-						var err = new Argus.Shared.Notice(
-							"Could not register locally", e.message);
-						err.title = "Argus Remote Management Agent " + Argus.VERSION;
-						err.add_response("ok", "OK");
-						err.closed.connect(() => {
-							this.quit();
-						});
-						err.present(null);
-					}
-				});
+				new LocalRegistration(this).start(service, reg);
 				return;
 			}
 			var window = new Argus.Shared.RegisterWindow() {

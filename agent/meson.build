@@ -42,12 +42,14 @@ if host_machine.system() == 'linux'
 		'OSQuery/RpmPackages.vala',
 		'OSQuery/Programs.vala',
 		'linux/Application.vala',
+		'linux/LocalRegistration.vala',
 		'linux/ServiceManager.vala',
 		'linux/Command.vala',
 		'linux/PackageMonitor.vala',
 		'linux/UserMonitor.vala',
 		'linux/UpdatesAvailable.vala',
 		'linux/Apt/History.vala',
+		'linux/Apt/PackageExeValidator.vala',
 		'linux/main.vala',
 	)
 	vala_args += [
@@ -142,6 +144,7 @@ else
 				'linux/UserMonitor.vala',
 				'linux/UpdatesAvailable.vala',
 				'linux/Apt/History.vala',
+				'linux/Apt/PackageExeValidator.vala',
 				'linux/main.vala',
 			),
 			dependencies: [

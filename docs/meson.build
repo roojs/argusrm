@@ -110,11 +110,13 @@ valadoc_sources += files(
   '../agent/OSQuery/RpmPackages.vala',
   '../agent/OSQuery/Programs.vala',
   '../agent/linux/Application.vala',
+  '../agent/linux/LocalRegistration.vala',
   # linux/Application.cli.vala repeats this class for the command-line build.
   '../agent/linux/ServiceManager.vala',
   '../agent/linux/Command.vala',
   '../agent/linux/PackageMonitor.vala',
   '../agent/linux/Apt/History.vala',
+  '../agent/linux/Apt/PackageExeValidator.vala',
   '../agent/linux/UserMonitor.vala',
   '../agent/linux/UpdatesAvailable.vala',
   # server sources

@@ -121,6 +121,12 @@ namespace Argus.Server.SQV
 				});
 				return;
 			}
+			var source_filter = "";
+			var live_source = "";
+			if (kind == "programs") {
+				source_filter = @"AND $(table).source = 'programs'";
+				live_source = "AND source = 'programs'";
+			}
 			var rows = new Gee.ArrayList<Argus.Shared.SQV.PackageMachine>();
 			var query = new SQ.Query<Argus.Shared.SQV.PackageMachine>(this.app.db, table);
 			var stmt = query.selectPrepare(@"
@@ -179,6 +185,7 @@ namespace Argus.Server.SQV
 					$(table).name = $$name
 				AND
 					$(table).deleted_dt = 0
+				$(source_filter)
 				AND
 					$(table).id = (
 						SELECT
@@ -189,6 +196,7 @@ namespace Argus.Server.SQV
 							agent_id = agent.id
 						AND
 							name = $$name
+						$(live_source)
 						AND
 							deleted_dt = 0
 					)

@@ -26,5 +26,50 @@ namespace Argus.Agent.OSQuery
 	 */
 	public class Programs : Argus.Shared.OSQuery.Programs, Package
 	{
+		/**
+		 * Query installed software and post the snapshot.
+		 *
+		 * {@link Argus.Shared.OSQuery.Programs.snapshot_sql} is
+		 * the union of registry programs, Store packages, Chocolatey,
+		 * third-party services, and startup items.
+		 *
+		 * @param application agent that holds the connection and
+		 *   {@link Application.packages_sent}
+		 * @return zero, or an {@link OLLMrpc.RpcErrorCode} value
+		 */
+		public int send(Application application)
+		{
+			Execute.init();
+			if (Execute.osqueryi == "") {
+				return 0;
+			}
+			var fresh = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
+			application.osquery.select(OLLMrpc.Bin.alias_to_gtype.get(this.rpc_name()),
+				Argus.Shared.OSQuery.Programs.snapshot_sql(), fresh);
+			if (application.packages_sent && fresh.size == 0) {
+				return 0;
+			}
+			var connection = application.connection;
+			if (connection == null) {
+				GLib.warning("server connection is not open");
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
+			try {
+				var response = connection.call(new OLLMrpc.Request() {
+					method = "OSQuery.sync",
+					args = OLLMrpc.args("so", this.rpc_name(), fresh)
+				});
+				if (response.error != null) {
+					GLib.debug("%s send failed %s", this.table_name(), response.error.message);
+					return response.error.code;
+				}
+			} catch (GLib.Error e) {
+				Application.connection_down = true;
+				GLib.warning("%s", e.message);
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
+			application.packages_sent = true;
+			return 0;
+		}
 	}
 }

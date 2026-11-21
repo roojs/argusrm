@@ -111,10 +111,13 @@ namespace Argus.Controller
 				var path = GLib.Path.build_filename(dir, "server.sqlite");
 				this.client_db = new SQ.Database(path, true);
 				Argus.Shared.SQT.Server.init_db(this.client_db);
+				if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
+					this.client_db.backupDB();
+				}
 			}
 			this.shutdown.connect(() => {
 				if (this.client_db != null) {
-					this.client_db.backup_real();
+					this.client_db.backupDB();
 				}
 			});
 		}
