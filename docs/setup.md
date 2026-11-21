@@ -55,21 +55,21 @@ argusrm-agent
 
 Polkit requests administrator access, then the registration window asks for the PIN.
 
-### 3.2 Register a local server
+### 3.2 Register on the server host
 
-Without a desktop, on a machine that can hear the server, run:
+When the managed machine is the server host, registration does not use the PIN from step 2. It uses a certificate from the running server.
+
+On that host, as root:
 
 ```sh
-sudo argusrm-agent
+sudo argusrm-server --give-me-a-certificate agent
 ```
 
-It prints:
+The command prints one JSON object on standard output (the agent server row).
 
-```
-Looking for a management server…
-Enter registration PIN: 123456
-Registration succeeded. The Argus Remote Manager agent is running and connected.
-```
+With a desktop, run `argusrm-agent` and choose **Connect locally** when the registration window offers it. Polkit may run the same certificate command, save the JSON, enable the agent service, and connect.
+
+Without a desktop, run the certificate command above, then complete registration the same way the graphical agent does after **Connect locally**: store that server row and start the agent service (`argusrm-agent.service` on systemd, or `/etc/init.d/argusrm-agent` on SysV init).
 
 ### 3.3 Register a remote server
 

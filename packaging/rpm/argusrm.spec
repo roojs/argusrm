@@ -114,6 +114,7 @@ systemctl daemon-reload
 %doc README.md docs/build.md
 %{_bindir}/argusrm-server
 %{_bindir}/argusrm-controller-cli
+%{_datadir}/polkit-1/actions/org.roojs.ArgusServer.register.policy
 %{_prefix}/lib/systemd/system/argusrm-server.service
 %{_sysconfdir}/init.d/argusrm-server
 %config(noreplace) %{_sysconfdir}/logrotate.d/argusrm-server

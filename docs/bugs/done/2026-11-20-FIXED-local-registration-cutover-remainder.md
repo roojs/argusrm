@@ -1,8 +1,19 @@
 # Local registration — what’s left after the cutover
 
-**Status:** ⏳ open
+**Status:** ✅ closed 2026-11-21 — remainder items verified in tree (see **Closure** below).
 
-**Background:** The main cutover (agents and controllers saving registration in SQLite instead of `connections.json` and ad‑hoc files) is done and archived in [done/2026-11-20-FIXED-local-registration-cutover.md](done/2026-11-20-FIXED-local-registration-cutover.md). This bug tracks the leftover polish and one bigger controller change.
+**Background:** The main cutover is [done/2026-11-20-FIXED-local-registration-cutover.md](done/2026-11-20-FIXED-local-registration-cutover.md). This file archived the post-cutover polish; **do not reopen** — new work needs a new bug with fences.
+
+## Closure (in tree)
+
+| Item | ✔️ |
+| --- | --- |
+| R1 deregister on `Register` + `Window` signals | `Register.remove` / `remove_local`; `controller/Window.vala`; `Registration.Data` gone; SQT wire via [2026-11-21-FIXED-registration-reply-use-sqt-server.md](done/2026-11-21-FIXED-registration-reply-use-sqt-server.md) |
+| R1.3 mirrored `download` / `addresses` on `Register` | Removed; `server_row` only |
+| R2 Bootstrap `reg.save` | `finish_registration(reg, row)` |
+| R3 comments | e.g. `Bootstrap.check()` SQLite doc; no `connections.json` in `*.vala` |
+| R4 `can_route_to` | `shared/SQT/Server.vala` `address_list()` |
+| Local Unix cert enroll (separate track) | [2026-11-21-FIXED-local-agent-registration-certificate.md](done/2026-11-21-FIXED-local-agent-registration-certificate.md) + gtk + polkit bugs |
 
 **Also see:** [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md) for reconnect/RDP/tray tail; management migration archived in [done/2026-11-19-FIXED-management-link-application-migration.md](done/2026-11-19-FIXED-management-link-application-migration.md).
 

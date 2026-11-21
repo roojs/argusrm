@@ -83,6 +83,19 @@ executable(
 	vala_args: server_vala_args,
 	install: true,
 )
+if host_machine.system() == 'linux'
+	register_policy = configure_file(
+		input: 'linux/org.roojs.ArgusServer.register.policy.in',
+		output: 'org.roojs.ArgusServer.register.policy',
+		configuration: {
+			'SERVER_EXECUTABLE': server_executable,
+		},
+	)
+	install_data(
+		register_policy,
+		install_dir: get_option('datadir') / 'polkit-1' / 'actions',
+	)
+endif
 allowlist_test = executable(
 	'argus-allowlist-test',
 	sources,

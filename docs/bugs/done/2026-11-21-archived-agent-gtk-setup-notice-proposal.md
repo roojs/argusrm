@@ -1,6 +1,6 @@
 # ARCHIVED — Linux agent GTK setup notice (long proposal)
 
-**Do not implement from this file.** Active bug: [2026-11-21-agent-gtk-notice.md](../2026-11-21-agent-gtk-notice.md). Kept for Phase 1–4 Vala fences and changelog only.
+**Do not implement from this file.** Closed: [2026-11-21-FIXED-agent-gtk-notice.md](2026-11-21-FIXED-agent-gtk-notice.md). Kept for Phase 1–4 Vala fences and changelog only.
 
 **Status:** 📦 archived 2026-11-21
 

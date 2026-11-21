@@ -1,10 +1,10 @@
 # Registration reply — align with `SQT.Server`
 
-**Status:** ✔️ implemented (agent)
+**Status:** ✅ closed 2026-11-21 — registration RPC and pkexec JSON use **`Argus.Shared.SQT.Server`**; server **`RegistrationData`** removed; **`Registration.Data`** off the build (orphan `shared/Registration/Data.vala` may be deleted as cleanup).
 
-**Background:** Local certificate issue still uses [`Argus.Shared.Registration.Data`](../../shared/Registration/Data.vala) and a parallel [`Argus.Server.RegistrationData`](../../server/RegistrationData.vala), both under wire name **`Argus.Registration.Data`**. Persisted enroll outcomes are [`Argus.Shared.SQT.Server`](../../shared/SQT/Server.vala). [`Bootstrap.finish_registration`](../../controller/dialog/Bootstrap.vala) and pkexec [`controller/Application.vala`](../../controller/Application.vala) copy fields between those shapes by hand.
+**Background:** Local certificate issue used parallel DTOs under **`Argus.Registration.Data`**. Shipped path: [`server/Registration.vala`](../../server/Registration.vala) **`retval`**, controller pkexec JSON, and [`Bootstrap.exe_root`](../../controller/dialog/Bootstrap.vala) all use [`Argus.Shared.SQT.Server`](../../shared/SQT/Server.vala) with no field-copy bridge.
 
-**Depends on:** [2026-11-20-local-registration-cutover-remainder.md](2026-11-20-local-registration-cutover-remainder.md) (enroll/deregister on `Register` + `SQT.Server` persistence).
+**Depends on:** [2026-11-20-local-registration-cutover-remainder.md](../2026-11-20-local-registration-cutover-remainder.md) (enroll/deregister on `Register` + `SQT.Server` persistence).
 
 **How to implement:** Fenced **Remove** / **Replace with** / **Add** only (see [`docs/guide-to-writing-plans.md`](../../docs/guide-to-writing-plans.md)). Implement in **Suggested order** after remainder work is on the branch.
 
