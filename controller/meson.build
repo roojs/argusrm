@@ -219,10 +219,11 @@ if host_machine.system() == 'linux'
 		],
 		install: false,
 	)
+	server_for_cli_test = join_paths(meson.project_build_root(), 'server', 'argusrm-server')
 	test(
 		'registration-controller-cli',
 		registration_controller_cli_test,
-		args: [argusrm_controller.full_path()],
+		args: [server_for_cli_test],
 		depends: argusrm_controller,
 		timeout: 60,
 		is_parallel: false,

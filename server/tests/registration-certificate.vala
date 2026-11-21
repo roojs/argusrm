@@ -186,8 +186,8 @@ namespace Argus.Server
 			note(row != null && row.name != "", "certificate name");
 			note(row != null && row.port > 0, "certificate port");
 			note(row != null && row.addresses != "", "certificate addresses");
-			note(row != null && row.addresses.index_of("127.0.0.1") < 0,
-				"certificate addresses are not loopback-only");
+			note(row != null && row.addresses.index_of("127.0.0.1") >= 0,
+				"certificate lists loopback for TLS local login");
 			note(row != null && row.has_certificate, "certificate PEM material");
 			note(row != null && row.error == "", "success has empty error");
 			if (row == null) {

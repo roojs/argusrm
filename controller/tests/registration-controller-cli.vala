@@ -8,7 +8,7 @@
  */
 
 /**
- * ''argusrm-controller --give-me-a-certificate'' without root: JSON on stdout, no crash.
+ * ''argusrm-server --give-me-a-certificate'' without root: JSON on stdout, no crash.
  */
 class RegistrationControllerCliTest
 {
@@ -29,7 +29,7 @@ class RegistrationControllerCliTest
 		var executable = args.length > 1 ? args[1] : "";
 		if (executable == "" ||
 			!GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
-			GLib.printerr("fail missing argusrm-controller path\n");
+			GLib.printerr("fail missing argusrm-server path\n");
 			return 1;
 		}
 		string[] argv = {};
@@ -40,13 +40,13 @@ class RegistrationControllerCliTest
 		argv += "WAYLAND_DISPLAY";
 		argv += executable;
 		argv += "--give-me-a-certificate";
-		argv += "regtest";
+		argv += "controller";
 		GLib.Subprocess proc;
 		try {
 			proc = new GLib.Subprocess.newv(argv,
 				GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
 		} catch (GLib.Error e) {
-			GLib.printerr("fail spawn controller: %s\n", e.message);
+			GLib.printerr("fail spawn server client: %s\n", e.message);
 			return 1;
 		}
 		string? stdout_text = null;

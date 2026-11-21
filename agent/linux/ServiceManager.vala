@@ -59,6 +59,18 @@ namespace Argus.Agent.Linux
 			return proxy.status();
 		}
 
+		public bool client_newer() throws GLib.Error
+		{
+			if (!this.running()) {
+				return false;
+			}
+			var connection = GLib.Bus.get_sync(GLib.BusType.SYSTEM);
+			var proxy = connection.get_proxy_sync<ServiceManagerInterface>(
+				"org.roojs.ArgusAgent", "/org/roojs/ArgusAgent",
+				GLib.DBusProxyFlags.NONE, null);
+			return proxy.client_newer();
+		}
+
 		public void setup() throws GLib.Error
 		{
 			if (this.systemctl != "") {

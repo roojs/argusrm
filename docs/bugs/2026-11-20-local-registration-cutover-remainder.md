@@ -4,7 +4,7 @@
 
 **Background:** The main cutover (agents and controllers saving registration in SQLite instead of `connections.json` and ad‑hoc files) is done and archived in [done/2026-11-20-FIXED-local-registration-cutover.md](done/2026-11-20-FIXED-local-registration-cutover.md). This bug tracks the leftover polish and one bigger controller change.
 
-**Also see:** [2026-11-19-management-link-application-migration.md](2026-11-19-management-link-application-migration.md) for reconnect/tray work — keep that separate from this bug.
+**Also see:** [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md) for reconnect/RDP/tray tail; management migration archived in [done/2026-11-19-FIXED-management-link-application-migration.md](done/2026-11-19-FIXED-management-link-application-migration.md).
 
 **How to implement:** Only apply code changes that have **Remove** / **Replace with** / **Add** fenced blocks below (same rules as `docs/guide-to-writing-plans.md`).
 
@@ -901,4 +901,4 @@ namespace Argus.Shared.Net
 4. **R2** — Bootstrap **`reg.save`**.
 5. **R3** — comments and grep.
 6. **R4** — **`can_route_to`** in **`SQT.Server.address_list()`** only.
-7. When deregister and config reads are in good shape, continue [management link migration](2026-11-19-management-link-application-migration.md).
+7. When deregister and config reads are in good shape, pick up reconnect/tray items in [desktop-status](2026-11-19-desktop-status-and-reconnect.md) (management migration closed — see [done/2026-11-19-FIXED-management-link-application-migration.md](done/2026-11-19-FIXED-management-link-application-migration.md)).

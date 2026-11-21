@@ -1,8 +1,8 @@
 # Agent: opened `SQ.Database` from every process lifetime
 
-**Status:** fixed in tree (Argus usage)
+**Status:** ✅ closed 2026-11-20 — agent opens `client_db` only when persistence is required; shutdown backup gated on that.
 
-**Component:** `agent/Application.vala`, `agent/linux/Application.vala`
+**Pointer:** [`agent/Application.vala`](../../../agent/Application.vala), [`agent/linux/Application.vala`](../../../agent/linux/Application.vala)
 
 ## Symptom
 

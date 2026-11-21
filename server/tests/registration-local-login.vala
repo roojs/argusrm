@@ -8,8 +8,8 @@
  */
 
 /**
- * End-to-end local login: temp server, real ''argusrm-controller
- * --give-me-a-certificate'', JSON like Bootstrap, TLS ''RPC-Daemon.hello''.
+ * End-to-end local login: temp server, real ''argusrm-server
+ * --give-me-a-certificate controller'', JSON like Bootstrap, TLS hello.
  *
  * Run as root: ''sudo meson test -C build registration-local-login --print-errorlogs''
  */
@@ -17,8 +17,6 @@ namespace Argus.Server
 {
 	class RegistrationLocalLoginTest
 	{
-		const string USERNAME = "reg-local-login";
-
 		static int failures = 0;
 
 		static void note(bool ok, string message)
@@ -69,15 +67,16 @@ namespace Argus.Server
 			return data.has_certificate;
 		}
 
-		static async int run(string controller_exe) throws GLib.Error
+		static async int run(string server_exe) throws GLib.Error
 		{
 			if (Posix.geteuid() != 0) {
 				GLib.printerr("fail registration-local-login requires root\n");
 				return 1;
 			}
-			if (controller_exe == "" ||
-				!GLib.FileUtils.test(controller_exe, GLib.FileTest.IS_EXECUTABLE)) {
-				GLib.printerr("fail missing argusrm-controller at %s\n", controller_exe);
+			var username = GLib.Environment.get_user_name();
+			if (server_exe == "" ||
+				!GLib.FileUtils.test(server_exe, GLib.FileTest.IS_EXECUTABLE)) {
+				GLib.printerr("fail missing argusrm-server at %s\n", server_exe);
 				return 1;
 			}
 			var data_dir = "";
@@ -133,7 +132,7 @@ namespace Argus.Server
 			var text_binds = new Gee.HashMap<string, string>();
 			var int_binds = new Gee.HashMap<string, int>();
 			int_binds.set("is_controller", 1);
-			text_binds.set("username", USERNAME);
+			text_binds.set("username", username);
 			Argus.Shared.Agent.query(app.db).deleteWhere(
 				"WHERE is_controller = $is_controller AND username = $username",
 				int_binds, text_binds);
@@ -142,17 +141,16 @@ namespace Argus.Server
 				GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
 			launcher.unsetenv("DISPLAY");
 			launcher.unsetenv("WAYLAND_DISPLAY");
-			GLib.print("step: controller --give-me-a-certificate\n");
+			GLib.print("step: server --give-me-a-certificate controller\n");
 			GLib.Subprocess proc;
 			try {
 				proc = launcher.spawnv({
-					controller_exe,
-					"--server-socket", sock,
-					"--give-me-a-certificate",
-					USERNAME
+					server_exe,
+					"--data-dir", data_dir,
+					"--give-me-a-certificate", "controller"
 				});
 			} catch (GLib.Error e) {
-				GLib.printerr("fail spawn controller: %s\n", e.message);
+				GLib.printerr("fail spawn server client: %s\n", e.message);
 				return 1;
 			}
 			string? stdout_text = null;
@@ -166,14 +164,14 @@ namespace Argus.Server
 			}
 			var output = stdout_text != null ? stdout_text.strip() : "";
 			var err_out = stderr_text != null ? stderr_text.strip() : "";
-			note(proc.get_if_exited(), "controller exits cleanly");
-			note(proc.get_successful(), "controller exit 0");
-			note(output != "", "controller stdout JSON");
+			note(proc.get_if_exited(), "client exits cleanly");
+			note(proc.get_successful(), "client exit 0");
+			note(output != "", "client stdout JSON");
 			if (err_out != "") {
-				GLib.printerr("controller stderr: %s\n", err_out);
+				GLib.printerr("client stderr: %s\n", err_out);
 			}
 			if (!proc.get_successful() || output == "") {
-				GLib.printerr("fail controller before TLS (see stderr above)\n");
+				GLib.printerr("fail client before TLS (see stderr above)\n");
 				return 1;
 			}
 			GLib.print("step: TLS listen and probe\n");
@@ -229,7 +227,8 @@ namespace Argus.Server
 			var endpoint = "tcp://" + dial_host + ":" + data.port.to_string();
 			var mgr = new OLLMrpc.Client("", "", endpoint) {
 				live_handles = true,
-				call_timeout_seconds = 5
+				call_timeout_seconds = 5,
+				force_localhost_tls = true
 			};
 			mgr.configure_tls.connect((tls) => {
 				tls.certificate = identity;
@@ -269,7 +268,7 @@ namespace Argus.Server
 			if (connected) {
 				var cleared = yield client.call(new OLLMrpc.Request() {
 					method = "Registration.deregister",
-					args = OLLMrpc.args("s", USERNAME)
+					args = OLLMrpc.args("s", username)
 				});
 				note(cleared.error == null, "deregister cleanup");
 			}
@@ -278,10 +277,10 @@ namespace Argus.Server
 
 		static int main(string[] args)
 		{
-			var controller = args.length > 1 ? args[1] : "";
+			var server_exe = args.length > 1 ? args[1] : "";
 			int code = 0;
 			var loop = new GLib.MainLoop();
-			run.begin(controller, (obj, res) => {
+			run.begin(server_exe, (obj, res) => {
 				try {
 					code = run.end(res);
 				} catch (GLib.Error e) {

@@ -54,13 +54,13 @@ namespace Argus.Server
 		}
 
 		/**
-		 * Generate one pending controller credential.
+		 * Generate one pending local credential on the Unix socket.
 		 *
-		 * An active controller for this login on this machine is
-		 * refused. A pending row for that same login is replaced.
+		 * Non-empty ''username'': controller ({@link is_controller} true).
+		 * Empty ''username'': managed agent on this host ({@link is_controller} false).
 		 *
 		 * @param request inbound RPC on the Unix socket
-		 * @param username controller operating-system login name
+		 * @param username controller operating-system login name, or empty for agent
 		 */
 		public void certificate(OLLMrpc.Request request, string username)
 		{
@@ -84,12 +84,6 @@ namespace Argus.Server
 				});
 				return;
 			}
-			if (username == "") {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST("username is required")
-				});
-				return;
-			}
 			if (GnuTLS.global_init() < 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INTERNAL_ERROR("could not generate certificate")
@@ -99,32 +93,62 @@ namespace Argus.Server
 			var key = GnuTLS.X509.PrivateKey.create();
 			var crt = GnuTLS.X509.Certificate.create();
 			var hostname = GLib.Environment.get_host_name();
-			var existing = new Gee.ArrayList<Argus.Shared.Agent>();
-			var found_binds = new Gee.HashMap<string, int>();
-			var found_text = new Gee.HashMap<string, string>();
-			found_binds.set("status", 1);
-			found_binds.set("is_controller", 1);
-			found_text.set("username", username);
-			found_text.set("hostname", hostname);
-			try {
-				Argus.Shared.Agent.query(this.app.db).selectWhere(
-					"WHERE status = $status AND is_controller = $is_controller " +
-						"AND username = $username AND hostname = $hostname",
-					found_binds, found_text, existing);
-			} catch (GLib.Error e) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INTERNAL_ERROR("could not read registration")
-				});
-				return;
+			var is_controller = username != "";
+			var common_name = hostname;
+			if (!is_controller) {
+				var existing_agent = new Gee.ArrayList<Argus.Shared.Agent>();
+				var agent_binds = new Gee.HashMap<string, int>();
+				var agent_text = new Gee.HashMap<string, string>();
+				agent_binds.set("status", 1);
+				agent_binds.set("is_controller", 0);
+				agent_text.set("hostname", hostname);
+				try {
+					Argus.Shared.Agent.query(this.app.db).selectWhere(
+						"WHERE status = $status AND is_controller = $is_controller " +
+							"AND hostname = $hostname",
+						agent_binds, agent_text, existing_agent);
+				} catch (GLib.Error e) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INTERNAL_ERROR("could not read registration")
+					});
+					return;
+				}
+				if (existing_agent.size > 0) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INVALID_REQUEST(
+							"This machine is already registered.")
+					});
+					return;
+				}
 			}
-			if (existing.size > 0) {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST(
-						"This machine is already registered.")
-				});
-				return;
+			if (is_controller) {
+				var existing = new Gee.ArrayList<Argus.Shared.Agent>();
+				var found_binds = new Gee.HashMap<string, int>();
+				var found_text = new Gee.HashMap<string, string>();
+				found_binds.set("status", 1);
+				found_binds.set("is_controller", 1);
+				found_text.set("username", username);
+				found_text.set("hostname", hostname);
+				try {
+					Argus.Shared.Agent.query(this.app.db).selectWhere(
+						"WHERE status = $status AND is_controller = $is_controller " +
+							"AND username = $username AND hostname = $hostname",
+						found_binds, found_text, existing);
+				} catch (GLib.Error e) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INTERNAL_ERROR("could not read registration")
+					});
+					return;
+				}
+				if (existing.size > 0) {
+					request.reply(new OLLMrpc.Response() {
+						error = new OLLMrpc.Error.INVALID_REQUEST(
+							"This machine is already registered.")
+					});
+					return;
+				}
+				common_name = username + "@" + hostname;
 			}
-			var common_name = username + "@" + hostname;
 			if (key.generate(GnuTLS.PKAlgorithm.RSA, 3072) < 0 ||
 				crt.set_version(3) < 0 ||
 				crt.set_key(key) < 0 ||
@@ -190,18 +214,25 @@ namespace Argus.Server
 				return;
 			}
 			var colon = this.app.socket.last_index_of(":");
-			var host = this.app.socket.substring(0, colon);
+			var host = colon > 0 ? this.app.socket.substring(0, colon) : this.app.socket;
 			var port = 0;
-			int.try_parse(this.app.socket.substring(colon + 1), out port);
-			var addresses_text = host;
+			if (colon > 0) {
+				int.try_parse(this.app.socket.substring(colon + 1), out port);
+			}
+			if (port < 1) {
+				port = Argus.SOCKET_PORT;
+			}
+			var addresses_text = "";
 			if (host == "0.0.0.0") {
 				addresses_text = string.joinv("\n", OLLMrpc.Transport.TcpListen.ifaces());
+			} else if (host != "" && host != "127.0.0.1") {
+				addresses_text = host;
 			}
-			if (addresses_text == "" || host == "127.0.0.1") {
-				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INTERNAL_ERROR("no routable management addresses")
-				});
-				return;
+			var loopback = "127.0.0.1";
+			if (addresses_text != "") {
+				addresses_text = loopback + "\n" + addresses_text;
+			} else {
+				addresses_text = loopback;
 			}
 			var data = new Argus.Shared.SQT.Server() {
 				pem_private_key = (string) private_key_buf,
@@ -214,11 +245,37 @@ namespace Argus.Server
 			try {
 				var issued = new GLib.TlsCertificate.from_pem(
 					data.pem_client_certificate, data.pem_client_certificate.length);
-				var fingerprint = GLib.Checksum.compute_for_data(GLib.ChecksumType.SHA256, issued.certificate.data);
+				var fingerprint = GLib.Checksum.compute_for_data(
+					GLib.ChecksumType.SHA256, issued.certificate.data);
 				var int_binds = new Gee.HashMap<string, int>();
 				var text_binds = new Gee.HashMap<string, string>();
-				int_binds.set("status", 0);
-				int_binds.set("is_controller", 1);
+				int_binds.set("status", is_controller ? 0 : 1);
+				int_binds.set("is_controller", is_controller ? 1 : 0);
+				if (!is_controller) {
+					text_binds.set("hostname", hostname);
+					Argus.Shared.Agent.query(this.app.db).deleteWhere(
+						"WHERE status = $status AND is_controller = $is_controller " +
+							"AND hostname = $hostname",
+						int_binds, text_binds);
+					var requester = hostname;
+					Argus.Shared.Agent.query(this.app.db).insert(
+						new Argus.Shared.Agent() {
+							fingerprint = fingerprint,
+							status = 1,
+							ip = "127.0.0.1",
+							created = new GLib.DateTime.now_utc().to_unix(),
+							requester = requester,
+							hostname = hostname,
+							is_controller = false
+						});
+					this.app.db.backupDB();
+					this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+					request.reply(new OLLMrpc.Response() {
+						retval = OLLMrpc.val("o", data),
+						msg = "ok"
+					});
+					return;
+				}
 				text_binds.set("username", username);
 				text_binds.set("hostname", hostname);
 				Argus.Shared.Agent.query(this.app.db).deleteWhere(

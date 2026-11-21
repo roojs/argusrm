@@ -14,6 +14,7 @@ namespace Argus
 	public const string SERVER_SYSCONFDIR = "@SERVER_SYSCONFDIR@";
 	public const string SERVER_DATA_DIR = "@SERVER_DATA_DIR@";
 	public const string CONTROLLER_EXECUTABLE = "@CONTROLLER_EXECUTABLE@";
+	public const string SERVER_EXECUTABLE = "@SERVER_EXECUTABLE@";
 	public const string LOG_DIR = "@LOG_DIR@";
 	public const int SOCKET_PORT = @SOCKET_PORT@;
 	public const int DOWNLOAD_PORT = @DOWNLOAD_PORT@;

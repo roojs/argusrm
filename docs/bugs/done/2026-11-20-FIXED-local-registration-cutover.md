@@ -46,7 +46,7 @@ Intro for hunks below: edits are **Remove** / **Replace with** / **Add** from th
 - 🔷 `⏳` **C1–C4** — controller cutover off `connections.json` / keyring DTO persistence onto `Store.Server` + `Controller.SQT.Server`. **🚫 No `Registration.Data` on the registration UI path** — `RegisterWindow` hands off `Argus.Shared.Register`; **`Controller.SQT.Server.save`** persists.
 - ℹ️ **`Registration.Data`** after cutover: **server RPC wire** (`Registration.deregister` fingerprint, `--give-me-a-certificate` JSON) until **C3.3** moves deregister onto `Window` + `server` only — **not** a client persistence DTO.
 - 🔷 `⏳` **A1–A5** — agent cutover off `data_dir/server`, loose PEM metadata files, and ad-hoc `checking_config` reads onto `client_db` + `Agent.SQT.Server` (one row — **no** `Agent.Store`; inline `query` + `load_certificates` at call sites).
-- ℹ️ Link **`mark_down()`** / tray migration — **[2026-11-19-management-link-application-migration.md](2026-11-19-management-link-application-migration.md)** after **A4** (`checking_config` uses the store).
+- ℹ️ Link **`mark_down()`** / tray migration — [desktop-status](../2026-11-19-desktop-status-and-reconnect.md) after **A4** (`checking_config` uses the store); migration log archived in [2026-11-19-FIXED-management-link-application-migration.md](2026-11-19-FIXED-management-link-application-migration.md).
 
 **In tree (do not re-design):** [`agent/SQT/Server.vala`](../../agent/SQT/Server.vala) PEM I/O; mirror controller for DB open pattern in [`controller/Application.vala`](../../controller/Application.vala).
 
@@ -1426,7 +1426,7 @@ Poll uses the **pending** reply already on `this` from the last `try_connection`
 
 ## L — link migration (separate bug)
 
-- ℹ️ **`Connection.mark_down()`**, **`attach_connection`**, tray **`notify::state`** — not in this cutover; tracked in [2026-11-19-management-link-application-migration.md](2026-11-19-management-link-application-migration.md).
+- ℹ️ **`Connection.mark_down()`**, **`attach_connection`**, tray **`notify::state`** — not in this cutover; see [desktop-status](../2026-11-19-desktop-status-and-reconnect.md).
 - 🔷 Unblock those items only after **A4** so `checking_config` does not read the legacy `server` file.
 
 ---

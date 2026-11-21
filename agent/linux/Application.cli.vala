@@ -21,6 +21,7 @@ namespace Argus.Agent.Linux
 	internal interface ServiceManagerInterface : GLib.Object
 	{
 		public abstract ServiceStatus status() throws GLib.DBusError, GLib.IOError;
+		public abstract bool client_newer() throws GLib.DBusError, GLib.IOError;
 	}
 
 	/**
@@ -142,6 +143,11 @@ namespace Argus.Agent.Linux
 		{
 			return this.connection == null || Argus.Agent.Application.connection_down ?
 				ServiceStatus.RUNNING : ServiceStatus.CONNECTED;
+		}
+
+		public bool client_newer() throws GLib.DBusError, GLib.IOError
+		{
+			return this.server != null && this.server.client_newer;
 		}
 
 		/**

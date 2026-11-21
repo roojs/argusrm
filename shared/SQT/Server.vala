@@ -123,7 +123,7 @@ namespace Argus.Shared.SQT
 						if (mark > 0) {
 							host = text.substring(0, mark);
 						}
-						if (host == "127.0.0.1" || host == "::1") {
+						if (host == "::1") {
 							continue;
 						}
 						if (!Argus.Shared.Net.Route.can_route_to(host)) {

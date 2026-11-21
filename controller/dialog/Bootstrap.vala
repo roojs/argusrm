@@ -380,8 +380,8 @@ namespace Argus.Controller.Dialog
 					return;
 				}
 				if (response == "register") {
-					this.exe_root("--give-me-a-certificate",
-						GLib.Environment.get_user_name(), "Registering server", "");
+					this.exe_root("--give-me-a-certificate", "controller",
+						"Registering server", "");
 					return;
 				}
 				if (response == "remote") {
@@ -406,8 +406,9 @@ namespace Argus.Controller.Dialog
 		/**
 		 * Run one privileged command and read its JSON.
 		 *
-		 * ''option'' is ''--give-me-a-certificate'' or
-		 * ''--deregister''. Standard output is
+		 * ''option'' is ''--give-me-a-certificate'' (via
+		 * {@link Argus.SERVER_EXECUTABLE}) or
+		 * ''--deregister'' on the controller. Standard output is
 		 * {@link Argus.Shared.SQT.Server}. A certificate
 		 * is stored by {@link finish_registration}. A deregister
 		 * with an empty error returns to the local-or-remote page.
@@ -435,26 +436,37 @@ namespace Argus.Controller.Dialog
 				return;
 			}
 			var executable = "";
-			try {
-				executable = GLib.FileUtils.read_link("/proc/self/exe");
-			} catch (GLib.FileError e) {
-				executable = "";
-			}
-			if (executable == ""
-				|| !GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
-				executable = Argus.CONTROLLER_EXECUTABLE;
+			if (option == "--give-me-a-certificate") {
+				executable = Argus.SERVER_EXECUTABLE;
+			} else {
+				try {
+					executable = GLib.FileUtils.read_link("/proc/self/exe");
+				} catch (GLib.FileError e) {
+					executable = "";
+				}
+				if (executable == ""
+					|| !GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
+					executable = Argus.CONTROLLER_EXECUTABLE;
+				}
 			}
 			if (!GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
-				this.page("Could not resolve argusrm-controller",
-					"argusrm-controller is missing.", {}, {});
+				var missing = option == "--give-me-a-certificate" ?
+					"argusrm-server" : "argusrm-controller";
+				this.page("Could not resolve " + missing,
+					missing + " is missing.", {}, {});
 				return;
 			}
 			this.page(waiting, "", {}, {});
 			string[] argv = {};
 			argv += pkexec;
 			argv += executable;
-			argv += option;
-			argv += value;
+			if (option == "--give-me-a-certificate") {
+				argv += "--give-me-a-certificate";
+				argv += value;
+			} else {
+				argv += option;
+				argv += value;
+			}
 			GLib.Subprocess proc;
 			try {
 				proc = new GLib.Subprocess.newv(argv,
@@ -805,7 +817,8 @@ namespace Argus.Controller.Dialog
 			var rpc = new OLLMrpc.Client("", "",
 				"tcp://" + host + ":" + server.port.to_string()) {
 				live_handles = true,
-				call_timeout_seconds = 5
+				call_timeout_seconds = 5,
+				force_localhost_tls = true
 			};
 			rpc.debug = false;
 			rpc.configure_tls.connect((tls) => {

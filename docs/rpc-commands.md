@@ -72,16 +72,13 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 ### `Registration.certificate`
 
 - Socket: the Unix socket.
-- Direction: privileged controller calls the server.
-- Arguments `s`: the controller user's operating-system login name.
-- The server requires Unix peer uid `0`.
-- An active controller row for the same login and hostname is refused with `This machine is already registered.`
-- Reply `retval` `o`: `Argus.Shared.SQT.Server`.
-  - PEM fields are `pem_private_key`, `pem_client_certificate`, `pem_ca_certificate`.
-  - `addresses` is one host per line (newline-separated text), not a JSON array.
-  - On failure the controller may print JSON with `error` set and other fields empty.
-  - The server stores a pending controller row with `status = 0`.
-- ℹ️ The method is `server/Registration.vala`.
+- Direction: privileged local enroll (`argusrm-server --give-me-a-certificate …`), root client to running daemon.
+- Arguments `s`: controller OS login name, or **empty** for a managed agent on this host.
+- Unix peer uid `0` required.
+- Refuses an active row for the same role and host (controller: username + hostname; agent: hostname).
+- Reply `retval` `o`: `Argus.Shared.SQT.Server` (PEM fields, `addresses`, optional `download` / `download_path` for agents).
+- Controller row: `status = 0` until first TLS hello. Agent row: `status = 1`.
+- ℹ️ [`server/Registration.vala`](../../server/Registration.vala).
 
 ### `Registration.deregister`
 

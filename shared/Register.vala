@@ -105,6 +105,302 @@ namespace Argus.Shared
 		 */
 		public Argus.Shared.SQT.Server? server_row { get; set; }
 
+		public enum Phase
+		{
+			IDLE,
+			BROWSING,
+			PROBING,
+			AWAITING_PIN,
+			ENROLLING,
+			SUCCEEDED,
+			FAILED
+		}
+
+		public Phase phase { get; private set; default = Phase.IDLE; }
+
+		/**
+		 * Registration host (from browse, manual entry, or
+		 * {@link hostport} setter).
+		 */
+		public string host { get; private set; default = ""; }
+
+		/**
+		 * Registration port.
+		 */
+		public uint16 port { get; private set; default = 0; }
+
+		/**
+		 * ''host:port'' view of {@link host} and {@link port}.
+		 *
+		 * Set parses a combined string; get returns ''host:port'' or
+		 * empty when either part is missing.
+		 */
+		public string hostport
+		{
+			owned get
+			{
+				if (this.host == "" || this.port < 1) {
+					return "";
+				}
+				return this.host + ":" + this.port.to_string();
+			}
+			set
+			{
+				var mark = value.last_index_of(":");
+				if (mark <= 0) {
+					this.host = "";
+					this.port = 0;
+					return;
+				}
+				var parsed = 0;
+				if (!int.try_parse(value.substring(mark + 1), out parsed) ||
+					parsed < 1 || parsed > 65535) {
+					this.host = "";
+					this.port = 0;
+					return;
+				}
+				this.host = value.substring(0, mark);
+				this.port = (uint16) parsed;
+			}
+		}
+
+		/**
+		 * Server id from the browse TXT record.
+		 */
+		public string server_id { get; private set; default = ""; }
+
+		/**
+		 * ''127.0.0.1'' registration port is accepting TCP.
+		 */
+		public bool local_registration { get; private set; default = false; }
+
+		/**
+		 * Label text for UI (status or last error).
+		 */
+		public string detail { get; private set; default = ""; }
+
+		/**
+		 * True when {@link connect} is polling a typed host instead of browse.
+		 */
+		public bool probe_by_address { get; private set; default = false; }
+
+		/**
+		 * Registration finished; {@link server_row} is set.
+		 */
+		public signal void enrolled();
+
+		private Browse browse = new Browse();
+		private uint browse_source = 0;
+		private uint poll_source = 0;
+		private int poll_token = 0;
+
+		/**
+		 * Update {@link local_registration} without starting a flow.
+		 */
+		public void probe_local()
+		{
+			GLib.SocketConnection conn;
+			try {
+				var client = new GLib.SocketClient() {
+					timeout = 2
+				};
+				conn = client.connect_to_host(
+					"127.0.0.1", (uint16) Argus.REGISTER_PORT, null);
+			} catch (GLib.Error e) {
+				this.local_registration = false;
+				return;
+			}
+			try {
+				conn.close();
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+			this.local_registration = true;
+		}
+
+		public void stop()
+		{
+			this.poll_token++;
+			if (this.browse_source != 0) {
+				GLib.Source.remove(this.browse_source);
+				this.browse_source = 0;
+			}
+			if (this.poll_source != 0) {
+				GLib.Source.remove(this.poll_source);
+				this.poll_source = 0;
+			}
+			this.browse.stop();
+			this.host = "";
+			this.port = 0;
+			this.server_id = "";
+			this.probe_by_address = false;
+			this.phase = Phase.IDLE;
+		}
+
+		public void start_browse()
+		{
+			this.stop();
+			this.phase = Phase.BROWSING;
+			this.detail = "Looking for a management server…";
+			this.browse.start();
+			this.browse_source = GLib.Timeout.add(200, this.on_mdns_poll);
+		}
+
+		public new void connect(string host, uint16 port)
+		{
+			this.stop();
+			this.probe_by_address = true;
+			this.host = host;
+			this.port = port;
+			this.server_id = "";
+			this.phase = Phase.PROBING;
+			this.detail = "Looking for a management server…";
+			this.poll_source = GLib.Timeout.add_seconds(20, this.probe);
+			this.probe();
+		}
+
+		/**
+		 * Send the PIN on the current {@link hostport}.
+		 *
+		 * @param pin six-digit registration PIN
+		 */
+		public async void submit_pin(string pin) throws GLib.Error
+		{
+			if (this.phase != Phase.AWAITING_PIN) {
+				throw new GLib.IOError.FAILED("registration is not waiting for a PIN");
+			}
+			this.phase = Phase.ENROLLING;
+			this.detail = "Registering…";
+			if (this.host == "" || this.port < 1) {
+				this.phase = Phase.FAILED;
+				this.detail = "Bad address";
+				return;
+			}
+			var requester = this.host_name != "" ?
+				this.host_name : GLib.Environment.get_host_name();
+			var code = this.try_connection(this.host, this.port, pin, requester);
+			if (code != 0) {
+				this.phase = Phase.FAILED;
+				this.detail = "Registration failed";
+				return;
+			}
+			this.phase = Phase.SUCCEEDED;
+			this.detail = "Registration succeeded";
+			this.enrolled();
+		}
+
+		/**
+		 * Poll mDNS while {@link phase} is ''BROWSING''.
+		 */
+		private bool on_mdns_poll()
+		{
+			if (this.phase != Phase.BROWSING) {
+				return false;
+			}
+			var hit = this.browse.poll();
+			if (hit == "") {
+				return true;
+			}
+			if (hit == "none") {
+#if ANDROID
+				if (!this.probe_by_address) {
+					this.detail = "No management server found";
+					this.browse.start();
+					return true;
+				}
+#endif
+				this.detail = "No management server found";
+				this.browse.start();
+				return true;
+			}
+			this.browse.stop();
+			this.browse_source = 0;
+			var nl = hit.index_of("\n");
+			if (nl <= 0 || !GLib.Uuid.string_is_valid(hit.substring(0, nl))) {
+				this.phase = Phase.FAILED;
+				this.detail = "No server id";
+				return false;
+			}
+			this.server_id = hit.substring(0, nl);
+			this.hostport = hit.substring(nl + 1);
+			this.probe_by_address = false;
+			this.phase = Phase.AWAITING_PIN;
+			this.detail = "Management server found. Enter the six-digit PIN.";
+			return false;
+		}
+
+		/**
+		 * Start one async TCP check to the registration port on
+		 * {@link host} and {@link port}. The 20 s timer calls this again until the
+		 * port answers or the flow is cancelled.
+		 *
+		 * @return true to leave the timer running
+		 */
+		private bool probe()
+		{
+			if (this.phase != Phase.PROBING) {
+				return false;
+			}
+			if (this.host == "" || this.port < 1) {
+				this.phase = Phase.FAILED;
+				this.detail = "Not active";
+				return false;
+			}
+			var token = this.poll_token;
+			var client = new GLib.SocketClient () {
+				timeout = 5
+			};
+			client.connect_to_host_async.begin(
+				this.host, this.port, null,
+				(obj, res) => {
+					this.on_probe_complete(token, client, res);
+				}
+			);
+			return true;
+		}
+
+		/**
+		 * Handle {@link GLib.SocketClient.connect_to_host_async} for
+		 * {@link probe}.
+		 *
+		 * @param token {@link poll_token} when the probe started
+		 * @param client socket client for this attempt
+		 * @param res async result
+		 */
+		private void on_probe_complete(
+			int token, GLib.SocketClient client, GLib.AsyncResult res)
+		{
+			if (token != this.poll_token) {
+				return;
+			}
+			if (this.phase != Phase.PROBING) {
+				return;
+			}
+			var opened = false;
+			try {
+				var conn = client.connect_to_host_async.end(res);
+				opened = true;
+				try {
+					conn.close();
+				} catch (GLib.Error close_error) {
+					GLib.warning("%s", close_error.message);
+				}
+			} catch (GLib.Error e) {
+				opened = false;
+			}
+			if (!opened) {
+				this.detail = "Not active";
+				return;
+			}
+			if (this.poll_source != 0) {
+				GLib.Source.remove(this.poll_source);
+				this.poll_source = 0;
+			}
+			this.poll_token++;
+			this.phase = Phase.AWAITING_PIN;
+			this.detail = "Okay";
+		}
+
 		/**
 		 * Deregister could not complete.
 		 */

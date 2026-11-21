@@ -52,6 +52,8 @@ namespace Argus.Agent
 
 		internal int64 connect_attempt_until { get; private set; }
 
+		internal bool client_newer { get; private set; default = false; }
+
 		public Connection(Application application)
 		{
 			Object();
@@ -289,6 +291,7 @@ namespace Argus.Agent
 						Argus.VERSION.collate_key_for_filename(),
 						server_version.collate_key_for_filename());
 					if (order > 0) {
+						this.client_newer = true;
 						retry = false;
 						notice = "The server is " + server_version +
 							". This client is " + Argus.VERSION + ".";
@@ -335,6 +338,7 @@ namespace Argus.Agent
 
 		private void on_connected()
 		{
+			this.client_newer = false;
 			Application.connection_down = false;
 			this.failure_detail = "";
 			this.reconnect_at = 0;
@@ -353,6 +357,7 @@ namespace Argus.Agent
 
 		private void enter_connected(OLLMrpc.Transport.TlsClient opened, bool watch)
 		{
+			this.client_newer = false;
 			this.pending_tls_client = null;
 			this.tls_client = opened;
 			if (watch) {
@@ -372,6 +377,7 @@ namespace Argus.Agent
 
 		private void schedule_retry(bool immediate)
 		{
+			this.client_newer = false;
 			this.pending_tls_client = null;
 			this.tls_client = null;
 			if (immediate) {

@@ -104,6 +104,7 @@ bindir = get_option('bindir')
 if not bindir.startswith('/')
 	bindir = get_option('prefix') / bindir
 endif
+server_executable = bindir / 'argusrm-server'
 agent_executable = bindir / 'argusrm-agent-gtk'
 agent_cli_executable = bindir / 'argusrm-agent'
 paths_vala = configure_file(
@@ -115,6 +116,7 @@ paths_vala = configure_file(
 		'SERVER_SYSCONFDIR': sysconfdir / 'argusrm',
 		'SERVER_DATA_DIR': localstatedir / 'lib' / 'argusrm',
 		'CONTROLLER_EXECUTABLE': bindir / 'argusrm-controller',
+		'SERVER_EXECUTABLE': server_executable,
 		'LOG_DIR': localstatedir / 'log' / 'argusrm',
 		'SOCKET_PORT': get_option('socket_port').to_string(),
 		'DOWNLOAD_PORT': get_option('download_port').to_string(),
@@ -131,7 +133,6 @@ agent_sysvinit = configure_file(
 		'LOG_DIR': localstatedir / 'log' / 'argusrm',
 	},
 )
-server_executable = bindir / 'argusrm-server'
 server_sysvinit = configure_file(
 	input: 'packaging/sysvinit/argusrm-server.in',
 	output: 'argusrm-server',
@@ -189,6 +190,7 @@ if host_machine.system() == 'linux'
 			files(
 				'agent/Rdp/Tunnel.vala',
 				'controller/Rdp/Viewer.vala',
+				'server/tests/rdp-relay-agent-application.vala',
 				'server/tests/rdp-relay.vala',
 			),
 			dependencies: server_deps,

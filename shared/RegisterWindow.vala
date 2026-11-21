@@ -75,6 +75,8 @@ namespace Argus.Shared
 		 */
 		public SQ.Database? client_db = null;
 
+		public Register reg { get; set; default = new Register (); }
+
 		public Gtk.Label listen_label;
 		private Gtk.Spinner service_spinner;
 		private Gtk.Entry pin_entry;
@@ -83,14 +85,8 @@ namespace Argus.Shared
 		private Gtk.Box address_box;
 		private Gtk.Box offer_box;
 		private Gtk.Button address_button;
-		private string found = "";
-		private uint browse_id = 0;
 		private uint close_id = 0;
 		private int close_remaining = 0;
-		private uint poll_id = 0;
-		private int poll_token = 0;
-		private bool by_address = false;
-		private Browse browse = new Browse();
 		private bool registering = false;
 
 		/**
@@ -161,6 +157,7 @@ namespace Argus.Shared
 
 		public RegisterWindow()
 		{
+			Object ();
 			this.title = "Connect to management server " + Argus.VERSION;
 			this.set_content_height(480);
 			this.set_content_width(520);
@@ -293,23 +290,10 @@ namespace Argus.Shared
 					this.listen_label.label = "Enter an IP address or domain";
 					return;
 				}
-				this.poll_token++;
-				this.by_address = true;
-				this.found = host + ":" + port.to_string();
-				this.server_id = "";
 				this.pin_box.visible = false;
-				this.listen_label.label = "Looking for a management server…";
-				if (this.browse_id != 0) {
-					GLib.Source.remove(this.browse_id);
-					this.browse_id = 0;
-				}
-				this.browse.stop();
-				if (this.poll_id != 0) {
-					GLib.Source.remove(this.poll_id);
-					this.poll_id = 0;
-				}
-				this.poll_id = GLib.Timeout.add_seconds(20, this.on_wait);
-				this.on_wait();
+				this.reg.data_dir = this.data_dir;
+				this.reg.client_db = this.client_db;
+				this.reg.connect(host, (uint16) port);
 			});
 			this.address_entry.activate.connect(() => {
 				connect_button.clicked();
@@ -339,93 +323,30 @@ namespace Argus.Shared
 			});
 			this.closed.connect(() => {
 				this.can_close = true;
-				this.by_address = false;
-				this.poll_token++;
-				if (this.browse_id != 0) {
-					GLib.Source.remove(this.browse_id);
-					this.browse_id = 0;
-				}
 				if (this.close_id != 0) {
 					GLib.Source.remove(this.close_id);
 					this.close_id = 0;
 				}
-				if (this.poll_id != 0) {
-					GLib.Source.remove(this.poll_id);
-					this.poll_id = 0;
-				}
-				var root = this.get_root() as Gtk.Window;
-				if (root != null) {
-					this.browse.stop();
-				}
+				this.reg.stop();
 				this.pin_entry.text = "";
 				this.dialog_closed();
 			});
-		}
-
-		/**
-		 * Check the typed address.
-		 *
-		 * A connection that opens is Okay and shows the six digits.
-		 * A refusal is Not active. The same check runs again in
-		 * twenty seconds until Okay, or until the dialog moves on.
-		 *
-		 * @return true to check again
-		 */
-		private bool on_wait()
-		{
-			if (!this.by_address || this.registering) {
-				return false;
-			}
-			var mark = this.found.last_index_of(":");
-			if (mark <= 0) {
-				this.listen_label.label = "Not active";
-				return true;
-			}
-			var parsed = 0;
-			if (!int.try_parse(this.found.substring(mark + 1), out parsed) || parsed < 1) {
-				this.listen_label.label = "Not active";
-				return true;
-			}
-			var token = this.poll_token;
-			var client = new GLib.SocketClient();
-			client.timeout = 5;
-			client.connect_to_host_async.begin(this.found.substring(0, mark),
-				(uint16) parsed, null, (obj, res) => {
-					if (token != this.poll_token) {
-						return;
-					}
-					var opened = false;
-					try {
-						var conn = client.connect_to_host_async.end(res);
-						opened = true;
-						try {
-							conn.close();
-						} catch (GLib.Error close_error) {
-							GLib.warning("%s", close_error.message);
-						}
-					} catch (GLib.Error e) {
-						opened = false;
-					}
-					if (token != this.poll_token) {
-						return;
-					}
-					if (!opened) {
-						this.listen_label.label = "Not active";
-						this.pin_box.visible = false;
-						return;
-					}
-					if (this.poll_id != 0) {
-						GLib.Source.remove(this.poll_id);
-						this.poll_id = 0;
-					}
-					this.poll_token++;
-					this.listen_label.label = "Okay";
+			this.reg.notify.connect((obj, pspec) => {
+				if (pspec.name != "phase" && pspec.name != "detail") {
+					return;
+				}
+				this.listen_label.label = this.reg.detail;
+				if (this.reg.phase == Register.Phase.AWAITING_PIN) {
+					this.server_id = this.reg.server_id;
 					this.offer_box.visible = false;
 					this.address_box.visible = false;
 					this.pin_box.visible = true;
 					this.pin_entry.grab_focus();
-				});
-			return true;
+				}
+				if (this.reg.phase == Register.Phase.FAILED) {
+					this.error_occurred(this.reg.detail);
+				}
+			});
 		}
 
 		/**
@@ -437,18 +358,17 @@ namespace Argus.Shared
 		 * service has the registration pipe open, stops the spinner
 		 * and listens for the management server.
 		 */
-		public void show_add()
+		public void show_add(bool connect_local = false)
 		{
+			this.reg.data_dir = this.data_dir;
+			this.reg.client_db = this.client_db;
 			if (this.use_pipe && !this.service_spinner.spinning) {
 				this.registration = null;
 				this.registration_name = "";
 				this.registered_url = null;
 				this.registered_addresses = "";
 				this.server_id = "";
-				this.found = "";
 				this.registering = false;
-				this.by_address = false;
-				this.poll_token++;
 				this.pin_entry.text = "";
 				this.pin_box.visible = false;
 				this.address_entry.text = "";
@@ -468,10 +388,7 @@ namespace Argus.Shared
 			this.registered_url = null;
 			this.registered_addresses = "";
 			this.server_id = "";
-			this.found = "";
 			this.registering = false;
-			this.by_address = false;
-			this.poll_token++;
 			this.pin_entry.text = "";
 			this.pin_box.visible = false;
 			this.address_entry.text = "";
@@ -479,74 +396,15 @@ namespace Argus.Shared
 			this.address_button.visible = true;
 			this.offer_box.visible = true;
 			this.listen_label.label = "Looking for a management server…";
-			if (this.poll_id != 0) {
-				GLib.Source.remove(this.poll_id);
-				this.poll_id = 0;
-			}
 			if (this.close_id != 0) {
 				GLib.Source.remove(this.close_id);
 				this.close_id = 0;
 			}
-			if (this.browse_id != 0) {
-				GLib.Source.remove(this.browse_id);
-				this.browse_id = 0;
+			if (connect_local) {
+				this.reg.connect("127.0.0.1", (uint16) Argus.REGISTER_PORT);
+				return;
 			}
-			this.browse_id = GLib.Idle.add(() => {
-				this.browse_id = 0;
-				var window = this.get_root() as Gtk.Window;
-				if (window == null) {
-					this.listen_label.label = "No management server found";
-					return false;
-				}
-				this.browse.start();
-				this.browse_id = GLib.Timeout.add(200, () => {
-					var hit = this.browse.poll();
-					if (hit == "") {
-						return true;
-					}
-					if (hit == "none") {
-#if ANDROID
-						if (!this.by_address) {
-							this.browse.start();
-							return true;
-						}
-#endif
-						var root = this.get_root() as Gtk.Window;
-						if (root != null) {
-							this.browse.stop();
-						}
-						this.browse_id = 0;
-						this.listen_label.label = "No management server found";
-						return false;
-					}
-					var root = this.get_root() as Gtk.Window;
-					if (root != null) {
-						this.browse.stop();
-					}
-					this.browse_id = 0;
-					var nl = hit.index_of("\n");
-					if (nl <= 0 || !GLib.Uuid.string_is_valid(hit.substring(0, nl))) {
-						this.listen_label.label = "No server id";
-						return false;
-					}
-					this.server_id = hit.substring(0, nl);
-					this.found = hit.substring(nl + 1);
-					this.by_address = false;
-					this.poll_token++;
-					if (this.poll_id != 0) {
-						GLib.Source.remove(this.poll_id);
-						this.poll_id = 0;
-					}
-					this.offer_box.visible = false;
-					this.address_box.visible = false;
-					this.listen_label.label =
-						"Management server found. Enter the six-digit PIN.";
-					this.pin_box.visible = true;
-					this.pin_entry.grab_focus();
-					return false;
-				});
-				return false;
-			});
+			this.reg.start_browse();
 		}
 
 		private async void request()
@@ -554,22 +412,18 @@ namespace Argus.Shared
 			if (this.registering) {
 				return;
 			}
-			if (this.found == "") {
+			if (this.reg.phase != Register.Phase.AWAITING_PIN) {
 				this.error_occurred("No management server found");
 				return;
 			}
-			var colon = this.found.last_index_of(":");
-			if (colon <= 0) {
+			if (this.reg.hostport == "") {
 				this.error_occurred("Bad address");
 				return;
 			}
-			var port = 0;
-			if (!int.try_parse(this.found.substring(colon + 1), out port)) {
-				this.error_occurred("Bad address");
-				return;
-			}
-			var host = this.found.substring(0, colon);
-			if (!this.by_address && !GLib.Uuid.string_is_valid(this.server_id)) {
+			var host = this.reg.host;
+			var port = (int) this.reg.port;
+			if (!this.reg.probe_by_address &&
+				!GLib.Uuid.string_is_valid(this.reg.server_id)) {
 				this.error_occurred("No server id");
 				return;
 			}
@@ -579,19 +433,15 @@ namespace Argus.Shared
 				return;
 			}
 			this.registering = true;
-			this.poll_token++;
-			if (this.poll_id != 0) {
-				GLib.Source.remove(this.poll_id);
-				this.poll_id = 0;
-			}
+			this.reg.data_dir = this.data_dir;
+			this.reg.client_db = this.client_db;
+			this.reg.is_controller = this.is_controller;
+			this.reg.username = this.username;
+			this.reg.hostname = this.hostname;
 			this.listen_label.label = "Registering…";
-			var who = GLib.Environment.get_host_name();
-#if ANDROID
-			who = this.browse.label;
-#endif
 			if (this.use_pipe) {
 				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-				this.send_pin(pin, this.found);
+				this.send_pin(pin, this.reg.hostport);
 			}
 			if (this.use_pipe) {
 				if (this.pipe_code != 0) {
@@ -617,43 +467,21 @@ namespace Argus.Shared
 				this.registration_succeeded();
 				return;
 			}
-			var registration = new Register() {
-				data_dir = this.data_dir,
-				client_db = this.client_db,
-				is_controller = this.is_controller,
-				username = this.username,
-				hostname = this.hostname
-			};
-			var force_register = false;
-			while (true) {
-				var code = registration.try_connection(
-					host, (uint16) port, pin, who);
-				if (code == (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED
-					&& !force_register) {
-					force_register = true;
-					continue;
-				}
-				if (code != 0) {
-					var label = "The management server rejected the request.";
-					if (code == 1) {
-						label = "This machine is already registered.";
-					}
-					switch (code) {
-						case (int) OLLMrpc.RpcErrorCode.CERT_NOT_REGISTERED:
-							label = "Not registered with the management server.";
-							break;
-
-						case (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR:
-							label = "Could not reach the management server.";
-							break;
-
-						default:
-							break;
-					}
-					this.error_occurred(label);
-					return;
-				}
-				var app_port = (int) port;
+			try {
+				yield this.reg.submit_pin(pin);
+			} catch (GLib.Error e) {
+				this.error_occurred(e.message);
+				this.registering = false;
+				return;
+			}
+			if (this.reg.phase != Register.Phase.SUCCEEDED) {
+				this.error_occurred(this.reg.detail);
+				this.registering = false;
+				return;
+			}
+			var registration = this.reg;
+			var app_port = port;
+			if (registration.server_row != null) {
 				var lines = registration.server_row.addresses.split("\n");
 				if (lines.length > 0) {
 					var listed = lines[0].strip();
@@ -667,11 +495,11 @@ namespace Argus.Shared
 				if (!this.remember(
 					registration, host, registration.server_row.port,
 					registration.server_row.addresses)) {
+					this.registering = false;
 					return;
 				}
-				this.registration_succeeded();
-				return;
 			}
+			this.registration_succeeded();
 		}
 
 		/**

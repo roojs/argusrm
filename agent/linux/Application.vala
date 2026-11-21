@@ -21,6 +21,15 @@ namespace Argus.Agent.Linux
 	internal interface ServiceManagerInterface : GLib.Object
 	{
 		public abstract ServiceStatus status() throws GLib.DBusError, GLib.IOError;
+		public abstract bool client_newer() throws GLib.DBusError, GLib.IOError;
+	}
+
+	private enum RegistrationOpen
+	{
+		NONE,
+		CONFIGURE,
+		LOCAL,
+		RECONFIGURE
 	}
 
 	internal class Application : Argus.Agent.Application, ServiceManagerInterface
@@ -262,6 +271,52 @@ namespace Argus.Agent.Linux
 			return ServiceStatus.CONNECTED;
 		}
 
+		public bool client_newer() throws GLib.DBusError, GLib.IOError
+		{
+			return false;
+		}
+
+		private async void enroll_local_certificate(
+			ServiceManager service,
+			Argus.Shared.Register reg) throws GLib.Error
+		{
+			var pkexec = GLib.Environment.find_program_in_path("pkexec");
+			if (pkexec == null) {
+				throw new GLib.IOError.FAILED("pkexec was not found");
+			}
+			var executable = Argus.SERVER_EXECUTABLE;
+			if (!GLib.FileUtils.test(executable, GLib.FileTest.IS_EXECUTABLE)) {
+				throw new GLib.IOError.FAILED("argusrm-server is missing");
+			}
+			var launcher = new GLib.SubprocessLauncher(
+				GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
+			var proc = launcher.spawnv({
+				pkexec, executable,
+				"--give-me-a-certificate", "agent"
+			});
+			string? stdout_text = null;
+			string? stderr_text = null;
+			yield proc.communicate_utf8_async(null, null, out stdout_text, out stderr_text);
+			var output = stdout_text != null ? stdout_text.strip() : "";
+			if (output == "") {
+				throw new GLib.IOError.FAILED(
+					stderr_text != null && stderr_text != "" ?
+						stderr_text.strip() : "Administrator access was not granted.");
+			}
+			var data = Json.gobject_from_data(typeof(Argus.Shared.SQT.Server), output)
+				as Argus.Shared.SQT.Server;
+			if (data == null || data.error != "" || !data.has_certificate) {
+				throw new GLib.IOError.FAILED(
+					data != null && data.error != "" ? data.error : "Registration failed");
+			}
+			reg.server_row = data;
+			var row = new Argus.Agent.SQT.Server() { data_dir = this.data_dir };
+			if (!reg.save(row)) {
+				throw new GLib.IOError.FAILED("Could not save the server row");
+			}
+			service.restart();
+		}
+
 		/**
 		 * Register this machine from the desktop.
 		 *
@@ -290,75 +345,138 @@ namespace Argus.Agent.Linux
 				this.hold();
 				return 0;
 			}
-			var certificate = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
-			if (GLib.FileUtils.test(certificate, GLib.FileTest.EXISTS)) {
-				Gtk.init();
-				var failed = false;
-				var configuring = false;
-				var offer_configure = false;
-				var heading = "Argus agent is running";
-				var detail = "Not connected to the management server.";
-				try {
-					switch (service.status()) {
-						case ServiceStatus.CONNECTED:
-							detail = "Connected to the management server.";
-							break;
-
-						case ServiceStatus.RUNNING:
-							offer_configure = true;
-							break;
-
-						case ServiceStatus.STOPPED:
-							heading = "Argus agent is not running";
-							detail = "The Argus agent service is not running.";
-							break;
-					}
-				} catch (GLib.Error e) {
-					detail = e.message;
-				}
-				var notice = new Argus.Shared.Notice(heading, detail);
-				notice.title = "Argus Remote Management Agent " + Argus.VERSION;
-				notice.add_response("close", "Close");
-				notice.add_response("restart", "Restart");
-				if (offer_configure) {
-					notice.add_response("configure", "Configure");
-				}
-				notice.responded.connect((response) => {
-					if (response == "configure") {
-						configuring = true;
-						return;
-					}
-					if (response != "restart") {
-						return;
-					}
-					try {
-						service.restart();
-					} catch (GLib.Error e) {
-						failed = true;
-						var error_notice = new Argus.Shared.Notice("Could not restart the Argus agent service", e.message);
-						error_notice.title = "Argus Remote Management Agent " + Argus.VERSION;
-						error_notice.add_response("ok", "OK");
-						error_notice.closed.connect(() => {
-							this.quit();
-						});
-						error_notice.present(null);
-					}
+			Gtk.init();
+			if (!this.ensure_client_db()) {
+				var failed = new Argus.Shared.Notice(
+					"Could not open the agent database",
+					"Run this application as administrator.");
+				failed.title = "Argus Remote Management Agent " + Argus.VERSION;
+				failed.add_response("ok", "OK");
+				failed.closed.connect(() => {
+					this.quit();
 				});
-				notice.closed.connect(() => {
-					if (configuring) {
-						this.present_registration(service);
-						return;
-					}
-					if (!failed) {
-						this.quit();
-					}
-				});
-				notice.present(null);
+				failed.present(null);
 				this.hold();
 				return 0;
 			}
-			Gtk.init();
-			this.present_registration(service);
+			var saved_server = false;
+			var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			Argus.Agent.SQT.Server.query(this.client_db).selectWhere(
+				"WHERE deleted_dt = 0", int_binds, text_binds, rows);
+			saved_server = rows.size > 0;
+			var reg = new Argus.Shared.Register() {
+				data_dir = this.data_dir,
+				client_db = this.client_db
+			};
+			reg.probe_local();
+			var status = ServiceStatus.STOPPED;
+			var client_newer = false;
+			var failure_detail = "";
+			try {
+				status = service.status();
+				client_newer = service.client_newer();
+			} catch (GLib.Error e) {
+				failure_detail = e.message;
+			}
+			if (saved_server && status == ServiceStatus.CONNECTED) {
+				var connected = new Argus.Shared.Notice(
+					"Argus agent is running",
+					"Connected to the management server.");
+				connected.title = "Argus Remote Management Agent " + Argus.VERSION;
+				connected.closed.connect(() => {
+					this.quit();
+				});
+				connected.present(null);
+				this.hold();
+				return 0;
+			}
+			var heading = "Argus agent is running";
+			var detail = failure_detail != "" ? failure_detail :
+				"Not connected to the management server.";
+			if (!saved_server) {
+				heading = "Argus agent is not configured";
+				detail = "No management server is configured.";
+			}
+			if (saved_server && status == ServiceStatus.STOPPED) {
+				heading = "Argus agent is not running";
+				detail = "The Argus agent service is not running.";
+			}
+			var notice = new Argus.Shared.Notice(heading, detail);
+			notice.title = "Argus Remote Management Agent " + Argus.VERSION;
+			var open = RegistrationOpen.NONE;
+			if (!saved_server) {
+				if (reg.local_registration) {
+					notice.add_response("local", "Connect locally");
+				}
+				notice.add_response("configure", "Configure");
+			}
+			if (saved_server && status == ServiceStatus.STOPPED) {
+				notice.add_response("restart", "Restart");
+			}
+			if (saved_server && status == ServiceStatus.RUNNING && client_newer) {
+				notice.add_response("restart", "Restart");
+			}
+			if (saved_server && status == ServiceStatus.RUNNING && !client_newer) {
+				notice.add_response("retry", "Retry");
+				notice.add_response("reconfigure", "Reconfigure");
+				if (reg.local_registration) {
+					notice.add_response("local", "Connect locally");
+				}
+			}
+			var restart_work = false;
+			notice.responded.connect((response) => {
+				switch (response) {
+					case "local":
+						open = RegistrationOpen.LOCAL;
+						notice.close();
+						return;
+
+					case "configure":
+						open = RegistrationOpen.CONFIGURE;
+						notice.close();
+						return;
+
+					case "reconfigure":
+						open = RegistrationOpen.RECONFIGURE;
+						notice.close();
+						return;
+
+					case "restart":
+					case "retry":
+						restart_work = true;
+						try {
+							service.restart();
+						} catch (GLib.Error e) {
+							restart_work = false;
+							var error_notice = new Argus.Shared.Notice(
+								"Could not restart the Argus agent service",
+								e.message);
+							error_notice.title =
+								"Argus Remote Management Agent " + Argus.VERSION;
+							error_notice.add_response("ok", "OK");
+							error_notice.closed.connect(() => {
+								this.quit();
+							});
+							error_notice.present(null);
+						}
+						return;
+
+					default:
+						return;
+				}
+			});
+			notice.closed.connect(() => {
+				if (open != RegistrationOpen.NONE) {
+					this.present_registration(service, reg, open);
+					return;
+				}
+				if (!restart_work) {
+					this.quit();
+				}
+			});
+			notice.present(null);
 			this.hold();
 			return 0;
 		}
@@ -370,7 +488,10 @@ namespace Argus.Agent.Linux
 		 *
 		 * @param service the agent service
 		 */
-		private void present_registration(ServiceManager service)
+		private void present_registration(
+			ServiceManager service,
+			Argus.Shared.Register reg,
+			RegistrationOpen open = RegistrationOpen.CONFIGURE)
 		{
 			if (!this.ensure_client_db()) {
 				var failed = new Argus.Shared.Notice(
@@ -384,33 +505,62 @@ namespace Argus.Agent.Linux
 				failed.present(null);
 				return;
 			}
+			if (open == RegistrationOpen.LOCAL) {
+				var waiting = new Argus.Shared.Notice(
+					"Registering with the local management server", "");
+				waiting.title = "Argus Remote Management Agent " + Argus.VERSION;
+				waiting.present(null);
+				this.enroll_local_certificate.begin(service, reg, (obj, res) => {
+					try {
+						this.enroll_local_certificate.end(res);
+						waiting.close();
+						this.quit();
+					} catch (GLib.Error e) {
+						waiting.close();
+						var err = new Argus.Shared.Notice(
+							"Could not register locally", e.message);
+						err.title = "Argus Remote Management Agent " + Argus.VERSION;
+						err.add_response("ok", "OK");
+						err.closed.connect(() => {
+							this.quit();
+						});
+						err.present(null);
+					}
+				});
+				return;
+			}
 			var window = new Argus.Shared.RegisterWindow() {
 				data_dir = this.data_dir,
-				client_db = this.client_db
+				client_db = this.client_db,
+				reg = reg
 			};
 			window.title = "Argus Remote Management Agent " + Argus.VERSION;
 			window.show_add();
 			window.certificate_received.connect(() => {
-				var reg = window.registration;
-				if (reg == null) {
+				var saved = window.registration;
+				if (saved == null || saved.server_row == null) {
 					window.error_occurred("registration failed: could not save");
 					return;
 				}
 				var row = new Argus.Agent.SQT.Server() {
-					data_dir = reg.data_dir != "" ? reg.data_dir : this.data_dir,
+					data_dir = saved.data_dir != "" ? saved.data_dir : this.data_dir,
 				};
-				if (!reg.save(row)) {
+				if (!saved.save(row)) {
 					window.error_occurred("registration failed: could not save");
 					return;
 				}
 				try {
 					service.restart();
 				} catch (GLib.Error e) {
-					window.error_occurred("Registered, but could not restart the Argus agent service: " + e.message);
+					window.error_occurred(
+						"Registered, but could not restart the Argus agent service: " +
+						e.message);
 					return;
 				}
 				GLib.Idle.add(() => {
-					window.listen_label.label = "Registration succeeded. The Argus agent is running and connected. This window will close in 10 seconds.";
+					window.listen_label.label =
+						"Registration succeeded. The Argus agent is running and connected. " +
+						"This window will close in 10 seconds.";
 					return false;
 				});
 			});

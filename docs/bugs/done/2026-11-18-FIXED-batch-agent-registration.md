@@ -1,8 +1,8 @@
 # Batch registration for Linux agents
 
-**Status:** ✔️ Phases 1–7 are in the tree. Reject and Accept are one step.
+**Status:** ✅ closed 2026-11-21 — phases 1–7 are in the tree (Reject, Accept, header X). **Not field-tested** on a real batch install yet.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md` (`Agent.offer`, `Agent.request_registration`), [`controller/dialog/Pairing.vala`](../../controller/dialog/Pairing.vala), [`controller/tab/Agent.vala`](../../controller/tab/Agent.vala), [`server/Agent.vala`](../../server/Agent.vala), [`server/Net/SslListen.vala`](../../server/Net/SslListen.vala), [`agent/Application.vala`](../../agent/Application.vala)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md` (`Agent.offer`, `Agent.request_registration`), [`controller/dialog/Pairing.vala`](../../../controller/dialog/Pairing.vala), [`controller/tab/Agent.vala`](../../../controller/tab/Agent.vala), [`server/Agent.vala`](../../../server/Agent.vala), [`server/Net/SslListen.vala`](../../../server/Net/SslListen.vala), [`agent/Application.vala`](../../../agent/Application.vala)
 
 ---
 
@@ -168,4 +168,4 @@ Review is the list with both buttons, then the X. Accept opens the app firewall 
 
 ## Next
 
-- ✔️ The batch registration flow is in the tree.
+- ⏳ Field-test a multi-machine Linux batch install (`argusrm-agent --request`) before treating this as production-ready.

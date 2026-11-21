@@ -143,6 +143,7 @@ namespace Argus.Server
 		private static string opt_socket;
 		private static string opt_download;
 		private static string opt_register;
+		private static string opt_give_certificate = "";
 		public static string opt_data_dir;
 		/**
 		 * Skip scripts git init and other slow paths (integration tests only).
@@ -160,6 +161,9 @@ namespace Argus.Server
 			{ "download", 0, 0, GLib.OptionArg.STRING, ref opt_download, "Download socket host:port", "HOST:PORT" },
 			{ "register", 0, 0, GLib.OptionArg.STRING, ref opt_register, "Registration socket host:port", "HOST:PORT" },
 			{ "data-dir", 0, 0, GLib.OptionArg.STRING, ref opt_data_dir, "Server state directory", "DIR" },
+			{ "give-me-a-certificate", 0, 0, GLib.OptionArg.STRING,
+				ref opt_give_certificate,
+				"Local Unix enrollment", "agent|controller" },
 			{ null }
 		};
 
@@ -254,12 +258,14 @@ namespace Argus.Server
 		public override int command_line(GLib.ApplicationCommandLine command_line)
 		{
 			OLLMrpc.rpc_register();
+			Argus.Shared.SQT.Server.rpc_register();
 			opt_debug = false;
 			opt_debug_critical = false;
 			opt_socket = "";
 			opt_download = "";
 			opt_register = "";
 			opt_data_dir = "";
+			opt_give_certificate = "";
 			var args = command_line.get_arguments();
 			var opt_context = new GLib.OptionContext(this.application_id);
 			opt_context.set_help_enabled(true);
@@ -281,6 +287,12 @@ namespace Argus.Server
 			}
 			debug_on = opt_debug;
 			debug_critical_enabled = opt_debug_critical;
+			if (opt_give_certificate != "") {
+				var code = this.issue_local_certificate(
+					command_line, opt_give_certificate);
+				Posix._exit(code);
+				return code;
+			}
 			this.socket = opt_socket;
 			this.download = opt_download;
 			this.registration = opt_register;
@@ -483,6 +495,87 @@ namespace Argus.Server
 		 * @param level log level
 		 * @param message log text
 		 */
+		private int issue_local_certificate(
+			GLib.ApplicationCommandLine command_line,
+			string role)
+		{
+#if LINUX
+			if (Posix.geteuid() != 0) {
+				command_line.print("%s\n", Json.gobject_to_data(
+					new Argus.Shared.SQT.Server() {
+						error = "root is required"
+					}, null));
+				return 1;
+			}
+#else
+			command_line.print("%s\n", Json.gobject_to_data(
+				new Argus.Shared.SQT.Server() {
+					error = "local certificate issue is Linux only"
+				}, null));
+			return 1;
+#endif
+			if (role != "agent" && role != "controller") {
+				command_line.print("%s\n", Json.gobject_to_data(
+					new Argus.Shared.SQT.Server() {
+						error = "use --give-me-a-certificate agent or controller"
+					}, null));
+				return 1;
+			}
+			var username = role == "controller" ?
+				GLib.Environment.get_user_name() : "";
+			var data_dir = opt_data_dir != "" ?
+				opt_data_dir : Argus.SERVER_DATA_DIR;
+			var sock = GLib.Path.build_filename(data_dir, "argus.sock");
+			var loop = new GLib.MainLoop();
+			var exit_code = 1;
+			var rpc = new OLLMrpc.Client("", "", sock) {
+				live_handles = true,
+				call_timeout_seconds = 5
+			};
+			rpc.debug = false;
+			rpc.connect.begin(new OLLMrpc.Request() {
+				method = "RPC-Daemon.hello",
+				args = OLLMrpc.args("iss", 1, "argusrm-server", Argus.VERSION)
+			}, null, (obj, res) => {
+				try {
+					if (!rpc.connect.end(res)) {
+						throw new GLib.IOError.FAILED(rpc.connect_error);
+					}
+				} catch (GLib.Error e) {
+					command_line.print("%s\n", Json.gobject_to_data(
+						new Argus.Shared.SQT.Server() {
+							error = e.message
+						}, null));
+					loop.quit();
+					return;
+				}
+				rpc.call.begin(new OLLMrpc.Request() {
+					method = "Registration.certificate",
+					args = OLLMrpc.args("s", username)
+				}, (call_obj, call_res) => {
+					try {
+						var response = rpc.call.end(call_res);
+						if (response.error != null) {
+							throw new GLib.IOError.FAILED(
+								response.error.message);
+						}
+						command_line.print("%s\n", Json.gobject_to_data(
+							(Argus.Shared.SQT.Server) response.retval, null));
+						exit_code = 0;
+					} catch (GLib.Error e) {
+						command_line.print("%s\n", Json.gobject_to_data(
+							new Argus.Shared.SQT.Server() {
+								error = e.message
+							}, null));
+					}
+					loop.quit();
+					return;
+				});
+			});
+			loop.run();
+			return exit_code;
+		}
+
 		private static void debug_log(string? domain, GLib.LogLevelFlags level, string message)
 		{
 			if (debug_log_in_progress) {

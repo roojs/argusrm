@@ -1,6 +1,6 @@
 # Client `selectWhere` with null bind maps
 
-**Status:** fixed
+**Status:** ✅ closed 2026-11-20 — `selectWhere` call sites pass empty bind maps, not `null`.
 
 ## Symptom
 
@@ -83,7 +83,7 @@ Spawns a temp server, runs the **built** `argusrm-controller --server-socket …
 
 ## TLS hello on loopback (2026-11-20)
 
-Local login: cert on Unix `argus.sock` only; management probes use interface IPs from the certificate JSON (no `127.0.0.1` fallback). See [2026-11-20-ollmrpc-loopback-plain-tcp.md](2026-11-20-ollmrpc-loopback-plain-tcp.md).
+Local login: cert on Unix `argus.sock` only; management probes use interface IPs from the certificate JSON (no `127.0.0.1` fallback). See [2026-11-20-ollmrpc-loopback-plain-tcp.md](../2026-11-20-ollmrpc-loopback-plain-tcp.md).
 
 ## Related — local login after fix
 

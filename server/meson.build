@@ -33,6 +33,7 @@ server_vala_args = [
 	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
 	'--pkg', 'gnutls', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
 	'--pkg', 'libgit2-glib-1.0', '--pkg', 'posix',
+	'-D', 'LINUX',
 ]
 sources = files(
 	'namespace.vala',
@@ -169,22 +170,24 @@ apt_depends_test = executable(
 	install: false,
 )
 test('apt-depends', apt_depends_test, timeout: 30)
-registration_certificate_test = executable(
-	'argus-registration-certificate',
-	sources,
-	files('tests/registration-certificate.vala'),
-	dependencies: deps,
-	c_args: ocsqlite_c_args,
-	export_dynamic: true,
-	vala_args: server_vala_args,
-	install: false,
-)
-test(
-	'registration-certificate',
-	registration_certificate_test,
-	timeout: 30,
-	is_parallel: false,
-)
+if host_machine.system() == 'linux'
+	registration_certificate_test = executable(
+		'argus-registration-certificate',
+		sources,
+		files('tests/registration-certificate.vala'),
+		dependencies: deps + [shared_register_dep],
+		c_args: ocsqlite_c_args,
+		export_dynamic: true,
+		vala_args: server_vala_args,
+		install: false,
+	)
+	test(
+		'registration-certificate',
+		registration_certificate_test,
+		timeout: 30,
+		is_parallel: false,
+	)
+endif
 registration_local_login_test = executable(
 	'argus-registration-local-login',
 	sources,
@@ -195,11 +198,11 @@ registration_local_login_test = executable(
 	vala_args: server_vala_args,
 	install: false,
 )
-controller_for_test = join_paths(meson.project_build_root(), 'controller', 'argusrm-controller')
+server_for_local_login = join_paths(meson.project_build_root(), 'server', 'argusrm-server')
 test(
 	'registration-local-login',
 	registration_local_login_test,
-	args: [controller_for_test],
+	args: [server_for_local_login],
 	timeout: 30,
 	is_parallel: false,
 )

@@ -1,6 +1,8 @@
 # OLLMrpc: `tcp://127.0.0.1` skips TLS while `configure_tls` is in use
 
-**Status:** open (upstream libocrpc / OLLMchat)
+**Status:** mitigated in Argus — set `force_localhost_tls` on TLS management clients; upstream `OLLMrpc.Client.force_localhost_tls`
+
+**Upstream log:** `OLLMchat/docs/bugs/2026-11-21-loopback-tcp-tls-option.md`
 
 **Component:** `OLLMchat/libocrpc/Client.vala` — `OLLMrpc.Client.connect`
 
@@ -31,14 +33,12 @@ Run the TLS handshake on TCP when **either** the path is not loopback **or** `co
 
 ## Argus policy (no libocrpc patch from this repo)
 
-**Local login does not use loopback for management.**
+**Local login** issues certificates with **`127.0.0.1`** in `addresses` (first line). Bootstrap sets **`force_localhost_tls`** on the management `OLLMrpc.Client`. Plain loopback remains for Windows tray agents without that flag.
 
 | Step | Transport |
 |------|-----------|
 | Issue certificate (`pkexec … --give-me-a-certificate`) | Unix `argus.sock` only |
-| Open main window (probe + `use`) | Saved **interface** addresses from `Registration.certificate`, never fabricated `127.0.0.1` |
-
-`address_list()` skips `127.0.0.1` / `::1` for probes. Do **not** rename dial targets to `localhost` to dodge libocrpc.
+| Open main window (probe + `use`) | Prefer **`127.0.0.1`** when listed; TLS via **`force_localhost_tls`** |
 
 ## Evidence
 

@@ -22,8 +22,9 @@ namespace Argus.Controller
 	 * Controller for Argus.
 	 *
 	 * With no command on a desktop, {@link Dialog.Bootstrap} checks saved
-	 * connections and may open {@link Window}. ''--give-me-a-certificate''
-	 * issues the local login certificate. A registration PIN, the
+	 * connections and may open {@link Window}. Local login certificate
+	 * issue is ''argusrm-server --give-me-a-certificate'' (see
+	 * {@link Dialog.Bootstrap}). A registration PIN, the
 	 * agent list, and a command are ''argusrm-controller-cli''.
 	 *
 	 * == Example ==
@@ -35,7 +36,6 @@ namespace Argus.Controller
 	 */
 	public class Application : GLib.Application
 	{
-		public static string give_certificate;
 		public static string deregister_name;
 		/** Set by ''--server-socket'' for CLI registration RPC. */
 		public static string opt_server_socket = "";
@@ -62,7 +62,6 @@ namespace Argus.Controller
 		private const GLib.OptionEntry[] app_options = {
 			{ "debug", 'd', 0, GLib.OptionArg.NONE, ref opt_debug, "Enable debug output", null },
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
-			{ "give-me-a-certificate", 0, 0, GLib.OptionArg.STRING, ref give_certificate, "Issue a local controller certificate", "USERNAME" },
 			{ "deregister", 0, 0, GLib.OptionArg.STRING, ref deregister_name, "Username or fingerprint to deregister", "NAME" },
 			{ "server-socket", 0, 0, GLib.OptionArg.STRING, ref opt_server_socket,
 				"Unix socket for registration RPC (default: server data dir)", "PATH" },
@@ -126,8 +125,8 @@ namespace Argus.Controller
 		 * ''--debug'' shows log lines on stderr. No flag on a desktop
 		 * loads ''/argusrm/style.css'', the Windows tab icon, and
 		 * the application icon, then opens
-		 * {@link Dialog.Bootstrap}. ''--give-me-a-certificate''
-		 * issues the local login certificate. No desktop tells you to
+		 * {@link Dialog.Bootstrap}. ''--deregister'' removes a local
+		 * controller row. No desktop tells you to
 		 * run ''argusrm-controller-cli''. The Unix socket is
 		 * ''argus.sock'' under {@link Argus.SERVER_DATA_DIR}.
 		 *
@@ -144,7 +143,6 @@ namespace Argus.Controller
 			Argus.Shared.SQT.rpc_register();
 			Argus.Shared.SQV.rpc_register();
 			Argus.Controller.Command.rpc_register();
-			give_certificate = "";
 			deregister_name = "";
 			opt_server_socket = "";
 			opt_debug = false;
@@ -168,11 +166,7 @@ namespace Argus.Controller
 			}
 			debug_on = opt_debug;
 			debug_critical_enabled = opt_debug_critical;
-			if (give_certificate != "" && deregister_name != "") {
-				command_line.printerr("Use one of --give-me-a-certificate or --deregister.\n");
-				return 1;
-			}
-			if (give_certificate == "" && deregister_name == "") {
+			if (deregister_name == "") {
 				var display = GLib.Environment.get_variable("DISPLAY");
 				var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
 				if ((display == null || display == "") && (wayland == null || wayland == "")) {
@@ -247,15 +241,9 @@ namespace Argus.Controller
 				this.loop.quit();
 				return;
 			}
-			var method = "Registration.certificate";
-			var call_args = OLLMrpc.args("s", give_certificate);
-			if (deregister_name != "") {
-				method = "Registration.deregister";
-				call_args = OLLMrpc.args("s", deregister_name);
-			}
 			this.rpc.call.begin(new OLLMrpc.Request() {
-				method = method,
-				args = call_args
+				method = "Registration.deregister",
+				args = OLLMrpc.args("s", deregister_name)
 			}, (call_obj, call_res) => {
 				try {
 					var response = this.rpc.call.end(call_res);
@@ -267,13 +255,7 @@ namespace Argus.Controller
 						this.loop.quit();
 						return;
 					}
-					if (deregister_name != "") {
-						this.cli.print("%s\n", Json.gobject_to_data(new Argus.Shared.SQT.Server(), null));
-						this.code = 0;
-						this.loop.quit();
-						return;
-					}
-					this.cli.print("%s\n", Json.gobject_to_data((Argus.Shared.SQT.Server) response.retval, null));
+					this.cli.print("%s\n", Json.gobject_to_data(new Argus.Shared.SQT.Server(), null));
 				} catch (GLib.Error e) {
 					var data = new Argus.Shared.SQT.Server() {
 						error = e.message
