@@ -327,6 +327,7 @@ namespace Argus.Controller
 			/* Monotonic time is microseconds. Try the connection again in 30 seconds. */
 			this.next_reconnect = now + (int64) 30 * 1000000;
 			this.reconnecting = true;
+			rpc.disconnect();
 			rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
 				args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)

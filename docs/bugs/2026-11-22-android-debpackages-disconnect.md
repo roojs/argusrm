@@ -50,11 +50,10 @@
 - ⏳ Re-test phone **DebPackages** with **no desktop controller** connected (single TLS session on :817).
 - ⏳ **Host throwaway:** `build/tests/argus-list-probe HOST PORT SERVER_NAME` (`tests/list-probe.vala`; PEMs via `Argus.Controller.SQT.Server.load_certificates` / libsecret). If host passes, compare with phone log on the same server (single TLS session on :817, desktop controller off).
 
-### 2. `controller/android/Window.vala` — reconnect only after a clean RPC reset
+### 2. Reconnect after decode disconnect
 
-**Why:** After a protocol disconnect, partial pending calls should not overlap a new `hello` on the same client.
-
-💩 Draft: on decode disconnect, call `rpc.disconnect()`, clear pending, then `Bootstrap`-style full `connect` with TLS identity — **stop** the 1 s `hello` timer from calling `connect.begin` on a broken session.
+- ⏳ **OLLMchat (upstream):** `OLLMchat/docs/bugs/2026-11-22-client-disconnect-idempotent.md`
+- ⏳ **Argusrm offline UX:** `docs/bugs/2026-11-22-android-controller-offline-reconnect.md` (APK rebuild pending)
 
 ---
 

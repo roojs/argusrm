@@ -163,6 +163,16 @@ namespace Argus.Controller
 				css_classes = { "title" }
 			};
 			header.title_widget = this.title_label;
+			var offline_retry = new Gtk.GestureClick();
+			offline_retry.released.connect(() => {
+				if (this.app.rpc == null || this.app.rpc.connected
+					|| this.reconnecting) {
+					return;
+				}
+				this.next_reconnect = 0;
+				this.was_connected = true;
+			});
+			this.title_label.add_controller(offline_retry);
 			var logo = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				width_request = 34,
 				height_request = 34,
@@ -335,7 +345,9 @@ namespace Argus.Controller
 				this.title_label.css_classes = { "title" };
 			}
 			if (!connected) {
-				this.title_label.label = "Offline";
+				this.title_label.label = this.reconnecting
+					? "Reconnecting…"
+					: "Offline";
 				this.title_label.css_classes = { "title", "offline-title" };
 			}
 			if (connected || rpc == null || this.reconnecting) {
@@ -349,9 +361,11 @@ namespace Argus.Controller
 				return true;
 			}
 			this.was_connected = false;
-			/* Monotonic time is microseconds. Try again in 30 seconds. */
-			this.next_reconnect = now + (int64) 30 * 1000000;
+			/* Monotonic time is microseconds. Retry every 5 seconds on Android. */
+			this.next_reconnect = now + (int64) 5 * 1000000;
 			this.reconnecting = true;
+			this.title_label.label = "Reconnecting…";
+			rpc.disconnect();
 			rpc.connect.begin(new OLLMrpc.Request() {
 				method = "RPC-Daemon.hello",
 				args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)
