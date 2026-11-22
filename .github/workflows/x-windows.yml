@@ -10,7 +10,7 @@ jobs:
   windows:
     runs-on: windows-latest
     env:
-      OLLMCHAT_RELEASE: v1.4.12
+      OLLMCHAT_RELEASE: v1.4.15
     defaults:
       run:
         shell: msys2 {0}

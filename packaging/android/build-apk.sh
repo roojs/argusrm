@@ -16,6 +16,7 @@ fi
 export PIXIEWOOD_MANIFEST="${PIXIEWOOD_MANIFEST:-$ARGUS_ROOT/packaging/android/pixiewood-argus.xml}"
 export PIXIEWOOD_USE_PIXIE="${PIXIEWOOD_USE_PIXIE:-1}"
 
+bash "$ARGUS_ROOT/packaging/android/stage-ollmchat-android-pins.sh"
 bash "$ARGUS_ROOT/packaging/android/check-pixie-only.sh" prebuild
 
 runner="$(mktemp -p "$ARGUS_ROOT/scripts/android" argus-pixiewood-build.XXXXXX.sh)"
@@ -131,6 +132,7 @@ run_argus_pixiewood_build() {
   run_pixiewood generate
   patch_pixiewood_gradle_native_libs
   run_pixiewood build --skip-gradle
+  bash "$ROOT_DIR/packaging/android/check-pixie-only.sh" post-meson
   materialize_pixiewood_jni_libs
   install_ca_certificates_to_assets
   install_argus_icons

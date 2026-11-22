@@ -36,6 +36,8 @@ if host_machine.system() == 'android'
 		'gtk4',
 		'libadwaita-1',
 		'gioopenssl',
+		'ocrpc',
+		'ocsqlite',
 	]
 	foreach dep_name : pixie_deps
 		dep = dependency(dep_name, allow_fallback: false, required: false)
@@ -50,24 +52,16 @@ if host_machine.system() == 'android'
 	gee_dep = dependency('gee-0.8', allow_fallback: false)
 	gee_vapi_dir = gee_dep.get_variable(pkgconfig: 'prefix') / 'share' / 'vala' / 'vapi'
 	add_project_arguments(['--vapidir', gee_vapi_dir], language: 'vala')
-	if not fs.exists(meson.project_source_root() / 'vendor' / 'libocrpc' / 'meson.build')
-		error('Android builds require vendor/libocrpc staged from the pinned OLLMchat revision')
-	endif
-	if not fs.exists(meson.project_source_root() / 'vendor' / 'libocsqlite' / 'meson.build')
-		error('Android builds require vendor/libocsqlite staged from the pinned OLLMchat revision')
-	endif
-	# Android subprojects build these libraries without Vala bindings, so
-	# Meson does not pass --pkg for them. The host valac still has the
-	# bindings.
 	add_project_arguments([
 		'--pkg=json-glib-1.0',
 		'--pkg=libsoup-3.0',
 	], language: 'vala')
-	subdir('vendor/libocsqlite')
-	subdir('vendor/libocrpc')
-	ocrpc_dep = ocrpc_vapi_dep
-	ocsqlite_dep = ocsqlite_vapi_dep
-	ocsqlite_c_args = ['-I' + meson.project_build_root() / 'vendor' / 'libocsqlite']
+	ocrpc_dep = dependency('ocrpc', allow_fallback: false)
+	ocsqlite_dep = dependency('ocsqlite', allow_fallback: false)
+	ocrpc_vala_args = ['--pkg', 'ocrpc']
+	ocsqlite_vala_args = ['--pkg', 'ocsqlite']
+	ocsqlite_inc = ocsqlite_dep.get_variable(pkgconfig: 'includedir', default_value: '')
+	ocsqlite_c_args = ocsqlite_inc == '' ? [] : ['-I' + ocsqlite_inc]
 else
 	if not cc.has_header('ocsqlite.h')
 		ocsqlite_header_dir = ''

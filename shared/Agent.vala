@@ -60,6 +60,12 @@ namespace Argus.Shared
 		public bool is_controller { get; set; default = false; }
 
 		/**
+		 * Always one on a listed row. The agents grid ''remove''
+		 * column shows the trash button when this is above zero.
+		 */
+		public int installed { get; default = 1; }
+
+		/**
 		 * The grid reads the display text. These three sources
 		 * change after the row is on screen.
 		 */
@@ -188,7 +194,7 @@ namespace Argus.Shared
 		public override void bin_write_prop(
 			OLLMrpc.Bin.Stream ctx, GLib.ParamSpec prop) throws GLib.Error
 		{
-			if (prop.name.has_prefix("display-")) {
+			if (prop.name == "installed" || prop.name.has_prefix("display-")) {
 				return;
 			}
 			this.bin_default_write_prop(ctx, prop);

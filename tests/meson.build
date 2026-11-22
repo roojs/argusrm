@@ -153,4 +153,69 @@ if host_machine.system() == 'linux'
 		install: false,
 	)
 	test('registration-bootstrap', registration_bootstrap_test, timeout: 30)
+	list_probe_server = custom_target(
+		'list-probe-server-vala',
+		input: files('../controller/SQT/Server.vala'),
+		output: 'list-probe-Server.vala',
+		command: ['cp', '@INPUT@', '@OUTPUT@'],
+	)
+	# Manual throwaway; not registered with test() — needs live server + credentials.
+	executable(
+		'argus-list-probe',
+		files('list-probe.vala'),
+		list_probe_server,
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			dependency('libsecret-1'),
+			shared_cli_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+			'-D', 'LINUX', '--pkg', 'libsecret-1',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
+	# Manual throwaway; needs a copy of /var/lib/argusrm/argus.sqlite (see agent-list-offline.vala).
+	executable(
+		'argus-db-startup-probe',
+		files('db-startup-probe.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_server_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
+	executable(
+		'argus-agent-list-offline',
+		files('agent-list-offline.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_server_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
 endif

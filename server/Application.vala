@@ -144,7 +144,7 @@ namespace Argus.Server
 		private static string opt_download;
 		private static string opt_register;
 		private static string opt_give_certificate = "";
-		public static string opt_data_dir;
+		public static string opt_data_dir = "";
 		/**
 		 * Skip scripts git init and other slow paths (integration tests only).
 		 */

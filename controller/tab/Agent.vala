@@ -24,8 +24,8 @@ namespace Argus.Controller.Tab
 	 * A {@link Gtk.ColumnView} over
 	 * {@link Argus.Controller.Store.Agent}.
 	 * One button on the page opens registration.
-	 * Right-click a row for a menu. Remove on that menu
-	 * asks, then deletes the selection.
+	 * The trash column uses click and hold to remove.
+	 * On a desktop, that asks first. On Android it does not.
 	 * Right-click a column header to show or hide columns.
 	 * Registered starts hidden.
 	 * The Kind cell of the controller this window is using
@@ -85,43 +85,21 @@ namespace Argus.Controller.Tab
 					GLib.warning("%s", e.message);
 				}
 			}
-			var row_model = new GLib.Menu();
-			row_model.append("Remove", "row.remove");
-			var row_menu = new Gtk.PopoverMenu.from_model(row_model) {
-				has_arrow = false
-			};
-			row_menu.set_parent(this.grid);
-			var remove_rows = new GLib.SimpleAction("remove", null);
-			remove_rows.activate.connect(() => {
-				if (this.store.busy || removing_label.visible) {
+			this.remove_confirmed.connect((obj) => {
+				var row = obj as Argus.Shared.Agent;
+				if (row == null || this.store.busy || removing_label.visible) {
 					return;
 				}
-				string[] names = {};
-				var ids = new Gee.ArrayList<int>();
-				var selection = (Gtk.MultiSelection) this.grid.model;
-				var count = (int) selection.get_n_items();
-				for (var i = 0; i < count; i++) {
-					if (!selection.is_selected((uint) i)) {
-						continue;
-					}
-					var row = selection.get_item((uint) i) as Argus.Shared.Agent;
-					if (row == null) {
-						continue;
-					}
-					names += row.display_name;
-					ids.add((int) row.id);
-				}
-				if (ids.size < 1) {
-					return;
-				}
-				var title = "Remove " + names[0];
-				var detail = "This removes the machine from the server.";
-				if (ids.size > 1) {
-					title = "Remove " + ids.size.to_string() + " machines";
-					detail = "This removes them from the server.";
-				}
-				var confirm = new Adw.AlertDialog(title,
-					string.joinv("\n", names) + "\n" + detail);
+				var name = row.display_name;
+#if ANDROID
+				pending.clear();
+				pending.add((int) row.id);
+				removing_label.visible = true;
+				this.store.remove(pending.get(0));
+#else
+				var confirm = new Adw.AlertDialog(
+					"Remove " + name,
+					name + "\nThis removes the machine from the server.");
 				confirm.add_response("cancel", "Cancel");
 				confirm.add_response("remove", "Remove");
 				confirm.set_response_appearance(
@@ -133,48 +111,13 @@ namespace Argus.Controller.Tab
 						return;
 					}
 					pending.clear();
-					foreach (var id in ids) {
-						pending.add(id);
-					}
+					pending.add((int) row.id);
 					removing_label.visible = true;
 					this.store.remove(pending.get(0));
 				});
 				confirm.present(this);
+#endif
 			});
-			var row_actions = new GLib.SimpleActionGroup();
-			row_actions.add_action(remove_rows);
-			this.grid.insert_action_group("row", row_actions);
-			var click = new Gtk.GestureClick() {
-				button = Gdk.BUTTON_SECONDARY
-			};
-			var selection = (Gtk.MultiSelection) this.grid.model;
-			click.pressed.connect((n_press, x, y) => {
-				var row_item = this.pick(x, y);
-				if (row_item == null) {
-					click.set_state(Gtk.EventSequenceState.DENIED);
-					return;
-				}
-				if (this.store.busy || removing_label.visible) {
-					return;
-				}
-				if (row_item.item == null) {
-					return;
-				}
-				if (!selection.is_selected(row_item.position)) {
-					selection.select_item(row_item.position, true);
-				}
-				var at_x = (int) x;
-				var at_y = (int) y;
-				var where = Gdk.Rectangle() {
-					x = at_x,
-					y = at_y,
-					width = 1,
-					height = 1
-				};
-				row_menu.set_pointing_to(where);
-				row_menu.popup();
-			});
-			this.grid.add_controller(click);
 			var empty = new Adw.StatusPage() {
 				title = "No machines",
 				description = "Register a machine to see it here.",
@@ -243,9 +186,6 @@ namespace Argus.Controller.Tab
 					return;
 				}
 				this.store.load();
-			});
-			this.destroy.connect(() => {
-				row_menu.unparent();
 			});
 			this.map.connect(() => {
 				this.store.load();

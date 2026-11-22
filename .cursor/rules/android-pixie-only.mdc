@@ -1,0 +1,18 @@
+# Android builds — Pixie only
+
+Android links **ocrpc**, **ocsqlite**, GTK, and the rest from **Pixie pkg-config** and prebuilt libraries in the Pixie sysroot. `PIXIEWOOD_USE_PIXIE=1` is required.
+
+## Hard stop
+
+If an Android build fails because Pixie is missing a package or a `.pc` file:
+
+1. **Stop.** Do not continue the build.
+2. **Do not** compile libocrpc or libocsqlite from source, rsync from another tree, or patch dependency trees to work around a missing Pixie drop.
+3. **Ask the user** to refresh **Pixie packages** at source.
+
+`packaging/android/check-pixie-only.sh` runs at prebuild, post-init, post-meson, and jnilibs. Respect its banners.
+
+## Allowed
+
+- Fix Argus product code when Pixie dependencies are already current.
+- Extend `check-pixie-only.sh` when a new minimum Pixie capability is required.

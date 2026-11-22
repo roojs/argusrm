@@ -251,9 +251,15 @@ namespace Argus.Controller.Dialog
 				}
 				var client = new GLib.SocketClient();
 				client.set_timeout(3);
-				var host = hosts[this.address_index];
+				var endpoint = hosts[this.address_index];
 				this.address_index++;
-				client.connect_to_host_async.begin(host, (uint16) row.port, null, (obj, res) => {
+				var connect_host = endpoint;
+				var mark = endpoint.last_index_of(":");
+				if (mark > 0) {
+					connect_host = endpoint.substring(0, mark);
+				}
+				client.connect_to_host_async.begin(
+					connect_host, (uint16) row.port, null, (obj, res) => {
 					if (ticket != this.generation || !this.running) {
 						return;
 					}
@@ -270,7 +276,7 @@ namespace Argus.Controller.Dialog
 						GLib.warning("%s", e.message);
 					}
 					this.reached.add(row);
-					this.answered.set(row.name, host);
+					this.answered.set(row.name, connect_host);
 					if (this.prefer != "" && row.name == this.prefer) {
 						this.use(row);
 						return;

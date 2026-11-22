@@ -1,10 +1,11 @@
 Column header | Database name [JSON] | Visible | Width | Format | Sort
 
-Hostname,display-name,ON,0,text,ON
-Address,ip,ON,0,text,ON
-User,username,ON,0,text,ON
-Kind,display-kind,ON,0,controller-kind,ON
-Registered,status,off,90,tick-registered,ON
-Registered on,created,ON,0,recent-created,ON
-Connected,connected,ON,90,tick-connected,ON
-Last connected,last-connected,ON,0,recent-last-connected,ON
+Hostname,display-name,ON,96,text,ON
+Address,ip,ON,112,text,ON
+User,username,ON,72,text,ON
+Kind,display-kind,ON,84,controller-kind,ON
+Registered,status,off,64,tick-registered,ON
+Registered on,created,ON,92,recent-created,ON
+Connected,connected,ON,64,tick-connected,ON
+Last connected,last-connected,off,92,recent-last-connected,ON
+Remove,remove,ON,48,remove,ON

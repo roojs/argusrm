@@ -113,7 +113,8 @@ namespace Argus.Controller.Tab
 		 *
 		 *  * The first row is headings. Blank lines are skipped.
 		 *  * Each row is the header, the JSON name, ''ON'' or ''off'',
-		 *    the width, the format, and sort.
+		 *    the width, the format, and sort. Widths are pixels. Which
+		 *    column expands is {@link expand_column} on the tab, not the CSV.
 		 *  * Sort is ''ON'' or ''off''. ''ON'' sorts. A missing field
 		 *    does not.
 		 *  * A hyphen in the JSON name stands in for an underscore.
@@ -144,7 +145,7 @@ namespace Argus.Controller.Tab
 					resizable = true,
 					visible = col.visible,
 					fixed_width = col.width,
-					expand = col.width < 1 || col.name == this.expand_column
+					expand = col.name == this.expand_column
 				};
 				if (col.sort) {
 					column.sorter = this.column_sorter(col.name, col.format);
@@ -476,6 +477,7 @@ namespace Argus.Controller.Tab
 						item.child = new Gtk.Label("") {
 							xalign = 1,
 							hexpand = true,
+							ellipsize = Pango.EllipsizeMode.END,
 							attributes = header_column ? attrs : null
 						};
 						break;
@@ -489,6 +491,7 @@ namespace Argus.Controller.Tab
 						item.child = new Gtk.Label("") {
 							xalign = 0,
 							hexpand = true,
+							ellipsize = Pango.EllipsizeMode.END,
 							attributes = header_column ? attrs : null
 						};
 						break;
@@ -497,6 +500,7 @@ namespace Argus.Controller.Tab
 						item.child = new Gtk.Label("") {
 							xalign = 0,
 							hexpand = true,
+							ellipsize = Pango.EllipsizeMode.END,
 							css_classes = { "dim-label" },
 							attributes = header_column ? attrs : null
 						};
@@ -506,6 +510,7 @@ namespace Argus.Controller.Tab
 						item.child = new Gtk.Label("") {
 							xalign = 0,
 							hexpand = true,
+							ellipsize = Pango.EllipsizeMode.END,
 							attributes = header_column ? attrs : null
 						};
 						break;
@@ -514,6 +519,7 @@ namespace Argus.Controller.Tab
 						item.child = new Gtk.Label("") {
 							xalign = 0,
 							hexpand = true,
+							ellipsize = Pango.EllipsizeMode.END,
 							attributes = header_column ? attrs : null
 						};
 						break;
@@ -633,8 +639,10 @@ namespace Argus.Controller.Tab
 						break;
 
 					case "controller-kind":
-						((Gtk.Label) item.child).label = shown;
-						((Gtk.Label) item.child).remove_css_class(
+						var kind_label = (Gtk.Label) item.child;
+						kind_label.label = shown;
+						kind_label.tooltip_text = shown != "" ? shown : null;
+						kind_label.remove_css_class(
 							"argus-this-controller");
 						var mine = this.grid.get_data<string>(
 							"argus-controller-fingerprint");
@@ -944,6 +952,7 @@ namespace Argus.Controller.Tab
 					default:
 						var text_label = (Gtk.Label) item.child;
 						text_label.label = shown;
+						text_label.tooltip_text = shown != "" ? shown : null;
 						if (name == "name") {
 							this.mark_explicit(text_label, row, header_column);
 						}

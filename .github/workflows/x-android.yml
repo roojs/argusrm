@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: roojs/OLLMchat
-          ref: v1.4.12
+          ref: v1.4.15
           path: OLLMchat
 
       - name: Install Android build dependencies
@@ -39,17 +39,12 @@ jobs:
       - name: Stage pinned Android tooling and libraries
         working-directory: argusrm
         run: |
-          mkdir -p scripts/android android vendor
+          mkdir -p scripts/android android
           cp -a ../OLLMchat/scripts/android/. scripts/android/
-          cp -a ../OLLMchat/android/pixiewood-wraps android/
-          cp -a ../OLLMchat/android/pixiewood-extra.cross android/
-          cp -a ../OLLMchat/android/pixie-gtk.pins android/
-          cp -a ../OLLMchat/android/pixie-webkit.pins android/
+          git checkout HEAD -- scripts/android/fetch-pixie-deps.sh
+          bash packaging/android/stage-ollmchat-android-pins.sh
           cp -a ../OLLMchat/android/local-build.local.env android/
-          cp -a ../OLLMchat/libocrpc vendor/
-          cp -a ../OLLMchat/libocsqlite vendor/
-          cp -a ../OLLMchat/vapi vendor/
-          chmod +x scripts/android/*.sh
+          chmod +x scripts/android/*.sh packaging/android/*.sh
 
       - name: Prepare and configure Pixiewood
         working-directory: argusrm

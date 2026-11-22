@@ -84,7 +84,7 @@ namespace Argus.Controller
 		{
 			Object(application: app);
 			this.app = app;
-			this.set_default_size(420, 720);
+			this.set_default_size(480, 720);
 			this.unload();
 			this.close_request.connect(() => {
 				this.closed = true;

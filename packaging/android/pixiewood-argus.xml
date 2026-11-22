@@ -49,6 +49,8 @@
     <libsoup/>
     <openssl/>
     <glib-networking/>
+    <ocrpc/>
+    <ocsqlite/>
   </dependencies>
   <build target="argus-controller">
     <architectures>

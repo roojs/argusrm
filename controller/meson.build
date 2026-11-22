@@ -61,7 +61,7 @@ if host_machine.system() == 'android'
 	deps += gioopenssl_dep
 	controller_vala_args += [
 		'-D', 'ANDROID',
-		'--vapidir', meson.project_source_root() / 'vendor' / 'vapi',
+		'--vapidir', meson.project_source_root() / 'android' / 'vapi',
 		'--pkg', 'gioopenssl',
 	]
 	controller_c_args += ['-I' + meson.current_source_dir() / 'android']

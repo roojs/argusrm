@@ -22,7 +22,7 @@ namespace Argus.Agent.Linux
 	 */
 	internal class LocalRegistration : GLib.Object
 	{
-		public unowned Application app { get; private construct; }
+		public unowned Application app { get; construct; }
 
 		public LocalRegistration(Application application)
 		{

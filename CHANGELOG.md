@@ -12,6 +12,10 @@ package changelogs.
 
 ### Changed
 
+- Pin `OLLMchat` to `v1.4.15` for Android CI (`x-android.yml`) and Windows MSYS packages (`OLLMCHAT_RELEASE` in `x-windows.yml`).
+- Android builds link `ocrpc` and `ocsqlite` from Pixie only (`check-pixie-only.sh` blocks from-source native libs and non-Pixie jniLibs).
+- `scripts/android/fetch-pixie-deps.sh` merges `ocrpc` and `ocsqlite` from OLLMchat `release.pins` with the pixiewood-pkgs sysroot.
+- `packaging/android/stage-ollmchat-android-pins.sh` copies GTK IME and webkit Pixie pins from the pinned OLLMchat checkout before each APK build.
 - Local controller registration uses the saved server row JSON shape end to end (`SQT.Server` wire, pkexec, and Bootstrap).
 
 ### Added
