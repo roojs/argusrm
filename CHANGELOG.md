@@ -10,230 +10,75 @@ package changelogs.
 
 ## [0.1.36] - Unreleased
 
-### Changed
-
-- Pin `OLLMchat` to `v1.4.15` for Android CI (`x-android.yml`) and Windows MSYS packages (`OLLMCHAT_RELEASE` in `x-windows.yml`).
-- Android builds link `ocrpc` and `ocsqlite` from Pixie only (`check-pixie-only.sh` blocks from-source native libs and non-Pixie jniLibs).
-- `scripts/android/fetch-pixie-deps.sh` merges `ocrpc` and `ocsqlite` from OLLMchat `release.pins` with the pixiewood-pkgs sysroot.
-- `packaging/android/stage-ollmchat-android-pins.sh` copies GTK IME and webkit Pixie pins from the pinned OLLMchat checkout before each APK build.
-- Local controller registration uses the saved server row JSON shape end to end (`SQT.Server` wire, pkexec, and Bootstrap).
-
 ### Added
 
-- Meson test `registration-local-login` (root): temp server, real `argusrm-controller --give-me-a-certificate`, Bootstrap JSON, TCP probe, and TLS hello. Unit tests `registration-*` support it but are not a substitute.
-
-## [0.1.35] - Unreleased
-
-### Fixed
-
-- The Windows agent dials the server off the main loop so the connect countdown ticks and times out instead of freezing.
-
-## [0.1.34] - Unreleased
-
-### Fixed
-
-- The Windows tray no longer sticks on Connecting; each attempt is capped at eight seconds, then the five-second retry countdown runs again.
-
-## [0.1.33] - Unreleased
-
-### Fixed
-
-- The Windows agent sends `RPC-Daemon.hello` on every reconnect, not only at startup.
-- The tray shows a five-second countdown while it retries after a drop.
-
-## [0.1.32] - Unreleased
-
-### Changed
-
-- The Windows agent sends its version when it connects, and it disconnects when the server is older.
-
-## [0.1.31] - Unreleased
-
-### Added
-
-- The Windows agent reports each step while it opens the desktop.
-
-## [0.1.30] - Unreleased
-
-### Fixed
-
-- The Windows agent dials the server again as soon as the connection drops, then every two seconds until it is back.
-
-## [0.1.29] - Unreleased
-
-### Fixed
-
-- The Windows agent opens a fresh server connection after a restart, so a desktop request is understood.
-
-## [0.1.28] - Unreleased
-
-### Changed
-
-- The Windows agent turns Remote Desktop on without asking at the tray.
-
-## [0.1.27] - Unreleased
-
-### Added
-
+- Agents report the operating system, Debian packages, RPM packages, and Windows programs from osquery.
+- The Assets page has Machines and Software. Machines is a grid of the one-row columns and has no rows. Hidden columns start off. Software is the word Software.
+- The controller has a Linux desktop icon from the logo in argusrm.svg.
 - Touch and hold the screen button on a Windows machine's General tab to open that desktop.
 - The desktop is a page in this window, with an RDP row under Assets and a tab per machine.
 - FreeRDP asks for the Windows password. Drives, the clipboard, and audio stay on the machine.
 - The Windows agent turns Remote Desktop on when that edition allows it, and asks at the tray when someone is at the keyboard.
 - The desktop bytes travel on a second connection. A late join starts from the first byte.
-
-## [0.1.26] - Unreleased
-
-### Fixed
-
-- The Windows agent is built against the RPC library that sends an integer array followed by its length, so a task reaches the machine.
-
-## [0.1.25] - Unreleased
-
-### Fixed
-
-- The Windows agent window shows the same version as the installer.
-
-## [0.1.24] - Unreleased
-
-### Fixed
-
-- A silent Windows task shows the executable name and its CPU time. A task whose agent connection closes before the command starts is marked failed.
-- A Windows task starts on the signed-in desktop and stays running until every process that command started has exited. The exit code is the last of those processes.
-
-## [0.1.23] - Unreleased
-
-### Fixed
-
-- A silent Windows task reports `running` every five seconds while its process is alive, and the task ends when that process exits.
-
-## [0.1.22] - Unreleased
-
-### Fixed
-
-- Run a Windows task command through GLib's command-line parser and report the process exit code. A quoted path such as the Adobe uninstaller was being escaped and then shown as exit 0.
-
-## [0.1.21] - Unreleased
-
-### Fixed
-
-- After startup sync, end tasks this agent process is not running, so a restarted machine is not left occupied by a task whose child never started.
-
-## [0.1.20] - Unreleased
-
-### Fixed
-
-- Send the command line as stdin once a task process has started, so the Tasks pane shows what was run.
-- End a Windows task with exit 127 when the process fails to start, instead of leaving it Running.
-- Draw the Connected tick again when a machine reconnects.
-
-## [0.1.19] - Unreleased
-
-### Fixed
-
-- Query and serialize agent package snapshots (`Programs`, `DebPackages`, `RpmPackages`) using the wire-registered `GType` instead of the agent subclass type.
-
-## [0.1.18] - Unreleased
-
-### Fixed
-
-- Ship GLib's `gspawn-win64-helper.exe` and `gspawn-win64-helper-console.exe` in the Windows installer so `GLib.Subprocess` can launch `msiexec.exe`, `osqueryi.exe`, and remote commands.
-
-## [0.1.17] - Unreleased
+- The Windows agent reports each step while it opens the desktop.
+- Meson test `registration-local-login` (root): temp server, real `argusrm-controller --give-me-a-certificate`, Bootstrap JSON, TCP probe, and TLS hello. Unit tests `registration-*` support it but are not a substitute.
 
 ### Changed
 
-- Replace the Windows tray named-pipe protocol with `OLLMrpc` over loopback TCP (`127.0.0.1:4142`) using `OLLMchat` `v1.4.12`.
-
-### Fixed
-
-- Stop the Windows tray from hanging on "Waiting for the Windows service…" after upgrades by accepting tray RPC connections before background `OSQuery` startup, enforcing single-instance tray execution, and querying service-side registration state.
-- Add right-click menu, left-click status dialog, and UAC-elevated service restart to the Windows tray icon.
-
-## [0.1.16] - Unreleased
-
-### Fixed
-
-- Start osquery initialization, startup sync, and package monitor on Windows immediately after pairing.
-- Fix package snapshot sync instantiating abstract `Package` instead of the concrete `DebPackages`, `RpmPackages`, or `Programs` row type.
-- Embed the approved Argus bird icon in Windows executables, tray icon, desktop windows, Start Menu shortcut, and NSIS installer.
-
-## [0.1.15] - Unreleased
-
-### Fixed
-
-- The Windows installer kills the running agent and tray before it replaces the service.
-- A stored registration the server does not accept is cleared, and the registration window is offered again.
-
-## [0.1.14] - Unreleased
-
-### Fixed
-
-- The Windows installer creates the service. The previous command line was rejected, so the install removed the service and left it missing.
-
-## [0.1.13] - Unreleased
-
-### Fixed
-
-- The Windows registration window waits for the Windows service before it looks for the management server.
-
-## [0.1.12] - Unreleased
-
-### Fixed
-
-- The Windows installer waits until the service is gone before it creates the service again.
-- Registration stores the host it connected to and the download port. The reply does not send the bind address.
-- The registration window stays open until the agent is connected to the management server.
-
-## [0.1.8] - Unreleased
-
-### Fixed
-
-- The Windows service loads the GnuTLS module shipped beside the agent. Without it, registration aborts.
-
-## [0.1.7] - Unreleased
-
-### Fixed
-
-- Windows registration sends the certificate request. The variadic argument packer repeated the PIN in every string.
-
-## [0.1.6] - Unreleased
-
-### Fixed
-
-- Windows discovery keeps a browse result that arrives after an earlier name whose address never comes back.
-
-## [0.1.5] - Unreleased
-
-### Added
-
-- The controller has a Linux desktop icon from the logo in argusrm.svg.
-
-### Fixed
-
-- Windows discovery asks again every two seconds until the management server is advertising. The sixth PIN digit is drawn before registration starts.
-
-## [0.1.4] - Unreleased
-
-### Changed
-
+- A tag release no longer builds or publishes the controller AppImage. That build stays on its manual workflow.
 - Window titles include the release version.
-
-## [0.1.3] - Unreleased
-
-### Added
-
-- Agents report the operating system, Debian packages, RPM packages, and Windows programs from osquery.
-- The Assets page has Machines and Software. Machines is a grid of the one-row columns and has no rows. Hidden columns start off. Software is the word Software.
+- Replace the Windows tray named-pipe protocol with `OLLMrpc` over loopback TCP (`127.0.0.1:4142`) using `OLLMchat` `v1.4.12`.
+- The Windows agent turns Remote Desktop on without asking at the tray.
+- The Windows agent sends its version when it connects, and it disconnects when the server is older.
+- Pin `OLLMchat` to `v1.4.15` for Android CI (`x-android.yml`) and Windows MSYS packages (`OLLMCHAT_RELEASE` in `x-windows.yml`).
+- Android builds link `ocrpc` and `ocsqlite` from Pixie only (`check-pixie-only.sh` blocks from-source native libs and non-Pixie jniLibs).
+- `scripts/android/fetch-pixie-deps.sh` merges `ocrpc` and `ocsqlite` from OLLMchat `release.pins` with the pixiewood-pkgs sysroot.
+- `packaging/android/stage-ollmchat-android-pins.sh` copies GTK IME and webkit Pixie pins from the pinned OLLMchat checkout before each APK build.
+- Local controller registration uses the saved server row JSON shape end to end (`SQT.Server` wire, pkexec, and Bootstrap).
+- Revamp registration and server connection configuration across agent, controller, and bootstrap flows.
 
 ### Fixed
 
 - Debian packages depend on libocrpc1 and libocsqlite1, and RPM packages depend on libocrpc and libocsqlite. Shared-library detection skips both libraries because their SONAMEs have no version.
 - Removing a machine from the controller no longer leaves argusrm-agent saying it is already registered. A connected agent drops its certificate when it is removed. A later run asks the server, and a rejected certificate is deleted so registration can continue.
 - argusrm-agent --debug shows browse progress. argusrm-server --debug shows when a firewall port is opened or enforced, and when the allowlist changes.
-
-### Changed
-
-- A tag release no longer builds or publishes the controller AppImage. That build stays on its manual workflow.
+- Windows discovery asks again every two seconds until the management server is advertising. The sixth PIN digit is drawn before registration starts.
+- Windows discovery keeps a browse result that arrives after an earlier name whose address never comes back.
+- Windows registration sends the certificate request. The variadic argument packer repeated the PIN in every string.
+- The Windows service loads the GnuTLS module shipped beside the agent. Without it, registration aborts.
+- The Windows installer waits until the service is gone before it creates the service again.
+- Registration stores the host it connected to and the download port. The reply does not send the bind address.
+- The registration window stays open until the agent is connected to the management server.
+- The Windows registration window waits for the Windows service before it looks for the management server.
+- The Windows installer creates the service. The previous command line was rejected, so the install removed the service and left it missing.
+- The Windows installer kills the running agent and tray before it replaces the service.
+- A stored registration the server does not accept is cleared, and the registration window is offered again.
+- Start osquery initialization, startup sync, and package monitor on Windows immediately after pairing.
+- Fix package snapshot sync instantiating abstract `Package` instead of the concrete `DebPackages`, `RpmPackages`, or `Programs` row type.
+- Embed the approved Argus bird icon in Windows executables, tray icon, desktop windows, Start Menu shortcut, and NSIS installer.
+- Stop the Windows tray from hanging on "Waiting for the Windows service…" after upgrades by accepting tray RPC connections before background `OSQuery` startup, enforcing single-instance tray execution, and querying service-side registration state.
+- Add right-click menu, left-click status dialog, and UAC-elevated service restart to the Windows tray icon.
+- Ship GLib's `gspawn-win64-helper.exe` and `gspawn-win64-helper-console.exe` in the Windows installer so `GLib.Subprocess` can launch `msiexec.exe`, `osqueryi.exe`, and remote commands.
+- Query and serialize agent package snapshots (`Programs`, `DebPackages`, `RpmPackages`) using the wire-registered `GType` instead of the agent subclass type.
+- Send the command line as stdin once a task process has started, so the Tasks pane shows what was run.
+- End a Windows task with exit 127 when the process fails to start, instead of leaving it Running.
+- Draw the Connected tick again when a machine reconnects.
+- After startup sync, end tasks this agent process is not running, so a restarted machine is not left occupied by a task whose child never started.
+- Run a Windows task command through GLib's command-line parser and report the process exit code. A quoted path such as the Adobe uninstaller was being escaped and then shown as exit 0.
+- A silent Windows task reports `running` every five seconds while its process is alive, and the task ends when that process exits.
+- A silent Windows task shows the executable name and its CPU time. A task whose agent connection closes before the command starts is marked failed.
+- A Windows task starts on the signed-in desktop and stays running until every process that command started has exited. The exit code is the last of those processes.
+- The Windows agent window shows the same version as the installer.
+- The Windows agent is built against the RPC library that sends an integer array followed by its length, so a task reaches the machine.
+- The Windows agent opens a fresh server connection after a restart, so a desktop request is understood.
+- The Windows agent dials the server again as soon as the connection drops, then every two seconds until it is back.
+- The Windows agent sends `RPC-Daemon.hello` on every reconnect, not only at startup.
+- The tray shows a five-second countdown while it retries after a drop.
+- The Windows tray no longer sticks on Connecting; each attempt is capped at eight seconds, then the five-second retry countdown runs again.
+- The Windows agent dials the server off the main loop so the connect countdown ticks and times out instead of freezing.
+- Initialize `opt_data_dir` before the server opens its database so the in-memory store loads agents from `/var/lib/argusrm/argus.sqlite`.
+- The Android controller tears down RPC before reconnecting, retries every five seconds, shows Reconnecting…, and accepts a tap on the offline title to retry immediately.
+- The desktop controller uses the same reconnect behaviour as Android.
 
 ## [0.1.2] - 2026-11-10
 

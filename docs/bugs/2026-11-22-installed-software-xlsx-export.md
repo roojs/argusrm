@@ -28,7 +28,7 @@
 ## Phase 1 — Vala bindings (libxlsxwriter)
 
 - 🔷 **API style:** `new Lxw.Workbook (path)`, `book.add_worksheet ()`, `sheet.write_string (...)`, `book.close ()` — not bare `workbook_new` at call sites.
-- 🔷 **Surface in tree:** `vapi/xlsxwriter.vapi` — `Workbook`, `Worksheet`, `Format`, `Error`, `Color`, `Alignment`, `Pattern`, `strerror`, writes / freeze / column width.
+- 🔷 **Surface in tree:** `vapi/xlsxwriter.vapi` — `Workbook`, `Worksheet`, `Format`, document/options structs, enums (errors, colors, borders, alignment, …), library helpers (`version`, A1/range helpers), worksheet layout (merge, autofilter, freeze/split panes, protect, print), format styling (fonts, fills, borders, number formats). Hold `Worksheet` / `Format` as **`unowned`**; only `Workbook` is owned until `close ()`.
 - 🔷 **Vala ownership:** libxlsxwriter is not refcounted — `vapi/xlsxwriter_shim.h` and [`shared/xlsxwriter_vala_unref.c`](../../shared/xlsxwriter_vala_unref.c) supply a no-op `lxw_workbook_unref` for scope cleanup; **always** call `close()` to flush the file.
 - 🔷 **Build (Phase 3):** `vapi/xlsxwriter.deps` → pkg-config `xlsxwriter`; `--vapidir` → repo `vapi/`; link `xlsxwriter_vala_unref.c` and `-I` to `vapi/` on any target using `Lxw`.
 - ✔️ **Spike discarded:** `tests/xlsxwriter-poc.vala` removed.

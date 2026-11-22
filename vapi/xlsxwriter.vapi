@@ -3,6 +3,10 @@
  * Upstream: https://github.com/jmcnamara/libxlsxwriter — BSD-2-Clause.
  *
  * OOP surface: new Lxw.Workbook (), sheet.write_string (), format.set_bold (), …
+ *
+ * Worksheet and Format come from the workbook; hold them as unowned Lxw.Worksheet /
+ * unowned Lxw.Format — do not use var or owned references (libxlsxwriter is not
+ * refcounted).
  */
 
 [CCode (cheader_filename = "xlsxwriter_shim.h")]
@@ -221,10 +225,10 @@ namespace Lxw
 	/* --- Library helpers --- */
 
 	[CCode (cname = "lxw_strerror")]
-	public string strerror (Error code);
+	public unowned string strerror (Error code);
 
 	[CCode (cname = "lxw_version")]
-	public string version ();
+	public unowned string version ();
 
 	[CCode (cname = "lxw_version_id")]
 	public uint16 version_id ();
@@ -259,7 +263,8 @@ namespace Lxw
 		cname = "lxw_workbook",
 		has_type_id = false,
 		ref_function = false,
-		unref_function = "lxw_workbook_unref"
+		unref_function = "lxw_workbook_unref",
+		dup_function = false
 	)]
 	public class Workbook
 	{
@@ -313,7 +318,8 @@ namespace Lxw
 		cname = "lxw_worksheet",
 		has_type_id = false,
 		ref_function = false,
-		unref_function = false
+		unref_function = false,
+		dup_function = false
 	)]
 	public class Worksheet
 	{
@@ -412,7 +418,8 @@ namespace Lxw
 		cname = "lxw_format",
 		has_type_id = false,
 		ref_function = false,
-		unref_function = false
+		unref_function = false,
+		dup_function = false
 	)]
 	public class Format
 	{
