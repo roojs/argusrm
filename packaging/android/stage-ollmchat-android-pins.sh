@@ -9,8 +9,8 @@ OLLM_ROOT="${OLLMCHAT_ANDROID_ROOT:-$ARGUS_ROOT/../OLLMchat}"
 if [ ! -d "$OLLM_ROOT/android" ]; then
   cat >&2 <<EOF
 OLLMchat android/ missing: $OLLM_ROOT/android
-Set OLLMCHAT_ANDROID_ROOT to a checkout at the same ref as .github/workflows/x-android.yml
-(v1.4.15 today) so pixie-gtk.pins pulls the GTK IME Pixie build.
+Set OLLMCHAT_ANDROID_ROOT to a checkout at the latest OLLMchat release (or match CI)
+so pixie-gtk.pins pulls the GTK IME Pixie build.
 EOF
   exit 1
 fi

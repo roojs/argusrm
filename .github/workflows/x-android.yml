@@ -17,10 +17,20 @@ jobs:
         with:
           path: argusrm
 
+      - name: Resolve latest OLLMchat release
+        id: ollm_release
+        run: |
+          tag="$(curl -fsSL https://api.github.com/repos/roojs/OLLMchat/releases/latest | jq -r .tag_name)"
+          if [ -z "$tag" ] || [ "$tag" = null ]; then
+            echo "Could not resolve latest OLLMchat release tag" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         with:
           repository: roojs/OLLMchat
-          ref: v1.4.15
+          ref: ${{ steps.ollm_release.outputs.tag }}
           path: OLLMchat
 
       - name: Install Android build dependencies

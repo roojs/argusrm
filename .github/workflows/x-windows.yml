@@ -9,8 +9,6 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    env:
-      OLLMCHAT_RELEASE: v1.4.15
     defaults:
       run:
         shell: msys2 {0}
@@ -24,6 +22,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: argusrm
+
+      - name: Resolve latest OLLMchat release
+        shell: bash
+        run: |
+          tag="$(curl -fsSL https://api.github.com/repos/roojs/OLLMchat/releases/latest | jq -r .tag_name)"
+          if [ -z "$tag" ] || [ "$tag" = null ]; then
+            echo "Could not resolve latest OLLMchat release tag" >&2
+            exit 1
+          fi
+          echo "OLLMCHAT_RELEASE=$tag" >> "$GITHUB_ENV"
 
       - uses: msys2/setup-msys2@v2
         with:
