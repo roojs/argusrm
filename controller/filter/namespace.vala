@@ -23,6 +23,7 @@
  * {@link DebPackages} filters the Debian package grid.
  * {@link RpmPackages} filters the RPM package grid.
  * {@link Programs} filters the Windows program grid.
+ * {@link InterfaceAddresses} filters the per-machine interfaces grid.
  * {@link Distributables} filters the Distributables grid.
  * {@link Distribute} filters the installer grid by machine name
  * or logged-in user.

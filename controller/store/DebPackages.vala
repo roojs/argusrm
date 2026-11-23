@@ -194,7 +194,7 @@ namespace Argus.Controller.Store
 				this.list_since = 0;
 			}
 			this.loaded_agent = agent_id;
-			var refresh_start = (int) GLib.DateTime.now_utc().to_unix();
+			var refresh_start = (int) new GLib.DateTime.now_utc().to_unix();
 			var query_since = 0;
 			if (refresh && agent_id > 0 && this.items_store.size > 0 && this.list_since > 0) {
 				query_since = this.list_since;

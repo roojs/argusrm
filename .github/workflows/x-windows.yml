@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${OLLMCHAT_RELEASE#v}"
-          base="https://github.com/roojs/OLLMchat/releases/download/${OLLMCHAT_RELEASE}"
+          base="https://github.com/roojs/OLLMchat/releases/download/${OLLMCHAT_RELEASE}-packages"
           mkdir -p ollm-libs
           for name in libocrpc libocsqlite; do
             curl -fsSL -o "ollm-libs/${name}.pkg.tar.zst" \

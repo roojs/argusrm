@@ -267,11 +267,34 @@ namespace Argus.Server
 				return 1;
 			}
 			note(pending.size == 1, "pending controller row stored");
+			var activated = pending.get(0);
+			activated.status = 1;
+			activated.ip = "192.168.0.16";
+			try {
+				Argus.Shared.Agent.query(app.db).updateById(activated);
+			} catch (GLib.Error e) {
+				note(false, "simulate active controller with routable ip");
+				return failures == 0 ? 0 : 1;
+			}
+			var blocked = yield client.call(new OLLMrpc.Request() {
+				method = "Registration.certificate",
+				args = OLLMrpc.args("s", username)
+			});
+			note(blocked.error != null &&
+				blocked.error.message == "This machine is already registered.",
+				"active row blocks second certificate");
 			var cleared = yield client.call(new OLLMrpc.Request() {
 				method = "Registration.deregister",
 				args = OLLMrpc.args("s", username)
 			});
 			note(cleared.error == null, "deregister succeeds");
+			var reissued = yield client.call(new OLLMrpc.Request() {
+				method = "Registration.certificate",
+				args = OLLMrpc.args("s", username)
+			});
+			note(reissued.error == null &&
+				(reissued.retval as Argus.Shared.SQT.Server) != null,
+				"username deregister clears routable-ip row");
 			return failures == 0 ? 0 : 1;
 		}
 

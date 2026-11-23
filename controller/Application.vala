@@ -37,6 +37,8 @@ namespace Argus.Controller
 	public class Application : GLib.Application
 	{
 		public static string deregister_name;
+		private static bool opt_local_reregister;
+		private bool local_reregister_run;
 		/** Set by ''--server-socket'' for CLI registration RPC. */
 		public static string opt_server_socket = "";
 		/**
@@ -63,6 +65,8 @@ namespace Argus.Controller
 			{ "debug", 'd', 0, GLib.OptionArg.NONE, ref opt_debug, "Enable debug output", null },
 			{ "debug-critical", 0, 0, GLib.OptionArg.NONE, ref opt_debug_critical, "Treat critical warnings as errors", null },
 			{ "deregister", 0, 0, GLib.OptionArg.STRING, ref deregister_name, "Username or fingerprint to deregister", "NAME" },
+			{ "local-reregister", 0, 0, GLib.OptionArg.NONE, ref opt_local_reregister,
+				"Deregister this user on the local server and issue a new controller certificate (root)", null },
 			{ "server-socket", 0, 0, GLib.OptionArg.STRING, ref opt_server_socket,
 				"Unix socket for registration RPC (default: server data dir)", "PATH" },
 			{ null }
@@ -154,6 +158,7 @@ namespace Argus.Controller
 			Argus.Shared.SQV.rpc_register();
 			Argus.Controller.Command.rpc_register();
 			deregister_name = "";
+			opt_local_reregister = false;
 			opt_server_socket = "";
 			opt_debug = false;
 			opt_debug_critical = false;
@@ -176,6 +181,43 @@ namespace Argus.Controller
 			}
 			debug_on = opt_debug;
 			debug_critical_enabled = opt_debug_critical;
+			if (opt_local_reregister) {
+#if LINUX
+				if (Posix.geteuid() != 0) {
+					var data = new Argus.Shared.SQT.Server() {
+						error = "root is required"
+					};
+					command_line.print("%s\n", Json.gobject_to_data(data, null));
+					return 1;
+				}
+#else
+				command_line.print("%s\n", Json.gobject_to_data(
+					new Argus.Shared.SQT.Server() {
+						error = "local certificate issue is Linux only"
+					}, null));
+				return 1;
+#endif
+				this.cli = command_line;
+				this.local_reregister_run = true;
+				deregister_name = GLib.Environment.get_user_name();
+				var unix_sock = Application.opt_server_socket != ""
+					? Application.opt_server_socket
+					: GLib.Path.build_filename(Argus.SERVER_DATA_DIR, "argus.sock");
+				this.rpc = new OLLMrpc.Client("", "", unix_sock) {
+					live_handles = true,
+					call_timeout_seconds = 15
+				};
+				this.rpc.debug = false;
+				this.loop = new GLib.MainLoop();
+				this.code = 1;
+				this.rpc.connect.begin(new OLLMrpc.Request() {
+					method = "RPC-Daemon.hello",
+					args = OLLMrpc.args("iss", 1, "argus-controller", Argus.VERSION)
+				}, null, this.on_connect);
+				this.loop.run();
+				Posix._exit(this.code);
+				return this.code;
+			}
 			if (deregister_name == "") {
 				var display = GLib.Environment.get_variable("DISPLAY");
 				var wayland = GLib.Environment.get_variable("WAYLAND_DISPLAY");
@@ -265,7 +307,40 @@ namespace Argus.Controller
 						this.loop.quit();
 						return;
 					}
-					this.cli.print("%s\n", Json.gobject_to_data(new Argus.Shared.SQT.Server(), null));
+					if (!this.local_reregister_run) {
+						this.cli.print("%s\n", Json.gobject_to_data(
+							new Argus.Shared.SQT.Server(), null));
+						this.code = 0;
+						this.loop.quit();
+						return;
+					}
+					this.rpc.call.begin(new OLLMrpc.Request() {
+						method = "Registration.certificate",
+						args = OLLMrpc.args("s", deregister_name)
+					}, (cert_obj, cert_res) => {
+						try {
+							var cert_response = this.rpc.call.end(cert_res);
+							if (cert_response.error != null) {
+								var data = new Argus.Shared.SQT.Server() {
+									error = cert_response.error.message
+								};
+								this.cli.print("%s\n", Json.gobject_to_data(data, null));
+								this.loop.quit();
+								return;
+							}
+							this.cli.print("%s\n", Json.gobject_to_data(
+								(Argus.Shared.SQT.Server) cert_response.retval, null));
+							this.code = 0;
+							this.loop.quit();
+						} catch (GLib.Error e) {
+							var data = new Argus.Shared.SQT.Server() {
+								error = e.message
+							};
+							this.cli.print("%s\n", Json.gobject_to_data(data, null));
+							this.loop.quit();
+							return;
+						}
+					});
 				} catch (GLib.Error e) {
 					var data = new Argus.Shared.SQT.Server() {
 						error = e.message
@@ -274,8 +349,6 @@ namespace Argus.Controller
 					this.loop.quit();
 					return;
 				}
-				this.code = 0;
-				this.loop.quit();
 			});
 		}
 

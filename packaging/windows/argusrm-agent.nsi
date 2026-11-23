@@ -37,22 +37,33 @@ Unicode true
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
+; Stop the service, kill tray and agent once, then rename in-use exes.
+!macro StopArgusForUpgrade
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ArgusAgent'
+  ExecWait 'taskkill /F /IM argus-tray.exe'
+  ExecWait 'taskkill /F /IM argus-agent.exe'
+  Sleep 500
+!macroend
+
 Section "Argus RM Agent" SecMain
   SectionIn RO
 
-  ExecWait 'taskkill /F /IM argus-agent.exe'
-  ExecWait 'taskkill /F /IM argus-tray.exe'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ArgusAgent'
+  !insertmacro StopArgusForUpgrade
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ArgusAgent'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ${SERVICE_NAME}'
   Push "ArgusAgent"
   Call WaitServiceGone
   Push "${SERVICE_NAME}"
   Call WaitServiceGone
 
+  Call QuarantineInstalledExes
+
   SetOutPath "$INSTDIR"
   File /r "${INST_SRC}\*.*"
+
+  Delete /REBOOTOK "$INSTDIR\argus-agent.exe.old"
+  Delete /REBOOTOK "$INSTDIR\argus-tray.exe.old"
 
   nsExec::ExecToLog '"$SYSDIR\sc.exe" create ${SERVICE_NAME} binPath= "$INSTDIR\argus-agent.exe" start= auto DisplayName= "Argus RM Agent"'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" description ${SERVICE_NAME} "Argus Remote Manager agent for a managed machine"'
@@ -75,8 +86,7 @@ Section "Argus RM Agent" SecMain
 SectionEnd
 
 Section "Uninstall"
-  ExecWait 'taskkill /F /IM argus-agent.exe'
-  ExecWait 'taskkill /F /IM argus-tray.exe'
+  !insertmacro StopArgusForUpgrade
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" delete ArgusAgent'
   nsExec::ExecToLog '"$SYSDIR\sc.exe" stop ${SERVICE_NAME}'
@@ -93,6 +103,18 @@ Function .onInstSuccess
   Exec '"$INSTDIR\argus-tray.exe"'
 FunctionEnd
 
+; Rename in-use executables so new copies can be written beside them.
+Function QuarantineInstalledExes
+  Push $R0
+  IfFileExists "$INSTDIR\argus-agent.exe" 0 +3
+    Delete /REBOOTOK "$INSTDIR\argus-agent.exe.old"
+    Rename "$INSTDIR\argus-agent.exe" "$INSTDIR\argus-agent.exe.old"
+  IfFileExists "$INSTDIR\argus-tray.exe" 0 +3
+    Delete /REBOOTOK "$INSTDIR\argus-tray.exe.old"
+    Rename "$INSTDIR\argus-tray.exe" "$INSTDIR\argus-tray.exe.old"
+  Pop $R0
+FunctionEnd
+
 Function WaitServiceGone
   Exch $R0
   Push $R1
@@ -107,7 +129,7 @@ Function WaitServiceGone
       ${ExitDo}
     ${EndIf}
     IntOp $R1 $R1 + 1
-    ${If} $R1 > 40
+    ${If} $R1 > 12
       ${ExitDo}
     ${EndIf}
     Sleep 250

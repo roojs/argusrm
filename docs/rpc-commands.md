@@ -86,7 +86,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: controller calls the server.
 - Arguments `s`: a SHA256 fingerprint, or a username on the Unix socket.
 - On the app socket the string must be that connection's certificate fingerprint. The matching controller row is deleted. A missing row is still success.
-- On the Unix socket the peer uid must be `0`. The literal `agent` deletes active managed-agent rows (`is_controller = 0`, `status = 1`) for this host's hostname (Gtk **Remove on server** after local data was cleared). Sixty four lowercase hex digits delete that fingerprint. Any other string is a username, and only controller rows with a blank `ip` or `127.0.0.1` are deleted.
+- On the Unix socket the peer uid must be `0`. The literal `agent` deletes active managed-agent rows (`is_controller = 0`, `status = 1`) for this host's hostname (Gtk **Remove on server** after local data was cleared). Sixty four lowercase hex digits delete that fingerprint. Any other string is a username and deletes every controller row for that username on this server's hostname (pending or active, any `ip`).
 - An empty string is `fingerprint is required`. A Unix caller that is not root is `root is required`. A TLS fingerprint that is not the peer certificate is `fingerprint is required`.
 - ℹ️ The method is `server/Registration.vala`.
 

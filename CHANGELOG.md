@@ -8,7 +8,55 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
-## [0.1.36] - Unreleased
+## [0.1.43] - Unreleased
+
+### Fixed
+
+- After **log in to local machine**, the controller opens on **127.0.0.1** instead of probing every saved bridge address.
+- Controller startup offers **Clear registration and log in** when local enrollment reports *already registered*; it clears saved logins, deregisters the controller row, and issues a new certificate in one flow.
+- `Registration.deregister` on the Unix socket with a username removes every controller row for that user on this hostname (not only loopback `ip`), so recovery works after a controller has connected with a routable address.
+
+- Windows in-place upgrades keep ``server.sqlite`` when the service shuts down. The installer ships **OLLMchat** ``v1.4.17`` ``libocsqlite`` (copy-over-delete promote instead of ``rename``), so registration survives NSIS upgrade.
+
+## [0.1.42] - Unreleased
+
+### Fixed
+
+- Windows program inventory uses the osquery ``programs`` table only. The snapshot no longer unions the non-existent ``appx_packages`` table; MSIX rows use ``source`` ``appx`` when ``package_family_name`` is set.
+
+## [0.1.41] - Unreleased
+
+### Fixed
+
+- After enrollment, the agent connects using host names only in the saved address list. ``address_list()`` had stored ``host:port`` lines; Windows ``getaddrinfo`` then failed on strings like ``192.168.88.132:817``.
+
+## [0.1.40] - Unreleased
+
+### Fixed
+
+- Windows tray registration sends ``family`` ``windows``. ``Register.vala`` is built with ``G_OS_WIN32`` on the client library args, not only the server shared args.
+- The Windows agent opens ``server.sqlite`` at service startup, same as the Linux agent, so enrollment and the connection loop do not run with a null client database.
+
+## [0.1.39] - Unreleased
+
+### Fixed
+
+- The Windows installer stops the service once, kills tray and agent once, and renames in-use executables instead of retrying ``taskkill`` many times.
+- The Windows tray status dialog matches ``Argus.Shared.Notice`` elsewhere: no duplicate Close action; Register appears when the machine is not connected.
+
+## [0.1.38] - Unreleased
+
+### Fixed
+
+- The Windows installer stops the agent and tray in a loop and renames in-use executables before it replaces them, so upgrades no longer hang on a locked ``argus-tray.exe``.
+
+## [0.1.37] - Unreleased
+
+### Changed
+
+- Release bump for Windows install and remote desktop testing.
+
+## [0.1.36] - 2026-11-23
 
 ### Added
 

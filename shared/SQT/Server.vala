@@ -129,7 +129,7 @@ namespace Argus.Shared.SQT
 						if (!Argus.Shared.Net.Route.can_route_to(host)) {
 							continue;
 						}
-						this.address_list_hosts.add(text);
+						this.address_list_hosts.add(host);
 					}
 				}
 			}

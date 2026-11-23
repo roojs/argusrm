@@ -24,8 +24,10 @@ namespace Argus.Controller.Tab.Asset.Machine
 	 * {@link Argus.Controller.Tab.Base.column_menu} reads
 	 * ''interface_addresses_machine.csv''.
 	 * {@link Argus.Controller.Store.InterfaceAddresses} loads
-	 * ''InterfaceAddresses.list'' for the selected ''agent_id''. An
-	 * empty grid shows a spinner over it while that call is in flight.
+	 * ''InterfaceAddresses.list'' for the selected ''agent_id''.
+	 * {@link Argus.Controller.Filters.InterfaceAddresses} is the bar
+	 * above the grid: search on the left, ''Show IPv6'' on the right.
+	 * An empty grid shows a spinner over it while that call is in flight.
 	 * {@link refreshing} is true when rows are already shown and a later
 	 * call is in flight.
 	 *
@@ -39,6 +41,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 	public class InterfaceAddresses : Argus.Controller.Tab.Base
 	{
 		private Argus.Controller.Store.InterfaceAddresses store;
+		private Argus.Controller.Filters.InterfaceAddresses filter;
 
 		/**
 		 * Build the per-machine network interfaces grid.
@@ -49,12 +52,35 @@ namespace Argus.Controller.Tab.Asset.Machine
 		{
 			base("interface_addresses_machine", "address");
 			this.store = new Argus.Controller.Store.InterfaceAddresses(window.app);
-			this.column_grid(this.store);
+			this.filter = new Argus.Controller.Filters.InterfaceAddresses();
+			var rows = new Gtk.FilterListModel(this.store, this.filter) {
+				incremental = true
+			};
+			this.column_grid(rows);
 			this.store.failed.connect((heading, message) => {
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
+			var search = new Gtk.SearchEntry() {
+				placeholder_text = "Search",
+				hexpand = true
+			};
+			search.search_changed.connect(() => {
+				this.filter.search = search.text;
+			});
+			var show_ipv6 = new Gtk.CheckButton.with_label("Show IPv6");
+			show_ipv6.halign = Gtk.Align.END;
+			show_ipv6.toggled.connect(() => {
+				this.filter.show_ipv6 = show_ipv6.active;
+			});
+			var bar = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
+				css_classes = { "machines-filter" },
+				hexpand = true
+			};
+			bar.append(search);
+			bar.append(show_ipv6);
+			this.content.append(bar);
 			this.content.append(this.overlay);
 		}
 

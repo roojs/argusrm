@@ -23,6 +23,7 @@
 | Hide secondary binaries of one source package | Debian | ⏳ not started |
 | Search + Update pending + Versions differ | RPM | ✔️ software and machine bars |
 | Search + Can uninstall + Versions differ | Windows | ✔️ software and machine bars |
+| **Which rows are “installed program”** (`programs.source` on fleet grid; snapshot unions services/startup) | Windows | ⏳ spec not written — [5.9.2](../plans/5.9.2-assets-software-filters.md); symptom [2026-11-23-ISSUE-programs-windows-installed-vs-noise.md](2026-11-23-ISSUE-programs-windows-installed-vs-noise.md); Debian analogue: **Hide secondary binaries** (below) |
 | **Needs updating** (`update_since` > 0 on aggregate row) | Debian/RPM | ⏳ data on RPC; no column/filter on Software grid |
 | Saved filters replace temp bar | All | ⏳ [5.7](../plans/5.7-list-filters.md) |
 
@@ -40,6 +41,8 @@
 
 ℹ️ **Versions differ** is machine version spread, not package-manager pending updates ([5.10](../plans/done/5.10-DONE-data-enrichment.md)).
 
+⏳ **Windows fleet scope (2026-11-23):** [`shared/OSQuery/Programs.vala`](../../shared/OSQuery/Programs.vala) stores multiple `source` values in one table; the grid aggregates all of them. Example counts on a fleet DB copy: `service` 641, `programs` 233, `appx` 127, `startup` 12 — see [2026-11-23-ISSUE-programs-windows-installed-vs-noise.md](2026-11-23-ISSUE-programs-windows-installed-vs-noise.md). Product intent for the Windows sub-tab is still [5.9](../plans/done/5.9-DONE-assets-software.md) (“one installed program”). Executable hash lookup is [2026-11-21-processes-exe-enrichment.md](2026-11-21-processes-exe-enrichment.md), not this grid.
+
 ---
 
 ## Proposed fix (by task — implement as separate commits)
@@ -47,13 +50,14 @@
 1. **RPM / Windows bars** — ✔️ search plus a Filters menu on the software page and the machine page. Software also has Versions differ. RPM's tick is Update pending. Windows' tick is Can uninstall. Both ticks start off.
 2. **Needs updating** — visible column and/or bar toggle on Debian and RPM; wire `Filters.*.match` to `update_since`.
 3. **Secondary packages** — Debian-only filter rule (source/namesake); do not suffix-heuristic hide `-dev` (per old plan LLM notes).
-4. **Bin click** — depends on task UI / signing; link [done/2026-11-15-FIXED-machines-package-update-phase4-ui.md](done/2026-11-15-FIXED-machines-package-update-phase4-ui.md) when Remove exists.
+4. **Windows `programs.source` scope** — write fields in [5.9.2](../plans/5.9.2-assets-software-filters.md), then implement in `controller/filter/Programs.vala` (and SQL/list only if the spec says so). Symptom and counts: [2026-11-23-ISSUE-programs-windows-installed-vs-noise.md](2026-11-23-ISSUE-programs-windows-installed-vs-noise.md).
+5. **Bin click** — depends on task UI / signing; link [done/2026-11-15-FIXED-machines-package-update-phase4-ui.md](done/2026-11-15-FIXED-machines-package-update-phase4-ui.md) when Remove exists.
 
 ---
 
 ## Next
 
-- ⏳ Pick next slice: **needs updating** column vs secondary packages. RPM and Windows bars are in the tree.
+- ⏳ Pick next slice: **needs updating** column vs **secondary packages** vs **Windows source scope** (write 5.9.2 Windows section first). RPM and Windows phase-1 bars are in the tree.
 - ⏳ Close sub-items in this file or spin separate dated bugs when a slice grows.
 
 ---

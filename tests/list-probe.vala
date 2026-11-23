@@ -151,6 +151,7 @@ class ListProbeHost
 		yield this.probe_since_list("SystemInfo.list");
 		yield this.probe_since_list("DebPackages.list");
 		yield this.probe_since_list("RpmPackages.list");
+		yield this.probe_since_list("Programs.list");
 		this.rpc.disconnect();
 		return 0;
 	}

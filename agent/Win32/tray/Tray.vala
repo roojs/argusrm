@@ -51,6 +51,7 @@ namespace Argus.Agent.Win32
 		private bool gtk_up = false;
 		private OLLMrpc.Client rpc;
 		private bool registered = false;
+		private bool connected = false;
 		private bool started = false;
 		private bool submitted = false;
 		private int waits = 0;
@@ -130,6 +131,7 @@ namespace Argus.Agent.Win32
 				var info = (string[]) resp.retval;
 				if (info.length >= 3) {
 					this.registered = info[0] == "1";
+					this.connected = info[1] == "1";
 					this.tip_text = info[2];
 					this.set_tip(this.tip_text);
 				}
@@ -198,6 +200,7 @@ namespace Argus.Agent.Win32
 					return;
 				}
 				this.registered = notif.args.get(0).get_boolean();
+				this.connected = notif.args.get(1).get_boolean();
 				this.tip_text = notif.args.get(2).get_string();
 				this.set_tip(this.tip_text);
 				if (!this.started) {
@@ -411,7 +414,7 @@ namespace Argus.Agent.Win32
 					AppendMenuW(menu, MF_SEPARATOR, 0, null);
 					var restart_flags = this.restarting ? MF_STRING | MF_GRAYED : MF_STRING;
 					AppendMenuW(menu, restart_flags, 1001, g_utf8_to_utf16("Restart Agent"));
-					if (!this.registered) {
+					if (!this.registered || !this.connected) {
 						AppendMenuW(menu, MF_STRING, 1002, g_utf8_to_utf16("Register…"));
 					}
 					SetForegroundWindow(this.hwnd);
@@ -457,16 +460,26 @@ namespace Argus.Agent.Win32
 						"Argus agent is restarting" : "Argus agent is running";
 					var detail = this.tip_text != "" ?
 						this.tip_text : "Not connected to the management server.";
+					if (this.registered && !this.connected) {
+						heading = "Argus agent is not connected";
+					}
+					var offer_register = !this.registered || !this.connected;
 					this.status_notice = new Argus.Shared.Notice(heading, detail);
 					this.status_notice.title =
 						"Argus Remote Management Agent " + Argus.VERSION;
-					this.status_notice.add_response("close", "Close");
+					if (offer_register) {
+						this.status_notice.add_response("register", "Register");
+					}
 					if (!this.restarting) {
 						this.status_notice.add_response("restart", "Restart");
 					}
 					this.status_notice.responded.connect((response) => {
 						if (response == "restart") {
 							PostMessageW(this.hwnd, WM_COMMAND, 1001, 0);
+						}
+						if (response == "register") {
+							this.status_notice.close();
+							this.present(true);
 						}
 					});
 					this.notice_up = true;
@@ -613,7 +626,7 @@ namespace Argus.Agent.Win32
 					return 0;
 
 				case 1002:
-					this.present();
+					this.present(true);
 					return 0;
 
 				default:
@@ -779,9 +792,9 @@ namespace Argus.Agent.Win32
 		 * up. A local key alone does not. The six digits are written
 		 * to the service pipe.
 		 */
-		private void present()
+		private void present(bool allow_reregister = false)
 		{
-			if (this.registered) {
+			if (this.registered && !allow_reregister) {
 				return;
 			}
 			if (!this.gtk_up) {

@@ -126,6 +126,7 @@ sources = files(
 	'filter/Users.vala',
 	'filter/Groups.vala',
 	'filter/Mounts.vala',
+	'filter/InterfaceAddresses.vala',
 	'filter/Tasks.vala',
 	'filter/Distributables.vala',
 	'filter/Distribute.vala',

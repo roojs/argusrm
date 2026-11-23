@@ -159,7 +159,9 @@ namespace Argus.Agent.Win32
 					GLib.FileTest.EXISTS) &&
 				GLib.FileUtils.test(GLib.Path.build_filename(dir, "client.pem"),
 					GLib.FileTest.EXISTS);
-			if (registered) {
+			if (registered &&
+				this.application.connection != null &&
+				!Argus.Agent.Application.connection_down) {
 				request.reply(new OLLMrpc.Response() {
 					retval = OLLMrpc.val("i", (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR),
 					msg = "ok"
@@ -177,21 +179,25 @@ namespace Argus.Agent.Win32
 			var colon = target.last_index_of(":");
 			var host = colon >= 1 ? target.substring(0, colon) : "";
 			var port = colon >= 1 ? int.parse(target.substring(colon + 1)) : 0;
-			var code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-			if (host != "" && port > 0) {
-				var registration = new Argus.Shared.Register() {
-					data_dir = this.application.data_dir,
-					client_db = this.application.client_db,
-					host_name = GLib.Environment.get_host_name(),
-				};
-				code = registration.try_connection(host, (uint16) port, pin.strip());
-				GLib.debug("registration %d", code);
+			if (host == "" || port <= 0) {
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("i", (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR),
+					msg = "ok"
+				});
+				return;
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("i", code),
-				msg = "ok"
-			});
+			var registration = new Argus.Shared.Register() {
+				data_dir = this.application.data_dir,
+				client_db = this.application.client_db,
+				host_name = GLib.Environment.get_host_name(),
+			};
+			var code = registration.try_connection(host, (uint16) port, pin.strip());
+			GLib.debug("registration %d", code);
 			if (code != 0) {
+				request.reply(new OLLMrpc.Response() {
+					retval = OLLMrpc.val("i", code),
+					msg = "ok"
+				});
 				return;
 			}
 			var row = new Argus.Agent.SQT.Server() {
@@ -204,6 +210,10 @@ namespace Argus.Agent.Win32
 				});
 				return;
 			}
+			request.reply(new OLLMrpc.Response() {
+				retval = OLLMrpc.val("i", code),
+				msg = "ok"
+			});
 			this.application.status_notice = "";
 			GLib.Idle.add(() => {
 				this.application.attach_connection();

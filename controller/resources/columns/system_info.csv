@@ -1,7 +1,14 @@
 Column header | Database name [JSON] | Visible | Width | Format | Sort
 
-Logged in users,logged-in-users,ON,160,text,ON
-Hostname,hostname,ON,160,text,ON
+
+Pkgs,pkgs-updated,off,110,date,ON
+S/W,pkgs-status,ON,60,status,off
+
+OS updated,os-updated,off,110,date,ON
+OS,os-status,ON,60,status,off
+
+Logged in users,logged-in-users,ON,120,text,ON
+Hostname,hostname,ON,160,text,off
 Local hostname,local-hostname,off,150,text,ON
 Computer name,computer-name,ON,150,text,ON
 UUID,uuid,off,270,text,ON
@@ -37,6 +44,3 @@ Arch,arch,off,72,text,ON
 
 OS updated,os-updated,off,110,date,ON
 OS status,os-status,ON,90,status,off
-
-Package updated,pkgs-updated,off,120,date,ON
-S/W status,pkgs-status,ON,90,status,off

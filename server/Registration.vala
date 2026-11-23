@@ -313,9 +313,10 @@ namespace Argus.Server
 		 * must be the peer certificate. On ''argus.sock'', root
 		 * passes either that same SHA256 hex or a username. Sixty
 		 * four lowercase hex digits are a fingerprint. Anything
-		 * else is a username, and only rows with a blank ''ip'' or
-		 * ''127.0.0.1'' are deleted. A missing row is still
-		 * success.
+		 * else is a username. On the Unix socket that deletes every
+		 * controller row for that username and this host's
+		 * hostname (any ''ip'' or ''status''). A missing row is
+		 * still success.
 		 *
 		 * @param request inbound RPC on the app socket
 		 * @param fingerprint SHA256 hex, or a username on the Unix socket
@@ -374,9 +375,10 @@ namespace Argus.Server
 				var int_binds = new Gee.HashMap<string, int>();
 				var text_binds = new Gee.HashMap<string, string>();
 				int_binds.set("is_controller", 1);
-				var where = "WHERE is_controller = $is_controller AND username = $username " +
-					"AND (ip = '' OR ip = '127.0.0.1')";
 				text_binds.set("username", fingerprint);
+				text_binds.set("hostname", GLib.Environment.get_host_name());
+				var where = "WHERE is_controller = $is_controller AND username = $username " +
+					"AND hostname = $hostname";
 				// SHA256 hex is 64 digits. A username is a short login name.
 				var fingerprint_row = false;
 				try {

@@ -370,7 +370,7 @@ namespace Argus.Controller.Dialog
 		/**
 		 * Add one action button. The last one is suggested.
 		 *
-		 * @param response ''retry'', ''register'', ''remote'', or a server name
+		 * @param response ''retry'', ''register'', ''remote'', ''recover'', or a server name
 		 * @param label button text
 		 * @param suggested true for the primary button
 		 */
@@ -398,6 +398,10 @@ namespace Argus.Controller.Dialog
 					this.deregister_local();
 					return;
 				}
+				if (response == "recover") {
+					this.recover_local_registration();
+					return;
+				}
 				foreach (var connection in this.reached) {
 					if (connection.name != response) {
 						continue;
@@ -418,6 +422,7 @@ namespace Argus.Controller.Dialog
 		 * {@link Argus.Shared.SQT.Server}. A certificate
 		 * is stored by {@link finish_registration}. A deregister
 		 * with an empty error returns to the local-or-remote page.
+		 * ''--local-reregister'' does both in one root process.
 		 * ''prior_error'' is shown when the command itself succeeds.
 		 * A missing pkexec, or an unreadable ''/proc/self/exe'',
 		 * stops with no further action.
@@ -434,16 +439,14 @@ namespace Argus.Controller.Dialog
 			var failed = "Could not register";
 			if (option == "--deregister") {
 				failed = "Could not deregister";
-			}
-			var pkexec = GLib.Environment.find_program_in_path("pkexec");
-			if (pkexec == null) {
-				this.page("Could not request administrator access",
-					"pkexec was not found.", {}, {});
-				return;
+			} else if (option == "--local-reregister") {
+				failed = "Could not register";
 			}
 			var executable = "";
 			if (option == "--give-me-a-certificate") {
 				executable = Argus.SERVER_EXECUTABLE;
+			} else if (option == "--local-reregister") {
+				executable = Argus.CONTROLLER_EXECUTABLE;
 			} else {
 				try {
 					executable = GLib.FileUtils.read_link("/proc/self/exe");
@@ -464,11 +467,23 @@ namespace Argus.Controller.Dialog
 			}
 			this.page(waiting, "", {}, {});
 			string[] argv = {};
-			argv += pkexec;
+			var as_root = Posix.geteuid() == 0;
+			var pkexec = as_root ? "" :
+				GLib.Environment.find_program_in_path("pkexec");
+			if (!as_root && pkexec == null) {
+				this.page("Could not request administrator access",
+					"pkexec was not found.", {}, {});
+				return;
+			}
+			if (!as_root) {
+				argv += pkexec;
+			}
 			argv += executable;
 			if (option == "--give-me-a-certificate") {
 				argv += "--give-me-a-certificate";
 				argv += value;
+			} else if (option == "--local-reregister") {
+				argv += "--local-reregister";
 			} else {
 				argv += option;
 				argv += value;
@@ -543,11 +558,10 @@ namespace Argus.Controller.Dialog
 					if (message == "This machine is already registered.") {
 						this.page(
 							failed,
-							message + "\n\nThe server still lists this machine. " +
-								"Delete it from the agent list in Remote Manager, " +
-								"or clear the registration on this server.",
-							{ "Deregister locally", "Retry" },
-							{ "local", "retry" });
+							message + "\n\nUse re-register to clear the local save " +
+								"and issue a new certificate on this server.",
+							{ "Re-register this machine" },
+							{ "recover" });
 						return;
 					}
 					this.page(failed, message,
@@ -642,6 +656,18 @@ namespace Argus.Controller.Dialog
 			}
 			this.page("Server registered", row.name, {}, {});
 			this.prefer = row.name;
+#if LINUX
+			if (row.name == GLib.Environment.get_host_name()) {
+				this.answered.set(row.name, "127.0.0.1");
+				GLib.Idle.add(() => {
+					if (this.running && !this.opened) {
+						this.use(row);
+					}
+					return false;
+				});
+				return;
+			}
+#endif
 			GLib.Timeout.add_seconds(2, () => {
 				if (!this.running || this.opened) {
 					return false;
@@ -657,16 +683,12 @@ namespace Argus.Controller.Dialog
 		}
 
 		/**
-		 * Deregister this controller.
+		 * Drop saved server rows and keyring secrets on this machine.
 		 *
-		 * Each saved name drops its keyring secret and row.
-		 * {@link exe_root} then runs ''--deregister'' for this username.
-		 * A saved-login failure does not skip that command.
-		 * The empty-list page follows when the command returns no error.
+		 * @return first local removal error, or empty when all succeeded
 		 */
-		private void deregister_local()
+		private string clear_local_saved()
 		{
-			this.generation++;
 			var local_error = "";
 			try {
 				var store = new Argus.Controller.Store.Server(this.app);
@@ -686,7 +708,21 @@ namespace Argus.Controller.Dialog
 			}
 			this.servers.clear();
 			this.reached.clear();
+			return local_error;
+		}
+
+		/**
+		 * Deregister this controller.
+		 *
+		 * {@link clear_local_saved} then ''--deregister'' for this username.
+		 * A saved-login failure does not skip that command.
+		 * The empty-list page follows when the command returns no error.
+		 */
+		private void deregister_local()
+		{
+			this.generation++;
 #if ANDROID
+			var local_error = this.clear_local_saved();
 			if (local_error != "") {
 				this.page("Could not deregister", local_error,
 					{ "Retry", "Connect a remote machine" }, { "retry", "remote" });
@@ -695,9 +731,21 @@ namespace Argus.Controller.Dialog
 			this.page("Argus Remote Manager", "",
 				{ "Connect a remote machine" }, { "remote" });
 #else
+			var local_error = this.clear_local_saved();
 			this.exe_root("--deregister", GLib.Environment.get_user_name(),
 				"Deregistering", local_error);
 #endif
+		}
+
+		/**
+		 * Clear local saved logins and server row, then issue a new certificate.
+		 */
+		private void recover_local_registration()
+		{
+			this.generation++;
+			var local_error = this.clear_local_saved();
+			this.exe_root("--local-reregister", "",
+				"Re-registering", local_error);
 		}
 
 		/**

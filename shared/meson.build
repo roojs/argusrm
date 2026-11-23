@@ -98,6 +98,7 @@ shared_client_c_args = shared_c_args
 shared_client_deps = shared_deps
 if host_machine.system() == 'windows'
 	shared_vala_args += ['-D', 'G_OS_WIN32']
+	shared_client_vala_args += ['-D', 'G_OS_WIN32']
 	shared_register_sources += files('windows/Browse.vala')
 	shared_client_deps += meson.get_compiler('c').find_library('dnsapi')
 	shared_client_vala_args += [

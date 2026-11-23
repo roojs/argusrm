@@ -88,7 +88,7 @@ namespace Argus.Agent
 		 * Directory with ``server``, client certificates, and download paths.
 		 */
 		internal string data_dir {
-			get {
+			owned get {
 #if LINUX
 				return Argus.AGENT_DATA_DIR;
 #else
@@ -491,6 +491,9 @@ namespace Argus.Agent
 				}
 			}
 #else
+			if (!this.ensure_client_db()) {
+				GLib.warning("Could not open the client database");
+			}
 			var cert = GLib.Path.build_filename(GLib.Environment.get_user_data_dir(), "argus", "client.pem");
 			if (!GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				this.hold();

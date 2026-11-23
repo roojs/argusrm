@@ -204,6 +204,49 @@ if host_machine.system() == 'linux'
 		c_args: ocsqlite_c_args,
 		install: false,
 	)
+	gnome_offtest = import('gnome')
+	programs_offtest_resources = gnome_offtest.compile_resources(
+		'programs-offtest-resources',
+		'../controller/resources/argusrm.gresource.xml',
+		source_dir: '../controller/resources',
+		c_name: 'argus_programs_offtest_resources',
+	)
+	# Real Tab.Base + programs.csv + HoldButton; not a stub ColumnView.
+	executable(
+		'argus-programs-grid-offtest',
+		files(
+			'programs-grid-offtest.vala',
+			'programs-grid-offtest-store.vala',
+			'programs-grid-offtest-page.vala',
+			'programs-grid-offtest-lib/tab/Base.vala',
+			'programs-grid-offtest-lib/store/Base.vala',
+			'programs-grid-offtest-lib/store/ColumnSchema.vala',
+			'programs-grid-offtest-lib/store/KeyValue.vala',
+			'programs-grid-offtest-lib/widget/HoldButton.vala',
+			'programs-grid-offtest-lib/filter/Programs.vala',
+		),
+		programs_offtest_resources,
+		list_probe_server,
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gtk4'),
+			dependency('libadwaita-1'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			dependency('libsecret-1'),
+			shared_cli_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+			'-D', 'LINUX', '--pkg', 'libsecret-1', '--pkg', 'posix',
+			'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
 	# Manual throwaway; not registered with test() — needs live server + credentials.
 	executable(
 		'argus-list-probe',
