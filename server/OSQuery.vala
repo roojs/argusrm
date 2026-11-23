@@ -65,6 +65,11 @@ namespace Argus.Server
 				return;
 			}
 			this.app.db.backupDB();
+			this.app.broadcast(new OLLMrpc.Notification() {
+				method = "event.osquery",
+				action = name,
+				args = OLLMrpc.args("i", (int) connection.user.id)
+			});
 			if (name == "OsVersion") {
 				this.app.os_update.check.begin();
 			}

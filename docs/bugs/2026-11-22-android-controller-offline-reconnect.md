@@ -1,8 +1,8 @@
 # Android controller: offline state does not recover automatically
 
-**Status:** ⏳ partial — argusrm UI/timer fix applied; needs OLLMchat `Client.disconnect()` fix and APK rebuild
+**Status:** ⏳ partial — argusrm UI/timer fix applied; APK rebuild and device verify pending (ocrpc `Client.disconnect()` fix already in Pixie packages)
 
-**Pointer:** `docs/bug-fix-process.md`, `controller/android/Window.vala`, `controller/Window.vala`. Upstream transport: `OLLMchat/docs/bugs/2026-11-22-client-disconnect-idempotent.md`
+**Pointer:** `docs/bug-fix-process.md`, `controller/android/Window.vala`, `controller/Window.vala`
 
 ---
 
@@ -17,14 +17,14 @@
 
 - ✔️ `controller/android/Window.vala` already had `check_connection()` (1 s timer, 30 s backoff, `hello` on drop) — same shape as desktop `controller/Window.vala`.
 - ✔️ User report (2026-11-22): offline feels permanent; reconnect not visible.
-- ℹ️ Follow-on parse failures on auto-`hello` documented in `docs/bugs/2026-11-22-android-debpackages-disconnect.md`.
+- ℹ️ Follow-on parse failures on auto-`hello` from first `DebPackages.list` decode — archived `docs/bugs/done/2026-11-22-CLOSED-android-debpackages-disconnect.md`.
 
 ---
 
 ## Root cause
 
 1. ✔️ **UX:** Only the sidebar title changes to **Offline**; no “reconnecting” state and **30 s** wait between attempts on mobile.
-2. ⏳ **Transport (OLLMchat):** reliable reconnect needs `Client.disconnect()` idempotent teardown — `OLLMchat/docs/bugs/2026-11-22-client-disconnect-idempotent.md`.
+2. ✔️ **Transport:** idempotent `Client.disconnect()` is in shipped Pixie **ocrpc**; Argus only needs a rebuild against the current pin and on-device verify.
 
 ---
 
@@ -47,7 +47,7 @@
 
 - ✔️ §1–2 in argusrm tree (2026-11-22).
 - ⏳ Rebuild/install Android APK (`packaging/android/build-apk.sh`, `adb install -r`) and verify on `SM-S9380`.
-- ⏳ After OLLMchat fix lands: bump pixie ocrpc pin and rebuild APK.
+- ⏳ Rebuild/install APK with current pixie ocrpc pin and verify reconnect on `SM-S9380`.
 
 ---
 

@@ -78,6 +78,13 @@ namespace Argus.Controller
 		 */
 		public Window window { get; set; }
 		/**
+		 * Server data for a table changed (relay from ''event.osquery'').
+		 *
+		 * @param table server class name (notification action)
+		 * @param agent_id host that posted the change
+		 */
+		public signal void db_changed(string table, int agent_id);
+		/**
 		 * True while {@link Window} is on screen.
 		 *
 		 * {@link Dialog.Bootstrap} does not quit when this is true.

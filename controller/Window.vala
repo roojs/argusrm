@@ -267,6 +267,17 @@ namespace Argus.Controller
 				return false;
 			});
 			this.connection_check_id = GLib.Timeout.add_seconds(1, this.check_connection);
+			this.app.rpc.notification.connect((notification) => {
+				if (notification.method != "event.osquery") {
+					return;
+				}
+				if (notification.args.size < 1 || notification.action == "") {
+					return;
+				}
+				this.app.db_changed(
+					notification.action,
+					notification.args.get(0).get_int());
+			});
 		}
 
 		/**

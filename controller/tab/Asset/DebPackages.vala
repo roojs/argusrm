@@ -48,6 +48,7 @@ namespace Argus.Controller.Tab.Asset
 		private Argus.Controller.Filters.DebPackages filter;
 		private Argus.Controller.Dialog.PackageMachines machines;
 		private Argus.Controller.Dialog.AptDepends depends;
+		private bool refresh = false;
 
 		/**
 		 * Build the grid.
@@ -76,7 +77,18 @@ namespace Argus.Controller.Tab.Asset
 				notice.present(this);
 			});
 			this.map.connect(() => {
-				this.store.load(0);
+				this.store.load(0, this.refresh);
+				this.refresh = false;
+			});
+			this.window.app.db_changed.connect((table, agent_id) => {
+				if (table != "DebPackages" && table != "PackageUpdates") {
+					return;
+				}
+				if (this.get_mapped()) {
+					this.store.load(0, true);
+					return;
+				}
+				this.refresh = true;
 			});
 			var filters = this.filter.menu();
 			var search = new Gtk.SearchEntry() {

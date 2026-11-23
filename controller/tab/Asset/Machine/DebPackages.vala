@@ -45,6 +45,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 		private Argus.Controller.Store.TaskTarget tasks;
 		private Argus.Controller.Filters.DebPackages filter;
 		private int agent_id = 0;
+		private bool refresh = false;
 
 		/**
 		 * Build the per-machine Debian package grid.
@@ -74,6 +75,23 @@ namespace Argus.Controller.Tab.Asset.Machine
 					"Task created and running — view it in the Tasks tab" :
 					count.to_string() + " tasks created and running — view them in the Tasks tab";
 				this.toasts.add_toast(new Adw.Toast(label));
+			});
+			window.app.db_changed.connect((table, changed_id) => {
+				if (table != "DebPackages" && table != "PackageUpdates") {
+					return;
+				}
+				if (changed_id > 0 && this.agent_id > 0 && changed_id != this.agent_id) {
+					return;
+				}
+				if (this.agent_id < 1) {
+					this.refresh = true;
+					return;
+				}
+				if (this.get_mapped()) {
+					this.store.load(this.agent_id, true);
+					return;
+				}
+				this.refresh = true;
 			});
 			var update = new Gtk.Button.with_label("Update");
 			var upgrade = new Gtk.Button.with_label("Upgrade") {
@@ -132,7 +150,9 @@ namespace Argus.Controller.Tab.Asset.Machine
 		public void load(int agent_id)
 		{
 			this.agent_id = agent_id;
-			this.store.load(agent_id);
+			var do_refresh = this.refresh;
+			this.refresh = false;
+			this.store.load(agent_id, do_refresh);
 		}
 	}
 }

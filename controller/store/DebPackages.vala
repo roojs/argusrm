@@ -46,6 +46,7 @@ namespace Argus.Controller.Store
 		}
 		private int epoch = 0;
 		private int loaded_agent = -1;
+		private int list_since = 0;
 
 		/**
 		 * Rows from the last list reply. This list is the model.
@@ -116,32 +117,93 @@ namespace Argus.Controller.Store
 			return this.items.get((int) position);
 		}
 
+		private void apply_delta(Gee.ArrayList<Argus.Shared.OSQuery.DebPackages> delta)
+		{
+			var at = new Gee.HashMap<string, int>();
+			for (var i = 0; i < this.items_store.size; i++) {
+				at.set(this.items_store.get(i).name, i);
+			}
+			var drop = new Gee.ArrayList<int>();
+			foreach (var row in delta) {
+				if (row.deleted_dt <= 0) {
+					continue;
+				}
+				if (!at.has_key(row.name)) {
+					continue;
+				}
+				drop.add(at.get(row.name));
+				at.unset(row.name);
+			}
+			drop.sort((a, b) => {
+				if (a == b) {
+					return 0;
+				}
+				if (a > b) {
+					return -1;
+				}
+				return 1;
+			});
+			foreach (var index in drop) {
+				this.items_store.remove_at(index);
+				this.items_changed((uint) index, 1, 0);
+			}
+			at.clear();
+			for (var i = 0; i < this.items_store.size; i++) {
+				at.set(this.items_store.get(i).name, i);
+			}
+			foreach (var row in delta) {
+				if (row.deleted_dt > 0) {
+					continue;
+				}
+				if (!at.has_key(row.name)) {
+					this.items_store.add(row);
+					this.items_changed((uint) (this.items_store.size - 1), 0, 1);
+					at.set(row.name, this.items_store.size - 1);
+					continue;
+				}
+				var index = at.get(row.name);
+				this.items_store.set(index, row);
+				this.items_changed((uint) index, 1, 1);
+			}
+		}
+
 		/**
 		 * Fetch ''DebPackages.list'' and apply it to {@link items}.
 		 *
 		 * Zero asks for every agent, added up by name. An
 		 * ''agent_id'' greater than zero asks for that agent's
-		 * stored rows. The call passes ''since'' zero, so a
-		 * deleted row stays out. The first reply fills the list.
-		 * A later reply is applied by name.
+		 * stored rows. The first reply fills the list.
+		 * When ''refresh'' is true and ''agent_id'' is greater than
+		 * zero, a later call passes the stored ''list_since'' and
+		 * merges the delta.
 		 *
 		 * @param agent_id agent id, or zero for every agent
+		 * @param refresh true after ''db_changed'' for this view
 		 */
-		public void load(int agent_id)
+		public void load(int agent_id, bool refresh = false)
 		{
 			if (this.busy && agent_id == this.loaded_agent) {
+				return;
+			}
+			if (!refresh && agent_id == this.loaded_agent && this.items_store.size > 0) {
 				return;
 			}
 			this.busy = true;
 			if (agent_id != this.loaded_agent && agent_id > 0 && this.items_store.size > 0) {
 				this.items = new Gee.ArrayList<Argus.Shared.OSQuery.DebPackages>();
+				this.list_since = 0;
 			}
 			this.loaded_agent = agent_id;
+			var refresh_start = (int) GLib.DateTime.now_utc().to_unix();
+			var query_since = 0;
+			if (refresh && agent_id > 0 && this.items_store.size > 0 && this.list_since > 0) {
+				query_since = this.list_since;
+			}
 			this.epoch++;
 			var epoch = this.epoch;
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
 				method = "DebPackages.list",
-				args = OLLMrpc.args("ii", agent_id, 0)
+				args = OLLMrpc.args("ii", agent_id, query_since)
 			}, (obj, res) => {
 				if (epoch != this.epoch) {
 					return;
@@ -163,7 +225,12 @@ namespace Argus.Controller.Store
 				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
 					listed = (Gee.ArrayList<Argus.Shared.OSQuery.DebPackages>) response.retval.get_object();
 				}
-				this.items = listed;
+				if (query_since > 0) {
+					this.apply_delta(listed);
+				} else {
+					this.items = listed;
+				}
+				this.list_since = refresh_start;
 				this.busy = false;
 			});
 		}

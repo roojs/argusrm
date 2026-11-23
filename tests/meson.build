@@ -159,6 +159,51 @@ if host_machine.system() == 'linux'
 		output: 'list-probe-Server.vala',
 		command: ['cp', '@INPUT@', '@OUTPUT@'],
 	)
+	debpackages_snapshot_server = custom_target(
+		'debpackages-snapshot-server-vala',
+		input: files('../controller/SQT/Server.vala'),
+		output: 'debpackages-snapshot-Server.vala',
+		command: ['cp', '@INPUT@', '@OUTPUT@'],
+	)
+	executable(
+		'argus-debpackages-snapshot-decode',
+		files('debpackages-snapshot-decode.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_cli_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
+	executable(
+		'argus-debpackages-reply-snapshot',
+		files('debpackages-reply-snapshot.vala'),
+		debpackages_snapshot_server,
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			dependency('libsecret-1'),
+			shared_cli_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+			'-D', 'LINUX', '--pkg', 'libsecret-1', '--pkg', 'posix',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
 	# Manual throwaway; not registered with test() — needs live server + credentials.
 	executable(
 		'argus-list-probe',
@@ -210,6 +255,32 @@ if host_machine.system() == 'linux'
 			dependency('gee-0.8'),
 			dependency('json-glib-1.0'),
 			shared_server_dep,
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args,
+		install: false,
+	)
+elif host_machine.system() == 'android'
+	android_probe_server = custom_target(
+		'debpackages-android-probe-server-vala',
+		input: files('../controller/SQT/Server.vala'),
+		output: 'debpackages-android-probe-Server.vala',
+		command: ['cp', '@INPUT@', '@OUTPUT@'],
+	)
+	executable(
+		'argus-debpackages-android-list-probe',
+		files('debpackages-android-list-probe.vala'),
+		android_probe_server,
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_dep,
 			ocrpc_dep,
 		],
 		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [

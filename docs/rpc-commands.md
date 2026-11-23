@@ -389,6 +389,13 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
 - 🔷 Broadcast when a task is queued, started, or ended.
 - 🔷 Action `queued`, `started`, or `ended`.
 
+### `event.osquery`
+
+- 🔷 Broadcast after every successful `OSQuery.sync`.
+- 💩 Arguments `i`: `agent_id` of the connection that posted the sync.
+- 💩 Action: the sync class name (`DebPackages`, `SystemInfo`, …).
+- ℹ️ The controller relays this as `Application.db_changed`; listeners filter on `action`.
+
 ### `agent.removed`
 
 - 🔷 Client notification on the machine `Agent.remove` is deleting.

@@ -58,4 +58,4 @@ sudo sqlite3 /var/lib/argusrm/argus.sqlite \
 
 ## Parked
 
-- Android DebPackages disconnect — `docs/bugs/2026-11-22-android-debpackages-disconnect.md` (separate).
+- Android DebPackages disconnect — closed `docs/bugs/done/2026-11-22-CLOSED-android-debpackages-disconnect.md` (separate).

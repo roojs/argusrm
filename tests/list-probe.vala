@@ -35,13 +35,27 @@ class ListProbeHost
 		if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
 			var list = (Gee.ArrayList<GLib.Object>) response.retval.get_object();
 			count = list.size;
+			const int row_preview_max = 3;
+			var printed = 0;
 			foreach (var entry in list) {
-				var row = entry as Argus.Shared.Agent;
-				if (row == null) {
-					note("  row: (not an Agent)");
-					continue;
+				if (printed >= row_preview_max) {
+					break;
 				}
-				note(@"  row id=$(row.id) kind=$(row.display_kind) name=$(row.display_name) status=$(row.status)");
+				var agent = entry as Argus.Shared.Agent;
+				var deb = entry as Argus.Shared.OSQuery.DebPackages;
+				if (agent != null) {
+					note(@"  row id=$(agent.id) kind=$(agent.display_kind) name=$(agent.display_name) status=$(agent.status)");
+					printed++;
+				} else if (deb != null) {
+					note(@"  row name=$(deb.name) installed=$(deb.installed)");
+					printed++;
+				} else if (entry != null) {
+					note(@"  row $(entry.get_type().name())");
+					printed++;
+				}
+			}
+			if (list.size > row_preview_max) {
+				note(@"  … $(list.size - row_preview_max) more row(s) omitted");
 			}
 			if (list.size > 0 && list.get(0) != null) {
 				kind = list.get(0).get_type().name();
