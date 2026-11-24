@@ -216,8 +216,10 @@ if host_machine.system() == 'linux'
 		'argus-programs-grid-offtest',
 		files(
 			'programs-grid-offtest.vala',
+			'programs-grid-offtest-rpc.vala',
 			'programs-grid-offtest-store.vala',
 			'programs-grid-offtest-page.vala',
+			'programs-grid-offtest-lib/server/Daemon.vala',
 			'programs-grid-offtest-lib/tab/Base.vala',
 			'programs-grid-offtest-lib/store/Base.vala',
 			'programs-grid-offtest-lib/store/ColumnSchema.vala',
@@ -245,6 +247,7 @@ if host_machine.system() == 'linux'
 			'--pkg', 'gtk4', '--pkg', 'libadwaita-1',
 		],
 		c_args: ocsqlite_c_args,
+		export_dynamic: true,
 		install: false,
 	)
 	# Manual throwaway; not registered with test() — needs live server + credentials.

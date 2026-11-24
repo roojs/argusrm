@@ -34,7 +34,7 @@ Record: **where** tested, **what** changed, **symptom / metric**, **outcome**. N
 |----|----------------|----------------------|--------------|-----------------|--------|
 | T1 | **Your controller** (device) | **Yes** (you) | Bundled: incremental sort, store chunking, slim SQL, etc. | You: **no perceived improvement** | **Reverted** to HEAD |
 | T2a | Off-test (old harness) | Partial | Artificial pump after apply | ~1 s | **Invalid** — pump hid freeze (removed 2026-11-23) |
-| T2b | Off-test repro + **legacy** row shape, `/tmp/argus.sqlite.copy`, xvfb | **No** — not 3–4 s | prod vs fixA | prod **ui_alive_ms ~374**, **sync ~232 ms**; fixA similar | **Does not reproduce** user duration; scroll lag **0 ms** |
+| T2b | `argus-programs-grid-offtest` + **in-test Unix RPC** (`ProgramsGridOfftestRpcServer`, real `Programs.list` on sqlite) | **FAIL** | grid repro after RPC fetch | **prod_worst_frozen_ms** still &lt; 3000 on copy DB (xvfb, 2026-11-23) | Exit **1** `REPRO_FAIL`; no live server / libsecret needed |
 | T3 | **Off-test** same run | Same | fixB defer sorter | **807 ms**, ticks **26** | More main-loop ticks; **not** tried in product |
 | T4 | **Off-test** same run | Same | fixC freeze sorter while `busy` | **844 ms**, ticks **28** | **not** tried in product |
 | T5 | **Off-test** sqlite path | N/A | Slim vs legacy fleet SQL | Query **25 vs 47 ms**; payload **40k vs 178k chars**; **same 949 rows** | **Irrelevant** to UI freeze in harness |
