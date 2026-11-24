@@ -369,7 +369,8 @@ namespace Argus.Server
 		 * Offer a registration number.
 		 *
 		 * The controller calls this with no arguments. The reply
-		 * is the six digits, then the public address. This opens
+		 * is the six digits, then the public address, then one
+		 * entry per address in the broadcast. This opens
 		 * the registration socket and publishes that port. The
 		 * app socket and its firewall stay as they are. The
 		 * download socket opens from {@link request_registration},
@@ -423,6 +424,41 @@ namespace Argus.Server
 			}
 			GLib.debug("publishing %s port %d", string.joinv(" ", addrs), parsed);
 			this.app.publish.start(addrs, (uint16) parsed);
+			string[] nets = {};
+			Linux.Network.IfAddrs listed;
+			if (Linux.Network.getifaddrs(out listed) == 0) {
+				for (unowned var iface = listed; iface != null; iface = iface.ifa_next) {
+					if (iface.ifa_addr == null) {
+						continue;
+					}
+					if (iface.ifa_addr.sa_family != Posix.AF_INET) {
+						continue;
+					}
+					var sin = (Posix.SockAddrIn*) iface.ifa_addr;
+					var buf = new uint8[Posix.INET_ADDRSTRLEN];
+					var ip = Posix.inet_ntop(Posix.AF_INET, &sin.sin_addr, buf);
+					if (ip == null || ip == "") {
+						continue;
+					}
+					var chosen = false;
+					foreach (var published in addrs) {
+						if (published != ip) {
+							continue;
+						}
+						chosen = true;
+						break;
+					}
+					if (!chosen) {
+						continue;
+					}
+					nets += iface.ifa_name + " " + ip;
+				}
+			}
+			if (nets.length == 0) {
+				foreach (var published in addrs) {
+					nets += published;
+				}
+			}
 			this.app.register_firewall.disable();
 			var owner = request.connection;
 			GLib.Timeout.add_seconds(60, () => {
@@ -462,7 +498,12 @@ namespace Argus.Server
 						GLib.warning("%s", e.message);
 					}
 					if (found.length() < 1) {
-						var missed = new string[] { issued, "" };
+						string[] missed = {};
+						missed += issued;
+						missed += "";
+						foreach (var net in nets) {
+							missed += net;
+						}
 						request.reply(new OLLMrpc.Response() {
 							retval = OLLMrpc.val("as", missed),
 							msg = "ok"
@@ -490,7 +531,12 @@ namespace Argus.Server
 						} catch (GLib.Error e) {
 							GLib.warning("%s", e.message);
 						}
-						var reply = new string[] { issued, address };
+						string[] reply = {};
+						reply += issued;
+						reply += address;
+						foreach (var net in nets) {
+							reply += net;
+						}
 						request.reply(new OLLMrpc.Response() {
 							retval = OLLMrpc.val("as", reply),
 							msg = "ok"

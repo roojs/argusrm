@@ -16,7 +16,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Agent.Win32
+namespace Argus.Agent.Windows
 {
 	/**
 	 * Window and tray icon for the signed-in session.
@@ -31,7 +31,7 @@ namespace Argus.Agent.Win32
 	 * == Example ==
 	 *
 	 * {{{
-	 * var tray = new Argus.Agent.Win32.Tray();
+	 * var tray = new Argus.Agent.Windows.Tray();
 	 * return tray.run();
 	 * }}}
 	 */

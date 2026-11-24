@@ -52,7 +52,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: controller calls the server.
 - Arguments: none.
 - Opens the registration socket and publishes that port. The app socket stays as it is.
-- Reply `retval` `as`: index 0 is the six digits. Index 1 is the public IPv4 address, or empty when that lookup fails.
+- Reply `retval` `as`: index 0 is the six digits. Index 1 is the public IPv4 address, or empty when that lookup fails. Each later index is one address in the broadcast, `interface address` when the name is known.
 - The number lasts sixty seconds, until `Agent.request_registration` accepts it, until `Agent.stop`, or until this connection closes.
 - A caller that is not a controller is `controller only`.
 - The registration socket failing to bind is `registration socket did not bind`.
@@ -67,7 +67,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - `AgentService.register` `ss`: six-digit PIN, `host:port` (or empty to use browse). Reply `retval` `i`: `0` on success or `OLLMrpc.RpcErrorCode`.
 - `AgentService.allow` `b`: the tray's answer. `true` turns Remote Desktop on. `false` does nothing. Reply `msg`: `ok`.
 - Notification `agent.desktop`: no arguments. The service sends it on the loopback socket when someone is logged in, before Remote Desktop is turned on. The tray shows a balloon. A click allows it. Ignoring the balloon leaves it off. Half an hour idle allows it without the balloon.
-- ℹ️ The handlers are in `agent/Win32/Service.vala`, called from `agent/Win32/tray/Tray.vala`.
+- ℹ️ The handlers are in `agent/windows/Service.vala`, called from `agent/windows/tray/Tray.vala`.
 
 ### `Registration.certificate`
 
@@ -158,6 +158,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments `so`: the table name, then the array.
 - Tables: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`, then one package class, plus `package_updates` on Linux (`APT` / `DNF`) from `PackageMonitor.send_pending`. On APT, `Apt.History.send` posts `apt_explicit_install` from `Execute.send_startup` and again from `PackageMonitor.apt` after a dpkg change.
 - The package class follows `os_version.package_manager`. APT sends `DebPackages`. DNF sends `RpmPackages`. WIN sends `Programs`. Any other value sends no package class.
+- On Windows, before `Programs` sync the agent runs `ExeEnrichment` (`locate`, `enrich`, `attach`) and fills PE fields on each row when a path resolves: `file_sha256`, `signing_result`, `signer_cert_sha256`, `signer_subject_key_id`, `signer_publisher`, `signer_issuer`, `signer_serial`. Registry `publisher` is unchanged. Enrichment is cached per path in agent `win_file_identity` (`client_db`).
 - A row left out of a standard table snapshot gets `deleted_dt`. For `PackageUpdates`, existing names keep their `since` time, new names are inserted, and names left out are deleted.
 - `AptExplicitInstall` is not a snapshot. The batch is only names whose apt history `Start-Date` is after the agent watermark. The server inserts a new `(agent_id, name)` and keeps the first `installed_dt`. A name left out of the batch stays. An empty batch is not posted.
 - The machine tables are posted even when the array is empty. After the first package send, an empty package query is not posted. An empty `PackageUpdates` list is posted when `UpdatesAvailable.check` succeeds with no updates.
@@ -367,7 +368,7 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/done/2.0-DONE-age
 - ℹ️ `g_spawn_async` takes `working_directory`, `argv`, and `envp`. `CreateProcess` takes `lpCurrentDirectory`, `lpCommandLine`, and `lpEnvironment`.
 - 🔷 `Argus.Agent.Command` is a Linux class and a Windows class. They monitor the sockets differently. One class wrapped in ifdefs would be overwhelming.
 - 🚫 A base class is not the split.
-- 💩 `agent/linux/Command.vala`, `agent/Win32/Command.vala`, and `agent/android/Command.vala` are all `Argus.Agent.Command`. The build compiles one of them. Each registers the bin alias `Argus.Command`. Linux runs `sh -c` and watches stdout and stderr with `IOChannel.add_watch`. Windows runs `cmd.exe /c` and waits with `IOChannel.win32_poll`. Stdin, stdout, and stderr stay open on those two. An empty `cwd` or an empty `environment` inherits the agent process. The Android `run` does not spawn. It sends `Command.stdout` with an empty chunk.
+- 💩 `agent/linux/Command.vala`, `agent/windows/Command.vala`, and `agent/android/Command.vala` are all `Argus.Agent.Command`. The build compiles one of them. Each registers the bin alias `Argus.Command`. Linux runs `sh -c` and watches stdout and stderr with `IOChannel.add_watch`. Windows runs `cmd.exe /c` and waits with `IOChannel.win32_poll`. Stdin, stdout, and stderr stay open on those two. An empty `cwd` or an empty `environment` inherits the agent process. The Android `run` does not spawn. It sends `Command.stdout` with an empty chunk.
 - 💩 Properties on both: `identifier` `i`, `command` `s`, `environment` `as`, `cwd` `s`.
 - 💩 Each environment entry is `NAME=value`. `cwd` is the current working directory.
 - 💩 The `agent.run` notification `args` hold that one object. The bin alias is `Argus.Command`.

@@ -32,7 +32,7 @@ server_vala_args = [
 	'--vapidir', meson.current_source_dir() / 'vapi',
 	'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0', '--pkg', 'ocrpc',
 	'--pkg', 'gnutls', '--pkg', 'sqlite3', '--pkg', 'ocsqlite',
-	'--pkg', 'libgit2-glib-1.0', '--pkg', 'posix',
+	'--pkg', 'libgit2-glib-1.0', '--pkg', 'posix', '--pkg', 'linux',
 	'-D', 'LINUX',
 ]
 sources = files(

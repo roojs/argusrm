@@ -108,7 +108,8 @@ valadoc_sources += files(
   '../agent/OSQuery/Package.vala',
   '../agent/OSQuery/DebPackages.vala',
   '../agent/OSQuery/RpmPackages.vala',
-  '../agent/OSQuery/Programs.vala',
+  '../agent/linux/Programs.vala',
+  '../agent/linux/WinFileIdentity.vala',
   '../agent/linux/Application.vala',
   '../agent/linux/LocalRegistration.vala',
   # linux/Application.cli.vala repeats this class for the command-line build.

@@ -22,9 +22,10 @@ namespace Argus.Controller
 	 * Registration PIN on the command line.
 	 *
 	 * Asks ''Agent.offer'' for a six-digit pin and prints it.
-	 * The number lasts sixty seconds. It then recommends the
-	 * agent command for a remote terminal, using the public
-	 * address from that reply. {@link Application} already hellos.
+	 * The number lasts sixty seconds. It lists each network the
+	 * broadcast is published on, then recommends the agent
+	 * command for a remote terminal, using the public address
+	 * from that reply. {@link Application} already hellos.
 	 *
 	 * == Example ==
 	 *
@@ -65,16 +66,27 @@ namespace Argus.Controller
 						return;
 					}
 					var reply = (string[]) response.retval;
-					if (reply.length != 2 || reply[0].length != 6) {
+					if (reply.length < 2 || reply[0].length != 6) {
 						this.app.cli.printerr("The server did not return a number.\n");
 						this.app.loop.quit();
 						return;
 					}
 					var pin = reply[0];
-					this.app.cli.print("Registration PIN: %s\nRegistration is open for 60 seconds. Press Ctrl+C to close it early.\n", pin);
-					this.app.cli.print("""On a remote terminal you can use:
-sudo argusrm-agent --server %s --pin %s
-""".printf(reply[1], pin));
+					string[] nets = {};
+					for (var i = 2; i < reply.length; i++) {
+						nets += reply[i];
+					}
+					var networks = "none";
+					if (nets.length > 0) {
+						networks = string.joinv("\n", nets);
+					}
+					this.app.cli.print("%s", @"Registration PIN: $(pin)
+Registration is open for 60 seconds. Press Ctrl+C to close it early.
+Broadcast on:
+$(networks)
+On a remote terminal you can use:
+sudo argusrm-agent --server $(reply[1]) --pin $(pin)
+");
 				} catch (GLib.Error e) {
 					this.app.cli.printerr("%s\n", e.message);
 					this.app.loop.quit();

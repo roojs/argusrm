@@ -1,7 +1,7 @@
 /* Windows service control. Field names match the headers. */
 
 [CCode (cprefix = "", lower_case_cprefix = "", cheader_filename = "win32.h")]
-namespace Argus.Agent.Win32 {
+namespace Win32 {
 
 	[CCode (cname = "SERVICE_WIN32_OWN_PROCESS", cheader_filename = "win32.h")]
 	public const uint32 SERVICE_WIN32_OWN_PROCESS;
@@ -592,4 +592,19 @@ namespace Argus.Agent.Win32 {
 	[CCode (cname = "EvtSubscribe", cheader_filename = "win32.h")]
 	public void* EvtSubscribe (void* session, void* signal, string16 channel, string16 query,
 		void* bookmark, void* context, EVT_SUBSCRIBE_CALLBACK callback, uint32 flags);
+
+	/* PE Authenticode (pe-authenticode.c). */
+
+	[CCode (cname = "win_pe_authenticode", cheader_filename = "pe-authenticode.h", has_type_id = false)]
+	public struct WinPeAuthenticode {
+		public char signing_result[64];
+		public char signer_cert_sha256[65];
+		public char signer_subject_key_id[128];
+		public char signer_publisher[256];
+		public char signer_issuer[512];
+		public char signer_serial[64];
+	}
+
+	[CCode (cname = "win_pe_read_authenticode", cheader_filename = "pe-authenticode.h")]
+	public bool win_pe_read_authenticode (string16 path, WinPeAuthenticode *out);
 }

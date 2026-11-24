@@ -28,9 +28,9 @@ namespace Argus.Agent
 	 * {@link port}, and {@link pin} are the registration properties.
 	 * {@link hold} keeps the process up. With no address,
 	 * {@link Argus.Shared.Browse} looks for the broadcast. On
-	 * Windows, {@link Win32.Service} starts this when the Service
+	 * Windows, {@link Argus.Agent.Windows.Service} starts this when the Service
 	 * Control Manager launches ''argus-agent''. ''argus-tray'' is
-	 * {@link Win32.Tray}, not this class.
+	 * {@link Argus.Agent.Windows.Tray}, not this class.
 	 *
 	 * == Example ==
 	 *
@@ -286,6 +286,7 @@ namespace Argus.Agent
 			var path = GLib.Path.build_filename(this.data_dir, "server.sqlite");
 			this.client_db = new SQ.Database(path, true);
 			Argus.Shared.SQT.Server.init_db(this.client_db);
+			Argus.Agent.SQT.WinFileIdentity.init_db(this.client_db);
 			if (!GLib.FileUtils.test(path, GLib.FileTest.EXISTS)) {
 				this.client_db.backupDB();
 			}
@@ -573,21 +574,21 @@ namespace Argus.Agent
 					return;
 				case "relay.start":
 #if WINDOWS
-					if (Win32.Service.current != null) {
-						Win32.Service.current.relay_start();
+					if (Windows.Service.current != null) {
+						Windows.Service.current.relay_start();
 					}
 #endif
 					return;
 				case "relay.cut":
 #if WINDOWS
-					if (Win32.Service.current == null) {
+					if (Windows.Service.current == null) {
 						return;
 					}
-					if (Win32.Service.current.tunnel == null) {
-						Win32.Service.current.relay_start();
+					if (Windows.Service.current.tunnel == null) {
+						Windows.Service.current.relay_start();
 						return;
 					}
-					Win32.Service.current.tunnel.reopen();
+					Windows.Service.current.tunnel.reopen();
 #endif
 					return;
 				default:

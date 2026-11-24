@@ -272,6 +272,58 @@ if host_machine.system() == 'linux'
 		c_args: ocsqlite_c_args,
 		install: false,
 	)
+	executable(
+		'argus-programs-exe-pipeline-mock',
+		files('programs-exe-pipeline-mock.vala'),
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gee-0.8'),
+		],
+		vala_args: ['--pkg', 'gee-0.8'],
+		install: false,
+	)
+	if host_machine.system() == 'windows'
+		programs_pe_winfileidentity_vala = custom_target(
+			'programs-pe-winfileidentity-vala',
+			input: files('../agent/SQT/WinFileIdentity.vala'),
+			output: 'programs-pe-WinFileIdentity.vala',
+			command: ['cp', '@INPUT@', '@OUTPUT@'],
+		)
+		programs_pe_exeenrich_vala = custom_target(
+			'programs-pe-exeenrich-vala',
+			input: files('../agent/windows/ExeEnrichment.vala'),
+			output: 'programs-pe-ExeEnrichment.vala',
+			command: ['cp', '@INPUT@', '@OUTPUT@'],
+		)
+		executable(
+			'argus-programs-pe-pipeline-agent',
+			files(
+				'programs-pe-pipeline-agent.vala',
+				'../win32/pe-authenticode.c',
+			),
+			programs_pe_winfileidentity_vala,
+			programs_pe_exeenrich_vala,
+			dependencies: [
+				dependency('glib-2.0'),
+				dependency('gobject-2.0'),
+				dependency('gee-0.8'),
+				shared_dep,
+				ocrpc_dep,
+				meson.get_compiler('c').find_library('crypt32'),
+				meson.get_compiler('c').find_library('wintrust'),
+			],
+			vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+				'--vapidir', meson.project_source_root() / 'win32', '--pkg', 'win32',
+				'-D', 'WINDOWS',
+				'--pkg', 'gee-0.8', '--pkg', 'sqlite3',
+			],
+			c_args: ocsqlite_c_args + [
+				'-I' + meson.project_source_root() / 'win32',
+			],
+			install: false,
+		)
+	endif
 	# Manual throwaway; needs a copy of /var/lib/argusrm/argus.sqlite (see agent-list-offline.vala).
 	executable(
 		'argus-db-startup-probe',

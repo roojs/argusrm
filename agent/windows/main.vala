@@ -133,10 +133,10 @@ namespace Argus.Agent
 		}
 		var exe_name = GLib.Path.get_basename(args[0]).down();
 		if (exe_name == "argus-tray" || exe_name == "argus-tray.exe") {
-			var tray = new Win32.Tray();
+			var tray = new Windows.Tray();
 			return tray.run();
 		}
-		var service = new Win32.Service();
+		var service = new Windows.Service();
 		var service_exit = service.start();
 		if (service_exit >= 0) {
 			return service_exit;

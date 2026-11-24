@@ -1,0 +1,39 @@
+C:\Program Files (x86)\Microsoft\Copilot\Application\158.0.4370.33\Installer\setup.exe
+C:\Program Files (x86)\Microsoft\Edge\Application\158.0.4370.33\Installer\setup.exe
+C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+C:\Program Files\Argus\argus-agent.exe
+C:\Program Files\OCS Inventory Agent\OCSInventory-Service.exe
+C:\Program Files\OpenVPN\bin\openvpn-gui.exe
+C:\Users\Alan\AppData\Local\Microsoft\OneDrive\OneDrive.exe
+C:\WINDOWS\Microsoft.NET\Framework64\v4.0.30319\SMSvcHost.exe
+C:\WINDOWS\Microsoft.Net\Framework64\v3.0\WPF\PresentationFontCache.exe
+C:\WINDOWS\SysWow64\perfhost.exe
+C:\WINDOWS\System32\GameInputSvc.exe
+C:\WINDOWS\System32\OpenSSH\ssh-agent.exe
+C:\WINDOWS\System32\OpenSSH\sshd.exe
+C:\WINDOWS\System32\SensorDataService.exe
+C:\WINDOWS\System32\VBoxService.exe
+C:\WINDOWS\System32\alg.exe
+C:\WINDOWS\System32\lsass.exe
+C:\WINDOWS\System32\msdtc.exe
+C:\WINDOWS\System32\snmptrap.exe
+C:\WINDOWS\System32\spoolsv.exe
+C:\WINDOWS\System32\vds.exe
+C:\WINDOWS\servicing\TrustedInstaller.exe
+C:\WINDOWS\system32\AgentService.exe
+C:\WINDOWS\system32\AppVClient.exe
+C:\WINDOWS\system32\CredentialEnrollmentManager.exe
+C:\WINDOWS\system32\DiagSvcs\DiagnosticsHub.StandardCollector.Service.exe
+C:\WINDOWS\system32\PerceptionSimulation\PerceptionSimulationService.exe
+C:\WINDOWS\system32\SecurityHealthService.exe
+C:\WINDOWS\system32\SecurityHealthSystray.exe
+C:\WINDOWS\system32\TieringEngineService.exe
+C:\WINDOWS\system32\VBoxTray.exe
+C:\WINDOWS\system32\fxssvc.exe
+C:\WINDOWS\system32\locator.exe
+C:\WINDOWS\system32\lsass.exe
+C:\WINDOWS\system32\spectrum.exe
+C:\WINDOWS\system32\sppsvc.exe
+C:\WINDOWS\system32\vssvc.exe
+C:\WINDOWS\system32\wbem\WmiApSrv.exe
+C:\Windows\SysWOW64\OneDriveSetup.exe

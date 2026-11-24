@@ -40,7 +40,8 @@ if host_machine.system() == 'linux'
 		'OSQuery/Package.vala',
 		'OSQuery/DebPackages.vala',
 		'OSQuery/RpmPackages.vala',
-		'OSQuery/Programs.vala',
+		'linux/Programs.vala',
+		'linux/WinFileIdentity.vala',
 		'linux/Application.vala',
 		'linux/LocalRegistration.vala',
 		'linux/ServiceManager.vala',
@@ -68,32 +69,32 @@ if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('psapi')
 	deps += meson.get_compiler('c').find_library('wtsapi32')
 	deps += meson.get_compiler('c').find_library('wevtapi')
+	deps += meson.get_compiler('c').find_library('crypt32')
+	deps += meson.get_compiler('c').find_library('wintrust')
+	sources += win32_c_sources
 	sources += files(
 		'OSQuery/Initialize.vala',
 		'OSQuery/Execute.vala',
 		'OSQuery/Package.vala',
 		'OSQuery/DebPackages.vala',
 		'OSQuery/RpmPackages.vala',
-		'OSQuery/Programs.vala',
-		'Win32/Service.vala',
-		'Win32/register-pipe.c',
-		'Win32/tray/Tray.vala',
-		'Win32/Command.vala',
-		'Win32/PackageMonitor.vala',
-		'Win32/UserMonitor.vala',
-		'Win32/UpdatesAvailable.vala',
-		'Win32/main.vala',
+		'windows/Programs.vala',
+		'SQT/WinFileIdentity.vala',
+		'windows/ExeEnrichment.vala',
+		'windows/Service.vala',
+		'windows/tray/Tray.vala',
+		'windows/Command.vala',
+		'windows/PackageMonitor.vala',
+		'windows/UserMonitor.vala',
+		'windows/UpdatesAvailable.vala',
+		'windows/main.vala',
 		'Rdp/Tunnel.vala',
 	)
-	vala_args += [
-		'--vapidir', meson.current_source_dir() / 'Win32', '--pkg', 'win32',
-		'-D', 'WINDOWS',
-	]
+	vala_args += win32_vala_args + ['-D', 'WINDOWS']
 	c_args += [
 		'-D_WIN32_WINNT=0x0601',
 		'-D_WIN32_IE=0x0601',
-		'-I' + meson.current_source_dir() / 'Win32',
-	]
+	] + win32_c_args
 	win_mod = import('windows')
 	sources += win_mod.compile_resources(
 		files('../packaging/windows/argusrm.rc'),
@@ -136,7 +137,8 @@ else
 				'OSQuery/Package.vala',
 				'OSQuery/DebPackages.vala',
 				'OSQuery/RpmPackages.vala',
-				'OSQuery/Programs.vala',
+				'linux/Programs.vala',
+				'linux/WinFileIdentity.vala',
 				'linux/Application.cli.vala',
 				'linux/ServiceManager.vala',
 				'linux/Command.vala',

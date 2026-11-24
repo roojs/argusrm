@@ -215,7 +215,14 @@ namespace Argus.Shared.OSQuery
 					architecture        TEXT NOT NULL DEFAULT '',
 					scope               TEXT NOT NULL DEFAULT '',
 					user_account        TEXT NOT NULL DEFAULT '',
-					extra               TEXT NOT NULL DEFAULT ''
+					extra               TEXT NOT NULL DEFAULT '',
+					file_sha256         TEXT NOT NULL DEFAULT '',
+					signing_result      TEXT NOT NULL DEFAULT '',
+					signer_cert_sha256  TEXT NOT NULL DEFAULT '',
+					signer_subject_key_id TEXT NOT NULL DEFAULT '',
+					signer_publisher    TEXT NOT NULL DEFAULT '',
+					signer_issuer       TEXT NOT NULL DEFAULT '',
+					signer_serial       TEXT NOT NULL DEFAULT ''
 				);
 				""");
 			Argus.Shared.init_db_audit(db, "programs");
@@ -224,6 +231,13 @@ namespace Argus.Shared.OSQuery
 			db.exec("ALTER TABLE programs ADD COLUMN scope TEXT NOT NULL DEFAULT '';");
 			db.exec("ALTER TABLE programs ADD COLUMN user_account TEXT NOT NULL DEFAULT '';");
 			db.exec("ALTER TABLE programs ADD COLUMN extra TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN file_sha256 TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN signing_result TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN signer_cert_sha256 TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN signer_subject_key_id TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN signer_publisher TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN signer_issuer TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN signer_serial TEXT NOT NULL DEFAULT '';");
 			db.exec("""
 				CREATE INDEX IF NOT EXISTS programs_deleted_name_agent
 				ON programs (deleted_dt, name, agent_id);
@@ -414,6 +428,17 @@ namespace Argus.Shared.OSQuery
 		 * Source-specific fields not stored in their own column.
 		 */
 		public string extra { get; set; default = ""; }
+		/** PE file SHA-256 when a path was resolved (Windows enrichment). */
+		public string file_sha256 { get; set; default = ""; }
+		/** Authenticode status: Valid, NotSigned, missing, … */
+		public string signing_result { get; set; default = ""; }
+		/** Signing certificate SHA-256 thumbprint (ignore-set key). */
+		public string signer_cert_sha256 { get; set; default = ""; }
+		public string signer_subject_key_id { get; set; default = ""; }
+		/** Certificate subject CN (human signer label). */
+		public string signer_publisher { get; set; default = ""; }
+		public string signer_issuer { get; set; default = ""; }
+		public string signer_serial { get; set; default = ""; }
 		/**
 		 * Lowest version for this name. Filled by ''list''.
 		 * Not stored.

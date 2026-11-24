@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.43',
+	version: '0.1.44',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -138,6 +138,9 @@ server_sysvinit = configure_file(
 	},
 )
 subdir('shared')
+if host_machine.system() == 'windows'
+	subdir('win32')
+endif
 subdir('agent')
 subdir('controller')
 if host_machine.system() == 'linux'

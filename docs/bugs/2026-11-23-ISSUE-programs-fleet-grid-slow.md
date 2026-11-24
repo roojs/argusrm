@@ -1,15 +1,14 @@
 # Windows Software fleet grid — UI load / responsiveness
 
-**Status:** ⏳
+**Status:** ⏸️ parked (2026-11-24)
 
-**Pointer:** `docs/bug-fix-process.md`, [`tests/programs-grid-offtest.vala`](../../tests/programs-grid-offtest.vala), [`tests/programs-grid-offtest-lib/`](../../tests/programs-grid-offtest-lib/)
-
+**Pointer:** [`2026-11-23-ISSUE-programs-windows-installed-vs-noise.md`](2026-11-23-ISSUE-programs-windows-installed-vs-noise.md), [`tests/programs-grid-offtest.vala`](../../tests/programs-grid-offtest.vala).
 
 ---
 
 ### User decisions required
 
-**Apply Phase A** in product (one line in `Base.vala`) then **you** verify Windows Software fleet — **not done yet**.
+**Parked 2026-11-24:** survivable for now; expect less grid load as Windows listing is refined (less data). **No product change** (`Phase A` not applied). Reopen when off-test repro matches user timing or UI work is wanted again.
 
 ### User reported
 
@@ -130,5 +129,6 @@ build/tests/argus-programs-grid-offtest /tmp/argus.sqlite.copy --gui
 
 ### LLM
 
-- User (2026-11-23): replace “confidence” with **Trials** table; only facts and **NOT RUN** rows.
-- Drop essay blocks; extend **T7** after isolated Phase A + user verify.
+- User (2026-11-24): park slow scroll/spinner; primary lever = Windows list content ([`programs-windows-installed-vs-noise`](2026-11-23-ISSUE-programs-windows-installed-vs-noise.md)).
+- Off-test: grid ~**400 ms** on copy DB; user **3–4 s** not reproduced; in-test RPC path **hangs** (incomplete).
+- Resume: fix RPC harness → `REPRO_OK` → then consider **Phase A** only if still needed after row scope shrinks.

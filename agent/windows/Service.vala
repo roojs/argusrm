@@ -16,7 +16,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Agent.Win32
+namespace Argus.Agent.Windows
 {
 	/**
 	 * Windows service for {@link Argus.Agent.Application}.
@@ -40,7 +40,7 @@ namespace Argus.Agent.Win32
 	 * == Example ==
 	 *
 	 * {{{
-	 * var service = new Argus.Agent.Win32.Service();
+	 * var service = new Argus.Agent.Windows.Service();
 	 * var service_exit = service.start();
 	 * if (service_exit >= 0) {
 	 *     return service_exit;

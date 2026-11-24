@@ -8,6 +8,16 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.44] - Unreleased
+
+### Added
+
+- Windows program rows include the PE file SHA-256 and Authenticode signer when a path resolves: status, certificate thumbprint, subject key id, publisher, issuer, and serial. The agent caches that per path and refreshes it when the file size or modification time changes. Registry publisher is unchanged. The server stores the fields on ``programs``.
+
+### Changed
+
+- The controller PIN command lists each network the registration broadcast is published on. ``Agent.offer`` returns those addresses after the six digits and the public IPv4 address.
+
 ## [0.1.43] - Unreleased
 
 ### Fixed

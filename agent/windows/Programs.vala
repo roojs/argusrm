@@ -19,10 +19,11 @@
 namespace Argus.Agent.OSQuery
 {
 	/**
-	 * Agent ''programs'' row.
+	 * Windows agent ''programs'' row.
 	 *
 	 * Extends {@link Argus.Shared.OSQuery.Programs} and
-	 * implements {@link Package}.
+	 * implements {@link Package}. The Linux agent compiles a
+	 * placeholder and does not query this table.
 	 */
 	public class Programs : Argus.Shared.OSQuery.Programs, Package
 	{
@@ -31,7 +32,8 @@ namespace Argus.Agent.OSQuery
 		 *
 		 * {@link Argus.Shared.OSQuery.Programs.snapshot_sql} is
 		 * the union of registry programs, Store packages, Chocolatey,
-		 * third-party services, and startup items.
+		 * third-party services, and startup items. PE hash and
+		 * Authenticode are filled before the post.
 		 *
 		 * @param application agent that holds the connection and
 		 *   {@link Application.packages_sent}
@@ -46,6 +48,23 @@ namespace Argus.Agent.OSQuery
 			var fresh = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
 			application.osquery.select(OLLMrpc.Bin.alias_to_gtype.get(this.rpc_name()),
 				Argus.Shared.OSQuery.Programs.snapshot_sql(), fresh);
+			if (fresh.size > 0) {
+				if (application.ensure_client_db()) {
+					Argus.Agent.SQT.WinFileIdentity.init_db(application.client_db);
+					var programs = new Gee.ArrayList<Argus.Shared.OSQuery.Programs>();
+					foreach (var row in fresh) {
+						if (row is Argus.Shared.OSQuery.Programs) {
+							programs.add((Argus.Shared.OSQuery.Programs) row);
+						}
+					}
+					var enrichment = new Argus.Agent.Windows.ExeEnrichment();
+					enrichment.locate(programs);
+					enrichment.enrich(programs, application.client_db);
+					enrichment.attach(programs);
+				} else {
+					GLib.warning("programs send without PE enrichment: client db unavailable");
+				}
+			}
 			if (application.packages_sent && fresh.size == 0) {
 				return 0;
 			}

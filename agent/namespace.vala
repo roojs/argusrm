@@ -23,8 +23,8 @@
  * {@link Connection} keeps the TLS session and reconnect loop.
  * On Windows the file
  * name chooses which one. ''argus-agent'' is the service, started
- * through {@link Win32.Service}. ''argus-tray'' is the window and
- * the tray, {@link Win32.Tray}. The service starts that process in
+ * through {@link Argus.Agent.Windows.Service}. ''argus-tray'' is the window and
+ * the tray, {@link Argus.Agent.Windows.Tray}. The service starts that process in
  * the signed-in session. The tray writes the number on a local
  * pipe, and the service calls {@link Argus.Shared.Register}.
  * {@link Argus.Shared.Browse} finds the broadcast when this launch
