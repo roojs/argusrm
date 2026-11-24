@@ -175,6 +175,7 @@ namespace Argus.Agent
 			}
 			this.connect_attempt_until = 0;
 			this.failure_detail = "";
+			this.app.state_changed();
 		}
 
 		private void on_checking_config()
@@ -357,6 +358,7 @@ namespace Argus.Agent
 			this.failure_detail = "";
 			this.reconnect_at = 0;
 			this.connect_attempt_until = 0;
+			this.app.state_changed();
 		}
 
 		private void on_disconnected_dead()
@@ -367,6 +369,7 @@ namespace Argus.Agent
 			this.reconnect_at = 0;
 			this.connect_attempt_until = 0;
 			this.app.status_notice = this.failure_detail;
+			this.app.state_changed();
 		}
 
 		private void enter_connected(OLLMrpc.Transport.TlsClient opened, bool watch)

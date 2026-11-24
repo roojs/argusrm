@@ -18,6 +18,7 @@
 
 namespace Argus.Agent.Windows
 {
+	using Win32;
 	/**
 	 * Window and tray icon for the signed-in session.
 	 *
@@ -38,9 +39,9 @@ namespace Argus.Agent.Windows
 	public class Tray : GLib.Object
 	{
 		private static Tray app;
-		private static WndProc proc_slot;
+		private static Win32.WndProc proc_slot;
 		private void* hwnd;
-		private NotifyIcon nid;
+		private Win32.NotifyIcon nid;
 		private bool added = false;
 		private uint32 taskbar = 0;
 		private uint32 tray_msg = WM_APP + 42;
@@ -527,8 +528,8 @@ namespace Argus.Agent.Windows
 					var dir_w = g_utf8_to_utf16(slash > 0 ? exe_path.substring(0, slash) : "");
 					var verb_w = g_utf8_to_utf16("runas");
 					var params_w = g_utf8_to_utf16("--restart");
-					var sei = SHELLEXECUTEINFOW() {
-						cbSize = (uint32) sizeof(SHELLEXECUTEINFOW),
+					var sei = Win32.SHELLEXECUTEINFOW() {
+						cbSize = (uint32) sizeof(Win32.SHELLEXECUTEINFOW),
 						fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI,
 						hwnd = this.hwnd,
 						lpVerb = verb_w,
@@ -670,8 +671,8 @@ namespace Argus.Agent.Windows
 			if (this.hwnd == null) {
 				return false;
 			}
-			this.nid = NotifyIcon() {
-				cb_size = (uint32) sizeof(NotifyIcon),
+			this.nid = Win32.NotifyIcon() {
+				cb_size = (uint32) sizeof(Win32.NotifyIcon),
 				hwnd = this.hwnd,
 				id = 1,
 				flags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP,
@@ -730,8 +731,8 @@ namespace Argus.Agent.Windows
 			if (!this.added) {
 				return;
 			}
-			var tip = NotifyIcon() {
-				cb_size = (uint32) sizeof(NotifyIcon),
+			var tip = Win32.NotifyIcon() {
+				cb_size = (uint32) sizeof(Win32.NotifyIcon),
 				hwnd = this.hwnd,
 				id = 1,
 				flags = NIF_INFO,
@@ -758,8 +759,8 @@ namespace Argus.Agent.Windows
 		 */
 		private void ask()
 		{
-			var last = LastInputInfo();
-			last.cb_size = (uint32) sizeof(LastInputInfo);
+			var last = Win32.LastInputInfo();
+			last.cb_size = (uint32) sizeof(Win32.LastInputInfo);
 			if (GetLastInputInfo(ref last) &&
 				GetTickCount() - last.time >= (uint32) (30 * 60 * 1000)) {
 				if (!this.rpc.connected) {

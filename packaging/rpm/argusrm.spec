@@ -32,6 +32,8 @@ BuildRequires: pkgconfig(libnftables)
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: libocrpc-devel
 BuildRequires: libocsqlite-devel
+BuildRequires: pkgconfig(freerdp3)
+BuildRequires: pkgconfig(winpr3)
 Requires: libocrpc
 Requires: libocsqlite
 Requires: libosinfo

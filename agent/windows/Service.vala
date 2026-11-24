@@ -18,6 +18,7 @@
 
 namespace Argus.Agent.Windows
 {
+	using Win32;
 	/**
 	 * Windows service for {@link Argus.Agent.Application}.
 	 *
@@ -57,11 +58,11 @@ namespace Argus.Agent.Windows
 		 */
 		internal static Service current;
 
-		private static LPSERVICE_MAIN_FUNCTIONW main_proc = (argc, argv) => {
+		private static Win32.LPSERVICE_MAIN_FUNCTIONW main_proc = (argc, argv) => {
 			Service.current.service_main();
 		};
 
-		private static LPHANDLER_FUNCTION handler_proc = (code) => {
+		private static Win32.LPHANDLER_FUNCTION handler_proc = (code) => {
 			Service.current.control(code);
 		};
 
@@ -495,7 +496,7 @@ namespace Argus.Agent.Windows
 				GLib.warning("service name: %s", e.message);
 				return 1;
 			}
-			var table = new SERVICE_TABLE_ENTRYW[2];
+			var table = new Win32.SERVICE_TABLE_ENTRYW[2];
 			table[0].lpServiceName = this.service_name;
 			table[0].lpServiceProc = Service.main_proc;
 			if (StartServiceCtrlDispatcherW(table)) {
@@ -665,8 +666,8 @@ namespace Argus.Agent.Windows
 				CloseHandle(user);
 				return true;
 			}
-			var si = StartupInfo() {
-				cb = (uint32) sizeof(StartupInfo),
+			var si = Win32.StartupInfo() {
+				cb = (uint32) sizeof(Win32.StartupInfo),
 				desktop = g_utf8_to_utf16("winsta0\\default"),
 			};
 			var info = ProcessInfo();

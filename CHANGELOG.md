@@ -8,6 +8,12 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.45] - Unreleased
+
+### Fixed
+
+- The Windows tray asked the service for status before the management session was up, then kept **Disconnected**. The service now tells the tray when that session connects and when it drops.
+
 ## [0.1.44] - Unreleased
 
 ### Added

@@ -606,5 +606,5 @@ namespace Win32 {
 	}
 
 	[CCode (cname = "win_pe_read_authenticode", cheader_filename = "pe-authenticode.h")]
-	public bool win_pe_read_authenticode (string16 path, WinPeAuthenticode *out);
+	public bool win_pe_read_authenticode (string16 path, ref WinPeAuthenticode out);
 }
