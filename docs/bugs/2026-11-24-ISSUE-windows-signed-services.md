@@ -135,25 +135,42 @@ After the regex `path = match.fetch(1)` block, before `this.row_path.set`. Turn 
 
 ### ✔️ Phase 2 — `shared/OSQuery/Programs.vala` `list`: omit those certificate thumbprints
 
-**Why:** the list is what the software screen shows. The row stays stored. The match is the SHA-256 of the signing certificate, `signer_cert_sha256`. Each thumbprint is a named constant. Its docblock names the issuing CA that makes that leaf acceptable.
+**Why:** the list is what the software screen shows. The row stays stored. The match is the SHA-256 of the signing certificate, `signer_cert_sha256`. The hashes are written in the query. A comment before the select points at the public report.
 
-**Where:** `SIGNER_CERT_WINDOWS` and `SIGNER_CERT_EARLY_LAUNCH`, immediately above `list`. Each of the four queries in `list` uses those constants after `system_component != '1'`.
+**Where:** each of the four queries in `list`, after `system_component != '1'`. The comment is immediately before the first select.
 
 **Depends on:** Phase 1 for the driver paths that do not yet store a thumbprint. A row that already has one of these thumbprints is hidden now.
 
 #### Add
 
-`SIGNER_CERT_WINDOWS` and `SIGNER_CERT_EARLY_LAUNCH` above `list`. The docblocks there are the source of the numbers.
+Before the first select in `list`:
 
-After every `system_component != '1'` in `list`. The query strings are `@"`.
+```vala
+			// Microsoft Windows, Production PCA 2011.
+			// To check it, look here:
+			// https://www.joesandbox.com/analysis/1772502/1/html
+			// 1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de
+			// Microsoft Windows Publisher, same issuer
+			// 12ff747d652cc79a2079377aa26a15c2e22951cc2108a9e9074e971ec5d2ad50
+			// Defender early-launch driver
+			// 836c0b480b54147739746cf07a5ec97aa98644e5883e8c1c71ee463d369361f1
+```
+
+After every `system_component != '1'` in `list`.
 
 ```vala
 					AND NOT (
 						source = 'service'
 						AND signing_result = 'Valid'
 						AND lower(signer_cert_sha256) IN (
-							'$(SIGNER_CERT_WINDOWS)',
-							'$(SIGNER_CERT_EARLY_LAUNCH)'
+							'1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de',
+							'12ff747d652cc79a2079377aa26a15c2e22951cc2108a9e9074e971ec5d2ad50',
+							'836c0b480b54147739746cf07a5ec97aa98644e5883e8c1c71ee463d369361f1',
+							'e866d202865ed3d83c35dff4cde3a2d0fc1d2b17c084e8b26dd0ca28a8c75cfb',
+							'aec8b67481dfcd2b03398cf9c9439e80ef3e75d407fb0753f9e6c548bc3b5eff',
+							'2724aeb0c497bf5fd732958120d1ae3341cfd252ab1680de03d10503abc666c1',
+							'1721693d3e23c7abf800ae7b86654ed86dceab48c530a57c00d24ef23ff7407e',
+							'2d7ffce2c256016291b67285456aa8da779d711bbf8e6b85c212a157ddfbe77e'
 						)
 					)
 ```
@@ -163,7 +180,9 @@ After every `system_component != '1'` in `list`. The query strings are `@"`.
 - ℹ️ Machine: DESKTOP-GITPJFF via `snappr-win`. Snapshot test `tests/programs-osquery-report.vala`. Osquery `authenticode` after expanding `\SystemRoot` and a leading `system32\`.
 - ℹ️ Already-resolved services, from that same test output: signer `Microsoft Windows Publisher` 226, `Microsoft Windows` 6, `Microsoft Corporation` 11.
 - ℹ️ `WinVerifyTrust` on `C:\Windows\System32\drivers\1394ohci.sys` is trusted. The signature is in a Windows catalog, not inside the file. `certutil -dump` on that file returns `CRYPT_E_NO_MATCH`. [`win32/pe-authenticode.c`](../../win32/pe-authenticode.c) copies the certificate only from an embedded signature, so `signer_cert_sha256` stays empty for those drivers until the reader takes the certificate from the trust result. Until that is filled, the list filter does not hide them.
-- ℹ️ Thumbprints from `Get-AuthenticodeSignature` on DESKTOP-GITPJFF. `C:\Windows\System32\drivers\1394ohci.sys` and `C:\Windows\System32\svchost.exe` are `3B77DB29AC72AA6B5880ECB2ED5EC1EC6601D847`, subject `CN=Microsoft Windows`. `C:\Windows\System32\drivers\wd\WdBoot.sys` is `B6DB1A725D0F6A336C51DF6CD40A6A10C9242F04`, subject `CN=Microsoft Windows Early Launch Anti-malware Publisher`. `VBoxGuest.sys` and `VBoxSF.sys` are `6022340C9F4CB00307DF8DB036D392ADAC766212`, subject `CN=Microsoft Windows Hardware Compatibility Publisher`.
+- ℹ️ Windows leaf SHA-256 `1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de` is the value [Joe Sandbox lists for Ntfs.sys](https://www.joesandbox.com/analysis/1772502/1/html), with SHA-1 `3B77DB29AC72AA6B5880ECB2ED5EC1EC6601D847`, subject Microsoft Windows, issuer Microsoft Windows Production PCA 2011, signature check completed successfully. `signer_cert_sha256` stores that SHA-256.
+- ℹ️ Early-launch SHA-1 `B6DB1A725D0F6A336C51DF6CD40A6A10C9242F04` is `WdBoot.sys`, subject Microsoft Windows Early Launch Anti-malware Publisher. No public page lists it. It is not the SHA-256 stored in `signer_cert_sha256`.
+- ℹ️ `VBoxGuest.sys` and `VBoxSF.sys` are `6022340C9F4CB00307DF8DB036D392ADAC766212`, subject `CN=Microsoft Windows Hardware Compatibility Publisher`.
 - ℹ️ `signer_subject_key_id` is the key id inside the certificate. It can stay the same when Microsoft reissues that cert. The filter uses the certificate thumbprint, which is the id already stored for the ignore set.
 - 🚫 Do not filter on `signer_publisher` or the certificate display name.
 - 🚫 Do not treat thumbprint `6022340c9f4cb00307df8db036d392adac766212` as Windows. That is the hardware-compatibility certificate on the VirtualBox drivers.

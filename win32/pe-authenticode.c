@@ -4,6 +4,7 @@
 #include <wintrust.h>
 #include <softpub.h>
 #include <wincrypt.h>
+#include <mscat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -120,6 +121,106 @@ fill_cert_fields(PCCERT_CONTEXT cert, win_pe_authenticode *out)
 	}
 }
 
+static void
+fill_from_trust(WINTRUST_DATA *trust, win_pe_authenticode *out)
+{
+	CRYPT_PROVIDER_DATA *prov;
+	CRYPT_PROVIDER_SGNR *signer;
+	CRYPT_PROVIDER_CERT *cert;
+
+	if (trust->hWVTStateData == NULL) {
+		return;
+	}
+	prov = WTHelperProvDataFromStateData(trust->hWVTStateData);
+	if (prov == NULL) {
+		return;
+	}
+	signer = WTHelperGetProvSignerFromChain(prov, 0, FALSE, 0);
+	if (signer == NULL) {
+		return;
+	}
+	cert = WTHelperGetProvCertFromChain(signer, 0);
+	if (cert == NULL) {
+		return;
+	}
+	fill_cert_fields(cert->pCert, out);
+}
+
+static void
+close_trust(WINTRUST_DATA *trust, GUID *policy)
+{
+	trust->dwStateAction = WTD_STATEACTION_CLOSE;
+	WinVerifyTrust(NULL, policy, trust);
+}
+
+static void
+fill_from_catalog(const wchar_t *path, win_pe_authenticode *out)
+{
+	HANDLE file;
+	HCATADMIN admin = NULL;
+	HCATINFO info = NULL;
+	CATALOG_INFO cat;
+	BYTE hash[64];
+	DWORD hash_len;
+	wchar_t tag[160];
+	DWORD i;
+	WINTRUST_CATALOG_INFO cat_info;
+	WINTRUST_DATA trust;
+	GUID policy = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+	LONG status;
+
+	file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+	if (file == INVALID_HANDLE_VALUE) {
+		return;
+	}
+	if (!CryptCATAdminAcquireContext2(&admin, NULL, BCRYPT_SHA256_ALGORITHM, NULL, 0)) {
+		CloseHandle(file);
+		return;
+	}
+	hash_len = sizeof(hash);
+	if (!CryptCATAdminCalcHashFromFileHandle2(admin, file, &hash_len, hash, 0)) {
+		CryptCATAdminReleaseContext(admin, 0);
+		CloseHandle(file);
+		return;
+	}
+	CloseHandle(file);
+	info = CryptCATAdminEnumCatalogFromHash(admin, hash, hash_len, 0, NULL);
+	if (info == NULL) {
+		CryptCATAdminReleaseContext(admin, 0);
+		return;
+	}
+	memset(&cat, 0, sizeof(cat));
+	cat.cbStruct = sizeof(cat);
+	if (!CryptCATCatalogInfoFromContext(info, &cat, 0)) {
+		CryptCATAdminReleaseCatalogContext(admin, info, 0);
+		CryptCATAdminReleaseContext(admin, 0);
+		return;
+	}
+	for (i = 0; i < hash_len && i < 64; i++) {
+		swprintf(tag + (size_t) i * 2, 3, L"%02X", hash[i]);
+	}
+	memset(&cat_info, 0, sizeof(cat_info));
+	cat_info.cbStruct = sizeof(cat_info);
+	cat_info.pcwszCatalogFilePath = cat.wszCatalogFile;
+	cat_info.pcwszMemberFilePath = path;
+	cat_info.pcwszMemberTag = tag;
+	memset(&trust, 0, sizeof(trust));
+	trust.cbStruct = sizeof(trust);
+	trust.dwUIChoice = WTD_UI_NONE;
+	trust.fdwRevocationChecks = WTD_REVOKE_NONE;
+	trust.dwUnionChoice = WTD_CHOICE_CATALOG;
+	trust.pCatalog = &cat_info;
+	trust.dwStateAction = WTD_STATEACTION_VERIFY;
+	status = WinVerifyTrust(NULL, &policy, &trust);
+	if (status == ERROR_SUCCESS) {
+		set_signing_result(out, status);
+		fill_from_trust(&trust, out);
+	}
+	close_trust(&trust, &policy);
+	CryptCATAdminReleaseCatalogContext(admin, info, 0);
+	CryptCATAdminReleaseContext(admin, 0);
+}
+
 static PCCERT_CONTEXT
 signer_from_pkcs7(HCERTSTORE store, HCRYPTMSG msg)
 {
@@ -184,8 +285,14 @@ win_pe_read_authenticode(const wchar_t *path, win_pe_authenticode *out)
 	trust.dwProvFlags = WTD_SAFER_FLAG;
 	status = WinVerifyTrust(NULL, &policy, &trust);
 	set_signing_result(out, status);
-	trust.dwStateAction = WTD_STATEACTION_CLOSE;
-	WinVerifyTrust(NULL, &policy, &trust);
+	fill_from_trust(&trust, out);
+	close_trust(&trust, &policy);
+	if (out->signer_cert_sha256[0] == '\0') {
+		fill_from_catalog(path, out);
+	}
+	if (out->signer_cert_sha256[0] != '\0') {
+		return true;
+	}
 	if (CryptQueryObject(CERT_QUERY_OBJECT_FILE, path,
 			CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED_EMBED |
 			CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED,

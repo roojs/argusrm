@@ -42,7 +42,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - Index 2 is the download URL path, including the extension. The agent writes that as `download-path`. The server chooses it from the OS family.
   - Later entries are app-socket listen addresses. The client stores that port as `server`, not the registration port it dialed.
   - The download address is not in the reply. The agent writes `download` as the host it connected to and `Argus.DOWNLOAD_PORT`.
-- A controller that already has an active row for that username and hostname is refused with `This machine is already registered.`
+- A matching pin replaces an active controller row for that username and hostname. The old row is removed, a live connection for it is closed, and the new certificate is saved. The server log says `replaced registration` with the login and machine name.
 - ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
 - A matching pin broadcasts `event.pair` with action `done`. A rejected pin broadcasts `event.pair` with action `rejected`. A queued `0000` broadcasts `event.pair` with action `pending`.
 
@@ -158,7 +158,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments `so`: the table name, then the array.
 - Tables: `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, and `os_version`, then one package class, plus `package_updates` on Linux (`APT` / `DNF`) from `PackageMonitor.send_pending`. On APT, `Apt.History.send` posts `apt_explicit_install` from `Execute.send_startup` and again from `PackageMonitor.apt` after a dpkg change.
 - The package class follows `os_version.package_manager`. APT sends `DebPackages`. DNF sends `RpmPackages`. WIN sends `Programs`. Any other value sends no package class.
-- On Windows, before `Programs` sync the agent runs `ExeEnrichment` (`locate`, `enrich`, `attach`) and fills PE fields on each row when a path resolves: `file_sha256`, `signing_result`, `signer_cert_sha256`, `signer_subject_key_id`, `signer_publisher`, `signer_issuer`, `signer_serial`. Registry `publisher` is unchanged. Enrichment is cached per path in agent `win_file_identity` (`client_db`).
+- On Windows, before `Programs` sync the agent runs `ExeEnrichment` (`locate`, `enrich`, `attach`) and fills PE fields on each row when a path resolves: `file_sha256`, `signing_result`, `signer_cert_sha256`, `signer_subject_key_id`, `signer_publisher`, `signer_issuer`, `signer_serial`. An appx package whose manifest names no executable is stored with `signing_result` `NoExecutable`. Registry `publisher` is unchanged. Enrichment is cached per path in agent `win_file_identity` (`client_db`).
 - A row left out of a standard table snapshot gets `deleted_dt`. For `PackageUpdates`, existing names keep their `since` time, new names are inserted, and names left out are deleted.
 - `AptExplicitInstall` is not a snapshot. The batch is only names whose apt history `Start-Date` is after the agent watermark. The server inserts a new `(agent_id, name)` and keeps the first `installed_dt`. A name left out of the batch stays. An empty batch is not posted.
 - The machine tables are posted even when the array is empty. After the first package send, an empty package query is not posted. An empty `PackageUpdates` list is posted when `UpdatesAvailable.check` succeeds with no updates.

@@ -121,8 +121,8 @@ void main()
 		GLib.print("shown\t%s\t%s\n", row.source, row.name);
 	}
 	foreach (var row in rows) {
-		GLib.print("%s\t%s\t%s\t%s\t%s\t%s\n",
+		GLib.print("%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			row.source, row.name, row.signing_result, row.file_sha256,
-			row.signer_publisher, row.install_location);
+			row.signer_publisher, row.signer_cert_sha256, row.install_location);
 	}
 }

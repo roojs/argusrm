@@ -66,7 +66,9 @@ namespace Argus.Server
 		 *
 		 * This is the other half of {@link offer}. A wrong number
 		 * is ''number rejected''. The matching number closes the
-		 * window and tells the controller. The peer address is stored
+		 * window and tells the controller. An active controller row
+		 * for the same login and machine name is removed first, and
+		 * this registration replaces it. The peer address is stored
 		 * on the new row without its port. The allowlist is refreshed
 		 * and the firewall enabled again.
 		 *
@@ -127,8 +129,8 @@ namespace Argus.Server
 				});
 				return;
 			}
+			var replaced = new Gee.ArrayList<Argus.Shared.Agent>();
 			if (is_controller && username != "" && hostname != "") {
-				var existing = new Gee.ArrayList<Argus.Shared.Agent>();
 				var found_binds = new Gee.HashMap<string, int>();
 				var found_text = new Gee.HashMap<string, string>();
 				found_binds.set("status", 1);
@@ -139,19 +141,11 @@ namespace Argus.Server
 					Argus.Shared.Agent.query(this.app.db).selectWhere(
 						"WHERE status = $status AND is_controller = $is_controller " +
 							"AND username = $username AND hostname = $hostname",
-						found_binds, found_text, existing);
+						found_binds, found_text, replaced);
 				} catch (GLib.Error e) {
 					GLib.warning("could not read registration: %s", e.message);
 					request.reply(new OLLMrpc.Response() {
 						error = new OLLMrpc.Error.INTERNAL_ERROR("could not read registration")
-					});
-					return;
-				}
-				if (existing.size > 0) {
-					GLib.warning("This machine is already registered. %s %s", username, hostname);
-					request.reply(new OLLMrpc.Response() {
-						error = new OLLMrpc.Error.INVALID_REQUEST(
-							"This machine is already registered.")
 					});
 					return;
 				}
@@ -297,6 +291,19 @@ namespace Argus.Server
 				listen.accepting = true;
 			}
 			if (!queued) {
+				foreach (var old in replaced) {
+					var live = this.app.ssl_listen.by_id.get((int) old.id);
+					if (live != null) {
+						live.write(new OLLMrpc.Notification() {
+							method = "agent.removed"
+						});
+						live.stop();
+					}
+					Argus.Shared.Agent.query(this.app.db).deleteId((int) old.id);
+				}
+				if (replaced.size > 0) {
+					GLib.warning("replaced registration %s %s", username, hostname);
+				}
 				var q = Argus.Shared.Agent.query(this.app.db);
 				q.insert(new Argus.Shared.Agent() {
 					fingerprint = fingerprint,

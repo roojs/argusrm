@@ -4,8 +4,7 @@
 
 ### User decisions required
 
-- 💩 What did the desktop say after the number was entered?
-- 💩 On the server, did this desktop show up in the machine list anyway?
+- None.
 
 ### User reported
 
@@ -35,8 +34,9 @@
   - The server issued a number and opened registration for the controller.
   - The controller reached that port. The window asking for the number matches that check.
   - The controller then sent the number.
-  - The conversation ended straight after that.
-  - The server did not log that it saved this controller, and it did not log that it allowed the controller’s address.
+  - The server refused it. A controller for login `alan` on `alan-office-desktop` is already saved.
+  - The desktop showed that same sentence.
+  - The server closed the connection and stayed up. It did not save a second controller, and it did not allow a new address.
 
 ### Codebase observed behavior
 
@@ -89,6 +89,24 @@ tun0 10.9.188.77
 - The handshake line is the desktop checking that the port is open, then closing. That is why the window asked for the number.
 - The number arrived. Nothing after that shows the controller being saved.
 - The server then crashed while closing that connection. `$rbx` is still `0x5555556f5e20`, but that memory is no longer a connection. It has been freed and reused. The controller record read from it is the smashed pointer.
+- Server log pasted from `root@argusrm`, 2026-11-24, after the close fix, controller `0.1.46`. The server was restarted under gdb because the binary had changed. It did not crash.
+
+```text
+18:19:06.228096: G_LOG_LEVEL_DEBUG : Daemon.vala:67: hello argus-controller 1 0.1.46
+18:19:06.228684: G_LOG_LEVEL_DEBUG : Connection.vala:389: recv id=2 method=Agent.offer conn=0x55555575a080
+18:19:06.228964: G_LOG_LEVEL_DEBUG : SslListen.vala:261: SSL listening on 0.0.0.0:819
+18:19:06.229164: G_LOG_LEVEL_DEBUG : Agent.vala:442: publishing 192.168.254.88 10.9.188.77 port 819
+18:19:06.237436: G_LOG_LEVEL_DEBUG : NFTables.vala:266: firewall open on port 819
+18:19:06.248206: G_LOG_LEVEL_WARNING : Agent.vala:549: Unacceptable TLS certificate
+18:19:53.061687: G_LOG_LEVEL_WARNING : SslListen.vala:192: ssl handshake failed: Peer failed to perform TLS handshake: The TLS connection was non-properly terminated.
+18:19:57.141883: G_LOG_LEVEL_DEBUG : Connection.vala:389: recv id=0 method=Agent.request_registration conn=0x555555f8c720
+18:19:57.142515: G_LOG_LEVEL_WARNING : Agent.vala:151: This machine is already registered. alan alan-office-desktop
+18:19:57.244546: G_LOG_LEVEL_WARNING : Connection.vala:381: Unexpected early end-of-stream
+18:19:57.244620: G_LOG_LEVEL_DEBUG : SslConnection.vala:143: closing connection 0
+```
+
+- The desktop said this machine is already registered. That is the sentence the server sent.
+- `closing connection 0` is the registration connection. It had no saved id. The server stayed up.
 
 #### Debug code added (remove when complete)
 
@@ -96,6 +114,12 @@ tun0 10.9.188.77
 - [`server/Agent.vala`](../../server/Agent.vala) writes the same reason into the server log. That part waits until the next server package.
 
 ### Proposed fix
+
+#### ✔️ `server/Agent.vala` — a matching number replaces the saved controller
+
+**Why:** The number was accepted. The server then refused because a controller for that login and machine name was already saved. The typed-number window has no way past that sentence, so registration cannot finish.
+
+The matching number removes that saved row, closes a live connection for it, and saves the new certificate. The log says `replaced registration` with the login and machine name.
 
 #### ✔️ `server/Net/SslConnection.vala` — keep the connection alive until close finishes
 
@@ -159,9 +183,9 @@ public override void stop()
 - 💩 “Broadcast on: tun0” means that address was included in what the server handed to the broadcaster (`controller/cli/Pin.vala` prints reply entries after the public address). It does not mean a shout left `tun0` and arrived at the controller. The broadcaster shouts on interfaces that can carry a local-network shout. A tunnel usually cannot, so the shout still goes out on `eth0`, with the tunnel address named inside it. The controller at the far end of the VPN does not hear that.
 - 🚫 The server did not omit `tun0`. The command listed it.
 - ℹ️ ✔️ Controller keeps `response.error.message` in `Register.detail` instead of replacing it with “Registration failed”. Server `request_registration` warnings name the refusal. Early returns used to be silent.
-- 💩 Most likely refusal: this controller is already saved under the same login and machine name. The reply is “This machine is already registered.” Allowing the controller’s address does not run. That matches a log with no firewall line after the number. The check is `is_controller` plus username plus hostname in `request_registration`.
-- 💩 Also possible: the typed number did not match the one just issued. The offer was still inside its minute, and the log does not show the offer being cancelled.
-- 💩 Less likely: the server could not sign the certificate. That fails the same way in the log, and it would fail for a controller on the office network too.
+- ✔️ 2026-11-24 18:19: the number was accepted. The server refused a second controller for `alan` on `alan-office-desktop`. The desktop showed that sentence. `closing connection 0` ran and the process stayed up. A wrong number would have logged `number rejected`. A sign failure would have logged `could not sign`. Neither did.
+- ℹ️ The check was an active controller (`status` 1) with the same `is_controller`, username, and hostname. It does not look at the VPN address. The desktop had no next step. Local login can offer re-register. The typed-number window only showed the sentence.
+- ✔️ A matching number now removes that saved controller and finishes the new registration. The server log says `replaced registration` with the login and machine name. `Registration.certificate` on the local socket still refuses a second certificate.
 - 🚫 ifconfig.me is not the peer address and not the allowlist. `Agent.vala` `offer` resolves it only to fill the public address in the offer reply. The warning at `Agent.vala:532` is `e.message` from that HTTPS fetch (`remote-connectable` to `34.160.111.145:443`).
 - 🚫 Do not treat “firewall cut the reply” as this failure. `register_firewall.enable()` logs `firewall enforced on port 819`. `firewall.apply` logs an allowlist line for port 817. Neither appears after `Agent.request_registration`. The success block in `request_registration` did not run.
 - ℹ️ Those warnings are on the refusal itself: number rejected, registration closed, already registered (with login and machine name), bad certificate request, could not sign.

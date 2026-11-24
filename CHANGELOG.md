@@ -8,6 +8,12 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.47] - Unreleased
+
+### Fixed
+
+- A matching registration number replaces a controller already saved for that login and machine name. The desktop receives the new certificate instead of being told it is already registered.
+
 ## [0.1.46] - Unreleased
 
 ### Fixed
@@ -17,7 +23,8 @@ package changelogs.
 - The Windows programs snapshot no longer unions ``appx_packages``. That table is not in osquery, so the whole query failed and the agent posted an empty inventory. Store packages stay in the snapshot as ``source`` ``appx`` when ``programs.package_family_name`` is set.
 - Windows program file hashes now follow an executable path that contains spaces, such as ``C:\Program Files\...\Uninstall.exe``.
 - The Windows software list hides an MSI piece whose uninstall key sets SystemComponent. Visual Studio and the Windows SDK stay as their own entries. The hidden rows remain stored.
-- The Windows software list hides a service whose signing certificate is one of the two Windows leaves recorded in ``Programs``. One is issued by Microsoft Windows Production PCA 2011. The other is issued by Microsoft Windows Code Signing PCA 2024. A certificate from another issuer, including the hardware-compatibility publisher, stays visible.
+- The Windows software list hides a service whose signing certificate hash is one of the Windows certificates recorded in ``Programs``. Catalog-signed drivers now store that certificate. Another certificate stays visible, including Microsoft Code Signing and the hardware-compatibility publisher.
+- A Windows Store package is hashed from the executable named by Application in its AppxManifest.xml. Other files in the package folder are left alone. A package whose manifest names no executable is stored and left out of the list.
 
 ## [0.1.45] - Unreleased
 

@@ -21,7 +21,7 @@ namespace Argus.Agent.Windows
 	/**
 	 * Map program rows to PE paths, then fill {@link by_path}.
 	 *
-	 * {@link locate} maps each snapshot row to one ''.exe'' or ''.dll''.
+	 * {@link locate} maps each snapshot row to one ''.exe'', ''.dll'', or ''.sys''.
 	 * {@link enrich} stats that path, reads {@link Argus.Agent.SQT.WinFileIdentity},
 	 * hashes on cache miss, and reads Authenticode via {@link Win32.WinPeAuthenticode}.
 	 *
@@ -54,58 +54,144 @@ namespace Argus.Agent.Windows
 		/**
 		 * Index each row's PE path.
 		 *
+		 * An appx install location is the package folder from
+		 * PackageRootFolder. The file hashed for that row is the
+		 * Application Executable in AppxManifest.xml. Other files in
+		 * the folder are not this row. A package whose manifest names
+		 * no executable is marked ''NoExecutable'' and left unhashed.
+		 *
 		 * @param rows osquery programs snapshot
 		 */
 		public void locate(Gee.ArrayList<Argus.Shared.OSQuery.Programs> rows)
 		{
 			this.row_path.clear();
 			this.path_rows.clear();
-			var pe_path = new GLib.Regex("([A-Za-z]:\\\\.*?\\.(?:exe|dll))",
+			var pe_path = new GLib.Regex("([A-Za-z]:\\\\.*?\\.(?:exe|dll|sys))",
 				GLib.RegexCompileFlags.CASELESS);
 			foreach (var row in rows) {
+				var path = "";
+				var haystack = "";
 				switch (row.source) {
 					case "programs":
+						path = row.install_location.strip();
+						haystack = row.uninstall_string;
+						break;
+
 					case "appx":
 					case "chocolatey":
 					case "service":
 					case "startup":
-						var path = row.install_location.strip();
-						var lower = path.down();
-						if (!lower.has_suffix(".exe") && !lower.has_suffix(".dll")) {
-							var haystack = row.install_location;
-							switch (row.source) {
-								case "programs":
-									haystack = row.uninstall_string;
-									break;
-
-								default:
-									break;
-							}
-							GLib.MatchInfo match;
-							if (!pe_path.match(haystack, 0, out match)) {
-								continue;
-							}
-							var start = 0;
-							var end = 0;
-							if (!match.fetch_pos(1, out start, out end)) {
-								continue;
-							}
-							path = match.fetch(1);
-							if (path == "") {
-								continue;
-							}
-						}
-						this.row_path.set(row, path);
-						if (!this.path_rows.has_key(path)) {
-							this.path_rows.set(path, new Gee.ArrayList<Argus.Shared.OSQuery.Programs>());
-						}
-						this.path_rows.get(path).add(row);
+						path = row.install_location.strip();
+						haystack = row.install_location;
 						break;
 
 					default:
 						continue;
 				}
+				var lower = path.down();
+				if (row.source == "appx" && path != "" &&
+					!lower.has_suffix(".exe") && !lower.has_suffix(".dll") &&
+					!lower.has_suffix(".sys")) {
+					bool no_executable = false;
+					var exe_path = this.appx_executable(path, out no_executable);
+					if (exe_path != "") {
+						path = exe_path;
+					} else if (no_executable) {
+						row.signing_result = "NoExecutable";
+					}
+				}
+				lower = path.down();
+				if (!lower.has_suffix(".exe") && !lower.has_suffix(".dll") &&
+					!lower.has_suffix(".sys")) {
+					GLib.MatchInfo match;
+					if (!pe_path.match(haystack, 0, out match)) {
+						continue;
+					}
+					var start = 0;
+					var end = 0;
+					if (!match.fetch_pos(1, out start, out end)) {
+						continue;
+					}
+					path = match.fetch(1);
+					if (path == "") {
+						continue;
+					}
+				}
+				var system_root = "\\SystemRoot";
+				if (path.down().has_prefix(system_root.down() + "\\")) {
+					path = "C:\\Windows" + path.substring(system_root.length);
+				}
+				if (path.down().has_prefix("system32\\")) {
+					path = "C:\\Windows\\" + path;
+				}
+				this.row_path.set(row, path);
+				if (!this.path_rows.has_key(path)) {
+					this.path_rows.set(path, new Gee.ArrayList<Argus.Shared.OSQuery.Programs>());
+				}
+				this.path_rows.get(path).add(row);
 			}
+		}
+
+		/**
+		 * Executable named by the package manifest.
+		 *
+		 * Reads AppxManifest.xml in ''folder'' and returns the first
+		 * Application Executable, joined to that folder. An absolute
+		 * Executable is returned as written. ''no_executable'' is set
+		 * when that manifest was read and names no ''.exe''. A missing
+		 * manifest leaves ''no_executable'' false.
+		 *
+		 * @param folder package folder, PackageRootFolder
+		 * @param no_executable set when the manifest names no executable
+		 * @return full path of the application executable, or ""
+		 */
+		private string appx_executable(string folder, out bool no_executable)
+		{
+			no_executable = false;
+			if (folder == "") {
+				return "";
+			}
+			var manifest = folder;
+			if (!manifest.has_suffix("\\")) {
+				manifest += "\\";
+			}
+			manifest += "AppxManifest.xml";
+			var text = "";
+			try {
+				GLib.FileUtils.get_contents(manifest, out text);
+			} catch (GLib.FileError e) {
+				return "";
+			}
+			if (text == "") {
+				no_executable = true;
+				return "";
+			}
+			var app_tag = new GLib.Regex("<Application\\b([^>]*)>",
+				GLib.RegexCompileFlags.CASELESS);
+			GLib.MatchInfo app_info;
+			if (!app_tag.match(text, 0, out app_info)) {
+				no_executable = true;
+				return "";
+			}
+			var app_exe = new GLib.Regex("\\bExecutable\\s*=\\s*\"([^\"]+)\"",
+				GLib.RegexCompileFlags.CASELESS);
+			GLib.MatchInfo exe_info;
+			if (!app_exe.match(app_info.fetch(1), 0, out exe_info)) {
+				no_executable = true;
+				return "";
+			}
+			var exe = exe_info.fetch(1);
+			if (!exe.down().has_suffix(".exe")) {
+				no_executable = true;
+				return "";
+			}
+			if (exe.length >= 3 && exe.get(1) == ':') {
+				return exe;
+			}
+			if (folder.has_suffix("\\")) {
+				return folder + exe.replace("/", "\\");
+			}
+			return folder + "\\" + exe.replace("/", "\\");
 		}
 
 		/**

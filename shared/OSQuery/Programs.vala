@@ -260,29 +260,6 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
-		 * SHA-256 of the Windows component signing certificate on svchost.exe and 1394ohci.sys.
-		 *
-		 * Reproduce with Get-AuthenticodeSignature on either file, then X509Chain.Build on SignerCertificate.
-		 * Get-AuthenticodeSignature returns Status Valid. That is WinVerifyTrust, and it accepts the signature because a Microsoft Time-Stamp Service counter-signature (4989486909603FDD7FE3672232D327BA449C0BCE) was applied while this leaf was inside its dates.
-		 * The chain is this leaf, then Microsoft Windows Production PCA 2011 (580A6F4CC4E4B669B9EBDC1B2B3E087B80D0678D), then Microsoft Root Certificate Authority 2010 (3B1EFD3A66EA28B16697394703A72CA340A05BD5).
-		 * The leaf subject is CN=Microsoft Windows, O=Microsoft Corporation. Its own dates are 2025-06-19 18:11:44Z through 2026-06-17 18:11:44Z. X509Chain.Build against the current clock therefore returns NotTimeValid. Authenticode remains Valid because of the timestamp, not because the leaf is still in date.
-		 * A leaf issued by Microsoft Windows Hardware Compatibility Publisher is not this certificate. VirtualBox drivers use that other issuer.
-		 */
-		private const string SIGNER_CERT_WINDOWS =
-			"3b77db29ac72aa6b5880ecb2ed5ec1ec6601d847";
-
-		/**
-		 * SHA-256 of the Windows early-launch signing certificate on the Defender boot driver WdBoot.sys.
-		 *
-		 * Reproduce with Get-AuthenticodeSignature on C:\Windows\System32\drivers\wd\WdBoot.sys, then X509Chain.Build on SignerCertificate.
-		 * Get-AuthenticodeSignature returns Status Valid, and X509Chain.Build returns success with no chain status. The leaf is inside its dates, 2026-04-30 18:35:16Z through 2027-04-29 18:35:16Z, and the signature also has a Microsoft Time-Stamp Service counter-signature (3845616CFA44E2667A198808F506D623F3308D6A).
-		 * The chain is this leaf, then Microsoft Windows Code Signing PCA 2024 (D30F05F637E605239C0070D1EA9860D434AC2A94), then Microsoft Root Certificate Authority 2010 (3B1EFD3A66EA28B16697394703A72CA340A05BD5).
-		 * The leaf subject is CN=Microsoft Windows Early Launch Anti-malware Publisher, O=Microsoft Corporation.
-		 */
-		private const string SIGNER_CERT_EARLY_LAUNCH =
-			"b6db1a725d0f6a336c51df6cd40a6a10c9242f04";
-
-		/**
 		 * One row per program name, or one agent's stored rows.
 		 *
 		 * A controller calls this. Zero lists every agent, added
@@ -307,6 +284,37 @@ namespace Argus.Shared.OSQuery
 			var query = new SQ.Query<Programs>(Programs.db, "programs");
 			var id_text = agent_id.to_string();
 			var since_text = since.to_string();
+			// The check is the signing certificate hash. The two parents are
+			// recorded by that hash. Both chain to Microsoft Root
+			// Certificate Authority 2010. That root is not the check.
+			// VirtualBox reaches it through Third Party Component CA 2014,
+			// and Edge through Microsoft Code Signing PCA 2024.
+			// Microsoft Windows Production PCA 2011
+			// e8e95f0733a55e8bad7be0a1413ee23c51fcea64b3c8fa6a786935fddcc71961
+			// Windows Production PCA 2023
+			// 4f771e28419476af6791f116f65e963812ee85f841a8184e85f592ba3d51a4bf
+			// Microsoft Windows, Production PCA 2011.
+			// https://www.joesandbox.com/analysis/1772502/1/html
+			// 1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de
+			// Microsoft Windows Publisher, same issuer
+			// 12ff747d652cc79a2079377aa26a15c2e22951cc2108a9e9074e971ec5d2ad50
+			// Defender early-launch driver
+			// 836c0b480b54147739746cf07a5ec97aa98644e5883e8c1c71ee463d369361f1
+			// Microsoft Windows, Production PCA 2011.
+			// https://www.virustotal.com/gui/file/8aff1d47aa7c26ebaea9ad9df102c090fe99c9847a8c832ca95e05e5feb1793f
+			// e866d202865ed3d83c35dff4cde3a2d0fc1d2b17c084e8b26dd0ca28a8c75cfb
+			// Microsoft Windows, Production PCA 2011.
+			// https://www.virustotal.com/gui/file/BDB69D9590F69A4883D62153CCA935D4A02CE435CAD31CFE45C9D1B7A119DA3D
+			// aec8b67481dfcd2b03398cf9c9439e80ef3e75d407fb0753f9e6c548bc3b5eff
+			// Microsoft Windows, Production PCA 2011.
+			// https://www.virustotal.com/gui/file/8efadea41916b544e3d93362c28437ab21aae978f1a3f5fa019ff4601f8a1af7
+			// 2724aeb0c497bf5fd732958120d1ae3341cfd252ab1680de03d10503abc666c1
+			// Microsoft Windows, Production PCA 2011. ntoskrnl.exe.
+			// https://www.joesandbox.com/analysis/1325053/0/html
+			// 1721693d3e23c7abf800ae7b86654ed86dceab48c530a57c00d24ef23ff7407e
+			// Microsoft Windows, Production PCA 2011.
+			// https://fixdlls.com/microsoft-windows-sac-events.dll
+			// 2d7ffce2c256016291b67285456aa8da779d711bbf8e6b85c212a157ddfbe77e
 			if (since > 0 && agent_id > 0) {
 				query.select(@"
 					WHERE
@@ -317,9 +325,19 @@ namespace Argus.Shared.OSQuery
 						source = 'service'
 						AND signing_result = 'Valid'
 						AND lower(signer_cert_sha256) IN (
-							'$(SIGNER_CERT_WINDOWS)',
-							'$(SIGNER_CERT_EARLY_LAUNCH)'
+							'1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de',
+							'12ff747d652cc79a2079377aa26a15c2e22951cc2108a9e9074e971ec5d2ad50',
+							'836c0b480b54147739746cf07a5ec97aa98644e5883e8c1c71ee463d369361f1',
+							'e866d202865ed3d83c35dff4cde3a2d0fc1d2b17c084e8b26dd0ca28a8c75cfb',
+							'aec8b67481dfcd2b03398cf9c9439e80ef3e75d407fb0753f9e6c548bc3b5eff',
+							'2724aeb0c497bf5fd732958120d1ae3341cfd252ab1680de03d10503abc666c1',
+							'1721693d3e23c7abf800ae7b86654ed86dceab48c530a57c00d24ef23ff7407e',
+							'2d7ffce2c256016291b67285456aa8da779d711bbf8e6b85c212a157ddfbe77e'
 						)
+					)
+					AND NOT (
+						source = 'appx'
+						AND signing_result = 'NoExecutable'
 					)
 					AND
 						(
@@ -341,9 +359,19 @@ namespace Argus.Shared.OSQuery
 						source = 'service'
 						AND signing_result = 'Valid'
 						AND lower(signer_cert_sha256) IN (
-							'$(SIGNER_CERT_WINDOWS)',
-							'$(SIGNER_CERT_EARLY_LAUNCH)'
+							'1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de',
+							'12ff747d652cc79a2079377aa26a15c2e22951cc2108a9e9074e971ec5d2ad50',
+							'836c0b480b54147739746cf07a5ec97aa98644e5883e8c1c71ee463d369361f1',
+							'e866d202865ed3d83c35dff4cde3a2d0fc1d2b17c084e8b26dd0ca28a8c75cfb',
+							'aec8b67481dfcd2b03398cf9c9439e80ef3e75d407fb0753f9e6c548bc3b5eff',
+							'2724aeb0c497bf5fd732958120d1ae3341cfd252ab1680de03d10503abc666c1',
+							'1721693d3e23c7abf800ae7b86654ed86dceab48c530a57c00d24ef23ff7407e',
+							'2d7ffce2c256016291b67285456aa8da779d711bbf8e6b85c212a157ddfbe77e'
 						)
+					)
+					AND NOT (
+						source = 'appx'
+						AND signing_result = 'NoExecutable'
 					)
 					AND
 						(
@@ -367,9 +395,19 @@ namespace Argus.Shared.OSQuery
 						source = 'service'
 						AND signing_result = 'Valid'
 						AND lower(signer_cert_sha256) IN (
-							'$(SIGNER_CERT_WINDOWS)',
-							'$(SIGNER_CERT_EARLY_LAUNCH)'
+							'1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de',
+							'12ff747d652cc79a2079377aa26a15c2e22951cc2108a9e9074e971ec5d2ad50',
+							'836c0b480b54147739746cf07a5ec97aa98644e5883e8c1c71ee463d369361f1',
+							'e866d202865ed3d83c35dff4cde3a2d0fc1d2b17c084e8b26dd0ca28a8c75cfb',
+							'aec8b67481dfcd2b03398cf9c9439e80ef3e75d407fb0753f9e6c548bc3b5eff',
+							'2724aeb0c497bf5fd732958120d1ae3341cfd252ab1680de03d10503abc666c1',
+							'1721693d3e23c7abf800ae7b86654ed86dceab48c530a57c00d24ef23ff7407e',
+							'2d7ffce2c256016291b67285456aa8da779d711bbf8e6b85c212a157ddfbe77e'
 						)
+					)
+					AND NOT (
+						source = 'appx'
+						AND signing_result = 'NoExecutable'
 					)
 					", rows);
 				foreach (var row in rows) {
@@ -410,9 +448,19 @@ namespace Argus.Shared.OSQuery
 						source = 'service'
 						AND signing_result = 'Valid'
 						AND lower(signer_cert_sha256) IN (
-							'$(SIGNER_CERT_WINDOWS)',
-							'$(SIGNER_CERT_EARLY_LAUNCH)'
+							'1308aad34660d785a76b7360c31308d8835cf5721c364a6f5aedcba85eb5b3de',
+							'12ff747d652cc79a2079377aa26a15c2e22951cc2108a9e9074e971ec5d2ad50',
+							'836c0b480b54147739746cf07a5ec97aa98644e5883e8c1c71ee463d369361f1',
+							'e866d202865ed3d83c35dff4cde3a2d0fc1d2b17c084e8b26dd0ca28a8c75cfb',
+							'aec8b67481dfcd2b03398cf9c9439e80ef3e75d407fb0753f9e6c548bc3b5eff',
+							'2724aeb0c497bf5fd732958120d1ae3341cfd252ab1680de03d10503abc666c1',
+							'1721693d3e23c7abf800ae7b86654ed86dceab48c530a57c00d24ef23ff7407e',
+							'2d7ffce2c256016291b67285456aa8da779d711bbf8e6b85c212a157ddfbe77e'
 						)
+					)
+					AND NOT (
+						source = 'appx'
+						AND signing_result = 'NoExecutable'
 					)
 					GROUP BY
 						source,
