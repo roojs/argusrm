@@ -38,8 +38,11 @@ namespace Argus.Shared.OSQuery
 		/**
 		 * Osquery statement for one Windows software snapshot.
 		 *
-		 * Add/Remove programs, Store packages, Chocolatey, filtered
-		 * services, and startup items. Portable file scans are out.
+		 * Add/Remove programs, Store packages (''package_family_name''
+		 * on ''programs''), Chocolatey, filtered services, and
+		 * startup items. Portable file scans are out.
+		 * ''system_component'' is ''1'' when that uninstall key
+		 * sets SystemComponent.
 		 *
 		 * @return osquery SQL
 		 */
@@ -47,7 +50,11 @@ namespace Argus.Shared.OSQuery
 		{
 			return """
 				SELECT
-					'programs' AS source,
+					CASE
+						WHEN package_family_name != ''
+						THEN 'appx'
+						ELSE 'programs'
+					END AS source,
 					name,
 					version,
 					publisher,
@@ -65,29 +72,15 @@ namespace Argus.Shared.OSQuery
 					install_source,
 					language,
 					uninstall_string,
+					CASE
+						WHEN (SELECT data FROM registry WHERE path = printf('%s%s%s', 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\', identifying_number, '\\SystemComponent')) = '1'
+							OR (SELECT data FROM registry WHERE path = printf('%s%s%s', 'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\', identifying_number, '\\SystemComponent')) = '1'
+						THEN '1'
+						ELSE '0'
+					END AS system_component,
 					'source_reg=' || install_source
 						|| ';uninstall=' || uninstall_string AS extra
 				FROM programs
-				WHERE name != ''
-
-				UNION ALL
-
-				SELECT
-					'appx' AS source,
-					name,
-					version,
-					publisher,
-					architecture,
-					'store' AS scope,
-					'' AS user_account,
-					'' AS install_date,
-					install_location,
-					package_family_name AS identifying_number,
-					'' AS install_source,
-					'' AS language,
-					'' AS uninstall_string,
-					'full_name=' || package_full_name AS extra
-				FROM appx_packages
 				WHERE name != ''
 
 				UNION ALL
@@ -106,6 +99,7 @@ namespace Argus.Shared.OSQuery
 					'' AS install_source,
 					'' AS language,
 					'' AS uninstall_string,
+					'0' AS system_component,
 					summary AS extra
 				FROM chocolatey_packages
 
@@ -125,6 +119,7 @@ namespace Argus.Shared.OSQuery
 					'' AS install_source,
 					'' AS language,
 					'' AS uninstall_string,
+					'0' AS system_component,
 					'status=' || status
 						|| ';start_type=' || start_type
 						|| ';service_type=' || service_type AS extra
@@ -154,6 +149,7 @@ namespace Argus.Shared.OSQuery
 					'' AS install_source,
 					'' AS language,
 					'' AS uninstall_string,
+					'0' AS system_component,
 					'startup_source=' || source
 						|| ';status=' || status AS extra
 				FROM startup_items
@@ -212,6 +208,7 @@ namespace Argus.Shared.OSQuery
 					uninstall_string    TEXT NOT NULL DEFAULT '',
 					install_date        TEXT NOT NULL DEFAULT '',
 					identifying_number  TEXT NOT NULL DEFAULT '',
+					system_component    TEXT NOT NULL DEFAULT '',
 					architecture        TEXT NOT NULL DEFAULT '',
 					scope               TEXT NOT NULL DEFAULT '',
 					user_account        TEXT NOT NULL DEFAULT '',
@@ -238,6 +235,7 @@ namespace Argus.Shared.OSQuery
 			db.exec("ALTER TABLE programs ADD COLUMN signer_publisher TEXT NOT NULL DEFAULT '';");
 			db.exec("ALTER TABLE programs ADD COLUMN signer_issuer TEXT NOT NULL DEFAULT '';");
 			db.exec("ALTER TABLE programs ADD COLUMN signer_serial TEXT NOT NULL DEFAULT '';");
+			db.exec("ALTER TABLE programs ADD COLUMN system_component TEXT NOT NULL DEFAULT '';");
 			db.exec("""
 				CREATE INDEX IF NOT EXISTS programs_deleted_name_agent
 				ON programs (deleted_dt, name, agent_id);
@@ -262,6 +260,29 @@ namespace Argus.Shared.OSQuery
 		}
 
 		/**
+		 * SHA-256 of the Windows component signing certificate on svchost.exe and 1394ohci.sys.
+		 *
+		 * Reproduce with Get-AuthenticodeSignature on either file, then X509Chain.Build on SignerCertificate.
+		 * Get-AuthenticodeSignature returns Status Valid. That is WinVerifyTrust, and it accepts the signature because a Microsoft Time-Stamp Service counter-signature (4989486909603FDD7FE3672232D327BA449C0BCE) was applied while this leaf was inside its dates.
+		 * The chain is this leaf, then Microsoft Windows Production PCA 2011 (580A6F4CC4E4B669B9EBDC1B2B3E087B80D0678D), then Microsoft Root Certificate Authority 2010 (3B1EFD3A66EA28B16697394703A72CA340A05BD5).
+		 * The leaf subject is CN=Microsoft Windows, O=Microsoft Corporation. Its own dates are 2025-06-19 18:11:44Z through 2026-06-17 18:11:44Z. X509Chain.Build against the current clock therefore returns NotTimeValid. Authenticode remains Valid because of the timestamp, not because the leaf is still in date.
+		 * A leaf issued by Microsoft Windows Hardware Compatibility Publisher is not this certificate. VirtualBox drivers use that other issuer.
+		 */
+		private const string SIGNER_CERT_WINDOWS =
+			"3b77db29ac72aa6b5880ecb2ed5ec1ec6601d847";
+
+		/**
+		 * SHA-256 of the Windows early-launch signing certificate on the Defender boot driver WdBoot.sys.
+		 *
+		 * Reproduce with Get-AuthenticodeSignature on C:\Windows\System32\drivers\wd\WdBoot.sys, then X509Chain.Build on SignerCertificate.
+		 * Get-AuthenticodeSignature returns Status Valid, and X509Chain.Build returns success with no chain status. The leaf is inside its dates, 2026-04-30 18:35:16Z through 2027-04-29 18:35:16Z, and the signature also has a Microsoft Time-Stamp Service counter-signature (3845616CFA44E2667A198808F506D623F3308D6A).
+		 * The chain is this leaf, then Microsoft Windows Code Signing PCA 2024 (D30F05F637E605239C0070D1EA9860D434AC2A94), then Microsoft Root Certificate Authority 2010 (3B1EFD3A66EA28B16697394703A72CA340A05BD5).
+		 * The leaf subject is CN=Microsoft Windows Early Launch Anti-malware Publisher, O=Microsoft Corporation.
+		 */
+		private const string SIGNER_CERT_EARLY_LAUNCH =
+			"b6db1a725d0f6a336c51df6cd40a6a10c9242f04";
+
+		/**
 		 * One row per program name, or one agent's stored rows.
 		 *
 		 * A controller calls this. Zero lists every agent, added
@@ -284,47 +305,79 @@ namespace Argus.Shared.OSQuery
 			}
 			var rows = new Gee.ArrayList<Programs>();
 			var query = new SQ.Query<Programs>(Programs.db, "programs");
+			var id_text = agent_id.to_string();
+			var since_text = since.to_string();
 			if (since > 0 && agent_id > 0) {
-				query.select("""
+				query.select(@"
 					WHERE
-						agent_id = %d
+						agent_id = $(id_text)
+					AND
+						system_component != '1'
+					AND NOT (
+						source = 'service'
+						AND signing_result = 'Valid'
+						AND lower(signer_cert_sha256) IN (
+							'$(SIGNER_CERT_WINDOWS)',
+							'$(SIGNER_CERT_EARLY_LAUNCH)'
+						)
+					)
 					AND
 						(
-							added_dt > %d
+							added_dt > $(since_text)
 						OR
-							updated_dt > %d
+							updated_dt > $(since_text)
 						OR
-							deleted_dt > %d
+							deleted_dt > $(since_text)
 						)
-					""".printf(agent_id, since, since, since), rows);
+					", rows);
 			}
 			if (since > 0 && agent_id <= 0) {
-				query.select("""
+				query.select(@"
 					WHERE
 						agent_id IN (SELECT id FROM agent)
 					AND
-						(
-							added_dt > %d
-						OR
-							updated_dt > %d
-						OR
-							deleted_dt > %d
+						system_component != '1'
+					AND NOT (
+						source = 'service'
+						AND signing_result = 'Valid'
+						AND lower(signer_cert_sha256) IN (
+							'$(SIGNER_CERT_WINDOWS)',
+							'$(SIGNER_CERT_EARLY_LAUNCH)'
 						)
-					""".printf(since, since, since), rows);
+					)
+					AND
+						(
+							added_dt > $(since_text)
+						OR
+							updated_dt > $(since_text)
+						OR
+							deleted_dt > $(since_text)
+						)
+					", rows);
 			}
 			if (since <= 0 && agent_id > 0) {
-				query.select("""
+				query.select(@"
 					WHERE
-						agent_id = %d
+						agent_id = $(id_text)
 					AND
 						deleted_dt = 0
-					""".printf(agent_id), rows);
+					AND
+						system_component != '1'
+					AND NOT (
+						source = 'service'
+						AND signing_result = 'Valid'
+						AND lower(signer_cert_sha256) IN (
+							'$(SIGNER_CERT_WINDOWS)',
+							'$(SIGNER_CERT_EARLY_LAUNCH)'
+						)
+					)
+					", rows);
 				foreach (var row in rows) {
 					row.uninstall_count = row.uninstall_string != "" ? 1 : 0;
 				}
 			}
 			if (since <= 0 && agent_id <= 0) {
-				query.selectQuery("""
+				query.selectQuery(@"
 					SELECT
 						source,
 						name,
@@ -351,13 +404,23 @@ namespace Argus.Shared.OSQuery
 						agent_id IN (SELECT id FROM agent)
 					AND
 						deleted_dt = 0
+					AND
+						system_component != '1'
+					AND NOT (
+						source = 'service'
+						AND signing_result = 'Valid'
+						AND lower(signer_cert_sha256) IN (
+							'$(SIGNER_CERT_WINDOWS)',
+							'$(SIGNER_CERT_EARLY_LAUNCH)'
+						)
+					)
 					GROUP BY
 						source,
 						name
 					ORDER BY
 						source,
 						name
-					""", rows);
+					", rows);
 			}
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", rows),
@@ -421,6 +484,12 @@ namespace Argus.Shared.OSQuery
 		public string uninstall_string { get; set; default = ""; }
 		public string install_date { get; set; default = ""; }
 		public string identifying_number { get; set; default = ""; }
+		/**
+		 * ''1'' when the uninstall key sets SystemComponent.
+		 * ''0'' when it does not. Empty on a row synced
+		 * before this column existed.
+		 */
+		public string system_component { get; set; default = ""; }
 		public string architecture { get; set; default = ""; }
 		public string scope { get; set; default = ""; }
 		public string user_account { get; set; default = ""; }

@@ -49,6 +49,8 @@ namespace Argus.Server.Net
 			get; set; default = new Argus.Shared.Agent();
 		}
 
+		private bool closing = false;
+
 		public SslConnection(GLib.SocketConnection stream, Application app)
 		{
 			GLib.Object(stream: stream, app: app);
@@ -121,15 +123,29 @@ namespace Argus.Server.Net
 
 		/**
 		 * Record the close time, then stop the socket.
+		 *
+		 * Holds a reference across the parent close. Closing the
+		 * socket can drop the last external reference, and the rest
+		 * of this method still reads {@link user}. A second call
+		 * while that close is in progress returns.
 		 */
 		public override void stop()
 		{
-			var tell = this.running && this.user.id > 0;
+			if (this.closing) {
+				GLib.warning("connection close already in progress");
+				return;
+			}
+			this.closing = true;
+			this.ref();
+			var user_id = this.user.id;
+			var controller = this.user.is_controller;
+			var tell = this.running && user_id > 0;
+			GLib.debug("closing connection %s", user_id.to_string());
 			if (tell) {
 				var rows = new Gee.ArrayList<Argus.Shared.Agent>();
 				var int_binds = new Gee.HashMap<string, int>();
 				var text_binds = new Gee.HashMap<string, string>();
-				int_binds.set("id", (int) this.user.id);
+				int_binds.set("id", (int) user_id);
 				Argus.Shared.Agent.query(this.app.db).selectWhere(
 					"WHERE id = $id", int_binds, text_binds, rows);
 				if (rows.size > 0) {
@@ -137,8 +153,8 @@ namespace Argus.Server.Net
 					Argus.Shared.Agent.query(this.app.db).updateById(rows.get(0));
 				}
 			}
-			if (tell && !this.user.is_controller) {
-				new Argus.Server.SQT.Task.for_rpc(this.app).connection_lost(this.user.id);
+			if (tell && !controller) {
+				new Argus.Server.SQT.Task.for_rpc(this.app).connection_lost(user_id);
 			}
 			base.stop();
 			if (tell) {
@@ -149,13 +165,16 @@ namespace Argus.Server.Net
 			}
 			var listen = this.get_data<SslListen>("argus-listen");
 			if (listen == null) {
+				this.unref();
 				return;
 			}
 			listen.connections.remove(this);
-			if (this.user.id < 1 || listen.by_id.get((int) this.user.id) != this) {
+			if (user_id < 1 || listen.by_id.get((int) user_id) != this) {
+				this.unref();
 				return;
 			}
-			listen.by_id.unset((int) this.user.id);
+			listen.by_id.unset((int) user_id);
+			this.unref();
 		}
 	}
 }

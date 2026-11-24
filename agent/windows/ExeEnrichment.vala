@@ -60,7 +60,7 @@ namespace Argus.Agent.Windows
 		{
 			this.row_path.clear();
 			this.path_rows.clear();
-			var pe_path = new GLib.Regex("([A-Za-z]:\\\\[^\\s\"']+\\.(?:exe|dll))",
+			var pe_path = new GLib.Regex("([A-Za-z]:\\\\.*?\\.(?:exe|dll))",
 				GLib.RegexCompileFlags.CASELESS);
 			foreach (var row in rows) {
 				switch (row.source) {

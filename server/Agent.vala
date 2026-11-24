@@ -102,6 +102,7 @@ namespace Argus.Server
 		) {
 			var rpc = request.connection as Net.SslConnection;
 			if (rpc == null) {
+				GLib.warning("socket registration only");
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("socket registration only")
 				});
@@ -111,6 +112,12 @@ namespace Argus.Server
 			var open = listen.pin != "" || listen.accepting;
 			var queued = batch && pin == "0000" && !is_controller && open;
 			if (!queued && (pin != listen.pin || listen.pin == "")) {
+				if (listen.pin == "") {
+					GLib.warning("number rejected because registration is closed");
+				}
+				if (listen.pin != "") {
+					GLib.warning("number rejected");
+				}
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("number rejected")
 				});
@@ -134,12 +141,14 @@ namespace Argus.Server
 							"AND username = $username AND hostname = $hostname",
 						found_binds, found_text, existing);
 				} catch (GLib.Error e) {
+					GLib.warning("could not read registration: %s", e.message);
 					request.reply(new OLLMrpc.Response() {
 						error = new OLLMrpc.Error.INTERNAL_ERROR("could not read registration")
 					});
 					return;
 				}
 				if (existing.size > 0) {
+					GLib.warning("This machine is already registered. %s %s", username, hostname);
 					request.reply(new OLLMrpc.Response() {
 						error = new OLLMrpc.Error.INVALID_REQUEST(
 							"This machine is already registered.")
@@ -149,6 +158,7 @@ namespace Argus.Server
 			}
 			var init_ret = GnuTLS.global_init();
 			if (init_ret < 0) {
+				GLib.warning("could not sign");
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
@@ -160,6 +170,7 @@ namespace Argus.Server
 			};
 			var crq = GnuTLS.X509.CertificateRequest.create();
 			if (crq.import(ref csr_datum, GnuTLS.X509.CertificateFormat.PEM) < 0) {
+				GLib.warning("bad csr");
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("bad csr")
 				});
@@ -167,6 +178,7 @@ namespace Argus.Server
 			}
 			var crt = GnuTLS.X509.Certificate.create();
 			if (gnutls_x509_crt_set_crq(crt, crq) < 0 || crt.set_version(3) < 0) {
+				GLib.warning("bad csr");
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("bad csr")
 				});
@@ -181,6 +193,7 @@ namespace Argus.Server
 				|| crt.set_activation_time(now) < 0
 				|| crt.set_expiration_time(
 					now + (time_t) (3650 * 24 * 60 * 60)) < 0) {
+				GLib.warning("could not sign");
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
@@ -198,6 +211,7 @@ namespace Argus.Server
 					out ca_key_pem
 				);
 			} catch (GLib.Error e) {
+				GLib.warning("could not sign: %s", e.message);
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
@@ -219,6 +233,7 @@ namespace Argus.Server
 					ref key_datum, GnuTLS.X509.CertificateFormat.PEM) < 0
 				|| crt.sign2(
 					ca_crt, ca_key, GnuTLS.DigestAlgorithm.SHA256, 0) < 0) {
+				GLib.warning("could not sign");
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
@@ -229,6 +244,7 @@ namespace Argus.Server
 			var crt_buf = new uint8[crt_len];
 			if (crt.export(
 				GnuTLS.X509.CertificateFormat.PEM, crt_buf, ref crt_len) < 0) {
+				GLib.warning("could not sign");
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});
@@ -244,6 +260,7 @@ namespace Argus.Server
 					issued.certificate.data
 				);
 			} catch (GLib.Error e) {
+				GLib.warning("could not sign: %s", e.message);
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INTERNAL_ERROR("could not sign")
 				});

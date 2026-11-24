@@ -388,3 +388,49 @@ elif host_machine.system() == 'android'
 		install: false,
 	)
 endif
+
+if host_machine.system() == 'windows'
+	# Manual throwaway. Runs the programs snapshot and enrichment
+	# and prints the rows the agent would post. No server connection.
+	programs_report_winfileidentity_vala = custom_target(
+		'programs-report-winfileidentity-vala',
+		input: files('../agent/SQT/WinFileIdentity.vala'),
+		output: 'programs-report-WinFileIdentity.vala',
+		command: ['cp', '@INPUT@', '@OUTPUT@'],
+	)
+	programs_report_exeenrich_vala = custom_target(
+		'programs-report-exeenrich-vala',
+		input: files('../agent/windows/ExeEnrichment.vala'),
+		output: 'programs-report-ExeEnrichment.vala',
+		command: ['cp', '@INPUT@', '@OUTPUT@'],
+	)
+	executable(
+		'argus-programs-osquery-report',
+		files(
+			'programs-osquery-report.vala',
+			'../win32/pe-authenticode.c',
+		),
+		programs_report_winfileidentity_vala,
+		programs_report_exeenrich_vala,
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			shared_dep,
+			ocrpc_dep,
+			meson.get_compiler('c').find_library('crypt32'),
+			meson.get_compiler('c').find_library('wintrust'),
+		],
+		vala_args: ocrpc_vala_args + ocsqlite_vala_args + [
+			'--vapidir', meson.project_source_root() / 'win32', '--pkg', 'win32',
+			'-D', 'WINDOWS',
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'sqlite3',
+		],
+		c_args: ocsqlite_c_args + [
+			'-I' + meson.project_source_root() / 'win32',
+		],
+		install: false,
+	)
+endif

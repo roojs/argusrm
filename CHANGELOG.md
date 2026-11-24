@@ -12,7 +12,13 @@ package changelogs.
 
 ### Fixed
 
+- Closing a registration connection no longer uses the connection after it has already been freed. The close keeps its own reference until it has finished, and a second close while that is in progress is ignored. The server log names the connection id being closed.
+- A refused registration now shows the server's own reason on the controller. The server log names that same reason when the number is rejected, the controller is already registered, or the certificate cannot be signed.
 - The Windows tray asked the service for status before the management session was up, then kept **Disconnected**. The service now tells the tray when that session connects and when it drops.
+- The Windows programs snapshot no longer unions ``appx_packages``. That table is not in osquery, so the whole query failed and the agent posted an empty inventory. Store packages stay in the snapshot as ``source`` ``appx`` when ``programs.package_family_name`` is set.
+- Windows program file hashes now follow an executable path that contains spaces, such as ``C:\Program Files\...\Uninstall.exe``.
+- The Windows software list hides an MSI piece whose uninstall key sets SystemComponent. Visual Studio and the Windows SDK stay as their own entries. The hidden rows remain stored.
+- The Windows software list hides a service whose signing certificate is one of the two Windows leaves recorded in ``Programs``. One is issued by Microsoft Windows Production PCA 2011. The other is issued by Microsoft Windows Code Signing PCA 2024. A certificate from another issuer, including the hardware-compatibility publisher, stays visible.
 
 ## [0.1.44] - Unreleased
 

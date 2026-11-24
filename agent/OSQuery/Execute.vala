@@ -88,7 +88,8 @@ namespace Argus.Agent.OSQuery
 		 *
 		 * ''row_type'' is an {@link Argus.Shared.OSQuery.Row}. A failed
 		 * launch, a non-zero exit, or a body that is not a JSON
-		 * list leaves ''rows'' as the caller passed it.
+		 * list leaves ''rows'' as the caller passed it. A non-zero
+		 * exit includes osquery's stderr in the warning.
 		 *
 		 * @param row_type shared osquery row class
 		 * @param sql osquery statement, column names unchanged
@@ -104,21 +105,24 @@ namespace Argus.Agent.OSQuery
 				}
 				child = new GLib.Subprocess.newv({
 					Execute.osqueryi, "--json", sql
-				}, GLib.SubprocessFlags.STDOUT_PIPE);
+				}, GLib.SubprocessFlags.STDOUT_PIPE | GLib.SubprocessFlags.STDERR_PIPE);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return;
 			}
 			string? stdout_text = null;
+			string? stderr_text = null;
 			var queried = false;
 			try {
-				queried = child.communicate_utf8(null, null, out stdout_text, null);
+				queried = child.communicate_utf8(null, null, out stdout_text, out stderr_text);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return;
 			}
 			if (!queried || child.get_exit_status() != 0) {
-				GLib.warning("osqueryi exited %d", child.get_exit_status());
+				var detail = stderr_text != null ? stderr_text.strip() : "";
+				detail = detail.replace("\r\n", " ").replace("\n", " ").replace("\r", " ");
+				GLib.warning("osqueryi exited %d: %s", child.get_exit_status(), detail);
 				return;
 			}
 			var output = stdout_text != null ? stdout_text : "";

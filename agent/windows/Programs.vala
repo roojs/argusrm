@@ -48,6 +48,7 @@ namespace Argus.Agent.OSQuery
 			var fresh = new Gee.ArrayList<Argus.Shared.OSQuery.AgentInfo>();
 			application.osquery.select(OLLMrpc.Bin.alias_to_gtype.get(this.rpc_name()),
 				Argus.Shared.OSQuery.Programs.snapshot_sql(), fresh);
+			GLib.debug("programs snapshot %d rows", fresh.size);
 			if (fresh.size > 0) {
 				if (application.ensure_client_db()) {
 					Argus.Agent.SQT.WinFileIdentity.init_db(application.client_db);
@@ -61,12 +62,17 @@ namespace Argus.Agent.OSQuery
 					enrichment.locate(programs);
 					enrichment.enrich(programs, application.client_db);
 					enrichment.attach(programs);
+					GLib.debug("programs enrichment %d paths", enrichment.by_path.size);
 				} else {
 					GLib.warning("programs send without PE enrichment: client db unavailable");
 				}
 			}
 			if (application.packages_sent && fresh.size == 0) {
+				GLib.debug("programs snapshot empty, sync skipped");
 				return 0;
+			}
+			if (fresh.size == 0) {
+				GLib.warning("programs sync posting 0 rows");
 			}
 			var connection = application.connection;
 			if (connection == null) {

@@ -273,6 +273,9 @@ namespace Argus.Shared
 		/**
 		 * Send the PIN on the current {@link hostport}.
 		 *
+		 * A refusal from the server is kept as {@link detail}. Any
+		 * other failure says registration failed.
+		 *
 		 * @param pin six-digit registration PIN
 		 */
 		public async void submit_pin(string pin) throws GLib.Error
@@ -292,7 +295,9 @@ namespace Argus.Shared
 			var code = this.try_connection(this.host, this.port, pin, requester);
 			if (code != 0) {
 				this.phase = Phase.FAILED;
-				this.detail = "Registration failed";
+				if (this.detail == "Registering…") {
+					this.detail = "Registration failed";
+				}
 				return;
 			}
 			this.phase = Phase.SUCCEEDED;
@@ -540,6 +545,8 @@ namespace Argus.Shared
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			if (response.error != null) {
+				GLib.warning("%s", response.error.message);
+				this.detail = response.error.message;
 				if (response.error.message == "This machine is already registered.") {
 					return 1;
 				}
