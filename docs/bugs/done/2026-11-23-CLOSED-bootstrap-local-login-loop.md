@@ -1,8 +1,8 @@
 # Bootstrap local login loops (evidence on alan-office-desktop)
 
-**Status:** ⏳ parked (2026-11-23 — registration flow still unstable; evidence captured; resume with logs in this file)
+**Status:** ✅ parked — archived 2026-11-24 (evidence retained; resume from this file)
 
-**Pointer:** [2026-11-23-ISSUE-bootstrap-already-registered-recovery.md](2026-11-23-ISSUE-bootstrap-already-registered-recovery.md), [`controller/dialog/Bootstrap.vala`](../../controller/dialog/Bootstrap.vala), [`server/Registration.vala`](../../server/Registration.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`controller/dialog/Bootstrap.vala`](../../controller/dialog/Bootstrap.vala), [`server/Registration.vala`](../../server/Registration.vala)
 
 ### User reported
 

@@ -1,12 +1,12 @@
 # ARCHIVED — Linux agent GTK setup notice (long proposal)
 
-**Do not implement from this file.** Closed: [2026-11-21-FIXED-agent-gtk-notice.md](2026-11-21-FIXED-agent-gtk-notice.md). Kept for Phase 1–4 Vala fences and changelog only.
+**Do not implement from this file.** Closed: 2026-11-21-FIXED-agent-gtk-notice.md. Kept for Phase 1–4 Vala fences and changelog only.
 
 **Status:** 📦 archived 2026-11-21
 
 **Scope:** Linux desktop agent (`argusrm-agent-gtk`). **Not** Windows tray.
 
-**Pointers:** [`docs/plans/2.6.1-management-client-link-spec.md`](../plans/2.6.1-management-client-link-spec.md), [`agent/Connection.vala`](../../agent/Connection.vala), [`shared/RegisterWindow.vala`](../../shared/RegisterWindow.vala), [`docs/bugs/done/2026-11-09-FIXED-agent-running-dialog.md`](done/2026-11-09-FIXED-agent-running-dialog.md)
+**Pointers:** [`docs/plans/2.6.1-management-client-link-spec.md`](../plans/2.6.1-management-client-link-spec.md), [`agent/Connection.vala`](../../agent/Connection.vala), [`shared/RegisterWindow.vala`](../../shared/RegisterWindow.vala), 2026-11-09-FIXED-agent-running-dialog.md
 
 ---
 
@@ -15,7 +15,7 @@
 - 🔷 The running **Notice** always offers **Close** and **Restart** even when the header already has an **X**.
 - 🔷 “Configured” follows `client.pem` on disk, not the saved `server` row that [`Connection`](../../agent/Connection.vala) loads in **checking_config**.
 - 🔷 **Restart** appears while the link is still retrying with matching versions. Restart does not fix reachability.
-- 🔷 Co-located **argusrm-server** should offer **Connect locally** when a local server is up — implementation waits on [done/2026-11-21-FIXED-local-agent-registration-certificate.md](done/2026-11-21-FIXED-local-agent-registration-certificate.md) (not batch PIN, not management-port probe alone).
+- 🔷 Co-located **argusrm-server** should offer **Connect locally** when a local server is up — implementation waits on 2026-11-21-FIXED-local-agent-registration-certificate.md (not batch PIN, not management-port probe alone).
 
 ---
 
@@ -55,7 +55,7 @@ This is not a thin Gtk tweak. Most of the registration flow code **leaves the wi
 
 - The mDNS poll loop (today inside `show_add`).
 - The TCP probe loop (today `on_wait`).
-- Co-located server detection for the notice **Connect locally** button (mechanism in [done/2026-11-21-FIXED-local-agent-registration-certificate.md](done/2026-11-21-FIXED-local-agent-registration-certificate.md) — not registration-port probe alone).
+- Co-located server detection for the notice **Connect locally** button (mechanism in 2026-11-21-FIXED-local-agent-registration-certificate.md — not registration-port probe alone).
 - Properties the UI binds: `phase`, `host`, `port`, `hostport` (combined getter/setter), `server_id`, `detail`.
 - Methods: `start_browse()`, `connect(host, port)`, `stop()`, `submit_pin(pin)` (async enroll via existing `try_connection`).
 - Signal `enrolled` when `try_connection` succeeds.
@@ -906,4 +906,4 @@ Callers that open registration without going through the notice pass `Registrati
 - ✔️ 2026-11-21: Proposals use Gtk `new Type () { prop = value }`, `new RegisterWindow (reg: reg)` (no chained ctor), and `switch` on notice `responded`.
 - ✔️ 2026-11-21: `RegistrationOpen` enum replaces notice open flags; `present_registration` takes one `open` value.
 - ✔️ 2026-11-21: User approved proposal (Register API, single `RegisterWindow()` + `reg: reg` at call site, notice table, deletion list).
-- 🚫 2026-11-21: **Implementation attempt** (Phase 4 + **Connect locally** via batch/PIN) removed from tree — proposal above stays approved. Local enroll wire: [done/2026-11-21-FIXED-local-agent-registration-certificate.md](done/2026-11-21-FIXED-local-agent-registration-certificate.md).
+- 🚫 2026-11-21: **Implementation attempt** (Phase 4 + **Connect locally** via batch/PIN) removed from tree — proposal above stays approved. Local enroll wire: 2026-11-21-FIXED-local-agent-registration-certificate.md.

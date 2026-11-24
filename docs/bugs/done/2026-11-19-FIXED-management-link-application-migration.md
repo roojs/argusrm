@@ -2,11 +2,11 @@
 
 **Status:** ✅ closed 2026-11-21 — **Connection** owns the link; registration store cutover shipped. Legacy **`Application`** / tray / monitor cleanup and **RDP second socket** continue under tail bugs below (not new work in this file).
 
-**Pointer:** `docs/bug-fix-process.md`, [2.6.1-management-client-link-spec.md](../../plans/2.6.1-management-client-link-spec.md) (**§ Outstanding (after link shape)**), [2.6-management-connection.md](../../plans/2.6-management-connection.md), [`agent/Connection.vala`](../../../agent/Connection.vala), [`agent/Application.vala`](../../../agent/Application.vala)
+**Pointer:** `docs/bug-fix-process.md`, [2.6.1-management-client-link-spec.md](../../plans/2.6.1-management-client-link-spec.md) (**§ Outstanding (after link shape)**), [2.6-DONE-management-connection.md](../../plans/done/2.6-DONE-management-connection.md), [`agent/Connection.vala`](../../../agent/Connection.vala), [`agent/Application.vala`](../../../agent/Application.vala)
 
-**Tail work (open):** [2026-11-20-local-registration-cutover-remainder.md](../2026-11-20-local-registration-cutover-remainder.md) (deregister, Register polish, route-aware probes); [2026-11-19-desktop-status-and-reconnect.md](../2026-11-19-desktop-status-and-reconnect.md) (`stream_connection`, RDP notifications, reconnect).
+**Tail work (open):** 2026-11-20-local-registration-cutover-remainder.md (deregister, Register polish, route-aware probes); 2026-11-19-CLOSED-desktop-status-and-reconnect.md (`stream_connection`, RDP notifications, reconnect).
 
-**Prerequisite (done):** [2026-11-20-FIXED-local-registration-cutover.md](2026-11-20-FIXED-local-registration-cutover.md), [2026-11-20-FIXED-local-registration-data-store.md](2026-11-20-FIXED-local-registration-data-store.md).
+**Prerequisite (done):** 2026-11-20-FIXED-local-registration-cutover.md, 2026-11-20-FIXED-local-registration-data-store.md.
 
 ---
 
@@ -91,8 +91,8 @@
 
 ## Prerequisite — local registration store
 
-- 🔷 **[2026-11-20-FIXED-local-registration-cutover.md](2026-11-20-FIXED-local-registration-cutover.md)** is **done**; remainder work is in [cutover remainder](../2026-11-20-local-registration-cutover-remainder.md). Without it, **`checking_config`** stays duplicated in **`agent/Connection`**, controller **`Bootstrap`**, and future controller link code.
-- 🔷 Items **directly gated** by [client registration cutover](2026-11-20-local-registration-cutover.md) (`Controller.Store.Server` on controller; not raw SQLite in link code):
+- 🔷 **2026-11-20-FIXED-local-registration-cutover.md** is **done**; remainder work is in 2026-11-20-local-registration-cutover-remainder.md. Without it, **`checking_config`** stays duplicated in **`agent/Connection`**, controller **`Bootstrap`**, and future controller link code.
+- 🔷 Items **directly gated** by 2026-11-20-local-registration-cutover.md (`Controller.Store.Server` on controller; not raw SQLite in link code):
   - **L3** — registration hand-off when material appears after ctor (store notify or single construct reading **`get_active()`**).
   - **R6 in store log** — agent **`on_checking_config`** / cert wipe → store API only.
   - **X1** — controller management link + **server flip** via same interface as agent; drop `Bootstrap.use()` / `Window` inline TLS. (Tail — remainder bug.)
@@ -106,7 +106,7 @@
 - **Earlier root issue** for connection work: **no shared local registration store** — scaffold and main cutover **closed** (see pointers above).
 - **Do not** re-add deleted **`Application`** connect helpers or static TLS helpers on **`Connection`** to close gaps; update the plan § Outstanding or a **new** bug with fenced hunks.
 - **Do not** implement controller link **`checking_config`** by copying **`Bootstrap.use()`** TLS assembly; wait for store **`material_for_tls()`**.
-- **RDP second connection** is a **product** gap tied to [desktop-status](../2026-11-19-desktop-status-and-reconnect.md) until the stream socket owner is spec’d.
+- **RDP second connection** is a **product** gap tied to 2026-11-19-CLOSED-desktop-status-and-reconnect.md until the stream socket owner is spec’d.
 
 ---
 
@@ -118,4 +118,4 @@ The **Outstanding work** tables below are a **historical checklist** at closure.
 
 ## Next steps (superseded — see Tail work in status)
 
-Historical ordering at closure; follow [remainder](../2026-11-20-local-registration-cutover-remainder.md) and [desktop-status](../2026-11-19-desktop-status-and-reconnect.md) instead of extending this file.
+Historical ordering at closure; follow 2026-11-20-local-registration-cutover-remainder.md and 2026-11-19-CLOSED-desktop-status-and-reconnect.md instead of extending this file.

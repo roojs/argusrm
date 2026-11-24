@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-14. `PackageUpdates.sync`, `SystemInfo.list`, `Base.column_factory` tooltips, `Filters.SystemInfo`, and `PackageMonitor` verified fixed.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-os-update-reporting.md](2026-11-13-FIXED-os-update-reporting.md), [2026-11-13-FIXED-package-updates.md](2026-11-13-FIXED-package-updates.md), [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`
 
 ---
 

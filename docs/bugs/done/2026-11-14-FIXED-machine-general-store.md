@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-14. `machine_general.csv`, `ColumnSchema`, `Store.Base`, `KeyValue`, `MachineGeneral`, `OsVersion.tooltip_pkgs_status`, `Machine.General`, `Machine.Detail`, and `.vertical-list` CSS verified fixed.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, `docs/coding-standards.md`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, `docs/coding-standards.md`
 
 ---
 

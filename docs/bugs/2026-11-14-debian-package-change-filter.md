@@ -48,4 +48,4 @@
 ## LLM notes
 
 - 🚫 Do not conflate with **needs updating** (`update_since` / `package_updates`) — that is enrichment, not install/remove churn.
-- 🚫 Do not add this control to RPM or Windows in this bug (see [2026-11-14-software-filters-remaining.md](2026-11-14-software-filters-remaining.md)).
+- 🚫 Do not add this control to RPM or Windows in this bug (see 2026-11-14-archived-software-filters-remaining.md).

@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-17 — `0.1.26` starts the command on the signed-in desktop and keeps the task running while `Set-up.exe` is alive.
 
-**Pointer:** `docs/bug-fix-process.md`, `agent/Win32/Command.vala`, `agent/Win32/Service.vala`, [2026-11-17-FIXED-windows-command-quoting.md](2026-11-17-FIXED-windows-command-quoting.md)
+**Pointer:** `docs/bug-fix-process.md`, `agent/Win32/Command.vala`, `agent/Win32/Service.vala`
 
 ---
 

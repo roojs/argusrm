@@ -226,7 +226,7 @@ namespace Argus.Agent
 		/**
 		 * Keep {@link connection} open.
 		 *
-		 * See ``docs/plans/2.6.1-agent-server-connection-spec.md``.
+		 * See ``docs/plans/2.6.1-management-client-link-spec.md``.
 		 */
 		internal void attach_connection()
 		{

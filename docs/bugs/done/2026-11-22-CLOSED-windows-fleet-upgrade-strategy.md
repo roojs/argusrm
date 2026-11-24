@@ -1,8 +1,8 @@
 # Windows agent — fleet upgrade via `argus-updater.exe`
 
-**Status:** ⏳ opened
+**Status:** ✅ closed 2026-11-24 — parked with distributables; fleet upgrade design still TBD.
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-17-windows-exe-distribution.md](2026-11-17-windows-exe-distribution.md), [`packaging/windows/argusrm-agent.nsi`](../../packaging/windows/argusrm-agent.nsi), [`server/SQT/Task.vala`](../../server/SQT/Task.vala), [`agent/Download.vala`](../../agent/Download.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`packaging/windows/argusrm-agent.nsi`](../../packaging/windows/argusrm-agent.nsi), [`server/SQT/Task.vala`](../../server/SQT/Task.vala), [`agent/Download.vala`](../../agent/Download.vala)
 
 ---
 
@@ -232,9 +232,7 @@ VIAddVersionKey /LANG=1033 "FileVersion" "${PRODUCT_VERSION}"
 
 ## Next
 
-- ⏳ Implement W0 (small, no new RPC methods).
-- ⏳ Implement W1 updater + `Win32/Command` handoff after `InstallDownload.prepare`.
-- ⏳ Lab test: upload setup, queue from Distributables, verify version bump without re-registration.
+- ✔️ User (2026-11-24): park entire strategy until installer/distribution approach is decided — see 2026-11-17-CLOSED-windows-exe-distribution.md.
 
 ---
 

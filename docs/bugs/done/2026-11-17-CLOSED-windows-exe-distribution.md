@@ -1,14 +1,14 @@
 # Distributables: NSIS installers
 
-**Status:** ⏳ opened — dialog queues the task; the agent does not download the file yet
+**Status:** ✅ closed 2026-11-24 — parked; product approach for Windows installers still TBD.
 
-**Pointer:** `docs/bug-fix-process.md`, [2.0-agent.md](../plans/2.0-agent.md), [7.0-tasks.md](../plans/7.0-tasks.md), [2026-11-17-remote-repository-checkouts.md](2026-11-17-remote-repository-checkouts.md), [2026-11-16-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [`controller/TabList.vala`](../../controller/TabList.vala), [`shared/SQT/Task.vala`](../../shared/SQT/Task.vala), [`shared/OSQuery/Programs.vala`](../../shared/OSQuery/Programs.vala), [`packaging/windows/argusrm-agent.nsi`](../../packaging/windows/argusrm-agent.nsi)
+**Pointer:** `docs/bug-fix-process.md`, [2.0-agent.md](../plans/2.0-agent.md), [7.0-tasks.md](../plans/7.0-tasks.md), [`controller/TabList.vala`](../../controller/TabList.vala), [`shared/SQT/Task.vala`](../../shared/SQT/Task.vala), [`shared/OSQuery/Programs.vala`](../../shared/OSQuery/Programs.vala), [`packaging/windows/argusrm-agent.nsi`](../../packaging/windows/argusrm-agent.nsi)
 
 ---
 
 ## Problem
 
-- 🔷 There is no way to hand a Windows installer to a machine. The download socket only serves the fixed osquery installer. Repository checkouts already exist in MTrack. [2026-11-17-remote-repository-checkouts.md](2026-11-17-remote-repository-checkouts.md).
+- 🔷 There is no way to hand a Windows installer to a machine. The download socket only serves the fixed osquery installer. Repository checkouts already exist in MTrack. 2026-11-17-remote-repository-checkouts.md.
 - 🔷 **Expected:** a sidebar page, **Distributables**. One grid: the distributable name, its platform, and the version. Double-click, or a long press on a touch screen, opens a dialog of the machines for that platform. The list is searchable. Each row shows the version already installed on that machine, when `programs` has this name. The Existing column is wide enough to read that version. Machines that already have it start ticked, so the default run is an update. The user can tick a machine that does not have it, or clear one. **Select all** ticks every machine in the list. **Start the task now** creates a task whose command is that installer, on the ticked machines, and the task stores `dist_version_id` for the file the agent has to download.
 - 🔷 The file is an NSIS installer. Other files wait. Several versions of one name are stored, with their files. A screen that lists those versions is not part of this bug.
 - 🔷 **Actual:** no Distributables page, no stored installer, and `task` has no reference to a file the agent must fetch.
@@ -130,3 +130,10 @@ The controller is on the Unix socket, so the send is an RPC there. The file is n
 - ✔️ `dist_version_id` is a column of `task`, not `task_target`. `0` is a task with no installer. `script_id` stays for library scripts. `command` stays the line that runs after the file is on the machine.
 - 🚫 The dialog does not offer a pick-list of older versions. It sends the version the grid is showing. Do not write a "distributed to" row when the task is queued. `programs` is the record after the install.
 - 🚫 The agent does not download the file yet. Start the task now still dispatches `command` as a shell line. The download, then the run, is the next step.
+
+---
+
+## Next
+
+- ✔️ User (2026-11-24): park — reopen with a new ISSUE when the Windows installer / download approach is chosen.
+- ℹ️ Related parked log: 2026-11-22-CLOSED-windows-fleet-upgrade-strategy.md.

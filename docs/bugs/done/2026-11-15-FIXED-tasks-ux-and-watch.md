@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-15 — fixes `#1`–`#4` implemented (`ninja -C build`, `meson test -C build` 6/6 passed) and archived
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/plans/7.1-tasks-implementation.md`, `docs/plans/7.2-tasks-ui-and-signing.md`, [2026-11-15-FIXED-machines-package-update-phase4-ui.md](2026-11-15-FIXED-machines-package-update-phase4-ui.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/plans/7.1-tasks-implementation.md`, `docs/plans/7.2-tasks-ui-and-signing.md`
 
 ---
 

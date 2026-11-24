@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-14. `MachineGeneral` loads `CpuInfo.list` into General expander blocks; CPUs tab removed; `meson test` 6/6; build verified.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md), [2026-11-14-FIXED-machine-general-store.md](2026-11-14-FIXED-machine-general-store.md), [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`
 
 ---
 
@@ -31,7 +31,7 @@
 
 - ✔️ `controller/meson.build`, `docs/meson.build`, `controller/resources/argusrm.gresource.xml`.
 - ✔️ `docs/rpc-commands.md` — `Store.MachineGeneral` caller for `CpuInfo.list`.
-- ✔️ [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md) — no `cpus_loaded`; CPU cache tied to `general_loaded`.
+- ✔️ 2026-11-14-CLOSED-package-status-cache-notification.md — no `cpus_loaded`; CPU cache tied to `general_loaded`.
 
 ---
 
@@ -51,4 +51,4 @@
 ## Next
 
 - ℹ️ Optional: hide redundant `system_info` CPU summary after General `cpu_info` blocks are sufficient.
-- ℹ️ `event.osquery` invalidation should reset `general_loaded` to refresh CPU data ([2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)).
+- ℹ️ `event.osquery` invalidation should reset `general_loaded` to refresh CPU data (2026-11-14-CLOSED-package-status-cache-notification.md).

@@ -2,7 +2,7 @@
 
 **Status:** ⏳ critical — Phases 1–5 are in the tree. The controller compiled. None of this is verified on a machine. Phase 6 is the session tabs. Phase 6.5 is Force and the Disconnect notice. Phase 7 waits until Windows works.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, archived plan [5.12-MOVED-remote-desktop.md](../plans/done/5.12-MOVED-remote-desktop.md), [2026-11-17-FIXED-windows-command-session-job.md](done/2026-11-17-FIXED-windows-command-session-job.md), [2026-11-16-FIXED-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md), [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md) (silent Waiting, missing `relay.status`, server broadcast abort, Windows cert wipe), [`controller/tab/Asset/Machine/General.vala`](../../controller/tab/Asset/Machine/General.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`server/Net/Download.vala`](../../server/Net/Download.vala)
+**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md`, archived plan [5.12-MOVED-remote-desktop.md](../plans/done/5.12-MOVED-remote-desktop.md), missing `relay.status`, server broadcast abort, Windows cert wipe), [`controller/tab/Asset/Machine/General.vala`](../../controller/tab/Asset/Machine/General.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`server/Net/Download.vala`](../../server/Net/Download.vala)
 
 ---
 
@@ -17,8 +17,8 @@
 ## Why this left the plan
 
 - 🔷 [5.12](../plans/done/5.12-MOVED-remote-desktop.md) was feasibility only, and it waited. It is this bug because the uninstall work still leaves machines that need a person on the desktop.
-- ℹ️ [2026-11-17-FIXED-windows-command-session-job.md](done/2026-11-17-FIXED-windows-command-session-job.md) starts the command on the signed-in desktop and waits for the process tree. That does not click a wizard. The Illustrator run in that log is the case: the launcher exited, and `Set-up.exe` sat on a lock.
-- ℹ️ [2026-11-16-FIXED-windows-uninstall-task-queue.md](done/2026-11-16-FIXED-windows-uninstall-task-queue.md) rewrites `msiexec /I` to a silent `/X … /qn /norestart`. An uninstaller that is not `msiexec`, or that ignores the quiet flags, still opens a window on a desktop the controller cannot see.
+- ℹ️ 2026-11-17-FIXED-windows-command-session-job.md starts the command on the signed-in desktop and waits for the process tree. That does not click a wizard. The Illustrator run in that log is the case: the launcher exited, and `Set-up.exe` sat on a lock.
+- ℹ️ 2026-11-16-FIXED-windows-uninstall-task-queue.md rewrites `msiexec /I` to a silent `/X … /qn /norestart`. An uninstaller that is not `msiexec`, or that ignores the quiet flags, still opens a window on a desktop the controller cannot see.
 
 ---
 
@@ -1418,7 +1418,7 @@ controller_vala_args += [
 - ✔️ 2026-11-18: After installing 0.1.27, `argus-agent.exe` and `argus-tray.exe` are 18:24, 1198463 bytes. At 18:30:10 the server received `Relay.start` and the agent logged `relay.start`. There is no `AgentService.allow`, no `Relay.join`, and no `relay.ready`. Windows 10 Pro, `fDenyTSConnections` is 0, and TermService is running. The picture waits for `relay.ready`.
 - ✔️ 2026-11-19: The tray ask is what stopped that stream. `initialize` turns Remote Desktop on without sending `agent.desktop`. The ask, and telling the controller that the page is waiting for authorization, are Phase 6.5.
 - ✔️ 2026-11-19: `meson test -C build rdp-seat` passes. A TLS listener accepts controller, agent, and view connections. `Seat.joined` sends `relay.ready 42` to the controller. `Seat.attach` + `Seat.forward` sends `relay.data 5` to the view. This is the notification flow without `SslConnection` or the database.
-- ✔️ 2026-11-19: After 0.1.29, the server received `Relay.start` at 12:14:23 with no `name-ref` error. The agent log has no `relay.start`. The agent dropped at 12:14:09 and reconnected at 12:14:26 — three seconds after `Relay.start`. `by_id.get` returned null, the server replied "unknown agent", and the controller showed a grey screen. The agent was not connected when the button was pressed. That gap is not the tick-on Waiting case; see [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md).
+- ✔️ 2026-11-19: After 0.1.29, the server received `Relay.start` at 12:14:23 with no `name-ref` error. The agent log has no `relay.start`. The agent dropped at 12:14:09 and reconnected at 12:14:26 — three seconds after `Relay.start`. `by_id.get` returned null, the server replied "unknown agent", and the controller showed a grey screen. The agent was not connected when the button was pressed. That gap is not the tick-on Waiting case; see 2026-11-19-CLOSED-desktop-status-and-reconnect.md.
 - ✔️ 2026-11-19: `MachineGeneral.start_desktop` only caught `GLib.Error` (transport), not `response.error`. Every other `call.end` in the controller checks `response.error`. The call now returns false on that error, the notice uses `failed`, and the desktop page opens only after a successful reply.
 - ✔️ 2026-11-19: The click at 12:14 failed because the machine was not connected. The server called that `unknown agent`, so the notice did not say what was wrong. `Relay.start` now replies `The machine is not connected.` The notice heading is the hostname and the body is that sentence. The desktop page says `Waiting for Remote Desktop on <name>.` until `relay.ready`, and a FreeRDP failure replaces that sentence. `meson test -C build rdp-start` requires the new sentence.
 

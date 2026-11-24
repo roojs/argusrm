@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-15 — Phase 4 implemented (`ninja -C build`, `meson test -C build` 6/6 passed) and archived
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-package-update.md](2026-11-13-FIXED-machines-package-update.md), [../2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`
 
 ---
 
@@ -34,7 +34,6 @@
 
 ## Phase 4 — Connect UI & handlers (`controller/store/`, `controller/tab/`)
 
-**Depends on:** Phases 1–3 ([2026-11-13-FIXED-machines-package-update.md](2026-11-13-FIXED-machines-package-update.md)).
 
 ### Specification
 

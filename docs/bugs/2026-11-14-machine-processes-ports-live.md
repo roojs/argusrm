@@ -2,9 +2,9 @@
 
 **Status:** ⏳ opened — design only; no implementation
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-16-FIXED-machine-additional-osquery-data.md](done/2026-11-16-FIXED-machine-additional-osquery-data.md), [2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md), `docs/plans/1.1-implementation.md` (approved executables / sockets — later)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, `docs/plans/1.1-implementation.md` (approved executables / sockets — later)
 
-**Related:** [2026-11-16-FIXED-machine-additional-osquery-data.md](done/2026-11-16-FIXED-machine-additional-osquery-data.md) — `uptime` and agent connection on **General**; **Storage** tab (startup `mounts`).
+**Related:** 2026-11-16-FIXED-machine-additional-osquery-data.md — `uptime` and agent connection on **General**; **Storage** tab (startup `mounts`).
 
 ---
 
@@ -23,7 +23,7 @@
 - 🚫 `processes` and `listening_ports` are not in `agent/OSQuery/Execute.vala` `send_startup()` or server `init_db`.
 - ✔️ Today’s live-ish tables (`logged_in_users`, packages) use **agent-initiated** `OSQuery.sync` after local OS watches — there is **no** path for the **controller to ask the agent** to turn polling on or off (watch RPC is part of **this** bug’s proposed fix).
 - ✔️ Server → agent notifications today: `agent.run`, `agent.send`, `agent.removed` (`agent/Application.vala` `notification`). Controller → server uses RPC; server → agent uses `connection.write(OLLMrpc.Notification)` (same pattern as tasks in `server/Command.vala`).
-- ✔️ Controller refresh after server data changes is planned generically as `event.osquery` in [2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md) — these tabs should subscribe when implemented.
+- ✔️ Controller refresh after server data changes is planned generically as `event.osquery` in 2026-11-14-CLOSED-package-status-cache-notification.md — these tabs should subscribe when implemented.
 
 ---
 
@@ -50,7 +50,7 @@
 
 ### 4. Server → controller: data ready
 
-- 🔷 After successful `OSQuery.sync`, broadcast `event.osquery` with `agent_id` + table name ([2026-11-14-package-status-cache-notification.md](2026-11-14-package-status-cache-notification.md)).
+- 🔷 After successful `OSQuery.sync`, broadcast `event.osquery` with `agent_id` + table name (2026-11-14-CLOSED-package-status-cache-notification.md).
 - 🔷 Processes / Listening ports tabs listen only while visible and matching `current_agent_id` (avoid reloading hidden tabs).
 
 ### 5. UI

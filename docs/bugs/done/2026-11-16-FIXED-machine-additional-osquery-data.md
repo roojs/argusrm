@@ -2,14 +2,14 @@
 
 **Status:** ✅ closed 2026-11-16. Slices **1a** (`uptime` on General), **1b** (Storage tab / `mounts`), **1c** (General **Connection** via **`Agent.list(i)`**); build verified. User requested close without blocking on on-device check.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md` (**Checklist for plans**, **Edit syntax contract**), `docs/coding-standards.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`, [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md), [2026-11-14-FIXED-machine-cpu-in-general.md](2026-11-14-FIXED-machine-cpu-in-general.md), [2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/guide-to-writing-plans.md` (**Checklist for plans**, **Edit syntax contract**), `docs/coding-standards.md`, `docs/plans/5.8-assets-page.md`, `docs/plans/4.0-data-types.md`
 
 ---
 
 ## Problem
 
 - 🔷 Machine detail already shows startup-synced tables (`system_info`, `os_version`, `cpu_info`, `interface_addresses`, packages, `users` / `groups`). Several useful osquery tables are **not** collected or shown.
-- 🔷 **Expected:** low-cardinality startup sync — **`uptime`** on **General**; **storage** on its own machine tab as a **standard grid**; high-cardinality **processes / listening ports** use view-driven live sync ([2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md)).
+- 🔷 **Expected:** low-cardinality startup sync — **`uptime`** on **General**; **storage** on its own machine tab as a **standard grid**; high-cardinality **processes / listening ports** use view-driven live sync (2026-11-14-machine-processes-ports-live.md).
 - 🔷 **Actual:** no server rows and no UI for the candidates below.
 
 ---
@@ -22,7 +22,7 @@
 | Storage | **Dedicated Storage tab** — startup sync of osquery **`mounts`**. **`Tab.Base`** + **`mounts_machine.csv`** (same pattern as **Interfaces** / **Debian packages**): `path`, `device`, `ctype`, **`bytes`** columns for total/used/free, **`number`** for **% full** (sort via column header / `Gtk.SortListModel`, not the store). **Search** + **Show snap mounts** via `Filters.Mounts` + `FilterListModel`. 🚫 **No** custom `ListBox` / `mount_row` / per-row progress widgets in v1 (grid only). **No periodic resync** in v1. 💩 **Open:** free ≤15% / ≤10% warning colouring (dropped with custom bars — column format? row CSS? defer?). |
 | Processes / ports | **Separate bug** — live watch while tab visible, not startup sync. |
 | “Power state” | **Not** osquery power for v1. Show **agent connection** on machine **General** from the existing **`agent`** row (`Argus.Shared.Agent`: **`display-connected`**, **`display-last`** — same as **Agents** grid). **🚫 Not** on `SystemInfo` / osquery inventory. Slice **1c**: **`Agent.list(i)`** (`i = 0` → all rows; `i > 0` → that machine) + `machine_general.csv` source **`agent`**. |
-| Other candidates | Still out of scope here: `routes`, `interface_details` ([machines-detail-pane](2026-11-13-FIXED-machines-detail-pane.md) §3). |
+| Other candidates | Still out of scope here: `routes`, `interface_details` (2026-11-13-FIXED-machines-detail-pane.md §3). |
 
 ---
 
@@ -38,10 +38,10 @@
 | --- | --- |
 | `uptime` | One row per host ([5.8](../plans/5.8-assets-page.md)). |
 | `mounts` / `disk_info` | Storage / fullness — not in [4.0](../plans/4.0-data-types.md). |
-| `processes` / `listening_ports` | [2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md). |
+| `processes` / `listening_ports` | 2026-11-14-machine-processes-ports-live.md. |
 | `routes` / `interface_details` | Inspected in detail-pane bug; not synced. |
 
-ℹ️ [2026-11-13-FIXED-machines-detail-pane.md](2026-11-13-FIXED-machines-detail-pane.md) §6 — `users` shipped ([2026-11-14-FIXED-machine-users-tab.md](2026-11-14-FIXED-machine-users-tab.md)).
+ℹ️ 2026-11-13-FIXED-machines-detail-pane.md §6 — `users` shipped (2026-11-14-FIXED-machine-users-tab.md).
 
 ℹ️ Live session refresh for logins is phase 1 — not this bug.
 
@@ -60,7 +60,7 @@
 - 🔷 **Slice 1a** — items **1–11** below (`uptime` sync + General UI).
 - 🔷 **Slice 1b** — items **12–23** (`mounts` sync + **`Tab.Base` Storage** + `Detail.vala`; **bytes** columns use existing **`Tab.Base`** / **`ColumnSchema`** formatting only).
 - ✔️ **Slice 1c** — agent connection on General (items **24–29**; landed — **`Agent.list(i)`**, no `LIMIT 20`).
-- 🚫 Out of scope here: [2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md), `routes`, `interface_details`.
+- 🚫 Out of scope here: 2026-11-14-machine-processes-ports-live.md, `routes`, `interface_details`.
 
 ---
 
@@ -1509,7 +1509,7 @@ namespace Argus.Controller.Tab.Asset.Machine
 
 - 💩 Optional: [4.0-data-types.md](../plans/4.0-data-types.md) — document `uptime` / `mounts` when accepted for the type catalog.
 - 💩 Optional: Storage grid free-space warning colouring (≤15% / ≤10%) — deferred from slice **1b**.
-- ℹ️ Processes / ports — [2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md).
+- ℹ️ Processes / ports — 2026-11-14-machine-processes-ports-live.md.
 
 ---
 
@@ -1518,8 +1518,8 @@ namespace Argus.Controller.Tab.Asset.Machine
 - ✅ Bug **closed** — file lives under `docs/bugs/done/` as **`2026-11-16-FIXED-machine-additional-osquery-data.md`**.
 - 🚫 **Do not** write companion `*.vala` under `docs/bugs/` — proposed sources are **markdown fences only** (`docs/guide-to-writing-plans.md`, `docs/bug-fix-process.md`).
 - 🚫 Do not fold this into [5.8](../plans/5.8-assets-page.md) as a new plan chapter; keep work here until closed.
-- 🚫 Do not add processes/ports startup sync — see [2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md).
-- 🚫 Do not duplicate `cpu_info` work — [2026-11-14-FIXED-machine-cpu-in-general.md](2026-11-14-FIXED-machine-cpu-in-general.md).
+- 🚫 Do not add processes/ports startup sync — see 2026-11-14-machine-processes-ports-live.md.
+- 🚫 Do not duplicate `cpu_info` work — 2026-11-14-FIXED-machine-cpu-in-general.md.
 - 🚫 **No** `shared/Duration.vala` (or other shared duration module) — uptime display is **`ColumnSchema`** `uptime` format only, **two units max** like **`elapsed`** in `controller/tab/Base.vala` (not a full **`y d h m s`** breakdown).
 - 🚫 **No** unsolicited shared helpers (e.g. **`ColumnSchema.format_bytes`**, dedup utilities) — use existing column **`bytes`** handling in **`Tab.Base`** / **`ColumnSchema`**; add a helper only when the user asks.
 - 🚫 **No** `volume_*` (or similar) method stacks on osquery rows — grid-facing derived fields are **`display_*`** properties (see **`Agent.display_connected`**, **`TaskTarget.display_duration`**). Non-display logic (e.g. snap filter) may be one small predicate such as **`is_snap_mount()`**.

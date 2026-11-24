@@ -21,5 +21,5 @@
 
 ### LLM
 
-- ℹ️ Pre-fix failure log: `Register.vala:525: os-release did not name debian or rpm` — [`2026-11-23-ISSUE-windows-registration-failed-critical.md`](../2026-11-23-ISSUE-windows-registration-failed-critical.md) (archived content merged here).
-- ℹ️ Post-enroll “Disconnected” / no controller tick → [`2026-11-23-ISSUE-windows-agent-disconnected-after-register.md`](../2026-11-23-ISSUE-windows-agent-disconnected-after-register.md).
+- ℹ️ Pre-fix failure log: `Register.vala:525: os-release did not name debian or rpm` — 2026-11-23-ISSUE-windows-registration-failed-critical.md (archived content merged here).
+- ℹ️ Post-enroll “Disconnected” / no controller tick → 2026-11-23-ISSUE-windows-agent-disconnected-after-register.md.

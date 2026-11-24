@@ -21,4 +21,4 @@
 ### LLM
 
 - ℹ️ Cause: service `tick()` respawns tray ~every 5s; single `taskkill` left the file locked.
-- ℹ️ Active note was [`2026-11-23-windows-install-tray-file-locked.md`](../2026-11-23-windows-install-tray-file-locked.md) (archived).
+- ℹ️ Active note was 2026-11-23-windows-install-tray-file-locked.md (archived).

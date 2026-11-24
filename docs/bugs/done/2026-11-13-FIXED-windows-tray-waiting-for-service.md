@@ -2,7 +2,7 @@
 
 **Status:** ✅ fixed (`0.1.17`–`0.1.19`); verified on `snappr-win` (`OLLMrpc` + `TcpListen` over `127.0.0.1:4142`)
 
-**Pointer:** `docs/bug-fix-process.md`. Prior Windows install bug: [2026-11-11-FIXED-windows-install.md](2026-11-11-FIXED-windows-install.md). Related design: [2.0-agent.md](../../plans/2.0-agent.md) (Phase 2.5).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 
@@ -76,7 +76,6 @@ Edits are **Remove** / **Replace with** / **Add** from the tree. Verify surround
 
 **Where:** `OLLMchat/libocrpc/Transport/Connection.vala` (`start`) and `OLLMchat/libocrpc/Client.vala` (`connect`).
 
-**Depends on:** none (see [OLLMchat windows-tcp-iochannel](../../../OLLMchat/docs/bugs/2026-11-13-windows-tcp-iochannel.md); rebuilt/packaged in `OLLMchat` release consumed by `.github/workflows/x-windows.yml`).
 
 #### `libocrpc/Transport/Connection.vala` — Remove
 

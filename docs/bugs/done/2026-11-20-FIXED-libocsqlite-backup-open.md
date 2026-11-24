@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-20 — agent opens `client_db` only when persistence is required; shutdown backup gated on that.
 
-**Pointer:** [`agent/Application.vala`](../../../agent/Application.vala), [`agent/linux/Application.vala`](../../../agent/linux/Application.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`agent/Application.vala`](../../../agent/Application.vala), [`agent/linux/Application.vala`](../../../agent/linux/Application.vala)
 
 ## Symptom
 

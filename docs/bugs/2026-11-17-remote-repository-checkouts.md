@@ -2,7 +2,7 @@
 
 **Status:** ⏳ opened — catalog and placement design, replacing the MTrack Nagios pull
 
-**Pointer:** `docs/bug-fix-process.md`, [7.0-tasks.md](../plans/7.0-tasks.md), [7.1-tasks-implementation.md](../plans/7.1-tasks-implementation.md), [1.1-implementation.md](../plans/1.1-implementation.md), [2026-11-17-windows-exe-distribution.md](2026-11-17-windows-exe-distribution.md)
+**Pointer:** `docs/bug-fix-process.md`, [7.0-tasks.md](../plans/7.0-tasks.md), [7.1-tasks-implementation.md](../plans/7.1-tasks-implementation.md), [1.1-implementation.md](../plans/1.1-implementation.md)
 
 ---
 
@@ -12,7 +12,7 @@
 - 🔷 **Expected:** Argus holds the repositories we can place, then records which machines have a checkout and the path on that machine. Clone and pull run as tasks on those agents. Many machines can be updated together.
 - 🔷 **Actual:** `script_repository` is only a clone under `git/` on the Argus server, so the server can scan scripts. Nothing records a checkout on an agent. Updating those trees still happens in MTrack: one `GIT-PULL` at a time, collected by a Nagios NRPE check.
 
-Linux machines get trees by checkout. Dropping loose files onto Linux is [2026-11-17-windows-exe-distribution.md](2026-11-17-windows-exe-distribution.md), and that bug is Windows executables only.
+Linux machines get trees by checkout. Dropping loose files onto Linux is 2026-11-17-CLOSED-windows-exe-distribution.md, and that bug is Windows executables only.
 
 ---
 
@@ -52,7 +52,7 @@ Linux machines get trees by checkout. Dropping loose files onto Linux is [2026-1
 - ⏳ **Phase 1 — Available repositories.** The set we are willing to check out onto machines.
 - ⏳ **Phase 2 — Checkout locations.** Which machine, which path, then clone and pull as tasks.
 
-Both phases use the same shape as the Windows file bug: a catalog of things, then a placement of each thing on a machine. [2026-11-17-windows-exe-distribution.md](2026-11-17-windows-exe-distribution.md).
+Both phases use the same shape as the Windows file bug: a catalog of things, then a placement of each thing on a machine. 2026-11-17-CLOSED-windows-exe-distribution.md.
 
 ---
 

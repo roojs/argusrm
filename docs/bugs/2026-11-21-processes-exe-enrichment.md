@@ -2,9 +2,9 @@
 
 **Status:** ⏳ opened — design only; no implementation
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-14-machine-processes-ports-live.md](2026-11-14-machine-processes-ports-live.md), `agent/linux/Apt/PackageExeValidator.vala`, `docs/plans/5.10-data-enrichment.md`
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, `agent/linux/Apt/PackageExeValidator.vala`, `docs/plans/5.10-data-enrichment.md`
 
-**Related:** [2026-11-14-machine-processes-ports-live.md](2026-11-14-machine-processes-ports-live.md) — view-driven poll and UI; this bug is the **agent query class**, **enrichment**, and **server-side Windows checksum trust**. Watch RPC and tabs can land after or in parallel once Phase 1 sync works.
+**Related:** 2026-11-14-machine-processes-ports-live.md — view-driven poll and UI; this bug is the **agent query class**, **enrichment**, and **server-side Windows checksum trust**. Watch RPC and tabs can land after or in parallel once Phase 1 sync works.
 
 ---
 
@@ -13,13 +13,13 @@
 - 🔷 **Expected:** While a controller watches a machine (see related bug), the agent runs osquery **`processes`**, enriches each row with executable trust metadata, and posts via **`OSQuery.sync`**. On **Debian APT**, enrichment uses dpkg file lists and **`md5sums`** (existing **`PackageExeValidator`**). On **Windows**, the agent computes **SHA256**; the **server** matches hashes against a growing corpus and a **background** job gradually looks up unknown binaries online.
 - 🔷 **Actual:** No **`shared/OSQuery/Processes`**, no agent **`Processes.send()`**, no enrichment wiring, no server fingerprint store, no checksum lookup worker. **`PackageExeValidator`** exists but is unused outside the agent tree.
 
-ℹ️ **Approved vs new executables** (baseline, sign-off UI) stays later — [2026-11-14-machine-processes-ports-live.md](2026-11-14-machine-processes-ports-live.md), `docs/plans/1.1-implementation.md`. This bug delivers **facts** (package ownership, hash, verify status) the UI can use later.
+ℹ️ **Approved vs new executables** (baseline, sign-off UI) stays later — 2026-11-14-machine-processes-ports-live.md, `docs/plans/1.1-implementation.md`. This bug delivers **facts** (package ownership, hash, verify status) the UI can use later.
 
 ---
 
 ## Evidence
 
-- 🚫 **`processes`** is not in **`agent/OSQuery/Execute.vala`** **`send_startup()`** or server **`init_db`** (by design for high cardinality — [2026-11-14-machine-processes-ports-live.md](2026-11-14-machine-processes-ports-live.md)).
+- 🚫 **`processes`** is not in **`agent/OSQuery/Execute.vala`** **`send_startup()`** or server **`init_db`** (by design for high cardinality — 2026-11-14-machine-processes-ports-live.md).
 - ✔️ **`Execute.select()`** deserializes JSON into **`Argus.Shared.OSQuery.Row`** properties ([`agent/OSQuery/Execute.vala`](../../agent/OSQuery/Execute.vala)).
 - ✔️ **`Package.send()`** is **`SELECT *`** only — processes need a custom **`send()`** with **`snapshot_sql()`** and **`enrich()`** ([`agent/OSQuery/Package.vala`](../../agent/OSQuery/Package.vala)).
 - ✔️ **`PackageExeValidator`** maintains an in-memory dpkg index and per-path result cache ([`agent/linux/Apt/PackageExeValidator.vala`](../../agent/linux/Apt/PackageExeValidator.vala)); **`ExeVerifyStatus`** covers verified, unpackaged, hash mismatch, deleted binary, etc.
@@ -59,7 +59,7 @@ flowchart LR
 ### Sync model
 
 - 🚫 Do **not** add **`processes`** to **`send_startup()`**.
-- 🔷 Poll only while watched ([2026-11-14-machine-processes-ports-live.md](2026-11-14-machine-processes-ports-live.md)).
+- 🔷 Poll only while watched (2026-11-14-machine-processes-ports-live.md).
 - 🔷 **`sync_rows`** key: **`{ "pid" }`** (live snapshot; rows missing from a snapshot get **`deleted_dt`** like other tables).
 
 ---
@@ -142,7 +142,7 @@ flowchart LR
 
 ### Phase 6 — UI and watch lifecycle
 
-- 🔷 Implement [2026-11-14-machine-processes-ports-live.md](2026-11-14-machine-processes-ports-live.md): **`OSQueryWatch`**, **`agent.osquery_watch`**, machine **Processes** tab, column CSV
+- 🔷 Implement 2026-11-14-machine-processes-ports-live.md: **`OSQueryWatch`**, **`agent.osquery_watch`**, machine **Processes** tab, column CSV
 - 🔷 Show **`exe_verify_status`**, **`sha256`**, **`trust_status`** in grid
 
 ---

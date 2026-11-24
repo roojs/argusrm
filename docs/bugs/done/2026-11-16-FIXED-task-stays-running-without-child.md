@@ -1,8 +1,8 @@
 # Task stays Running when the child never starts
 
-**Status:** closed 2026-11-17 — a spawn that throws sends exit 127, `Task.agent_boot` ends a target whose child is gone, and a live child reports `running`. In the tree since `0.1.20`–`0.1.23`. The Windows agent that has this is the NSIS setup test in [2026-11-17-windows-command-session-job.md](2026-11-17-FIXED-windows-command-session-job.md).
+**Status:** closed 2026-11-17 — a spawn that throws sends exit 127, `Task.agent_boot` ends a target whose child is gone, and a live child reports `running`. In the tree since `0.1.20`–`0.1.23`. The Windows agent that has this is the NSIS setup test in 2026-11-17-FIXED-windows-command-session-job.md.
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [7.0-tasks.md](../../plans/7.0-tasks.md), [2026-11-16-windows-uninstall-task-queue.md](2026-11-16-FIXED-windows-uninstall-task-queue.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [7.0-tasks.md](../../plans/7.0-tasks.md)
 
 ---
 

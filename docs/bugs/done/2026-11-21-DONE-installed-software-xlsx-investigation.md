@@ -1,8 +1,8 @@
 # Installed software matrix — XLSX export (investigation)
 
-**Status:** ✅ archived 2026-11-22 — libxlsxwriter chosen; POC removed. **Implementation:** [2026-11-22-installed-software-xlsx-export.md](../2026-11-22-installed-software-xlsx-export.md)
+**Status:** ✅ archived 2026-11-22 — libxlsxwriter chosen; POC removed. **Implementation:** 2026-11-22-installed-software-xlsx-export.md
 
-**Pointer:** `docs/bug-fix-process.md`, [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [2026-11-14-software-filters-remaining.md](../2026-11-14-software-filters-remaining.md), [done/2026-11-14-FIXED-software-package-machines-grid.md](2026-11-14-FIXED-software-package-machines-grid.md), [../rpc-commands.md](../rpc-commands.md)
+**Pointer:** `docs/bug-fix-process.md`, [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [../rpc-commands.md](../rpc-commands.md)
 
 **Related PHP (fallback port):** `/home/alan/gitlive/web.Texon/pear/Document/Excel.php` and `/home/alan/gitlive/web.Texon/pear/Document/Excel/` (~1k lines, LGPL-3.0, streams rows then zips OOXML).
 

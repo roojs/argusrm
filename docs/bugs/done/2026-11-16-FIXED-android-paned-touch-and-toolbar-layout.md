@@ -2,7 +2,7 @@
 
 **Status:** ✅ fixed and verified on `SM-S9380`
 
-**Pointer:** `docs/bug-fix-process.md`, `controller/tab/Asset/SystemInfo.vala`, `controller/tab/Asset/DebPackages.vala`, `controller/tab/Asset/Machine/Users.vala`, `controller/tab/Tasks.vala`, `/home/alan/git/gtk-Knowles/docs-alan/bugs/2026-11-16-android-paned-touch-steal.md`
+**Pointer:** `docs/bug-fix-process.md`, `controller/tab/Asset/SystemInfo.vala`, `controller/tab/Asset/DebPackages.vala`, `controller/tab/Asset/Machine/Users.vala`, `controller/tab/Tasks.vala`
 
 ---
 

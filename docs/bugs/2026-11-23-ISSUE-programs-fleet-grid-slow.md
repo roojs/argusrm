@@ -2,9 +2,8 @@
 
 **Status:** ⏳
 
-**Pointer:** [`tests/programs-grid-offtest.vala`](../../tests/programs-grid-offtest.vala), [`tests/programs-grid-offtest-lib/`](../../tests/programs-grid-offtest-lib/), [`2026-11-23-ISSUE-debpackages-fleet-unfilter-slow.md`](2026-11-23-ISSUE-debpackages-fleet-unfilter-slow.md) (related sort issue; **not** the same user verify).
+**Pointer:** `docs/bug-fix-process.md`, [`tests/programs-grid-offtest.vala`](../../tests/programs-grid-offtest.vala), [`tests/programs-grid-offtest-lib/`](../../tests/programs-grid-offtest-lib/)
 
-Row semantics: [`2026-11-23-ISSUE-programs-windows-installed-vs-noise.md`](2026-11-23-ISSUE-programs-windows-installed-vs-noise.md).
 
 ---
 

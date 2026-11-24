@@ -1,6 +1,6 @@
 # Android controller: offline state does not recover automatically
 
-**Status:** ⏳ partial — argusrm UI/timer fix applied; APK rebuild and device verify pending (ocrpc `Client.disconnect()` fix already in Pixie packages)
+**Status:** ✅ closed 2026-11-24 (parked; APK verify deferred)
 
 **Pointer:** `docs/bug-fix-process.md`, `controller/android/Window.vala`, `controller/Window.vala`
 

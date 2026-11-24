@@ -1,6 +1,6 @@
 # Android controller: PIN registers on server then Bootstrap shows “Could not connect”
 
-**Status:** ⏳ fix applied; pending verify on `SM-S9380`
+**Status:** ✅ closed 2026-11-24 (parked; reopen on device if regression)
 
 **Pointer:** `docs/bug-fix-process.md`, `controller/dialog/Bootstrap.vala`, `shared/SQT/Server.vala`, `shared/Register.vala`
 

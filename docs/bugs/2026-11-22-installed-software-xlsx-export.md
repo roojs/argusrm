@@ -2,9 +2,9 @@
 
 **Status:** ⏳ opened
 
-**Pointer:** `docs/bug-fix-process.md`, [done/2026-11-21-DONE-installed-software-xlsx-investigation.md](done/2026-11-21-DONE-installed-software-xlsx-investigation.md), [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [2026-11-14-software-filters-remaining.md](2026-11-14-software-filters-remaining.md), [`controller/resources/columns/programs.csv`](../../controller/resources/columns/programs.csv), [`vapi/xlsxwriter.vapi`](../../vapi/xlsxwriter.vapi)
+**Pointer:** `docs/bug-fix-process.md`, [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [`controller/resources/columns/programs.csv`](../../controller/resources/columns/programs.csv), [`vapi/xlsxwriter.vapi`](../../vapi/xlsxwriter.vapi)
 
-**Supersedes:** investigation and throwaway POC in [done/2026-11-21-DONE-installed-software-xlsx-investigation.md](done/2026-11-21-DONE-installed-software-xlsx-investigation.md). **Writer:** libxlsxwriter (BSD), Vala bindings under `vapi/`.
+**Supersedes:** investigation and throwaway POC in 2026-11-21-DONE-installed-software-xlsx-investigation.md. **Writer:** libxlsxwriter (BSD), Vala bindings under `vapi/`.
 
 ---
 
@@ -68,7 +68,7 @@ The Software grid already defines columns in [`controller/resources/columns/prog
 
 ### Data / RPC (layout depends on fleet size)
 
-From [investigation](done/2026-11-21-DONE-installed-software-xlsx-investigation.md):
+From 2026-11-21-DONE-installed-software-xlsx-investigation.md:
 
 1. 🔷 **Preferred:** new server RPC (e.g. `Programs.matrix` or dedicated struct) — one query: live `programs` × machine display columns.
 2. 🔷 **Fallback:** single “all agents, all live rows” list + controller pivot — acceptable only for small fleets.

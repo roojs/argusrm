@@ -1,0 +1,15 @@
+---
+description: Bug logs under docs/bugs — no markdown links to other bug files
+globs: docs/bugs/**/*.md
+alwaysApply: false
+---
+
+# Bug logs — no cross-bug links
+
+When creating or editing files under `docs/bugs/`:
+
+- **Do not** add markdown links (`[…](…)`) to other files under `docs/bugs/` (active or `done/`). Use the filename as plain text if you need a searchable name (e.g. `2026-11-23-FIXED-debpackages-stale-after-apt-upgrade.md`).
+- **🚫 `**Pointer:**` under the header** — legacy; do not add. After **Debugging**, end with **`### LLM`** (agent scratchpad). Put path lists there as plain bullets: `docs/bug-fix-process.md`, product `.vala` / tests / `docs/rpc-commands.md` only. No other bug logs; no plan docs unless the user explicitly asks.
+- When a bug is closed or moved to `docs/bugs/done/`, **do not** edit other bug files to fix links — there should be none.
+
+Plan docs and code may still link *into* a bug log; bug logs do not link *out* to sibling bugs.

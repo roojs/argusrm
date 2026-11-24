@@ -1,8 +1,8 @@
 # Debian Software fleet grid slow when all Filters are off
 
-**Status:** ✔️
+**Status:** ✅
 
-**Pointer:** [`docs/bug-fix-process.md`](../bug-fix-process.md), [`done/2026-11-13-FIXED-controller-package-load-performance.md`](done/2026-11-13-FIXED-controller-package-load-performance.md), [`controller/filter/DebPackages.vala`](../../controller/filter/DebPackages.vala), [`controller/tab/Base.vala`](../../controller/tab/Base.vala)
+**Pointer:** [`docs/bug-fix-process.md`](../bug-fix-process.md), [`controller/filter/DebPackages.vala`](../../controller/filter/DebPackages.vala), [`controller/tab/Base.vala`](../../controller/tab/Base.vala)
 
 **Scope:** Controller UI only — server SQL / RPC out of scope (user 2026-11-23).
 

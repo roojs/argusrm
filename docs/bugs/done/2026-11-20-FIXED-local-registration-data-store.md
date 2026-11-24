@@ -1,8 +1,8 @@
 # Local registration data — shared `SQT.Server` + controller store (design + scaffold)
 
-**Status:** ✅ closed 2026-11-20 — **R1 design implemented in tree**; **client cutover** closed in [2026-11-20-FIXED-local-registration-cutover.md](2026-11-20-FIXED-local-registration-cutover.md); **remainder** in [2026-11-20-local-registration-cutover-remainder.md](../2026-11-20-local-registration-cutover-remainder.md).
+**Status:** ✅ closed 2026-11-20 — **R1 design implemented in tree**; **client cutover** closed in 2026-11-20-FIXED-local-registration-cutover.md; **remainder** in 2026-11-20-local-registration-cutover-remainder.md.
 
-**Pointer:** [2.6.1-management-client-link-spec.md](../../plans/2.6.1-management-client-link-spec.md), [5.2 done plan](../../plans/done/5.2-DONE-controller-user-registration.md)
+**Pointer:** `docs/bug-fix-process.md`, [2.6.1-management-client-link-spec.md](../../plans/2.6.1-management-client-link-spec.md), [5.2 done plan](../../plans/done/5.2-DONE-controller-user-registration.md)
 
 ---
 
@@ -20,8 +20,8 @@
 
 ## Not done here (moved to cutover bugs)
 
-- ✅ **Main cutover** — [2026-11-20-FIXED-local-registration-cutover.md](2026-11-20-FIXED-local-registration-cutover.md).
-- ⏳ **Remainder** — [2026-11-20-local-registration-cutover-remainder.md](../2026-11-20-local-registration-cutover-remainder.md) (deregister cleanup, Bootstrap `Register.save`, hygiene).
+- ✅ **Main cutover** — 2026-11-20-FIXED-local-registration-cutover.md.
+- ⏳ **Remainder** — 2026-11-20-local-registration-cutover-remainder.md (deregister cleanup, Bootstrap `Register.save`, hygiene).
 
 ---
 

@@ -30,4 +30,4 @@ Execute.vala:121: osqueryi exited 1
 ### LLM
 
 - ℹ️ `appx_packages` is not an upstream osquery table; Store/MSIX rows live in `programs` (5.17+).
-- ℹ️ Prior report: [`2026-11-23-ISSUE-windows-programs-empty.md`](../2026-11-23-ISSUE-windows-programs-empty.md) (archived).
+- ℹ️ Prior report: 2026-11-23-ISSUE-windows-programs-empty.md (archived).

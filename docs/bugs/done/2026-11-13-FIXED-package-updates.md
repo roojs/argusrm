@@ -937,7 +937,7 @@ since                 INTEGER
 - 🔷 2026-11-13: Removed `os_version` updates from `PackageUpdates.sync` (only `package_updates` is touched) and dropped redundant `agent_id IN (SELECT id FROM agent)` from the `agent_id > 0` `list()` queries.
 - ✔️ 2026-11-13: Applied `### 1`–`### 7`. Moved `since` omission in `bin_write_prop` from `PackageUpdates.vala` into `Row.bin_write_prop` (`shared/OSQuery/Row.vala`, matching `os-updated` / `os-status`) because `Row.bin_write_prop` is `override` on `OLLMrpc.Bin.Serializable`.
 - ✔️ 2026-11-13: `ninja -C build` and `ninja -C build docs/valadoc` succeeded. `meson test -C build` passed 5/6 (`packages` failed in pre-existing `Package.sync` on `SQ.Query<Package>` instantiating abstract `Package`). Verified `PackageUpdates.sync` (preserving `since`, inserting new, deleting removed) and `DebPackages.list` / `RpmPackages.list` `update_since` queries via standalone test binary against a temporary SQLite database.
-- ✅ 2026-11-13: User closed as fixed (`Package.sync` was also resolved in [2026-11-13-windows-no-packages.md](../2026-11-13-windows-no-packages.md), with `meson test -C build` passing 6/6).
+- ✅ 2026-11-13: User closed as fixed (`Package.sync` was also resolved in 2026-11-13-windows-no-packages.md, with `meson test -C build` passing 6/6).
 
 ## Next
 

@@ -1,8 +1,8 @@
 # Server: APT repository dependency catalog (phase 1 — fetch and database)
 
-**Status:** ✅ closed 2026-11-16 — archived; agent `apt_sources` bridge in [2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md); product UI in open follow-on bugs.
+**Status:** ✅ closed 2026-11-16 — archived; agent `apt_sources` bridge in 2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md; product UI in open follow-on bugs.
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md), [`shared/OSQuery/Package.vala`](../../../shared/OSQuery/Package.vala), [`server/Apt/CatalogImport.vala`](../../../server/Apt/CatalogImport.vala), [`server/Initialize.vala`](../../../server/Initialize.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`shared/OSQuery/Package.vala`](../../../shared/OSQuery/Package.vala), [`server/Apt/CatalogImport.vala`](../../../server/Apt/CatalogImport.vala), [`server/Initialize.vala`](../../../server/Initialize.vala)
 
 ---
 
@@ -16,9 +16,9 @@
 
 ## Out of scope (other bugs)
 
-- 🚫 osquery **`apt_sources`** — [2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md).
-- ✔️ Install log and attribution — [2026-11-16-FIXED-debian-package-catalog-integration.md](2026-11-16-FIXED-debian-package-catalog-integration.md).
-- ⏳ Install and remove preview — [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
+- 🚫 osquery **`apt_sources`** — 2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md.
+- ✔️ Install log and attribution — 2026-11-16-FIXED-debian-package-catalog-integration.md.
+- ⏳ Install and remove preview — 2026-11-17-FIXED-debian-install-remove-preview.md.
 
 ---
 

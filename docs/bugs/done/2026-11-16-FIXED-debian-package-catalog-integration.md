@@ -1,8 +1,8 @@
 # Debian package catalog: install log, attribution, controller (phase 2 product)
 
-**Status:** ✅ closed 2026-11-17 — Slices **E** and **F** are in the tree. Install and remove preview is [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
+**Status:** ✅ closed 2026-11-17 — Slices **E** and **F** are in the tree. Install and remove preview is 2026-11-17-FIXED-debian-install-remove-preview.md.
 
-**Pointer:** `docs/bug-fix-process.md`, prerequisites [2026-11-16-FIXED-server-apt-repository-dependency-catalog.md](2026-11-16-FIXED-server-apt-repository-dependency-catalog.md), [2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md), [5.9.2.1](../../plans/5.9.2.1-assets-software-filters-debian.md), [5.5](../../plans/5.5-controller-user-interface.md), [rpc-commands.md](../../rpc-commands.md), [`agent/linux/PackageMonitor.vala`](../../../agent/linux/PackageMonitor.vala)
+**Pointer:** `docs/bug-fix-process.md`, [5.9.2.1](../../plans/done/5.9.2.1-DONE-debian-filters-phase1.md), [5.5](../../plans/5.5-controller-user-interface.md), [rpc-commands.md](../../rpc-commands.md), [`agent/linux/PackageMonitor.vala`](../../../agent/linux/PackageMonitor.vala)
 
 ---
 
@@ -18,7 +18,7 @@
 
 1. ✔️ **Slice E** — apt history → explicit install names on server. Runs at startup and on the dpkg package-change trigger.
 2. ✔️ **Slice F** — explicit and leaf flags, the Filters menu, and the Leaf column on both Debian lists.
-3. ➡️ **Slice G** — moved to [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
+3. ➡️ **Slice G** — moved to 2026-11-17-FIXED-debian-install-remove-preview.md.
 
 ---
 
@@ -205,20 +205,20 @@ One row per name. The flags have to collapse across machines.
 
 ### Slice G — moved
 
-- ➡️ Install preview, remove preview, and the dependency tree RPC are [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
+- ➡️ Install preview, remove preview, and the dependency tree RPC are 2026-11-17-FIXED-debian-install-remove-preview.md.
 
 ---
 
 ## Follow-on
 
-- ⏳ [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md) — approve the dependency list before a Debian install or remove.
+- ⏳ 2026-11-17-FIXED-debian-install-remove-preview.md — approve the dependency list before a Debian install or remove.
 - ℹ️ The machine grid still does not show the candidate version, and the machine **Version** cell does not turn red when an update is waiting. That was left out of this bug and out of the preview bug.
 
 ---
 
 ## Attempts / changelog
 
-- ✔️ 2026-11-16: Closed bridge A–D — [2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md](2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md).
+- ✔️ 2026-11-16: Closed bridge A–D — 2026-11-16-FIXED-debian-apt-sources-catalog-bridge.md.
 - ✔️ 2026-11-16: Slice E — **apt history** chosen; draft Vala/SQL reframed for **`agent/linux/Apt/`** + **`apt_explicit_install`** (not local agent **`packages`** / **`pkg_id`**).
 - ✔️ 2026-11-16: **`Start-Date`** is present on every install stanza in this machine’s apt history (68/68). Sync is a date watermark plus insert-only rows, not a **`sync_rows`** snapshot.
 - ✔️ 2026-11-16: Slice **E** landed in `d201fe4` (`agent/linux/Apt/History.vala`, `apt_explicit_install`, offline tests).

@@ -1,8 +1,8 @@
 # Windows task quotes the whole command line
 
-**Status:** closed 2026-11-17 — `GLib.Shell.parse_argv` is in the tree (`0.1.22`). The launch is `start_in_session`, not `cmd.exe /c`. The installed-agent check is the NSIS setup test in [2026-11-17-windows-command-session-job.md](2026-11-17-FIXED-windows-command-session-job.md).
+**Status:** closed 2026-11-17 — `GLib.Shell.parse_argv` is in the tree (`0.1.22`). The launch is `start_in_session`, not `cmd.exe /c`. The installed-agent check is the NSIS setup test in 2026-11-17-FIXED-windows-command-session-job.md.
 
-**Pointer:** `docs/bug-fix-process.md`, `agent/Win32/Command.vala`, [2026-11-16-FIXED-task-stays-running-without-child.md](2026-11-16-FIXED-task-stays-running-without-child.md)
+**Pointer:** `docs/bug-fix-process.md`, `agent/Win32/Command.vala`
 
 ---
 
@@ -66,4 +66,4 @@
 ## Attempts / changelog
 
 - ✔️ `agent/Win32/Command.vala` parses the command with `GLib.Shell.parse_argv` and reports the process exit code. Changelog `0.1.22`.
-- ✔️ The wait on that one process was replaced by the job in [2026-11-17-windows-command-session-job.md](2026-11-17-FIXED-windows-command-session-job.md).
+- ✔️ The wait on that one process was replaced by the job in 2026-11-17-FIXED-windows-command-session-job.md.

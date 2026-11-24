@@ -1,8 +1,8 @@
 # Machines multi-select right-click package update (script-backed task queue)
 
-**Status:** ✔️ Phases 1–3 implemented (Data modelling, Controller UI skeletons, Server handler/default scripts/runner); Phase 4 split out → [2026-11-15-FIXED-machines-package-update-phase4-ui.md](2026-11-15-FIXED-machines-package-update-phase4-ui.md)
+**Status:** ✔️ Phases 1–3 implemented (Data modelling, Controller UI skeletons, Server handler/default scripts/runner); Phase 4 split out → 2026-11-15-FIXED-machines-package-update-phase4-ui.md
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/plans/7.2-tasks-ui-and-signing.md`, `docs/plans/7.0-tasks.md`, `docs/plans/7.1-tasks-implementation.md`, `docs/plans/6.0-security-issues.md`, `docs/rpc-commands.md`, [2026-11-15-FIXED-machines-package-update-phase4-ui.md](2026-11-15-FIXED-machines-package-update-phase4-ui.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/plans/7.2-tasks-ui-and-signing.md`, `docs/plans/7.0-tasks.md`, `docs/plans/7.1-tasks-implementation.md`, `docs/plans/6.0-security-issues.md`, `docs/rpc-commands.md`
 
 ---
 
@@ -1494,14 +1494,14 @@ Send `Command.ended` once both output pipes and child wait have completed.
 
 ### Phase 4 — Connect UI & handlers (`controller/store/`, `controller/tab/`)
 
-- ➡️ Split into [2026-11-15-FIXED-machines-package-update-phase4-ui.md](2026-11-15-FIXED-machines-package-update-phase4-ui.md).
+- ➡️ Split into 2026-11-15-FIXED-machines-package-update-phase4-ui.md.
 
 ---
 
 ## Next
 
 - ✔️ Phases 1–3 implemented and verified (`ninja -C build`, `meson test -C build` 6/6 passed).
-- ➡️ Continue Phase 4 in [2026-11-15-FIXED-machines-package-update-phase4-ui.md](2026-11-15-FIXED-machines-package-update-phase4-ui.md).
+- ➡️ Continue Phase 4 in 2026-11-15-FIXED-machines-package-update-phase4-ui.md.
 
 ---
 

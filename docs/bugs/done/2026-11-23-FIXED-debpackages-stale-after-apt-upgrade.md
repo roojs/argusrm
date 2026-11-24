@@ -158,6 +158,6 @@ Phase 2 is **Debian packages** first. RPM/Programs mirror later. Update [`docs/r
 ### LLM
 
 - User (2026-11-23): application signal `db_changed`; no `mark_dirty`; Debian tabs filter `db_changed`; server broadcasts after every `OSQuery.sync` (no table switch).
-- Pointer: [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md).
+- Pointer (superseded umbrella): 2026-11-14-CLOSED-package-status-cache-notification.md.
 - Repro log: `DebPackages.list` 09:11:30 before `OSQuery.sync` 09:12:14–16; no later list that morning.
 - User (2026-11-23): confirmed closed; moved to `docs/bugs/done/`.

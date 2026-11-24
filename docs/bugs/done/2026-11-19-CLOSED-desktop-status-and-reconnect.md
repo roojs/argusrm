@@ -1,8 +1,8 @@
 # Desktop status never reaches the Waiting page
 
-**Status:** ⏳ root causes confirmed for the silent wait, the server abort, and the wiped Windows certificate — status notifications and the remaining product wiring are not done
+**Status:** ✅ closed 2026-11-24 — stale investigation; superseded by current tree and 2026-11-17-remote-desktop.md for RDP work.
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-17-remote-desktop.md](2026-11-17-remote-desktop.md), `docs/rpc-commands.md`, [`server/Rdp/Relay.vala`](../../server/Rdp/Relay.vala), [`server/Rdp/Seat.vala`](../../server/Rdp/Seat.vala), [`controller/tab/Rdp.vala`](../../controller/tab/Rdp.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`agent/Application.vala`](../../agent/Application.vala), [`server/Net/SslListen.vala`](../../server/Net/SslListen.vala)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [`server/Rdp/Relay.vala`](../../server/Rdp/Relay.vala), [`server/Rdp/Seat.vala`](../../server/Rdp/Seat.vala), [`controller/tab/Rdp.vala`](../../controller/tab/Rdp.vala), [`agent/Win32/Service.vala`](../../agent/Win32/Service.vala), [`agent/Application.vala`](../../agent/Application.vala), [`server/Net/SslListen.vala`](../../server/Net/SslListen.vala)
 
 ---
 
@@ -81,7 +81,7 @@ Each step tells the controller when it succeeds and when it fails. The notificat
   - `stream_connection()` returns null
   - `open_windows` throws (3389 dial) — warning only, tunnel cleared
 - ✔️ `Tunnel.open_windows` join error is a `GLib.warning` and return. It does not throw, so `relay_start` treats it as success.
-- ℹ️ The 12:14 gap (agent down three seconds before reconnect) is a real "not connected" case. It is not the explanation of the tick-on blank page. See the earlier note in [2026-11-17-remote-desktop.md](2026-11-17-remote-desktop.md); that note must not be read as the general blank-screen cause.
+- ℹ️ The 12:14 gap (agent down three seconds before reconnect) is a real "not connected" case. It is not the explanation of the tick-on blank page. See the earlier note in 2026-11-17-remote-desktop.md; that note must not be read as the general blank-screen cause.
 
 ### Server abort while clients were reconnecting
 
@@ -319,13 +319,13 @@ namespace Argus.Rdp {
 
 ## Next
 
-- ⏳ 🔷 Wire `Relay.report` / `relay.status` through server, agent, controller, `docs/rpc-commands.md`, and `rdp-start`.
-- ⏳ 🔷 Run the new server binary (and later the new Windows agent after re-registration).
-- ⏳ 💩 Decide whether controller reconnect should match the agent's immediate dial (separate from desktop status).
+- ✔️ User (2026-11-24): close — log is older/relevant only as historical evidence.
+- ⏳ Any live RDP/status gaps: track in 2026-11-17-remote-desktop.md or a new dated ISSUE.
 
 ## LLM notes
 
+- User (2026-11-24): parked entire file; do not treat as active backlog.
 - 🚫 Do not treat "agent was not connected" as the explanation when the Connected tick is on and the agent logged `relay.start`.
 - 🚫 Do not open the desktop page on a `Relay.start` error reply. That path already returns false.
 - 🚫 Do not add window-wrapper methods for `rdp` / `tabs`. Those fields are public.
-- ℹ️ Feature construction phases stay in [2026-11-17-remote-desktop.md](2026-11-17-remote-desktop.md). This file owns the failure/status path and the reconnect cascade that made the machine disappear.
+- ℹ️ Feature construction phases stay in 2026-11-17-remote-desktop.md. This file owns the failure/status path and the reconnect cascade that made the machine disappear.

@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-12. The approved split is in the tree. Shared `Package` holds `pkg_name` and `sync`. Agent `Package` is `send`. Each package class is its own file.
 
-**Pointer:** `docs/bug-fix-process.md`. The runner is [2026-11-12-package-edits-before-proposal](2026-11-12-FIXED-package-edits-before-proposal.md). The hash proposal is [2026-11-12-package-monitor-send-rejected](2026-11-12-FIXED-package-monitor-send-rejected.md).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 

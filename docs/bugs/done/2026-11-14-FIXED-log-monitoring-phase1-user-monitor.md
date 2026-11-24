@@ -1,8 +1,8 @@
 # Agent UserMonitor — logins and local accounts (phase 1)
 
-**Status:** ✅ closed 2026-11-14. `UserMonitor` on Linux and Windows is in the tree. Later refresh work → [2.3-future-monitoring.md](../../plans/2.3-future-monitoring.md), [2026-11-14-machine-processes-ports-live.md](../2026-11-14-machine-processes-ports-live.md), [2026-11-16-superseded-log-monitoring-phases-2-3.md](2026-11-16-superseded-log-monitoring-phases-2-3.md).
+**Status:** ✅ closed 2026-11-14. `UserMonitor` on Linux and Windows is in the tree. Later refresh work → [2.3-future-monitoring.md](../../plans/2.3-future-monitoring.md), 2026-11-14-machine-processes-ports-live.md, 2026-11-16-superseded-log-monitoring-phases-2-3.md.
 
-**Pointer:** `docs/bug-fix-process.md`, `agent/linux/UserMonitor.vala`, `agent/Win32/UserMonitor.vala`, `agent/Application.vala`, `agent/Win32/Service.vala`, [2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)
+**Pointer:** `docs/bug-fix-process.md`, `agent/linux/UserMonitor.vala`, `agent/Win32/UserMonitor.vala`, `agent/Application.vala`, `agent/Win32/Service.vala`
 
 ---
 
@@ -35,4 +35,4 @@ Design constraints kept from the original plan:
 ## Next
 
 - ⏳ Verify on LXC/SysV (utmp) and systemd host (`/run/systemd/sessions/`).
-- ⏳ Controller cache notification for `LoggedInUsers` / `Users` ([2026-11-14-package-status-cache-notification.md](../2026-11-14-package-status-cache-notification.md)).
+- ⏳ Controller cache notification for `LoggedInUsers` / `Users` (2026-11-14-CLOSED-package-status-cache-notification.md).

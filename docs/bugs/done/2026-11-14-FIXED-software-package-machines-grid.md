@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-17 — double-click or hold opens the machines for that package name. The dialog colors version, and can uninstall or upgrade.
 
-**Pointer:** `docs/bug-fix-process.md`, [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [5.5-controller-user-interface.md](../plans/5.5-controller-user-interface.md), [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala), [`controller/tab/Distributables.vala`](../../controller/tab/Distributables.vala), [2026-11-17-windows-exe-distribution.md](../2026-11-17-windows-exe-distribution.md), [../rpc-commands.md](../rpc-commands.md)
+**Pointer:** `docs/bug-fix-process.md`, [../plans/done/5.9-DONE-assets-software.md](../plans/done/5.9-DONE-assets-software.md), [5.5-controller-user-interface.md](../plans/5.5-controller-user-interface.md), [`controller/dialog/Distribute.vala`](../../controller/dialog/Distribute.vala), [`controller/tab/Distributables.vala`](../../controller/tab/Distributables.vala), [../rpc-commands.md](../rpc-commands.md)
 
 ---
 

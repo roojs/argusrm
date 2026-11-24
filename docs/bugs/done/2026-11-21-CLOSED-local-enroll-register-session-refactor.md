@@ -1,8 +1,8 @@
 # Local enroll duplicated — logic in Gtk/Bootstrap instead of Register
 
-**Status:** ⏳ refactor proposed — logic → `Register`; flow → shared session; UI → thin glue per app (not server)
+**Status:** ✅ closed 2026-11-24 — parked backlog; registration flow refactor deferred (design retained in this file).
 
-**Pointer:** [`shared/Register.vala`](../../shared/Register.vala), [`agent/linux/LocalRegistration.vala`](../../agent/linux/LocalRegistration.vala), [`controller/dialog/Bootstrap.vala`](../../controller/dialog/Bootstrap.vala), [`shared/RegisterWindow.vala`](../../shared/RegisterWindow.vala), [done/2026-11-21-FIXED-agent-local-enroll-double-pkexec.md](done/2026-11-21-FIXED-agent-local-enroll-double-pkexec.md), `docs/bug-fix-process.md`
+**Pointer:** [`shared/Register.vala`](../../shared/Register.vala), [`agent/linux/LocalRegistration.vala`](../../agent/linux/LocalRegistration.vala), [`controller/dialog/Bootstrap.vala`](../../controller/dialog/Bootstrap.vala), [`shared/RegisterWindow.vala`](../../shared/RegisterWindow.vala), `docs/bug-fix-process.md`
 
 ---
 
@@ -138,5 +138,5 @@ public class LocalEnrollSession : GLib.Object {
 
 ## Next
 
-- ⏳ User approval to implement in the order above (design/API change across agent + controller; not a one-line fix).
-- ℹ️ Gtk subprocess policy is documented in [done/2026-11-21-FIXED-agent-local-enroll-double-pkexec.md](done/2026-11-21-FIXED-agent-local-enroll-double-pkexec.md); move implementation into `Register` under this refactor.
+- ✔️ User (2026-11-24): leave registration refactor alone for now; keep proposal here, not in active `docs/bugs/`.
+- ℹ️ Gtk subprocess policy: 2026-11-21-FIXED-agent-local-enroll-double-pkexec.md.

@@ -2,7 +2,6 @@
 
 **Status:** ✅ closed 2026-11-21 — R6 (`docs/setup.md` §3.2) and R7 (`org.roojs.ArgusServer.register` polkit policy).
 
-**Depends on:** [2026-11-21-FIXED-local-agent-registration-certificate.md](2026-11-21-FIXED-local-agent-registration-certificate.md) (R1–R5 fenced in product).
 
 ---
 

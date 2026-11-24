@@ -2,20 +2,19 @@
 
 **Status:** ✅ closed 2026-11-21 — remainder items verified in tree (see **Closure** below).
 
-**Background:** The main cutover is [done/2026-11-20-FIXED-local-registration-cutover.md](done/2026-11-20-FIXED-local-registration-cutover.md). This file archived the post-cutover polish; **do not reopen** — new work needs a new bug with fences.
+**Background:** The main cutover is 2026-11-20-FIXED-local-registration-cutover.md. This file archived the post-cutover polish; **do not reopen** — new work needs a new bug with fences.
 
 ## Closure (in tree)
 
 | Item | ✔️ |
 | --- | --- |
-| R1 deregister on `Register` + `Window` signals | `Register.remove` / `remove_local`; `controller/Window.vala`; `Registration.Data` gone; SQT wire via [2026-11-21-FIXED-registration-reply-use-sqt-server.md](done/2026-11-21-FIXED-registration-reply-use-sqt-server.md) |
+| R1 deregister on `Register` + `Window` signals | `Register.remove` / `remove_local`; `controller/Window.vala`; `Registration.Data` gone; SQT wire via 2026-11-21-FIXED-registration-reply-use-sqt-server.md |
 | R1.3 mirrored `download` / `addresses` on `Register` | Removed; `server_row` only |
 | R2 Bootstrap `reg.save` | `finish_registration(reg, row)` |
 | R3 comments | e.g. `Bootstrap.check()` SQLite doc; no `connections.json` in `*.vala` |
 | R4 `can_route_to` | `shared/SQT/Server.vala` `address_list()` |
-| Local Unix cert enroll (separate track) | [2026-11-21-FIXED-local-agent-registration-certificate.md](done/2026-11-21-FIXED-local-agent-registration-certificate.md) + gtk + polkit bugs |
+| Local Unix cert enroll (separate track) | 2026-11-21-FIXED-local-agent-registration-certificate.md + gtk + polkit bugs |
 
-**Also see:** [2026-11-19-desktop-status-and-reconnect.md](2026-11-19-desktop-status-and-reconnect.md) for reconnect/RDP/tray tail; management migration archived in [done/2026-11-19-FIXED-management-link-application-migration.md](done/2026-11-19-FIXED-management-link-application-migration.md).
 
 **How to implement:** Only apply code changes that have **Remove** / **Replace with** / **Add** fenced blocks below (same rules as `docs/guide-to-writing-plans.md`).
 
@@ -393,7 +392,7 @@ If the dot is missing but the server **is** in the list, the bug is more likely 
 
 ### R1.3 — [`shared/Register.vala`](../../shared/Register.vala): drop mirrored server fields
 
-**Why:** After the SQLite cutover, **`server_row`** holds the enroll outcome. **`download`**, **`download_path`**, and **`addresses`** on **`Register`** are leftover copies of **`SQT.Server`** columns (see cutover note in [done/2026-11-20-FIXED-local-registration-cutover.md](done/2026-11-20-FIXED-local-registration-cutover.md)).
+**Why:** After the SQLite cutover, **`server_row`** holds the enroll outcome. **`download`**, **`download_path`**, and **`addresses`** on **`Register`** are leftover copies of **`SQT.Server`** columns (see cutover note in 2026-11-20-FIXED-local-registration-cutover.md).
 
 #### Remove — duplicate properties (and their docblocks)
 
@@ -912,4 +911,4 @@ namespace Argus.Shared.Net
 4. **R2** — Bootstrap **`reg.save`**.
 5. **R3** — comments and grep.
 6. **R4** — **`can_route_to`** in **`SQT.Server.address_list()`** only.
-7. When deregister and config reads are in good shape, pick up reconnect/tray items in [desktop-status](2026-11-19-desktop-status-and-reconnect.md) (management migration closed — see [done/2026-11-19-FIXED-management-link-application-migration.md](done/2026-11-19-FIXED-management-link-application-migration.md)).
+7. When deregister and config reads are in good shape, pick up reconnect/tray items in 2026-11-19-CLOSED-desktop-status-and-reconnect.md (management migration closed — see 2026-11-19-FIXED-management-link-application-migration.md).

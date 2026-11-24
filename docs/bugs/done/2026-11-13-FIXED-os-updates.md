@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-13. `os_releases` (`shared/OsReleases.vala`), `OsUpdate` (`osinfo-query`), and `os_version` cleanup are in the tree.
 
-**Pointer:** `docs/bug-fix-process.md`. Replaces rejected [5.11-REJECTED-os-update.md](../../plans/done/5.11-REJECTED-os-update.md) and [5.11.1-REJECTED-os-update-server.md](../../plans/done/5.11.1-REJECTED-os-update-server.md). Reporting in `SystemInfo.list` is split out to [2026-11-13-FIXED-os-update-reporting.md](2026-11-13-FIXED-os-update-reporting.md).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 
@@ -12,7 +12,7 @@
 - 🔷 That approach mutates per-agent osquery inventory rows (`os_version`) with server-fetched release metadata, duplicates per-platform check timestamps across every machine row, requires special-case omissions in `Row.bin_write_prop`, `AgentInfo.compare`, and `OsVersion.sync`, and misses Red Hat, Fedora, CentOS, Rocky, AlmaLinux, SUSE, and Windows.
 - 🔷 Instead, the server should query the system-installed `osinfo-query` (`libosinfo` / `osinfo-db`, updated via normal OS package upgrades rather than online HTTP fetches) and store release data in a dedicated `os_releases` table (`Argus.Shared.OsReleases`), mapping `os_version.platform` to `osinfo-query` `distro` during data collection and syncing existing rows in place without wiping the table.
 - 🔷 `os_version` keeps only osquery columns and `reboot_required` (a host-local flag read on Windows), dropping `os_updated` and `os_status`.
-- ℹ️ Computing and returning `os_updated` and `os_status` in `SystemInfo.list` (`docs/rpc-commands.md`) is tracked separately in [2026-11-13-FIXED-os-update-reporting.md](2026-11-13-FIXED-os-update-reporting.md).
+- ℹ️ Computing and returning `os_updated` and `os_status` in `SystemInfo.list` (`docs/rpc-commands.md`) is tracked separately in 2026-11-13-FIXED-os-update-reporting.md.
 
 ## Evidence
 
@@ -41,7 +41,7 @@
 - 🚫 Do not fetch `distro-info-data` CSVs over HTTP.
 - 🚫 Do not query `osinfo-query` for distros not present in active `os_version` rows (`deleted_dt = 0` and `agent_id` in `agent`).
 - 🚫 Do not wipe `os_releases` with `deleteWhere`; update existing rows by `short_id` with `updateOld`.
-- 🚫 Do not put `SystemInfo.list` or `docs/rpc-commands.md` changes in this bug; those belong to [2026-11-13-FIXED-os-update-reporting.md](2026-11-13-FIXED-os-update-reporting.md).
+- 🚫 Do not put `SystemInfo.list` or `docs/rpc-commands.md` changes in this bug; those belong to 2026-11-13-FIXED-os-update-reporting.md.
 
 Edits are **Remove** / **Replace with** / **Add** from the tree. Verify the surrounding lines before applying.
 
@@ -937,11 +937,11 @@ updated               INTEGER
 ## Attempts / changelog
 
 - ℹ️ 2026-11-13: Rejected [5.11-REJECTED-os-update.md](../../plans/done/5.11-REJECTED-os-update.md) and [5.11.1-REJECTED-os-update-server.md](../../plans/done/5.11.1-REJECTED-os-update-server.md) (`os_updated` / `os_status` on `os_version` with no separate table) and drafted this bug proposal with `os_releases` (`shared/OsReleases.vala`), `server/OsUpdate.vala`, and `os_version` cleanup.
-- 🔷 2026-11-13: Broke `OsUpdate.check` out into `check_distro(osinfo_bin, platform, distro)` using `osinfo-query` (`libosinfo-bin` + `osinfo-db` / `libosinfo` + `osinfo-db`), added `distro_for(platform)` helper on `OsUpdate` so `platform` mapping happens during data collection and is stored on `os_releases.platform`, updated rows in place via `updateOld` by `short_id`, and split `SystemInfo.list` / `docs/rpc-commands.md` reporting out to [2026-11-13-FIXED-os-update-reporting.md](2026-11-13-FIXED-os-update-reporting.md).
+- 🔷 2026-11-13: Broke `OsUpdate.check` out into `check_distro(osinfo_bin, platform, distro)` using `osinfo-query` (`libosinfo-bin` + `osinfo-db` / `libosinfo` + `osinfo-db`), added `distro_for(platform)` helper on `OsUpdate` so `platform` mapping happens during data collection and is stored on `os_releases.platform`, updated rows in place via `updateOld` by `short_id`, and split `SystemInfo.list` / `docs/rpc-commands.md` reporting out to 2026-11-13-FIXED-os-update-reporting.md.
 - ✔️ 2026-11-13: Applied `### 1`–`### 4` (`shared/OsReleases.vala`, `server/OsUpdate.vala`, `server/Application.vala`, `server/OSQuery.vala`, `shared/OSQuery/OsVersion.vala`, `shared/OSQuery/Row.vala`, `shared/OSQuery/AgentInfo.vala`, `shared/meson.build`, `server/meson.build`, `docs/meson.build`, `debian/control`, `packaging/rpm/argusrm.spec`, `docs/plans/4.0-data-types.md`). Fixed `selectWhere` `int_binds` parameter (`new Gee.HashMap<string, int>()` instead of `null`).
 - ✔️ 2026-11-13: `ninja -C build`, `ninja -C build docs/valadoc`, and `meson test -C build` (6/6) passed. Verified `OsReleases.init_db`, `osinfo-query` parsing (`distro=ubuntu`, 43 rows), `selectWhere`, and `updateOld` against a temporary SQLite database.
 - ✅ 2026-11-13: User closed as fixed.
 
 ## Next
 
-- ✅ Closed. `os_releases`, `OsUpdate` (`osinfo-query`), and `os_version` cleanup are in the tree; OS update reporting in `SystemInfo.list` continues in [2026-11-13-FIXED-os-update-reporting.md](2026-11-13-FIXED-os-update-reporting.md).
+- ✅ Closed. `os_releases`, `OsUpdate` (`osinfo-query`), and `os_version` cleanup are in the tree; OS update reporting in `SystemInfo.list` continues in 2026-11-13-FIXED-os-update-reporting.md.

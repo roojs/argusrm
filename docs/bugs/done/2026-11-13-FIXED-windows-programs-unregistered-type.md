@@ -2,7 +2,7 @@
 
 **Status:** ✅ fixed (`0.1.19`); verified on `snappr-win` and controller
 
-**Pointer:** `docs/bug-fix-process.md`. Prior bug: [2026-11-13-FIXED-windows-missing-gspawn-helper.md](2026-11-13-FIXED-windows-missing-gspawn-helper.md).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 

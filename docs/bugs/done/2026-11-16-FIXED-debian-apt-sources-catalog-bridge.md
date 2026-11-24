@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-16 — Slices A–D in tree; follow-ons split into separate open bugs.
 
-**Pointer:** `docs/bug-fix-process.md`, phase 1 [2026-11-16-FIXED-server-apt-repository-dependency-catalog.md](2026-11-16-FIXED-server-apt-repository-dependency-catalog.md), [`shared/OSQuery/AptSources.vala`](../../../shared/OSQuery/AptSources.vala), [`agent/OSQuery/Execute.vala`](../../../agent/OSQuery/Execute.vala), [`server/Apt/CatalogImport.vala`](../../../server/Apt/CatalogImport.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`shared/OSQuery/AptSources.vala`](../../../shared/OSQuery/AptSources.vala), [`agent/OSQuery/Execute.vala`](../../../agent/OSQuery/Execute.vala), [`server/Apt/CatalogImport.vala`](../../../server/Apt/CatalogImport.vala)
 
 ---
 
@@ -36,8 +36,8 @@
 
 ## Follow-on (open bugs)
 
-- ✔️ Slices E–F — [2026-11-16-FIXED-debian-package-catalog-integration.md](2026-11-16-FIXED-debian-package-catalog-integration.md).
-- ⏳ Install and remove preview — [2026-11-17-debian-install-remove-preview.md](../2026-11-17-debian-install-remove-preview.md).
+- ✔️ Slices E–F — 2026-11-16-FIXED-debian-package-catalog-integration.md.
+- ⏳ Install and remove preview — 2026-11-17-FIXED-debian-install-remove-preview.md.
 
 ---
 

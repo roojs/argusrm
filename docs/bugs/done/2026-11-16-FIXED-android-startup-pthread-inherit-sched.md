@@ -1,6 +1,6 @@
 # Android startup crash on SM-S9380 (`pthread_create` / `PTHREAD_INHERIT_SCHED`)
 
-**Status:** ⏳ blocked on upstream `roojs/pixiewood-pkgs` GLib rebuild (`pthread-restrictions.patch`)
+**Status:** ✅ closed 2026-11-24 — build issue; GLib `.pixie` with `pthread-restrictions.patch` fixes launch on `SM-S9380`.
 
 **Pointer:** `docs/bug-fix-process.md`, `.android-tools/gtk-android-builder/prepare/wraps/glib/pthread-restrictions.patch`, `android/pixiewood-wraps/glib/glib.wrap`, `packaging/android/build-apk.sh`
 
@@ -56,4 +56,4 @@
 
 ## Next
 
-- ⏳ 🔷 Refresh `.pixiewood/pixie` (`PIXIEWOOD_REFRESH_SUBPROJECTS=1 bash packaging/android/build-apk.sh`) after `roojs/pixiewood-pkgs` publishes the rebuilt GLib `.pixie` with `pthread-restrictions.patch`, and re-verify on `SM-S9380`.
+- ✔️ User (2026-11-24): confirmed — pthread inherit-sched crash was a Pixiewood GLib build gap, not argusrm product code; closed.

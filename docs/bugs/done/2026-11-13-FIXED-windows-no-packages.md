@@ -1,8 +1,8 @@
 # Windows agent shows no packages in controller
 
-**Status:** ✅ fixed (`### 1`–`### 3` verified); follow-up `osquery.msi` launch fix closed in [2026-11-13-FIXED-windows-missing-gspawn-helper.md](2026-11-13-FIXED-windows-missing-gspawn-helper.md)
+**Status:** ✅ fixed (`### 1`–`### 3` verified); follow-up `osquery.msi` launch fix closed in 2026-11-13-FIXED-windows-missing-gspawn-helper.md
 
-**Pointer:** `docs/bug-fix-process.md`. Related: [2026-11-13-FIXED-package-updates.md](2026-11-13-FIXED-package-updates.md) (notes `Package.sync` test failure).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 
@@ -278,8 +278,8 @@
 ## Attempts / changelog
 
 - ℹ️ 2026-11-13: Diagnosed from `/var/log/argusrm/server.log`, `~/.cache/argusrm/controller.log`, `build/meson-logs/testlog.txt`, and source inspection.
-- ✔️ 2026-11-13: Applied `### 1`–`### 3` (`agent/Win32/Service.vala` was later refactored in [2026-11-13-FIXED-windows-tray-waiting-for-service.md](2026-11-13-FIXED-windows-tray-waiting-for-service.md) so `OSQuery.Initialize` runs from `Service.register` and deferred `Application.command_line`). `ninja -C build`, `ninja -C build docs/valadoc`, and `meson test -C build` (6/6, including `packages`) passed.
-- ✔️ 2026-11-13: Rebuilt `/usr/bin/argusrm-server` and verified `0.1.17` on `snappr-win`: `argus-agent` ran `OSQuery.Initialize` and downloaded `C:\Windows\Temp\osquery.msi` (20.8 MB). Installing `osquery.msi` failed with `Failed to execute helper program (No such file or directory)` — split out to [2026-11-13-FIXED-windows-missing-gspawn-helper.md](2026-11-13-FIXED-windows-missing-gspawn-helper.md).
+- ✔️ 2026-11-13: Applied `### 1`–`### 3` (`agent/Win32/Service.vala` was later refactored in 2026-11-13-FIXED-windows-tray-waiting-for-service.md so `OSQuery.Initialize` runs from `Service.register` and deferred `Application.command_line`). `ninja -C build`, `ninja -C build docs/valadoc`, and `meson test -C build` (6/6, including `packages`) passed.
+- ✔️ 2026-11-13: Rebuilt `/usr/bin/argusrm-server` and verified `0.1.17` on `snappr-win`: `argus-agent` ran `OSQuery.Initialize` and downloaded `C:\Windows\Temp\osquery.msi` (20.8 MB). Installing `osquery.msi` failed with `Failed to execute helper program (No such file or directory)` — split out to 2026-11-13-FIXED-windows-missing-gspawn-helper.md.
 
 ## Next
 

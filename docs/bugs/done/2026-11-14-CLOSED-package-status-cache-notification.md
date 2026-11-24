@@ -1,15 +1,15 @@
 # Package status update notification and frontend cache invalidation
 
-**Status:** ⏳ critical — an uninstall that finished on the machine left the Software row in place. Notification shape is still open.
+**Status:** ✅ superseded 2026-11-24 — core notification path landed in 2026-11-23-FIXED-debpackages-stale-after-apt-upgrade.md (`event.osquery`, `Application.db_changed`, Debian Software + machine tabs).
 
-**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`, [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md), [done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md), [done/2026-11-16-superseded-log-monitoring-phases-2-3.md](done/2026-11-16-superseded-log-monitoring-phases-2-3.md), [2026-11-13-FIXED-package-updates.md](done/2026-11-13-FIXED-package-updates.md), [2026-11-13-FIXED-controller-package-load-performance.md](done/2026-11-13-FIXED-controller-package-load-performance.md)
+**Pointer:** `docs/bug-fix-process.md`, `docs/rpc-commands.md`
 
 ---
 
 ## Problem
 
 - 🔷 When package status or installed package data updates on the server (e.g. `PackageUpdates`, `DebPackages`, `RpmPackages`, `Programs` via `OSQuery.sync`), the server must notify the controller frontend so it clears its cached package state and refreshes visible views.
-- 🔷 Logged-in users (`Users` tab / `LoggedInUsers`) should **not** be cached in `Machine.Detail`: refresh `Users` every time the user switches to that tab, while the other tabs (`General`, package tabs, `Interfaces`) keep caching until invalidated by server notifications. CPU inventory loads with **General** via `Store.MachineGeneral` ([done/2026-11-14-FIXED-machine-cpu-in-general.md](done/2026-11-14-FIXED-machine-cpu-in-general.md)).
+- 🔷 Logged-in users (`Users` tab / `LoggedInUsers`) should **not** be cached in `Machine.Detail`: refresh `Users` every time the user switches to that tab, while the other tabs (`General`, package tabs, `Interfaces`) keep caching until invalidated by server notifications. CPU inventory loads with **General** via `Store.MachineGeneral` (2026-11-14-FIXED-machine-cpu-in-general.md).
 - 🔷 Currently, the frontend holds cached per-machine tab flags (`users_loaded`, `general_loaded`, `debian_loaded`, etc.) and in-memory store lists with no server push notification to invalidate or reload them when an agent reports new data.
 
 ---
@@ -23,8 +23,8 @@
 - ✔️ `server/OSQuery.vala` (`sync()`) writes the incoming snapshot (`model.sync(this.app.db, connection.user.id, rows)`), calls `this.app.db.backupDB()`, triggers `this.app.os_update.check.begin()` for `"OsVersion"`, and replies `"ok"`.
 - 🚫 `server/OSQuery.vala` never calls `this.app.broadcast(...)` after `PackageUpdates`, `DebPackages`, `RpmPackages`, `Programs`, `OsVersion`, or `LoggedInUsers` syncs.
 - ✔️ `server/Application.vala` (`broadcast(OLLMrpc.Notification)`) already broadcasts `event.agent` (`server/Net/SslListen.vala`, `server/Net/SslConnection.vala`) and `event.pair` (`server/Agent.vala`) to connected clients; `agent/Application.vala` ignores unrecognized notification methods.
-- ℹ️ `agent/linux/PackageMonitor.vala` already posts `DebPackages` / `RpmPackages` on lock-free dpkg/rpm changes and `PackageUpdates` via `send_pending()` on startup and every 12 hours (see [done/2026-11-13-FIXED-machines-package-update.md](done/2026-11-13-FIXED-machines-package-update.md)); `agent/Win32/PackageMonitor.vala` posts `Programs` on `MsiInstaller` events.
-- ℹ️ `LoggedInUsers` can update after startup via [done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md](done/2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md); `SystemInfo`, `CpuInfo`, and `InterfaceAddresses` remain startup-only (`OsVersion` / `InterfaceAddresses` / `SystemInfo` periodic sync is deferred to [2.3-future-monitoring.md](../plans/2.3-future-monitoring.md)).
+- ℹ️ `agent/linux/PackageMonitor.vala` already posts `DebPackages` / `RpmPackages` on lock-free dpkg/rpm changes and `PackageUpdates` via `send_pending()` on startup and every 12 hours (see 2026-11-13-FIXED-machines-package-update.md); `agent/Win32/PackageMonitor.vala` posts `Programs` on `MsiInstaller` events.
+- ℹ️ `LoggedInUsers` can update after startup via 2026-11-14-FIXED-log-monitoring-phase1-user-monitor.md; `SystemInfo`, `CpuInfo`, and `InterfaceAddresses` remain startup-only (`OsVersion` / `InterfaceAddresses` / `SystemInfo` periodic sync is deferred to [2.3-future-monitoring.md](../plans/2.3-future-monitoring.md)).
 
 ### 2. Machine detail pane caches per-tab load state (`controller/tab/Asset/Machine/Detail.vala`)
 
@@ -38,7 +38,7 @@
 - ✔️ `controller/tab/Asset/DebPackages.vala`, `RpmPackages.vala`, `Programs.vala`, and `SystemInfo.vala` only call `this.store.load(...)` inside `this.map.connect(...)`.
 - ✔️ `controller/store/DebPackages.vala`, `RpmPackages.vala`, `Programs.vala`, `SystemInfo.vala`, `InterfaceAddresses.vala`, and `MachineGeneral.vala` retain cached rows in memory across unmap/remap until a later `load()` reply replaces them.
 - 🚫 Unlike `controller/tab/Agent.vala` (which connects `this.window.app.rpc.notification` to reload on `event.agent` and `event.pair`), none of the Asset tabs or stores subscribe to server notifications.
-- ℹ️ `SystemInfo.list(true)` (`shared/OSQuery/SystemInfo.vala`) does not select `os_version.pkgs_updated` / `os_version.pkgs_status` yet (noted in [2026-11-13-FIXED-machines-detail-pane.md](done/2026-11-13-FIXED-machines-detail-pane.md)), though `SystemInfo` and `Machine.Detail` still need notification-driven cache invalidation once those or `PackageUpdates` change.
+- ℹ️ `SystemInfo.list(true)` (`shared/OSQuery/SystemInfo.vala`) does not select `os_version.pkgs_updated` / `os_version.pkgs_status` yet (noted in 2026-11-13-FIXED-machines-detail-pane.md), though `SystemInfo` and `Machine.Detail` still need notification-driven cache invalidation once those or `PackageUpdates` change.
 
 ### 4. The 2026-11-17 uninstall never reached the controller
 
@@ -154,8 +154,10 @@
 
 ## Next
 
-- ⏳ 🔷 Approve section 2 (`controller/tab/Asset/Machine/Detail.vala` — drop `users_loaded` so `Users` refreshes on every visit).
-- ⏳ 🔷 Confirm notification shape (`event.osquery` with `name` + `agent_id` vs `event.packages`) and whether `OSQuery.sync` should suppress notifications during unchanged snapshots / debounce startup bursts.
-- ⏳ 🔷 Confirm whether unmapped tabs should clear their in-memory `Store` items immediately on notification (showing the loading spinner on next open) or keep existing rows with the tab spinner while reloading on `map`.
-- ⏳ 💩 Once confirmed, add verbatim `Remove` / `Replace with` / `Add` hunks and `docs/rpc-commands.md` updates for sections 1 and 3.
-- ⏳ 🔷 The Windows watch did not see the Illustrator uninstall, so the server snapshot never changed. A controller notification does not drop that row until the agent sends `Programs`.
+- ✔️ Notification shape: `event.osquery` + `action` = table name, args `i` = `agent_id`; server broadcasts on every successful `OSQuery.sync` (2026-11-23-FIXED-debpackages-stale-after-apt-upgrade.md).
+- ✔️ Debian fleet + machine `DebPackages` listen on `Application.db_changed` and partial `DebPackages.list`.
+- ⏳ Not in that fix (open a new ISSUE if needed): RPM/Programs/`SystemInfo` tabs; `Machine.Detail` `*_loaded` invalidation; Windows uninstall without `Programs` sync (Illustrator evidence in **Evidence §4**).
+
+### LLM
+
+- User (2026-11-24): umbrella closed — implementation tracked in debpackages stale bug; keep this file for historical proposal text only.

@@ -64,7 +64,7 @@
 
 - 🔷 Phase 1 was accepted. `added_dt`, `updated_dt`, and `deleted_dt` on `agent`, the osquery tables, and the task tables. `OSQuery.Row` holds them. `sync_rows` writes them. An insert sets `added_dt`. A changed row sets `updated_dt`. A row the snapshot left out stays, with `deleted_dt` set. A row that comes back clears `deleted_dt` and sets `updated_dt`. `compare` skips the three columns. `DebPackages.list`, `RpmPackages.list`, and `Programs.list` take `agent_id` and `since`. Zero `since` leaves out a deleted row. A later `since` returns rows changed after that time, including a deleted row.
 - 🔷 Phase 2 monitors were accepted. `agent/linux/PackageMonitor.vala` and `agent/Win32/PackageMonitor.vala`. Do not add them to meson. Do not construct them from startup. `apt()` and `rpm()` are separate. `apt()` waits for the dpkg locks. `rpm()` waits for `.rpm.lock`. `OSQuery.update` applies the sent rows. A row left out of that list stays.
-- 🚫 The monitor `send`, the startup sync of every package class, and the Windows callback that queries `programs` were rejected. [2026-11-12-package-monitor-send-rejected](2026-11-12-FIXED-package-monitor-send-rejected.md).
+- 🚫 The monitor `send`, the startup sync of every package class, and the Windows callback that queries `programs` were rejected. 2026-11-12-FIXED-package-monitor-send-rejected.md.
 - 🚫 Do not change `Query.select`. It stays `void`.
 - 🚫 Do not find the package difference by walking every stored row for every fresh row.
 
@@ -113,4 +113,4 @@
 
 - ✅ 🔷 Phase 1 is `98d9f22`. `added_dt`, `updated_dt`, and `deleted_dt` are on `agent`, the osquery tables, and the task tables. `sync_rows` writes them. `compare` skips them. The three package lists take `agent_id` and `since`.
 - 🚫 The `complete` flag, `OSQuery.update`, the package monitors, and `PackageManager` are not in that commit.
-- ✅ Phase 2 is in the tree. The rejected send is [2026-11-12-package-monitor-send-rejected](2026-11-12-FIXED-package-monitor-send-rejected.md). The monitors stay out of meson.
+- ✅ Phase 2 is in the tree. The rejected send is 2026-11-12-FIXED-package-monitor-send-rejected.md. The monitors stay out of meson.

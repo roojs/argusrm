@@ -1,8 +1,8 @@
 # Windows agent fails to launch `osquery.msi` and subprocesses (`gspawn-win64-helper` missing)
 
-**Status:** ✅ fixed (`0.1.18`); verified on `snappr-win` (`osquery.msi` installed and `osqueryi.exe` ran); follow-up `Programs` upload fix closed in [2026-11-13-FIXED-windows-programs-unregistered-type.md](2026-11-13-FIXED-windows-programs-unregistered-type.md)
+**Status:** ✅ fixed (`0.1.18`); verified on `snappr-win` (`osquery.msi` installed and `osqueryi.exe` ran); follow-up `Programs` upload fix closed in 2026-11-13-FIXED-windows-programs-unregistered-type.md
 
-**Pointer:** `docs/bug-fix-process.md`. Prior bug: [2026-11-13-FIXED-windows-no-packages.md](2026-11-13-FIXED-windows-no-packages.md).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 
@@ -54,9 +54,9 @@ cp -f "${MSYSTEM_PREFIX:-/ucrt64}/bin/gspawn-win64-helper-console.exe" "${out}/"
 
 ## Attempts / changelog
 
-- ℹ️ 2026-11-13: Diagnosed on `snappr-win` (`0.1.17`) from `agent.log`, `server.log`, `C:\Program Files\Argus\`, `C:\Windows\Temp\osquery.msi`, and `ldd` on `/ucrt64/bin/gspawn-win64-helper*.exe`. Split out from [2026-11-13-FIXED-windows-no-packages.md](2026-11-13-FIXED-windows-no-packages.md).
+- ℹ️ 2026-11-13: Diagnosed on `snappr-win` (`0.1.17`) from `agent.log`, `server.log`, `C:\Program Files\Argus\`, `C:\Windows\Temp\osquery.msi`, and `ldd` on `/ucrt64/bin/gspawn-win64-helper*.exe`. Split out from 2026-11-13-FIXED-windows-no-packages.md.
 - ✔️ 2026-11-13: Applied `### 1` to `scripts/ci/copy-windows-runtime.sh`, bumped version to `0.1.18` in `CHANGELOG.md` and `meson.build`, and rebuilt `ArgusAgent-0.1.18-Setup.exe` on `snappr-win`.
-- ✅ 2026-11-13: Verified on `snappr-win` (`0.1.18` and `0.1.19`): `C:\Program Files\osquery` is installed and `osqueryi.exe` synced `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, `os_version`, and `programs` to the server. Follow-up `Programs` serialization fix closed in [2026-11-13-FIXED-windows-programs-unregistered-type.md](2026-11-13-FIXED-windows-programs-unregistered-type.md).
+- ✅ 2026-11-13: Verified on `snappr-win` (`0.1.18` and `0.1.19`): `C:\Program Files\osquery` is installed and `osqueryi.exe` synced `system_info`, `cpu_info`, `logged_in_users`, `interface_addresses`, `os_version`, and `programs` to the server. Follow-up `Programs` serialization fix closed in 2026-11-13-FIXED-windows-programs-unregistered-type.md.
 
 ## Next
 

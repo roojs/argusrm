@@ -1,8 +1,8 @@
 # Agent Gtk notice — **Connect locally** missing
 
-**Status:** ✅ closed 2026-11-21 — merged into [2026-11-21-FIXED-agent-local-enroll-double-pkexec.md](2026-11-21-FIXED-agent-local-enroll-double-pkexec.md) (**R2**)
+**Status:** ✅ closed 2026-11-21 — merged into 2026-11-21-FIXED-agent-local-enroll-double-pkexec.md (**R2**)
 
-**Pointer:** [`shared/Register.vala`](../../../shared/Register.vala) `probe_local`
+**Pointer:** `docs/bug-fix-process.md`, [`shared/Register.vala`](../../../shared/Register.vala) `probe_local`
 
 ---
 

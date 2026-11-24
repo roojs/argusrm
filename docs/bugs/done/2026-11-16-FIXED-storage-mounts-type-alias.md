@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-17 — Storage shows the mounts rows. `OSQuery.rpc_register()` registers `Mounts` and `Uptime`.
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-16-FIXED-machine-additional-osquery-data.md](2026-11-16-FIXED-machine-additional-osquery-data.md), [`controller/Application.vala`](../../../controller/Application.vala), [`shared/OSQuery/Mounts.vala`](../../../shared/OSQuery/Mounts.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`controller/Application.vala`](../../../controller/Application.vala), [`shared/OSQuery/Mounts.vala`](../../../shared/OSQuery/Mounts.vala)
 
 ---
 

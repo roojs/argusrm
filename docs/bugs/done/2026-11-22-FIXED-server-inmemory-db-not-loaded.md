@@ -1,6 +1,6 @@
 # Server in-memory DB empty while on-disk `argus.sqlite` has agents
 
-**Status:** ✔️ fixed — `opt_data_dir = ""` in `server/Application.vala` (temporary `GLib.debug` removed)
+**Status:** ✅ — `opt_data_dir = ""` in `server/Application.vala` (user confirmed 2026-11-24)
 
 **Pointer:** `docs/bug-fix-process.md`, `.cursor/rules/debugging.mdc`, `OLLMchat/libocsqlite/Database.vala`
 

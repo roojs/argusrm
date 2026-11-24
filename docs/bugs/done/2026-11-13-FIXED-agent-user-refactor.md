@@ -434,4 +434,4 @@ Edits are **Remove** / **Replace with** / **Add** from the tree. Verify the surr
 
 ## Next
 
-- ✅ Closed. `Agent.user` and `SslConnection.user` freshness checks are in the tree; package updates are resolved in [2026-11-13-FIXED-package-updates.md](2026-11-13-FIXED-package-updates.md).
+- ✅ Closed. `Agent.user` and `SslConnection.user` freshness checks are in the tree; package updates are resolved in 2026-11-13-FIXED-package-updates.md.

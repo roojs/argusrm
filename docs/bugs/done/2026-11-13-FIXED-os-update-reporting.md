@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-13. `SystemInfo.list` SQL join, `Base.column_factory` status dots/dates, `Filters.SystemInfo`, and `docs/rpc-commands.md` are in the tree.
 
-**Pointer:** `docs/bug-fix-process.md`. Split out of [2026-11-13-FIXED-os-updates.md](2026-11-13-FIXED-os-updates.md). Related: [5.11-REJECTED-os-update.md](../../plans/done/5.11-REJECTED-os-update.md).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 
@@ -614,7 +614,7 @@ updated               INTEGER
 
 ## Attempts / changelog
 
-- ℹ️ 2026-11-13: Split `SystemInfo.list` OS status reporting and `docs/rpc-commands.md` out of [2026-11-13-FIXED-os-updates.md](2026-11-13-FIXED-os-updates.md).
+- ℹ️ 2026-11-13: Split `SystemInfo.list` OS status reporting and `docs/rpc-commands.md` out of 2026-11-13-FIXED-os-updates.md.
 - 🔷 2026-11-13: Replaced Vala post-processing in `SystemInfo.list` with normalized load-time columns (`product`, `major`, `minor`, `match_name`, `next_released`) on `os_releases`.
 - 🔷 2026-11-13: Simplified `### 1`–`### 3`: extracted `platform_for()` helper in `OsUpdate.vala`, dropped `product` / `match_name` / `next_released` and the double-nested `foreach`, skipped unreleased rows (`released == ""`), and replaced the `SystemInfo.list` SQL with a direct `(platform, major, minor)` `LEFT JOIN` plus a `MAX(released)` subselect.
 - ✔️ 2026-11-13: Applied `### 1`–`### 6` (`shared/OsReleases.vala`, `server/OsUpdate.vala`, `shared/OSQuery/SystemInfo.vala`, `controller/tab/Base.vala`, `controller/resources/style.css`, `controller/filter/SystemInfo.vala`, `docs/plans/4.0-data-types.md`, `docs/rpc-commands.md`). Tightened `platform_for()` signature and ternary returns to single lines and added blank lines after `break;` in `switch` blocks.

@@ -2,11 +2,10 @@
 
 **Status:** ✅ closed in tree 2026-11-21 — device re-check on install host still recommended
 
-**Supersedes:** active logs `2026-11-21-agent-local-enroll-double-pkexec.md`, [2026-11-21-FIXED-agent-connect-locally-missing.md](2026-11-21-FIXED-agent-connect-locally-missing.md)
+**Supersedes:** active logs `2026-11-21-agent-local-enroll-double-pkexec.md`, 2026-11-21-FIXED-agent-connect-locally-missing.md
 
-**Pointer:** [`agent/linux/LocalRegistration.vala`](../../../agent/linux/LocalRegistration.vala), [`agent/linux/Application.vala`](../../../agent/linux/Application.vala), [`shared/Register.vala`](../../../shared/Register.vala), [`agent/Connection.vala`](../../../agent/Connection.vala), [`tests/registration-wire.vala`](../../../tests/registration-wire.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`agent/linux/LocalRegistration.vala`](../../../agent/linux/LocalRegistration.vala), [`agent/linux/Application.vala`](../../../agent/linux/Application.vala), [`shared/Register.vala`](../../../shared/Register.vala), [`agent/Connection.vala`](../../../agent/Connection.vala), [`tests/registration-wire.vala`](../../../tests/registration-wire.vala)
 
-**Follow-up (open):** [2026-11-21-local-enroll-register-session-refactor.md](../2026-11-21-local-enroll-register-session-refactor.md) — share enroll logic with Bootstrap via `Register` + session (not part of this bug).
 
 ---
 

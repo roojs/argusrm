@@ -1,10 +1,10 @@
 # Local registration — Unix `Registration.certificate`
 
-**Status:** ✅ closed 2026-11-21 — R1–R5 fenced in product; **R6/R7** closed in [2026-11-21-FIXED-local-registration-docs-polkit.md](2026-11-21-FIXED-local-registration-docs-polkit.md).
+**Status:** ✅ closed 2026-11-21 — R1–R5 fenced in product; **R6/R7** closed in 2026-11-21-FIXED-local-registration-docs-polkit.md.
 
 **Goal:** Co-located enroll (agent or controller): root → `argus.sock` → `Registration.certificate` → JSON `SQT.Server` → client `Register.save`. Remote agent stays PIN + registration TCP.
 
-**Gtk notice:** [2026-11-21-FIXED-agent-gtk-notice.md](2026-11-21-FIXED-agent-gtk-notice.md) — **Connect locally** wired to `enroll_local_certificate`.
+**Gtk notice:** 2026-11-21-FIXED-agent-gtk-notice.md — **Connect locally** wired to `enroll_local_certificate`.
 
 **How to implement:** Only apply code changes that have **Remove** / **Replace with** / **Add** fenced blocks below.
 
@@ -378,8 +378,8 @@ Bootstrap, agent Gtk, and tests spawn **`Argus.SERVER_EXECUTABLE --give-me-a-cer
 
 ## Follow-up (not this change)
 
-**R6** and **R7** — ✔️ [2026-11-21-FIXED-local-registration-docs-polkit.md](2026-11-21-FIXED-local-registration-docs-polkit.md).
+**R6** and **R7** — ✔️ 2026-11-21-FIXED-local-registration-docs-polkit.md.
 
-Gtk notice **Connect locally** uses `enroll_local_certificate` ([2026-11-21-FIXED-agent-gtk-notice.md](2026-11-21-FIXED-agent-gtk-notice.md)) with pkexec via `org.roojs.ArgusServer.register`.
+Gtk notice **Connect locally** uses `enroll_local_certificate` (2026-11-21-FIXED-agent-gtk-notice.md) with pkexec via `org.roojs.ArgusServer.register`.
 
 🚫 Do not add certificate flags on `argusrm-agent` or `argusrm-controller` (server binary only). 🚫 Gtk **Connect locally** must not use `try_batch` or registration PIN.

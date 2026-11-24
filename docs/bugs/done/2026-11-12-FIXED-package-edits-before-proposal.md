@@ -2,7 +2,7 @@
 
 **Status:** ✅ closed 2026-11-12. `Query` is `Execute`. `Initialize` installs and returns. Startup calls `send_startup`.
 
-**Pointer:** `docs/bug-fix-process.md`. The send proposal is [2026-11-12-package-monitor-send-rejected](2026-11-12-FIXED-package-monitor-send-rejected.md). The phase plan is [5.9.1](../../plans/done/5.9.1-DONE-assets-software-data.md).
+**Pointer:** `docs/bug-fix-process.md`
 
 ---
 
@@ -502,4 +502,4 @@ In `Application`, next to `connection`. The constructor assigns it.
 
 ## Next
 
-- ✅ Closed. The file split is [2026-11-12-package-file-wrong-place](2026-11-12-FIXED-package-file-wrong-place.md).
+- ✅ Closed. The file split is 2026-11-12-FIXED-package-file-wrong-place.md.

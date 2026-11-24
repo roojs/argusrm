@@ -19,7 +19,7 @@ A call name is `Class.method`. The letters in `OLLMrpc.args` are the argument ty
 ## Direction
 
 - 🔷 A normal call is the client calling a method on the server. The server replies.
-- 🔷 Remote command execution is the other way. The server sends a client notification to the connected agent. See [2.0 Phase 4](plans/2.0-agent.md).
+- 🔷 Remote command execution is the other way. The server sends a client notification to the connected agent. See [2.0 Phase 4](plans/done/2.0-DONE-agent.md).
 
 ---
 
@@ -336,7 +336,7 @@ Not an RPC call. [1.1](plans/1.1-implementation.md).
 
 ## Notifications
 
-The server sends these. The agent listens. [2.0 Phase 4](plans/2.0-agent.md).
+The server sends these. The agent listens. [2.0 Phase 4](plans/done/2.0-DONE-agent.md).
 
 - 🔷 The connected agent has a class that listens for notifications.
 - 🔷 The command class deals with the command notifications.

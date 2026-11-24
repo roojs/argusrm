@@ -79,4 +79,4 @@ None applied — closed with symptom resolved on device; reopen with a new dated
 
 - **Archived:** 2026-11-23 user confirmed close; root cause not pinned (possible concurrent desktop controller + large reply on 2026-11-22).
 - **Throwaways kept in tree** for regression: `tests/list-probe.vala`, `debpackages-reply-snapshot.vala`, `debpackages-snapshot-decode.vala`, `debpackages-android-list-probe.vala`, `scripts/android/run-debpackages-list-probe.sh`.
-- **Related (still open):** [`docs/bugs/2026-11-22-android-controller-offline-reconnect.md`](../2026-11-22-android-controller-offline-reconnect.md).
+- **Related (closed 2026-11-24):** 2026-11-22-CLOSED-android-controller-offline-reconnect.md.

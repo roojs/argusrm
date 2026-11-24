@@ -1,6 +1,6 @@
 # Registration and server list RPCs unstable (2026-11-22)
 
-**Status:** ⏳ park — evidence only; no product fix in this session
+**Status:** ✅ parked — closed 2026-11-24 (evidence retained; reopen if instability returns)
 
 **Pointer:** `docs/bug-fix-process.md`, `tests/list-probe.vala`, `server/Application.vala`
 

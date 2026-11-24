@@ -2,9 +2,9 @@
 
 **Status:** ⏳ blocked on OLLMchat
 
-**Upstream (canonical):** [`OLLMchat/docs/bugs/2026-11-23-ISSUE-windows-sqlite-new-orphan-backup.md`](../../OLLMchat/docs/bugs/2026-11-23-ISSUE-windows-sqlite-new-orphan-backup.md) — `libocsqlite/Database.vala` (`load_from_file`, `backup_real`).
+**Upstream (canonical):** 2026-11-23-ISSUE-windows-sqlite-new-orphan-backup.md — `libocsqlite/Database.vala` (`load_from_file`, `backup_real`).
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-20-FIXED-libocsqlite-backup-open.md](done/2026-11-20-FIXED-libocsqlite-backup-open.md), [`agent/Application.vala`](../../agent/Application.vala) (`ensure_client_db`), [`agent/Connection.vala`](../../agent/Connection.vala)
+**Pointer:** `docs/bug-fix-process.md`, [`agent/Application.vala`](../../agent/Application.vala) (`ensure_client_db`), [`agent/Connection.vala`](../../agent/Connection.vala)
 
 ### User reported
 

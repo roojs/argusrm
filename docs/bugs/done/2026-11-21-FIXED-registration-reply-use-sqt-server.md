@@ -4,7 +4,6 @@
 
 **Background:** Local certificate issue used parallel DTOs under **`Argus.Registration.Data`**. Shipped path: [`server/Registration.vala`](../../server/Registration.vala) **`retval`**, controller pkexec JSON, and [`Bootstrap.exe_root`](../../controller/dialog/Bootstrap.vala) all use [`Argus.Shared.SQT.Server`](../../shared/SQT/Server.vala) with no field-copy bridge.
 
-**Depends on:** [2026-11-20-local-registration-cutover-remainder.md](../2026-11-20-local-registration-cutover-remainder.md) (enroll/deregister on `Register` + `SQT.Server` persistence).
 
 **How to implement:** Fenced **Remove** / **Replace with** / **Add** only (see [`docs/guide-to-writing-plans.md`](../../docs/guide-to-writing-plans.md)). Implement in **Suggested order** after remainder work is on the branch.
 

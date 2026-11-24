@@ -1,8 +1,8 @@
 # Local login “already registered” must offer one-click recovery
 
-**Status:** ⏳ parked (2026-11-23 — partial fixes in tree; end-to-end re-register still flaky on `alan-office-desktop`)
+**Status:** ✅ closed 2026-11-24 — parked with broader registration backlog (2026-11-21-CLOSED-local-enroll-register-session-refactor.md).
 
-**Pointer:** `docs/bug-fix-process.md`, [2026-11-10-FIXED-controller-registration-recovery.md](done/2026-11-10-FIXED-controller-registration-recovery.md), [`controller/dialog/Bootstrap.vala`](../../controller/dialog/Bootstrap.vala) (`exe_root`, `deregister_local`)
+**Pointer:** `docs/bug-fix-process.md`, [`controller/dialog/Bootstrap.vala`](../../controller/dialog/Bootstrap.vala) (`exe_root`, `deregister_local`)
 
 ### User reported
 
@@ -44,3 +44,11 @@
 
 - ✔️ Deregister returned success but left **status = 1** rows with a routable `ip` — recovery re-issued the cert and hit *already registered* in a loop.
 - ✔️ **Fix:** [`server/Registration.vala`](../../server/Registration.vala) username deregister deletes all controller rows for `username` + server hostname (any `ip` / `status`).
+
+### LLM
+
+- User (2026-11-24): close — whole registration UX/refactor is known backlog; reopen with a new ISSUE when resuming.
+
+### Next
+
+- ✔️ Parked; UX proposal above remains for a future pass.
