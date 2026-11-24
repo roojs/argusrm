@@ -41,17 +41,21 @@ notes="$(scripts/release/changelog.sh notes)"
 	exit 1
 }
 
-pinned_ollm="$(awk -F': ' '/^[[:space:]]*OLLMCHAT_RELEASE:/ { print $2; exit }' .github/workflows/x-windows.yml)"
-latest_ollm="$(gh api 'repos/roojs/OLLMchat/releases?per_page=30' --jq '[.[] | select(.draft|not) | select(.prerelease|not) | select(.tag_name|test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))][0].tag_name')"
-[[ -n "${pinned_ollm}" && -n "${latest_ollm}" ]] || {
-	echo "error: could not compare the Windows OLLMchat pin with the latest release" >&2
+latest_ollm="$(gh api 'repos/roojs/OLLMchat/releases/latest' --jq '.tag_name')"
+[[ "${latest_ollm}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+	echo "error: could not resolve the latest OLLMchat release" >&2
 	exit 1
 }
-[[ "${pinned_ollm}" == "${latest_ollm}" ]] || {
-	echo "error: Windows needs updating" >&2
-	echo "error: .github/workflows/x-windows.yml pins ${pinned_ollm}; latest OLLMchat release is ${latest_ollm}" >&2
-	exit 1
-}
+version_ollm="${latest_ollm#v}"
+for name in libocrpc libocsqlite; do
+	asset="mingw-w64-ucrt-x86_64-${name}-${version_ollm}-1-any.pkg.tar.zst"
+	code="$(curl -sI -o /dev/null -w '%{http_code}' \
+		"https://github.com/roojs/OLLMchat/releases/download/${latest_ollm}-packages/${asset}")"
+	[[ "${code}" == "200" || "${code}" == "302" ]] || {
+		echo "error: ${latest_ollm}-packages is not published (${asset} returned HTTP ${code})" >&2
+		exit 1
+	}
+done
 
 if [[ -n "$(git status --porcelain)" ]]; then
 	echo "error: working tree is not clean; commit or stash first" >&2
