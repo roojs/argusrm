@@ -25,7 +25,8 @@ Build-Depends:
  libnl-route-3-dev,
  libocrpc-dev,
  libocsqlite-dev,
- freerdp3-dev
+ freerdp3-dev,
+ libxlsxwriter-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/roojs/argusrm
 Vcs-Browser: https://github.com/roojs/argusrm

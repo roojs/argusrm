@@ -73,7 +73,8 @@ jobs:
             libnl-route-3-dev \
             libocrpc-dev \
             libocsqlite-dev \
-            freerdp3-dev
+            freerdp3-dev \
+            libxlsxwriter-dev
 
       - name: Setup meson build
         run: |

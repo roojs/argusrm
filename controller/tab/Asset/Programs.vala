@@ -74,11 +74,13 @@ namespace Argus.Controller.Tab.Asset
 				var selection = (Gtk.MultiSelection) this.grid.model;
 				var chosen = selection.get_selection();
 				string[] refs = {};
+				var picked = new Gee.ArrayList<Argus.Shared.OSQuery.Programs>();
 				uint index = 0;
 				while (index < chosen.get_size()) {
 					var at = chosen.get_nth(index);
 					var row = (Argus.Shared.OSQuery.Programs) selection.get_item(at);
 					refs += row.source + "\n" + row.name;
+					picked.add(row);
 					index++;
 				}
 				if (refs.length == 0) {
@@ -99,136 +101,55 @@ namespace Argus.Controller.Tab.Asset
 						this.toasts.add_toast(new Adw.Toast(response.error.message));
 						return;
 					}
+					var mark = (Argus.Shared.OSQuery.ProgramClass.Rating) rating;
+					foreach (var row in picked) {
+						row.rating = mark;
+					}
+					var count = this.store.get_n_items();
+					this.store.items_changed(0, count, count);
 					this.store.load(0);
 				});
 			});
 			rate_group.add_action(rate);
 			this.insert_action_group("software", rate_group);
-			var system_mark = new Gtk.Image() {
-				pixel_size = 16
-			};
-			Argus.Shared.OSQuery.ProgramClass.Rating.SYSTEM.show(system_mark);
-			var system_text = new Gtk.Label("System - included with Windows") {
-				xalign = 0,
-				hexpand = true
-			};
-			var system_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-			system_row.append(system_mark);
-			system_row.append(system_text);
-			var system_button = new Gtk.Button() {
-				child = system_row,
-				has_frame = false,
-				hexpand = true,
-				halign = Gtk.Align.FILL
-			};
-			var keep_mark = new Gtk.Image() {
-				pixel_size = 16
-			};
-			Argus.Shared.OSQuery.ProgramClass.Rating.INSTALLED.show(keep_mark);
-			var keep_text = new Gtk.Label("Keep - regular application") {
-				xalign = 0,
-				hexpand = true
-			};
-			var keep_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-			keep_row.append(keep_mark);
-			keep_row.append(keep_text);
-			var keep_button = new Gtk.Button() {
-				child = keep_row,
-				has_frame = false,
-				hexpand = true,
-				halign = Gtk.Align.FILL
-			};
-			var bad_mark = new Gtk.Image() {
-				pixel_size = 16
-			};
-			Argus.Shared.OSQuery.ProgramClass.Rating.BAD.show(bad_mark);
-			var bad_text = new Gtk.Label("Bad - this should probably be removed") {
-				xalign = 0,
-				hexpand = true
-			};
-			var bad_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-			bad_row.append(bad_mark);
-			bad_row.append(bad_text);
-			var bad_button = new Gtk.Button() {
-				child = bad_row,
-				has_frame = false,
-				hexpand = true,
-				halign = Gtk.Align.FILL
-			};
-			var unknown_mark = new Gtk.Image() {
-				pixel_size = 16
-			};
-			Argus.Shared.OSQuery.ProgramClass.Rating.UNKNOWN.show(unknown_mark);
-			var unknown_text = new Gtk.Label("Unknown - need to check") {
-				xalign = 0,
-				hexpand = true
-			};
-			var unknown_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-			unknown_row.append(unknown_mark);
-			unknown_row.append(unknown_text);
-			var unknown_button = new Gtk.Button() {
-				child = unknown_row,
-				has_frame = false,
-				hexpand = true,
-				halign = Gtk.Align.FILL
-			};
-			var choice_list = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
-			choice_list.append(system_button);
-			choice_list.append(keep_button);
-			choice_list.append(bad_button);
-			choice_list.append(new Gtk.Separator(Gtk.Orientation.HORIZONTAL));
-			choice_list.append(unknown_button);
-			var choices = new Gtk.Popover() {
-				has_arrow = false,
-				position = Gtk.PositionType.RIGHT,
-				autohide = true,
-				child = choice_list
-			};
-			var categorize_text = new Gtk.Label("Categorize") {
-				xalign = 0,
-				hexpand = true
-			};
-			var categorize_row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8);
-			categorize_row.append(categorize_text);
-			categorize_row.append(new Gtk.Image.from_icon_name("go-next-symbolic"));
-			var categorize_button = new Gtk.Button() {
-				child = categorize_row,
-				has_frame = false,
-				hexpand = true,
-				halign = Gtk.Align.FILL
-			};
-			choices.set_parent(categorize_button);
-			categorize_button.clicked.connect(() => {
-				choices.popup();
-			});
-			var rate_menu = new Gtk.Popover() {
-				has_arrow = false,
-				position = Gtk.PositionType.BOTTOM,
-				autohide = true,
-				cascade_popdown = true,
-				child = categorize_button
-			};
-			rate_menu.set_parent(this.grid);
-			system_button.clicked.connect(() => {
-				rate.activate(new GLib.Variant.int32(
+			var choices = new GLib.Menu();
+			var later = new GLib.Menu();
+			var categorize = new GLib.Menu();
+			categorize.append_section(null, choices);
+			categorize.append_section(null, later);
+			var system = new GLib.MenuItem(
+				"System - included with Windows",
+				"software.classify(%d)".printf(
 					Argus.Shared.OSQuery.ProgramClass.Rating.SYSTEM));
-				rate_menu.popdown();
-			});
-			keep_button.clicked.connect(() => {
-				rate.activate(new GLib.Variant.int32(
+			system.set_icon(new ThemedIcon("applications-system-symbolic"));
+			choices.append_item(system);
+			var keep = new GLib.MenuItem(
+				"Keep - regular application",
+				"software.classify(%d)".printf(
 					Argus.Shared.OSQuery.ProgramClass.Rating.INSTALLED));
-				rate_menu.popdown();
-			});
-			bad_button.clicked.connect(() => {
-				rate.activate(new GLib.Variant.int32(
+			keep.set_icon(new ThemedIcon("object-select-symbolic"));
+			choices.append_item(keep);
+			var bad = new GLib.MenuItem(
+				"Bad - this should probably be removed",
+				"software.classify(%d)".printf(
 					Argus.Shared.OSQuery.ProgramClass.Rating.BAD));
-				rate_menu.popdown();
-			});
-			unknown_button.clicked.connect(() => {
-				rate.activate(new GLib.Variant.int32(
+			bad.set_icon(new ThemedIcon("face-devilish-symbolic"));
+			choices.append_item(bad);
+			var unknown = new GLib.MenuItem(
+				"Unknown - need to check",
+				"software.classify(%d)".printf(
 					Argus.Shared.OSQuery.ProgramClass.Rating.UNKNOWN));
-				rate_menu.popdown();
-			});
+			unknown.set_icon(new ThemedIcon("weather-clear-symbolic"));
+			later.append_item(unknown);
+			var rate_model = new GLib.Menu();
+			rate_model.append_submenu("Categorize", categorize);
+			var rate_menu = new Gtk.PopoverMenu.from_model_full(
+				rate_model, Gtk.PopoverMenuFlags.NESTED) {
+				has_arrow = false,
+				position = Gtk.PositionType.BOTTOM
+			};
+			rate_menu.insert_action_group("software", rate_group);
+			rate_menu.set_parent(this.grid);
 			var menu_click = new Gtk.GestureClick() {
 				button = Gdk.BUTTON_SECONDARY,
 				propagation_phase = Gtk.PropagationPhase.CAPTURE

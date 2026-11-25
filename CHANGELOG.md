@@ -13,6 +13,7 @@ package changelogs.
 ### Fixed
 
 - The Windows agent opens Remote Desktop on the machine's own network address. Windows was closing the session when it came from this PC itself.
+- Debian and Fedora builds install libxlsxwriter. The controller uses it to write spreadsheets.
 
 ## [0.1.53] - Unreleased
 

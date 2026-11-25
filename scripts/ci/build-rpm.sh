@@ -53,7 +53,7 @@ case "${ID}" in
 			'pkgconfig(avahi-gobject)' 'pkgconfig(avahi-client)' \
 			'pkgconfig(libgit2-glib-1.0)' 'pkgconfig(libnftables)' \
 			'pkgconfig(libnl-3.0)' 'pkgconfig(freerdp3)' \
-			'pkgconfig(winpr3)'
+			'pkgconfig(winpr3)' 'pkgconfig(xlsxwriter)'
 		;;
 	*)
 		echo "Unsupported distro for RPM build: ${ID}" >&2

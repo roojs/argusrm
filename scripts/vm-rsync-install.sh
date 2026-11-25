@@ -22,9 +22,10 @@ ssh -o BatchMode=yes "${REMOTE}" "bash -s" -- "${REMOTE_ROOT}" <<'EOF'
 set -euo pipefail
 REMOTE_ROOT="$1"
 cd ~/"${REMOTE_ROOT}"
-if ! dpkg -l freerdp3-dev >/dev/null 2>&1; then
+if ! dpkg -l freerdp3-dev >/dev/null 2>&1 \
+	|| ! dpkg -l libxlsxwriter-dev >/dev/null 2>&1; then
 	sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-		freerdp3-dev libocsqlite-dev >/dev/null
+		freerdp3-dev libocsqlite-dev libxlsxwriter-dev >/dev/null
 fi
 if [ ! -d build ]; then
 	meson setup build

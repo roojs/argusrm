@@ -54,7 +54,8 @@ sudo apt install \
   libnl-3-dev \
   libnl-route-3-dev \
   libocrpc-dev \
-  libocsqlite-dev
+  libocsqlite-dev \
+  libxlsxwriter-dev
 ```
 
 ### Fedora
@@ -70,7 +71,7 @@ sudo dnf install --setopt=install_weak_deps=False \
   'pkgconfig(libadwaita-1)' 'pkgconfig(libsecret-1)' \
   'pkgconfig(avahi-gobject)' 'pkgconfig(avahi-client)' \
   'pkgconfig(libgit2-glib-1.0)' 'pkgconfig(libnftables)' \
-  'pkgconfig(libnl-3.0)'
+  'pkgconfig(libnl-3.0)' 'pkgconfig(xlsxwriter)'
 ```
 
 ## Configure and build

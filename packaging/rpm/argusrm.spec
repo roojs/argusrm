@@ -34,6 +34,7 @@ BuildRequires: libocrpc-devel
 BuildRequires: libocsqlite-devel
 BuildRequires: pkgconfig(freerdp3)
 BuildRequires: pkgconfig(winpr3)
+BuildRequires: pkgconfig(xlsxwriter)
 Requires: libocrpc
 Requires: libocsqlite
 Requires: libosinfo
