@@ -20,8 +20,7 @@
 
 ### Success scenario
 
-- The controller on the VPN sees the server from the broadcast, without typing an address.
-- If the broadcast is not seen, typing the address and the six-digit number still finishes registration.
+- Typing the address and the six-digit number finishes registration.
 
 ### Current behavior
 
@@ -251,7 +250,7 @@ this.firewall = new Net.NFTables((uint16) register_port) {
 ### LLM
 
 - ℹ️ Scope is the controller and the server. The agent hint at the bottom of the CLI paste is left out of the report.
-- 💩 “Broadcast on: tun0” means that address was included in what the server handed to the broadcaster (`controller/cli/Pin.vala` prints reply entries after the public address). It does not mean a shout left `tun0` and arrived at the controller. The broadcaster shouts on interfaces that can carry a local-network shout. A tunnel usually cannot, so the shout still goes out on `eth0`, with the tunnel address named inside it. The controller at the far end of the VPN does not hear that.
+- ℹ️ The controller not seeing the publish is `2026-11-25-ISSUE-vpn-broadcast-not-seen.md`. The note that a tunnel usually cannot carry the shout was not measured.
 - 🚫 The server did not omit `tun0`. The command listed it.
 - ℹ️ ✔️ Controller keeps `response.error.message` in `Register.detail` instead of replacing it with “Registration failed”. Server `request_registration` warnings name the refusal. Early returns used to be silent.
 - ✔️ 2026-11-24 18:19: the number was accepted. The server refused a second controller for `alan` on `alan-office-desktop`. The desktop showed that sentence. `closing connection 0` ran and the process stayed up. A wrong number would have logged `number rejected`. A sign failure would have logged `could not sign`. Neither did.

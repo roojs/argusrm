@@ -19,7 +19,7 @@
 namespace Argus.Server.Apt
 {
 	/**
-	 * One Depends edge in {@code apt_pkg_depends_staging} (names only).
+	 * One Depends edge in ''apt_pkg_depends_staging'' (names only).
 	 */
 	public class PkgDependsStaging : GLib.Object, SQ.Interface
 	{

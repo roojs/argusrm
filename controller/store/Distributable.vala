@@ -240,8 +240,7 @@ namespace Argus.Controller.Store
 		}
 
 		/**
-		 * Queue the installer on ''agent_ids''.
-		 *  CURRENTLY VERY WINDOWS SPECIFIC !!!!!!!!!!!!!<<<<<<<<<<
+		 * Queue the installer on ''agent_ids''. Windows installers only.
 		 *
 		 * The command is the file name and ''/S''. ''dist_version_id''
 		 * is {@link Argus.Shared.SQT.Distributable.version_id}.

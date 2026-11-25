@@ -223,6 +223,7 @@ offering_registration_sources = files(
 	'SQT/Agent.vala',
 	'Command.vala',
 	'Daemon.vala',
+	# Stub Application. Left out of valadoc; the real class is already documented.
 	'tests/offering-test-application.vala',
 	'tests/offering-registration-server.vala',
 	'tests/offering-registration.vala',

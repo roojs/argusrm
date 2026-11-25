@@ -144,7 +144,7 @@ namespace Argus.Agent
 		 * True when the management link has no live session.
 		 *
 		 * Set by {@link Connection} in link state handlers.
-		 * 💩 Replace with link {@code state} when call sites are migrated.
+		 * 💩 Replace with link ''state'' when call sites are migrated.
 		 */
 		internal static bool connection_down = false;
 
