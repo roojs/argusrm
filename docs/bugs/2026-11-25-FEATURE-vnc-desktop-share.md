@@ -4,7 +4,7 @@
 
 ### User decisions required
 
-- 💩 Which library shares the screen. FreeRDP shadow is its own server: it copies the screen that is already showing and does not use the Windows one. LibVNCServer is the one already proved, and linking it makes that exe GPL. A sender we write ourselves needs no extra library. Linking into the agent is acceptable. The capture still has to be the tray, because the service cannot see the screen.
+None.
 
 ### User reported
 
@@ -17,6 +17,8 @@
 - 🔷 The next thought is some basic code in the tray.
 - 🔷 Linking the library into the agent pollutes it, and that is not a big deal.
 - 🔷 The FreeRDP library can act as a server, so the built-in Windows one is not required.
+- 🔷 FreeRDP shadow is not worth more work. The listener came up and no picture was served.
+- 🔷 The tray does little besides the icon and the registration window, so the tray can be the GPL program.
 
 ### Success scenario
 
@@ -40,6 +42,8 @@
 ### Codebase observed behavior
 
 - [`agent/windows/Service.vala`](../../agent/windows/Service.vala) is the Windows service, in session 0. It starts `argus-tray.exe` in the signed-in session.
+- [`agent/windows/main.vala`](../../agent/windows/main.vala) runs the tray when the exe name is `argus-tray.exe`, and runs the service otherwise.
+- [`scripts/ci/windows-package-nsis.sh`](../../scripts/ci/windows-package-nsis.sh) copies the agent exe to `argus-tray.exe`. They are one build.
 - [`meson.build`](../../meson.build) does not look up a VNC library.
 
 ### Debugging
@@ -59,13 +63,29 @@
   - A connection to `192.168.88.244:5910` from this Linux machine was refused.
   - `qwinsta` showed the console connected and no username.
 
+- Throwaway on `snappr-win`, 25 Nov. FreeRDP 3.14.0 `freerdp-shadow-cli`. No product code. The one-shot helper was deleted. `sc query ArgusShadowProbe` then said it was not installed.
+  ```text
+  session 5
+  started 13648 session 5
+  GetDesktopSharedRect width: 1920 height: 1200
+  width: 0 height: 0
+  Listening on [127.0.0.1]:3391
+  freerdp_connect: 0
+  ERRCONNECT_SECURITY_NEGO_CONNECT_FAILED
+  ```
+  - The process ran in the signed-in session. That session stayed Active. Nobody was logged off.
+  - It listened on `127.0.0.1:3391`. Port 3389 was not dialed.
+  - Windows Desktop Sharing reported the desktop as 1920 by 1200, then the library dialed that sharing endpoint on this PC, port 40000.
+  - The security handshake on that dial failed. The size it would have served stayed 0 by 0. No picture was saved.
+  - The screen-copy path in this version is turned off. Turning it on does not compile.
+
 #### Debug code added (remove when complete)
 
 None.
 
 ### Proposed fix
 
-What the throwaway showed. No product code until the license line above is decided.
+The tray is the GPL program. LibVNCServer links into a tray executable of its own. `argus-agent.exe` stays LGPL and does not link that library.
 
 - The active screen
   - The program copied the screen that Windows was already showing.
@@ -85,7 +105,7 @@ What the throwaway showed. No product code until the license line above is decid
   - Argus sources, including [`agent/windows/Service.vala`](../../agent/windows/Service.vala), are LGPL-3.
   - gtk-vnc was not used.
 - Other libraries
-  - FreeRDP shadow, `freerdp-shadow3`. Apache-2.0. It is a server of its own. It copies the current screen and speaks Remote Desktop from that library. The Windows Remote Desktop service is not started and port 3389 is not dialed. Not tried on this PC yet.
+  - FreeRDP shadow, `freerdp-shadow3`. Apache-2.0. It opens its own Remote Desktop listener. On Windows the picture is not copied by the library. The backend that builds asks Windows Desktop Sharing for the session, then dials that endpoint itself. Tried on this PC. The listener came up. The picture did not.
   - neatvnc. ISC license. A VNC server library. Its own page says it is for the Linux desktop stack (GBM, libdrm). No Windows build.
   - TightVNC, UltraVNC, TigerVNC. GPL programs you install. Not libraries to put in the tray.
   - No extra library. The throwaway already copied the screen with `BitBlt`. The bytes the viewer read are a small protocol. That sender can be ours. Nothing GPL is required for that.
@@ -105,11 +125,13 @@ What the throwaway showed. No product code until the license line above is decid
 ### Phase 2 — Basic capture in the tray
 
 - Why
-  - The tray already runs in the signed-in session, so it is looking at the desktop that is active there.
+  - The tray already runs in the signed-in session, and that process is the icon and the registration window.
 - Where
-  - `argus-tray`. Not the service.
-- Waits on
-  - The license decision in **User decisions required**.
+  - A tray executable built on its own. Not a copy of `argus-agent.exe`. Not the service.
+- What
+  - That executable links LibVNCServer and copies the screen with `BitBlt`. It is GPL.
+  - The service starts it in the signed-in session, as it starts the tray now.
+  - `argus-agent.exe` does not link LibVNCServer.
 - Not in this report yet
   - Keyboard and mouse.
   - The controller page.
@@ -118,7 +140,9 @@ What the throwaway showed. No product code until the license line above is decid
 ### LLM
 
 - ℹ️ Throwaway tree was `C:\Users\alan\argus-vnc-probe` on `snappr-win`. LibVNCServer tag `LibVNCServer-0.9.15`. It is not part of this repo.
+- ℹ️ Shadow throwaway was `C:\Users\alan\argus-shadow-probe` on `snappr-win`. FreeRDP tag `3.14.0`. It is not part of this repo.
 - ℹ️ LibVNCServer `README.md` "Commercial Use" and the FAQ: linking is derivative work under the GPL. Internal-only use does not by itself remove that.
+- 🚫 Linking LibVNCServer into `argus-agent.exe`. The tray file is a copy of that binary today, so the tray has to be its own build.
 - 🚫 Installing TightVNC, UltraVNC, or TigerVNC as a Windows service.
 - 🚫 Capturing the desktop inside the service process.
 - 🚫 Treating VNC as a new Windows logon. The throwaway did not do that.
