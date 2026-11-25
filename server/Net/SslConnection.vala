@@ -23,7 +23,7 @@ namespace Argus.Server.Net
 	 *
 	 * {@link SslListen} constructs one after the TLS handshake.
 	 * An unknown certificate may only call
-	 * ''Agent.request_registration''.
+	 * ''Offering.enroll'' and ''Offering.status''.
 	 *
 	 * == Example ==
 	 *
@@ -72,7 +72,7 @@ namespace Argus.Server.Net
 
 		/**
 		 * Unknown certificates may only call
-		 * ''Agent.request_registration''.
+		 * ''Offering.enroll'' and ''Offering.status''.
 		 *
 		 * A stored row with status 1 may call the other methods.
 		 * A pending controller row becomes active on its first
@@ -83,12 +83,14 @@ namespace Argus.Server.Net
 		 */
 		public override bool allow_request(OLLMrpc.Request request)
 		{
-			if (request.method == "Agent.request_registration") {
+			if (request.method == "Offering.enroll" ||
+				request.method == "Offering.status") {
 				return true;
 			}
 			if (this.cert_fingerprint == "") {
 				GLib.debug("closing connection without client certificate (%s)", request.method);
-				this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+				this.app.firewall.apply(
+					SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 				this.stop();
 				return false;
 			}
@@ -116,7 +118,8 @@ namespace Argus.Server.Net
 			}
 			GLib.debug("closing connection for failed certificate %s (%s)",
 				this.cert_fingerprint, request.method);
-			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			this.app.firewall.apply(
+				SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 			this.stop();
 			return false;
 		}

@@ -53,7 +53,7 @@ namespace Argus.Server
 		/**
 		 * Registration socket, ''host:port''. Empty until
 		 * {@link command_line} reads the config or ''--register''.
-		 * {@link Agent.offer} binds it. The app socket stays up.
+		 * {@link Offering.Rpc.open} binds it. The app socket stays up.
 		 */
 		public string registration { get; set; default = ""; }
 
@@ -72,10 +72,9 @@ namespace Argus.Server
 		public Net.SslListen ssl_listen { get; private set; }
 
 		/**
-		 * Registration socket. {@link Agent.offer} calls
-		 * {@link Net.SslListen.listen}. It is down until then.
+		 * Registration desk: TLS, registration firewall, PairPublish.
 		 */
-		public Net.SslListen register_listen { get; private set; }
+		public Offering.Network? offering { get; internal set; }
 
 		/**
 		 * Download socket. {@link command_line} calls
@@ -90,17 +89,10 @@ namespace Argus.Server
 
 		/**
 		 * Firewall for the app socket port. {@link command_line}
-		 * builds it, applies {@link Agent.allowlist}, and enables it
+		 * builds it, applies {@link SQT.Agent.allowlist}, and enables it
 		 * before that socket accepts connections.
 		 */
 		public Net.NFTables firewall { get; internal set; }
-
-		/**
-		 * Firewall for the registration socket. It stays enabled,
-		 * with an empty allowlist, until {@link Agent.offer}
-		 * disables it for the registration window.
-		 */
-		public Net.NFTables register_firewall { get; private set; }
 
 		/**
 		 * Certificate rows. The file is ''argus.sqlite'' under
@@ -124,19 +116,9 @@ namespace Argus.Server
 		public Apt.CatalogRefresh catalog_refresh { get; private set; }
 
 		/**
-		 * Unix socket the controller uses for {@link Agent.offer}.
+		 * Unix socket the controller uses for management RPC.
 		 */
 		public OLLMrpc.Transport.SocketListen listen { get; private set; }
-
-		/**
-		 * mDNS publish for the registration window.
-		 * {@link Agent.offer} starts it. Shutdown stops it.
-		 */
-		public OLLMrpc.Transport.PairPublish publish {
-			get; set; default = new OLLMrpc.Transport.PairPublish() {
-				min_port = 1
-			};
-		}
 
 		private static bool opt_debug;
 		private static bool opt_debug_critical;
@@ -184,9 +166,6 @@ namespace Argus.Server
 				flags: GLib.ApplicationFlags.HANDLES_COMMAND_LINE | GLib.ApplicationFlags.NON_UNIQUE
 			);
 			this.ssl_listen = new Net.SslListen(this);
-			this.register_listen = new Net.SslListen(this) {
-				registration = true
-			};
 			this.download_listen = new Net.Download(this);
 			this.interfaces = new Net.Interfaces();
 			var data_dir = opt_data_dir != "" ? opt_data_dir : Argus.SERVER_DATA_DIR;
@@ -211,21 +190,20 @@ namespace Argus.Server
 				GLib.Path.build_filename(data_dir, "argus.sock")) {
 				live_handles = true
 			};
-			this.publish.failed.connect(() => {
-				GLib.warning("Could not publish the pairing service");
-			});
 			GLib.Log.set_default_handler((dom, lvl, msg) => {
 				Application.debug_log(dom, lvl, msg);
 			});
 			this.shutdown.connect(() => {
-				this.publish.stop();
+				if (this.offering != null) {
+					this.offering.pair_publish.stop();
+					this.offering.listen.stop();
+				}
 				this.scheduler.stop();
 				this.os_update.stop();
 				this.catalog_refresh.stop();
 				this.listen.stop();
 				this.db.backup_real();
 				this.ssl_listen.stop();
-				this.register_listen.stop();
 				this.download_listen.stop();
 			});
 		}
@@ -243,10 +221,10 @@ namespace Argus.Server
 		 * With no line, the process uses ''0.0.0.0'' and the build
 		 * ports {@link Argus.SOCKET_PORT}, {@link Argus.DOWNLOAD_PORT},
 		 * and {@link Argus.REGISTER_PORT}. The registration socket
-		 * stays closed until {@link Agent.offer}.
+		 * stays closed until {@link Offering.Rpc.open}.
 		 * {@link Initialize.fetch_osquery}
 		 * fetches the osquery installers into {@link Argus.SERVER_DATA_DIR}
-		 * before the sockets bind. {@link Agent.offer} on the
+		 * before the sockets bind. {@link Offering.Rpc} on the
 		 * The Unix socket binds before nftables so local certificate
 		 * issue still works when the firewall step fails. Unix socket
 		 * opens the registration window.
@@ -335,7 +313,8 @@ namespace Argus.Server
 			if (this.registration == "") {
 				this.registration = "0.0.0.0:" + Argus.REGISTER_PORT.to_string();
 			}
-			this.register_listen.endpoint = this.registration;
+			this.offering = new Offering.Network(this);
+			this.offering.endpoint = this.registration;
 			var data_dir = opt_data_dir != "" ? opt_data_dir : Argus.SERVER_DATA_DIR;
 			var unix_sock = GLib.Path.build_filename(data_dir, "argus.sock");
 			if (this.listen.socket_path != unix_sock) {
@@ -392,6 +371,7 @@ namespace Argus.Server
 			Command.rpc_register();
 			Rdp.Relay.rpc_register();
 			SQT.rpc_register();
+			Offering.rpc_register();
 			SQV.rpc_register();
 			Argus.Shared.Agent.init_db(this.db);
 			Argus.Shared.AgentPending.init_db(this.db);
@@ -400,13 +380,13 @@ namespace Argus.Server
 			Argus.Shared.SQT.init_db(this.db);
 			Argus.Shared.OSQuery.AptSources.init_db(this.db);
 			new SQT.Script.for_rpc(this).import_defaults();
-			OLLMrpc.Request.register("Agent", new Agent.for_rpc(this));
 			OLLMrpc.Request.register("Registration", new Registration(this));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			OLLMrpc.Request.register("OSQuery", new OSQuery(this));
 			Argus.Shared.OSQuery.register();
 			OLLMrpc.Request.register("OsReleases", new Argus.Shared.OsReleases());
 			OLLMrpc.Request.register("Command", new Command.for_rpc(this));
+			Offering.register(this);
 			SQT.register(this);
 			SQV.register(this);
 			if (!(new Initialize()).fetch_osquery()) {
@@ -432,7 +412,7 @@ namespace Argus.Server
 				return 1;
 			}
 			this.firewall = new Net.NFTables((uint16) port);
-			if (!this.firewall.apply(Agent.allowlist(this.db, this.interfaces))) {
+			if (!this.firewall.apply(SQT.Agent.allowlist(this.db, this.interfaces))) {
 				this.listen.stop();
 				command_line.printerr("error: firewall allowlist was not applied\n");
 				return 1;
@@ -455,14 +435,15 @@ namespace Argus.Server
 				command_line.printerr("error: registration socket port is invalid\n");
 				return 1;
 			}
-			this.register_firewall = new Net.NFTables((uint16) register_port);
-			if (!this.register_firewall.apply(new Gee.ArrayList<GLib.InetAddress>())) {
+			if (this.offering.firewall == null ||
+				!this.offering.firewall.apply(
+					new Gee.ArrayList<GLib.InetAddress>())) {
 				this.listen.stop();
 				command_line.printerr("error: registration firewall was not applied\n");
 				return 1;
 			}
-			this.register_firewall.enable();
-			if (!this.register_firewall.enabled) {
+			this.offering.firewall.enable();
+			if (!this.offering.firewall.enabled) {
 				this.listen.stop();
 				command_line.printerr("error: registration firewall was not enabled\n");
 				return 1;

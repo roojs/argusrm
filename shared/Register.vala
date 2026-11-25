@@ -536,7 +536,7 @@ namespace Argus.Shared
 					accept_any = true
 				};
 				response = connection.call(new OLLMrpc.Request() {
-					method = "Agent.request_registration",
+					method = "Offering.enroll",
 					args = OLLMrpc.args("ssssbbss", pin, csr, device,
 						family, this.is_controller, this.batch, this.username, this.hostname)
 				});

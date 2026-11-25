@@ -1,8 +1,10 @@
 # Provisional registration broadcast for office Windows bulk enroll
 
-**Status:** ⏳
+**Status:** 📦 archived 2026-11-25 — Phase 1a wire-up + `offering-registration` test shipped; open phases tracked in [`2026-11-25-FEATURE-provisional-registration-remainder.md`](../2026-11-25-FEATURE-provisional-registration-remainder.md).
 
-**Priority:** High — confirmed for next Windows office rollout.
+**Priority:** High — confirmed for next Windows office rollout (carried forward in remainder bug).
+
+**Pointer (active):** [`../2026-11-25-FEATURE-provisional-registration-remainder.md`](../2026-11-25-FEATURE-provisional-registration-remainder.md), [`2026-11-25-FIXED-offering-registration-test-main-loop.md`](2026-11-25-FIXED-offering-registration-test-main-loop.md), `docs/bug-fix-process.md`
 
 ### User decisions required
 
@@ -137,9 +139,9 @@ server/Offering/
 // Application.vala — owning field + quit teardown (firewall.apply/enable stay in command_line)
 	public class Application
 	{
-		public Offering.Network offering_network { get; private set; }
+		public Offering.Network offering { get; private set; }
 		public Offering.Rpc offering_rpc { get; private set; }
-		// on_quit: offering_network.update_pin(CLOSED); pair_publish.stop(); firewall.enable()
+		// on_quit: offering.update_pin(CLOSED); pair_publish.stop(); firewall.enable()
 	}
 ```
 
@@ -249,7 +251,7 @@ server/Offering/
 ```
 
 ```vala
-// Argus.Server.SQT.Agent — NOT IN TREE YET (still server/Agent.vala for list/remove/allowlist)
+// Argus.Server.SQT.Agent — list/remove/allowlist (optional DB helpers below not approved)
 	public class Agent : Argus.Shared.Agent
 	{
 		public static Gee.ArrayList<InetAddress> allowlist(
@@ -369,7 +371,7 @@ Out-of-band [`Network.vala`](../../server/Offering/Network.vala), [`Certificate.
   Short version: **`Application`** = “always-on server” (app TLS, app firewall, download, Unix socket, database, broadcast to connected clients). **`Offering.Network`** = “registration desk” (registration TLS + registration nftables + mDNS while the desk is open).
 
 - **Done when (refactor)**
-  - Grep finds no **`Application.publish`**; **`Offering.Rpc`** drives **`offering_network.pair_publish`** like **`Agent.offer`** did.
+  - Grep finds no **`Application.publish`**; **`Offering.Rpc`** drives **`offering.pair_publish`** like **`Agent.offer`** did.
 
 **Phase 1 target changes**
 
@@ -452,14 +454,15 @@ Out-of-band [`Network.vala`](../../server/Offering/Network.vala), [`Certificate.
 - ℹ️ 2026-11-25: **`Offering.open`** / **`Offering.close`** `b` **`pending`**; not separate **`open_agent`** / **`open_pending`** RPCs. **`Network.pending`** mirrors the last open.
 - ℹ️ 2026-11-25: **`Agent.list`** / **`Agent.remove`** + static **`allowlist`** → **`server/SQT/Agent.vala`**; delete **`server/Agent.vala`**. No **`Net/Allowlist`**. Row stays **`shared/Agent.vala`** until optional move to **`shared/SQT/`**.
 - ℹ️ 2026-11-25: sign-off Vala stubs are not style templates — implement per **`docs/coding-standards.md`** (no space before **`(`**, **`brace-placement`**, grouped call wraps).
-- ℹ️ 2026-11-25: **`Offering.Network`** implemented out-of-band under **`server/Offering/`**; build unchanged until **`Application`** adopts **`offering_network`**.
+- ℹ️ 2026-11-25: **`Offering.Network`** implemented out-of-band under **`server/Offering/`**; build unchanged until **`Application`** adopts **`offering`**.
 - ℹ️ 2026-11-25: no legacy hooks — **`Offering.Rpc`** will call **`Network`** only, not **`app.publish`** / **`register_listen`**.
 - ℹ️ 2026-11-25: **`Offering.Certificate`** approved (thin **`sign_csr`**); **`EnrollDone`** rejected.
 - ℹ️ 2026-11-25: **`Rpc.enroll_success`** — **`Certificate`**, wire **`family`**, and **`AgentPending?`** / **`Agent?`** row (not loose id/ip/name/queued flags).
 - ℹ️ 2026-11-25: **`Network.lookup_ip`** (async **string**); **`Rpc.open`** builds **`retval as`**.
-- ℹ️ 2026-11-25: **`server/SQT/Agent.vala`** — plan only; fleet DB helpers + **`allowlist`**; not created yet.
+- ℹ️ 2026-11-25: **`server/Agent.vala`** removed; fleet **`SQT.Agent`**; registration **`Offering.*`** wired in **`Application`**.
 - ℹ️ 2026-11-25: **`update_pin`** / **`update_bulk(DeskState)`**; **`update_listener(bool)`**; **`lookup_ip`** on **`Network`**.
 - ℹ️ 2026-11-24: Phase 1 **code map** + **design gaps** for “where are the bits” / registration-flow debt.
 - ℹ️ 2026-11-24: user decisions closed — high priority; second Avahi publish; tab **Pending registration**; Pairing PIN-only; registration port until client active; 30 min stall + app banner.
 - ℹ️ Removed opaque “CSR” wording; controller-on-agent-path = plain **error.message**.
 - ℹ️ `docs/bug-fix-process.md`, `docs/guide-to-writing-bug-reports.md`.
+- ℹ️ 2026-11-25: **Archived** — historical spec only; implementation sign-off and remaining work in remainder bug + closed test-main-loop bug.

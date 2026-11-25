@@ -269,7 +269,7 @@ namespace Argus.Server
 							is_controller = false
 						});
 					this.app.db.backupDB();
-					this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+					this.app.firewall.apply(SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 					request.reply(new OLLMrpc.Response() {
 						retval = OLLMrpc.val("o", data),
 						msg = "ok"
@@ -299,7 +299,7 @@ namespace Argus.Server
 				return;
 			}
 			this.app.db.backupDB();
-			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			this.app.firewall.apply(SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 			request.reply(new OLLMrpc.Response() {
 				retval = OLLMrpc.val("o", data),
 				msg = "ok"
@@ -366,7 +366,7 @@ namespace Argus.Server
 					}
 					this.app.db.backupDB();
 					this.app.firewall.apply(
-						Agent.allowlist(this.app.db, this.app.interfaces));
+						SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 					request.reply(new OLLMrpc.Response() {
 						msg = "ok"
 					});
@@ -393,7 +393,7 @@ namespace Argus.Server
 				}
 				Argus.Shared.Agent.query(this.app.db).deleteWhere(where, int_binds, text_binds);
 				this.app.db.backupDB();
-				this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+				this.app.firewall.apply(SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 				request.reply(new OLLMrpc.Response() {
 					msg = "ok"
 				});
@@ -414,7 +414,7 @@ namespace Argus.Server
 				"WHERE fingerprint = $fingerprint AND is_controller = $is_controller",
 				int_binds, text_binds);
 			this.app.db.backupDB();
-			this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
+			this.app.firewall.apply(SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 			request.reply(new OLLMrpc.Response() {
 				msg = "ok"
 			});

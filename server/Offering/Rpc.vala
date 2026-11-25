@@ -22,13 +22,12 @@ namespace Argus.Server.Offering
 	 * Registration RPC on the Unix socket and controller TLS.
 	 *
 	 * Uses {@link Network} only for the registration listener,
-	 * offering firewall, and PairPublish. Not in ''server/meson.build''
-	 * until Phase 1a wire-up.
+	 * offering firewall, and PairPublish.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * Argus.Server.Offering.Rpc.register();
+	 * Argus.Server.Offering.Rpc.rpc_register();
 	 * OLLMrpc.Request.register("Offering",
 	 *     new Argus.Server.Offering.Rpc.for_rpc(app, network));
 	 * }}}
@@ -45,7 +44,7 @@ namespace Argus.Server.Offering
 			this.network = network;
 		}
 
-		public static void register()
+		public static void rpc_register()
 		{
 			OLLMrpc.Request.add_class(
 				"Offering", typeof(Rpc),
@@ -270,7 +269,7 @@ namespace Argus.Server.Offering
 			net.pair_publish.stop();
 			net.firewall.enable();
 			this.app.firewall.apply(
-				Agent.allowlist(this.app.db, this.app.interfaces));
+				SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 			this.app.download_listen.listen();
 			this.enroll_success(request, signed, family, null, agent_row);
 		}
@@ -421,7 +420,7 @@ namespace Argus.Server.Offering
 			}
 			this.app.db.backupDB();
 			this.app.firewall.apply(
-				Agent.allowlist(this.app.db, this.app.interfaces));
+				SQT.Agent.allowlist(this.app.db, this.app.interfaces));
 			this.app.broadcast(new OLLMrpc.Notification() {
 				method = "event.agent",
 				action = "accepted"

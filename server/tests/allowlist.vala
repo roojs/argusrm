@@ -19,7 +19,7 @@
 namespace Argus.Server
 {
 	/**
-	 * Check {@link Agent.allowlist} against a temporary agent table
+	 * Check {@link SQT.Agent.allowlist} against a temporary agent table
 	 * and this machine's routes.
 	 *
 	 * No socket is opened and nftables is not changed. A stored
@@ -62,7 +62,7 @@ namespace Argus.Server
 			Argus.Shared.Agent.init_db(db);
 			var interfaces = new Net.Interfaces();
 			note(interfaces.addresses.size > 0, "local addresses loaded", "none");
-			var empty = Agent.allowlist(db, interfaces);
+			var empty = SQT.Agent.allowlist(db, interfaces);
 			if (empty.size != interfaces.addresses.size) {
 				failures++;
 			}
@@ -96,7 +96,7 @@ namespace Argus.Server
 				note(false, "insert " + row.fingerprint, row.ip);
 			}
 			warnings = "";
-			var list = Agent.allowlist(db, interfaces);
+			var list = SQT.Agent.allowlist(db, interfaces);
 			note(warnings.contains("not-an-ip"), "malformed stored address", warnings);
 			var inactive = new GLib.InetAddress.from_string("203.0.113.10");
 			var inactive_copies = 0;

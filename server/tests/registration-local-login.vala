@@ -117,7 +117,7 @@ namespace Argus.Server
 			OLLMrpc.Request.register("Registration", new Registration(app));
 			OLLMrpc.Request.register("RPC-Daemon", new Daemon());
 			app.firewall = new Net.NFTables(test_port);
-			app.firewall.apply(Agent.allowlist(app.db, app.interfaces));
+			app.firewall.apply(SQT.Agent.allowlist(app.db, app.interfaces));
 			app.firewall.enable();
 			if (!app.ssl_listen.listen()) {
 				GLib.printerr("fail TLS listen on %s\n", app.socket);

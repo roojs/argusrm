@@ -76,11 +76,13 @@ namespace Argus.Server.Offering
 				return;
 			}
 			var ca_key_pem = "";
+			var ca_pem = "";
 			try {
 				GLib.FileUtils.get_contents(
-					this.app.tls.ca_pem_path, out this.ca_pem);
+					this.app.tls.ca_pem_path, out ca_pem);
 				GLib.FileUtils.get_contents(
 					this.app.tls.ca_key_path, out ca_key_pem);
+				this.ca_pem = ca_pem;
 			} catch (GLib.Error e) {
 				GLib.warning("could not sign: %s", e.message);
 				return;

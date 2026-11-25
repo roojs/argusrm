@@ -20,6 +20,7 @@ namespace Argus.Server.SQT
 		Distributable.rpc_register();
 		Script.rpc_register();
 		Task.rpc_register();
+		Agent.rpc_register();
 	}
 
 	/**
@@ -33,5 +34,6 @@ namespace Argus.Server.SQT
 		OLLMrpc.Request.register("Script", new Script.for_rpc(app));
 		OLLMrpc.Request.register("Task", new Task.for_rpc(app));
 		OLLMrpc.Request.register("Distributable", new Distributable.for_rpc(app));
+		OLLMrpc.Request.register("Agent", new Agent.for_rpc(app));
 	}
 }

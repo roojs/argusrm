@@ -27,7 +27,7 @@ A call name is `Class.method`. The letters in `OLLMrpc.args` are the argument ty
 
 The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download socket is not an RPC call. See [Downloads](#downloads).
 
-### `Agent.request_registration`
+### `Offering.enroll`
 
 - Socket: the registration socket. The client certificate does not exist yet. The app socket stays on its certificate check.
 - Direction: agent calls the server.
@@ -43,20 +43,35 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
   - Later entries are app-socket listen addresses. The client stores that port as `server`, not the registration port it dialed.
   - The download address is not in the reply. The agent writes `download` as the host it connected to and `Argus.DOWNLOAD_PORT`.
 - A matching pin replaces an active controller row for that username and hostname. The old row is removed, a live connection for it is closed, and the new certificate is saved. The server log says `replaced registration` with the login and machine name.
-- ℹ️ The method is `server/Agent.vala`. The agent calls it from `shared/Register.vala`.
+- ℹ️ The method is `server/Offering/Rpc.vala`. The agent calls it from `shared/Register.vala`.
 - A matching pin broadcasts `event.pair` with action `done`. A rejected pin broadcasts `event.pair` with action `rejected`. A queued `0000` broadcasts `event.pair` with action `pending`.
 
-### `Agent.offer`
+### `Offering.open`
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments: none.
-- Opens the registration socket and publishes that port. The app socket stays as it is.
-- Reply `retval` `as`: index 0 is the six digits. Index 1 is the public IPv4 address, or empty when that lookup fails. Each later index is one address in the broadcast, `interface address` when the name is known.
-- The number lasts sixty seconds, until `Agent.request_registration` accepts it, until `Agent.stop`, or until this connection closes.
+- Arguments `b`: `pending` false opens the six-digit PIN window; `pending` true opens the bulk provisional window.
+- Opens the registration socket and publishes that port when not already polling. The app socket stays as it is.
+- Reply `retval` `as` when `pending` is false: index 0 is the six digits. Index 1 is the public IPv4 address, or empty when that lookup fails. Each later index is one address in the broadcast, `interface address` when the name is known. When `pending` is true, `msg` is `ok` only.
+- The PIN lasts sixty seconds, until `Offering.enroll` accepts it, until `Offering.close`, or until this connection closes.
 - A caller that is not a controller is `controller only`.
 - The registration socket failing to bind is `registration socket did not bind`.
-- ℹ️ The method is `server/Agent.vala`. The controller calls it from `controller/dialog/Pairing.vala` and `controller/cli/Pin.vala`.
+- ℹ️ The method is `server/Offering/Rpc.vala`. The controller calls it from `controller/dialog/Pairing.vala` and `controller/cli/Pin.vala`.
+
+### `Offering.close`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `b`: `pending` false closes the PIN window; `pending` true closes bulk broadcast and enters polling (registration TLS stays up; `agent_pending` rows are kept).
+- A caller that is not a controller is `controller only`.
+- ℹ️ The method is `server/Offering/Rpc.vala`. The pairing dialog calls it when the header X closes the PIN window (`pending` false).
+
+### `Offering.status`
+
+- Socket: the registration socket with the provisional client certificate.
+- Direction: agent calls the server.
+- Arguments: none.
+- ℹ️ Stub in `server/Offering/Rpc.vala` until registration-port status polling lands.
 
 ### `AgentService.hello` / `AgentService.status` / `AgentService.register`
 
@@ -111,7 +126,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - `created` is the unix time the row was registered.
 - `last_connected` is the unix time of the latest app-socket session. `0` means it has never connected.
 - `connected` is true while that machine's app socket is open. It is not a database column.
-- ℹ️ `Store.MachineGeneral` calls `Agent.list` with the selected machine id for the **General** tab **Connection** expander.
+- ℹ️ The method is `server/SQT/Agent.vala`. `Store.MachineGeneral` calls `Agent.list` with the selected machine id for the **General** tab **Connection** expander.
 - 💩 The command line prints `id` and `requester`.
 
 ### `Agent.remove`
@@ -121,17 +136,18 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Arguments `i`: `agent.id`.
 - Deletes that row, writes `agent.removed` on its app socket, closes that socket, and refreshes the address allowlist.
 - An unknown id is `unknown machine`. A caller that is not a controller is `controller only`.
+- ℹ️ The method is `server/SQT/Agent.vala`.
 
-### `Agent.reject`
+### `Offering.reject`
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
 - Arguments `ai`: the ticked `agent_pending.id` values.
 - Deletes those rows. The registration window stays open. The app firewall is not changed.
 - An empty list is `nothing selected`. A caller that is not a controller is `controller only`.
-- ℹ️ The method is `server/Agent.vala`. The pairing dialog calls it from **Reject**.
+- ℹ️ The method is `server/Offering/Rpc.vala`. The pairing dialog calls it from **Reject**.
 
-### `Agent.accept`
+### `Offering.accept`
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
@@ -139,16 +155,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Each row becomes an `agent` row with `status` `1`, that fingerprint, and that address. The pending row is deleted. The app firewall is rebuilt from the allowlist. The registration window stays open.
 - Broadcasts `event.agent` with action `accepted`.
 - An empty list is `nothing selected`. A caller that is not a controller is `controller only`.
-- ℹ️ The method is `server/Agent.vala`. The pairing dialog calls it from **Accept**.
-
-### `Agent.stop`
-
-- Socket: the Unix socket, or a controller TLS connection.
-- Direction: controller calls the server.
-- Arguments: none.
-- Clears the issued number, stops the registration socket, and enables the registration firewall. Deletes every `agent_pending` row. Those certificates are not accepted. The app firewall is not changed.
-- A caller that is not a controller is `controller only`.
-- ℹ️ The method is `server/Agent.vala`. The pairing dialog calls it when the header X closes the window.
+- ℹ️ The method is `server/Offering/Rpc.vala`. The pairing dialog calls it from **Accept**.
 
 ### `OSQuery.sync`
 
@@ -375,14 +382,14 @@ The server sends these. The agent listens. [2.0 Phase 4](plans/done/2.0-DONE-age
 
 ### `event.pair`
 
-- 🔷 Broadcast. `Agent.request_registration` sends it.
+- 🔷 Broadcast. `Offering.enroll` sends it.
 - 💩 Action `done` means the pin was accepted. Action `rejected` means the pin was refused. Action `pending` means a flagged `0000` was queued. Its arguments are the `agent_pending` id, the peer address, and the machine name.
 - ℹ️ The pairing dialog and `argusrm-controller --pin` listen for it. The agent page reloads on `done`.
 
 ### `event.agent`
 
 - 🔷 Broadcast. The app socket sends it.
-- 💩 Action `connected` is a known certificate joining. Action `disconnected` is that socket stopping. Action `accepted` is `Agent.accept` making a pending certificate permanent.
+- 💩 Action `connected` is a known certificate joining. Action `disconnected` is that socket stopping. Action `accepted` is `Offering.accept` making a pending certificate permanent.
 - ℹ️ The agent page reloads on this notification.
 
 ### `event.task`

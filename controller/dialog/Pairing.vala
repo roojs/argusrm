@@ -124,7 +124,7 @@ namespace Argus.Controller.Dialog
 					n++;
 				}
 				rpc.call.begin(new OLLMrpc.Request() {
-					method = "Agent.reject",
+					method = "Offering.reject",
 					args = OLLMrpc.args("ai", ids, ids.length)
 				}, (obj, res) => {
 					OLLMrpc.Response response;
@@ -158,7 +158,7 @@ namespace Argus.Controller.Dialog
 					n++;
 				}
 				rpc.call.begin(new OLLMrpc.Request() {
-					method = "Agent.accept",
+					method = "Offering.accept",
 					args = OLLMrpc.args("ai", ids, ids.length)
 				}, (obj, res) => {
 					OLLMrpc.Response response;
@@ -202,7 +202,8 @@ namespace Argus.Controller.Dialog
 					return;
 				}
 				rpc.call.begin(new OLLMrpc.Request() {
-					method = "Agent.stop"
+					method = "Offering.close",
+					args = OLLMrpc.args("b", false)
 				}, (obj, res) => {
 					try {
 						rpc.call.end(res);
@@ -230,7 +231,7 @@ namespace Argus.Controller.Dialog
 		}
 
 		/**
-		 * Show the dialog and ask ''Agent.offer'' for the six digits.
+		 * Show the dialog and ask ''Offering.open'' for the six digits.
 		 */
 		private void begin()
 		{
@@ -312,7 +313,7 @@ namespace Argus.Controller.Dialog
 		}
 
 		/**
-		 * Ask ''Agent.offer'' for the six digits.
+		 * Ask ''Offering.open'' for the six digits.
 		 */
 		private void arm()
 		{
@@ -322,7 +323,8 @@ namespace Argus.Controller.Dialog
 			}
 			var ticket = this.generation;
 			rpc.call.begin(new OLLMrpc.Request() {
-				method = "Agent.offer"
+				method = "Offering.open",
+				args = OLLMrpc.args("b", false)
 			}, (obj, res) => {
 				if (ticket != this.generation || this.finished) {
 					return;

@@ -5,15 +5,6 @@
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 /**
@@ -21,10 +12,27 @@
  * mDNS PairPublish for {@link Argus.Server.Offering.Network}.
  *
  * {@link Argus.Server.Offering.Rpc} is the only entry for registration
- * RPC. New code uses {@link Network} and Rpc — not
- * ''Application.register_listen'', ''Application.publish'', or
- * ''Agent.offer''.
+ * RPC. New code uses {@link Network} and Rpc — not legacy
+ * ''Application.register_listen'' or ''Agent.offer''.
  */
 namespace Argus.Server.Offering
 {
+	/**
+	 * Register registration RPC methods.
+	 */
+	public static void rpc_register()
+	{
+		Rpc.rpc_register();
+	}
+
+	/**
+	 * Register the registration handler with ''OLLMrpc''.
+	 *
+	 * @param app the running server
+	 */
+	public static void register(Application app)
+	{
+		OLLMrpc.Request.register("Offering",
+			new Rpc.for_rpc(app, app.offering));
+	}
 }

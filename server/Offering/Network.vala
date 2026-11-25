@@ -113,7 +113,15 @@ namespace Argus.Server.Offering
 			};
 			this.endpoint_value = registration;
 			this.listen.endpoint = registration;
-			this.firewall = new Net.NFTables((uint16) Argus.REGISTER_PORT);
+			var register_port = Argus.REGISTER_PORT;
+			var colon = registration.last_index_of(":");
+			if (colon > 0) {
+				int.try_parse(registration.substring(colon + 1), out register_port);
+			}
+			if (register_port < 1 || register_port > 65535) {
+				register_port = Argus.REGISTER_PORT;
+			}
+			this.firewall = new Net.NFTables((uint16) register_port);
 		}
 
 		public bool update_listener(bool up)
@@ -161,7 +169,7 @@ namespace Argus.Server.Offering
 					return "";
 				}
 				var text = ((string) body.get_data()).strip();
-				var inet = GLib.InetAddress.from_string(text);
+				var inet = new GLib.InetAddress.from_string(text);
 				if (inet == null ||
 					inet.get_family() != GLib.SocketFamily.IPV4) {
 					return "";

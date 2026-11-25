@@ -81,7 +81,7 @@ namespace Argus.Server.Net
 		public bool registration { get; set; default = false; }
 
 		/**
-		 * Six digits from {@link Agent.offer}. Empty unless
+		 * Six digits from {@link Offering.Rpc.open}. Empty unless
 		 * the registration window is still in number mode.
 		 */
 		public string pin { get; set; default = ""; }
@@ -178,7 +178,9 @@ namespace Argus.Server.Net
 				}
 				tls.accept_certificate.connect((peer_cert, errors) => {
 					if (this.registration) {
-						return this.pin != "" || this.accepting;
+						var polling = this.app.offering != null &&
+							this.app.offering.polling;
+						return this.pin != "" || this.accepting || polling;
 					}
 					if (peer_cert == null) {
 						return false;

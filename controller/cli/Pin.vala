@@ -21,7 +21,7 @@ namespace Argus.Controller
 	/**
 	 * Registration PIN on the command line.
 	 *
-	 * Asks ''Agent.offer'' for a six-digit pin and prints it.
+	 * Asks ''Offering.open'' for a six-digit pin and prints it.
 	 * The number lasts sixty seconds. It lists each network the
 	 * broadcast is published on, then recommends the agent
 	 * command for a remote terminal, using the public address
@@ -56,7 +56,8 @@ namespace Argus.Controller
 				this.app.loop.quit();
 			});
 			this.app.rpc.call.begin(new OLLMrpc.Request() {
-				method = "Agent.offer"
+				method = "Offering.open",
+				args = OLLMrpc.args("b", false)
 			}, (obj, res) => {
 				try {
 					var response = this.app.rpc.call.end(res);
