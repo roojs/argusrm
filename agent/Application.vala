@@ -47,6 +47,14 @@ namespace Argus.Agent
 		public string host { get; set; default = ""; }
 
 		/**
+		 * Address used to reach the management server.
+		 *
+		 * Windows Remote Desktop is dialed here. A session opened
+		 * on loopback is closed by Windows after the picture appears.
+		 */
+		internal string desktop_address = "";
+
+		/**
 		 * Argus Remote Manager port for registration. Zero when not registering.
 		 */
 		public int port { get; set; default = 0; }
@@ -190,14 +198,62 @@ namespace Argus.Agent
 		/**
 		 * Second TLS socket for the Windows RDP relay.
 		 *
-		 * 💩 Not implemented until the spec covers a stream socket
-		 * apart from the management link.
+		 * Same host, port, and client certificate as the
+		 * management connection. The desktop bytes use this
+		 * socket. The management connection stays open.
 		 *
-		 * @return always null for now
+		 * @return the open stream, or null when it cannot be opened
 		 */
 		internal OLLMrpc.Transport.TlsClient? stream_connection()
 		{
-			return null;
+			if (this.client_db == null) {
+				return null;
+			}
+			var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			try {
+				Argus.Agent.SQT.Server.query(this.client_db).selectWhere(
+					"WHERE deleted_dt = 0", int_binds, text_binds, rows);
+				if (rows.size < 1) {
+					return null;
+				}
+				var row = rows.get(0);
+				row.data_dir = this.data_dir;
+				row.load_certificates();
+				var endpoint = row.socket(0);
+				try {
+					var remote = endpoint.get_address();
+					var probe = new GLib.Socket(
+						remote.family, GLib.SocketType.DATAGRAM, GLib.SocketProtocol.UDP);
+					probe.connect(new GLib.InetSocketAddress(remote, 9));
+					var bound = probe.get_local_address() as GLib.InetSocketAddress;
+					if (bound != null) {
+						this.desktop_address = bound.get_address().to_string();
+					}
+					probe.close();
+				} catch (GLib.Error lookup) {
+					GLib.warning("%s", lookup.message);
+				}
+				var tls_files = new OLLMrpc.Transport.Cert() {
+					dir = this.data_dir,
+					cert_pem = "client.pem",
+					key_pem = "client-key.pem",
+					cn = "argus-agent",
+				};
+				tls_files.ensure();
+				var socket = new OLLMrpc.Transport.TlsClient(
+					endpoint.get_address().to_string(), endpoint.get_port()) {
+					accept_any = true,
+					tls_certificate = tls_files.certificate,
+					timeout = 5
+				};
+				socket.open();
+				return socket;
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return null;
+			}
 		}
 
 		internal void start_inventory_once()
@@ -213,6 +269,13 @@ namespace Argus.Agent
 						return false;
 					}
 					this.osquery.send_startup();
+#if WINDOWS
+					if (Windows.Service.current != null &&
+						this.os_version != null &&
+						this.os_version.supports_rdp()) {
+						Windows.Service.current.desktop();
+					}
+#endif
 					this.monitor = new PackageMonitor(this);
 					this.monitor.start();
 					this.user_monitor = new UserMonitor(this);
@@ -575,7 +638,10 @@ namespace Argus.Agent
 				case "relay.start":
 #if WINDOWS
 					if (Windows.Service.current != null) {
-						Windows.Service.current.relay_start();
+						GLib.Idle.add(() => {
+							Windows.Service.current.relay_start();
+							return false;
+						});
 					}
 #endif
 					return;
@@ -585,7 +651,10 @@ namespace Argus.Agent
 						return;
 					}
 					if (Windows.Service.current.tunnel == null) {
-						Windows.Service.current.relay_start();
+						GLib.Idle.add(() => {
+							Windows.Service.current.relay_start();
+							return false;
+						});
 						return;
 					}
 					Windows.Service.current.tunnel.reopen();

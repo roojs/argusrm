@@ -30,6 +30,7 @@ namespace Argus.Shared.OSQuery
 		AptExplicitInstall.init_db(db);
 		RpmPackages.init_db(db);
 		Programs.init_db(db);
+		ProgramClass.init_db(db);
 		PackageUpdates.init_db(db);
 	}
 
@@ -55,6 +56,7 @@ namespace Argus.Shared.OSQuery
 		AptExplicitInstall.rpc_register();
 		RpmPackages.rpc_register();
 		Programs.rpc_register();
+		ProgramClass.rpc_register();
 		PackageUpdates.rpc_register();
 	}
 
@@ -76,6 +78,7 @@ namespace Argus.Shared.OSQuery
 		OLLMrpc.Request.register("DebPackages", new DebPackages());
 		OLLMrpc.Request.register("RpmPackages", new RpmPackages());
 		OLLMrpc.Request.register("Programs", new Programs());
+		OLLMrpc.Request.register("ProgramClass", new ProgramClass());
 	}
 
 }

@@ -302,7 +302,7 @@ namespace Argus.Controller
 				this.title_label.css_classes = { "title" };
 				if (this.told_offline) {
 					foreach (var agent_id in this.rdp.screens.keys) {
-						this.rdp.note(agent_id, Argus.Rdp.State.SUCCESS_SERVER_RECONNECTED, 0);
+						this.rdp.toast(agent_id, Argus.Rdp.State.SUCCESS_SERVER_RECONNECTED, 0);
 					}
 					this.told_offline = false;
 					this.told_wait = false;
@@ -312,7 +312,7 @@ namespace Argus.Controller
 				this.title_label.css_classes = { "title", "offline-title" };
 				if (!this.told_offline) {
 					foreach (var agent_id in this.rdp.screens.keys) {
-						this.rdp.note(agent_id, Argus.Rdp.State.RETRY_SERVER_DISCONNECTED, 1);
+						this.rdp.toast(agent_id, Argus.Rdp.State.RETRY_SERVER_DISCONNECTED, 1);
 					}
 					this.told_offline = true;
 				}
@@ -327,7 +327,7 @@ namespace Argus.Controller
 			if (!this.was_connected && now < this.next_reconnect) {
 				if (!this.told_wait) {
 					foreach (var agent_id in this.rdp.screens.keys) {
-						this.rdp.note(agent_id, Argus.Rdp.State.RETRY_SERVER_CONNECT_REFUSED, 1);
+						this.rdp.toast(agent_id, Argus.Rdp.State.RETRY_SERVER_CONNECT_REFUSED, 1);
 					}
 					this.told_wait = true;
 				}

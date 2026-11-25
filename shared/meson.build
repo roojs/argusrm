@@ -36,6 +36,7 @@ shared_osquery_sources = files(
 	'OSQuery/DebPackages.vala',
 	'OSQuery/RpmPackages.vala',
 	'OSQuery/Programs.vala',
+	'OSQuery/ProgramClass.vala',
 	'OSQuery/PackageUpdates.vala',
 	'OSQuery/AptSources.vala',
 	'OSQuery/AptExplicitInstall.vala',

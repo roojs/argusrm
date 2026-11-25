@@ -392,7 +392,7 @@ namespace Argus.Agent
 			this.enter_state(State.CONNECTED);
 		}
 
-		private void schedule_retry(bool immediate)
+		internal void schedule_retry(bool immediate)
 		{
 			this.client_newer = false;
 			this.pending_tls_client = null;

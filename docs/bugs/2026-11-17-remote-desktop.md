@@ -14,6 +14,30 @@
 
 ---
 
+## After "Told the server this controller wants to take control."
+
+Windows PC (`snappr-win`), 5:07pm. Lines before that sentence are left out. ✔️ means this run reached that line. A blank flag means it did not. The desktop was on screen. Windows then closed the session that came from this PC. Tries 2 and 3 waited and got no new sign-in.
+
+| Step | This run |
+| --- | --- |
+| Told the server this controller wants to take control. | ✔️ |
+| Turning Remote Desktop on. | |
+| Waiting for Remote Desktop to be turned on. | |
+| Remote Desktop is on. | |
+| Connecting to Windows Remote Desktop on the machine. | ✔️ |
+| The machine started the Remote Desktop connection. | ✔️ |
+| The machine is joining the server. | ✔️ |
+| The machine joined the server. | ✔️ |
+| The server is waiting for this controller. | ✔️ |
+| The server is holding the desktop until this controller joins. | ✔️ |
+| This controller is joining the desktop. | |
+| This controller joined the desktop. | ✔️ |
+| The machine is about to send the desktop. | ✔️ |
+| Drawing the desktop in this window. | |
+| The machine is sending the desktop to the server. | ✔️ |
+| The desktop data is coming through. | ✔️ |
+| The desktop is on screen. | ✔️ then it closed. **Critical. Stops here.** "The machine could not send the desktop." Trying 1, 2, and 3. Windows closed the session from this PC. Tries 2 and 3 got no new sign-in. |
+
 ## Why this left the plan
 
 - 🔷 [5.12](../plans/done/5.12-MOVED-remote-desktop.md) was feasibility only, and it waited. It is this bug because the uninstall work still leaves machines that need a person on the desktop.

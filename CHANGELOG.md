@@ -8,7 +8,57 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.54] - Unreleased
+
+### Fixed
+
+- The Windows agent opens Remote Desktop on the machine's own network address. Windows was closing the session when it came from this PC itself.
+
+## [0.1.53] - Unreleased
+
+### Fixed
+
+- Before the Windows agent opens the desktop, it logs off an existing Remote Desktop session. Disconnecting left that session logged on, and Windows then closed the new one.
+- When the machine cannot send the desktop, it connects again, up to three times.
+
+## [0.1.52] - Unreleased
+
+### Fixed
+
+- Before the Windows agent opens the desktop, it disconnects an active Remote Desktop session. Windows was keeping that session and closing this one.
+
+## [0.1.51] - Unreleased
+
+### Fixed
+
+- The Windows agent opens a second connection to the server for the desktop, instead of stopping on "The machine could not open its second connection."
+- Categorize on the Software page reaches the server. The rows are System, Keep, and Bad, then a separator, then Unknown. Each row shows its mark. The Scope column starts hidden.
+
+## [0.1.50] - Unreleased
+
+### Fixed
+
+- Retry on the version window stays open, shows whether the agent connected, and closes a few seconds later.
+
+## [0.1.49] - Unreleased
+
+### Fixed
+
+- When this controller asks for the desktop, the Windows agent starts Remote Desktop. If that start fails, it tries again, up to three times.
+
+## [0.1.48] - Unreleased
+
+### Fixed
+
+- The Windows agent no longer locks up when this controller asks it to open the desktop. It answers after it has finished receiving that request.
+- When the agent and the server versions do not match, the Windows agent offers Retry, then Restart. It does not offer Register.
+
 ## [0.1.47] - Unreleased
+
+### Added
+
+- The Windows programs bar on a machine has a save icon on the right. It writes that machine's program list to a spreadsheet and opens the file in the registered spreadsheet application. The spreadsheet includes the file hash, the signing result, and the certificate fields.
+- The Software page leads with a category mark and a listing mark. Programs and Store packages use a display. A service uses a wireless mark. Several rows can be selected. Right-click, Categorize, and choose System, Installed, Unknown, or Bad. That choice is stored as a number for the source and the name, and the category mark shows it on the next list.
 
 ### Fixed
 
@@ -24,7 +74,16 @@ package changelogs.
 - Windows program file hashes now follow an executable path that contains spaces, such as ``C:\Program Files\...\Uninstall.exe``.
 - The Windows software list hides an MSI piece whose uninstall key sets SystemComponent. Visual Studio and the Windows SDK stay as their own entries. The hidden rows remain stored.
 - The Windows software list hides a service whose signing certificate hash is one of the Windows certificates recorded in ``Programs``. Catalog-signed drivers now store that certificate. Another certificate stays visible, including Microsoft Code Signing and the hardware-compatibility publisher.
+- One further Microsoft Windows certificate is left out for every source. On this machine that is Windows Setup Remediations, three Store packages, and 43 services.
+- Five signing certificates are left out for every source. They cover the Windows shell packages, Print Dialog, Windows Setup Remediations, Photos, the Windows App Runtime package, and both Visual C++ 2015-2022 redistributables.
+- On one machine, installed programs that share a certificate, a version, and a file hash are one row. The name joins those program names.
+- Two more Microsoft Windows certificates are left out for services. One was already left out for every source. The other covers 17 services.
+- A Microsoft Corporation certificate is left out for every source. On this machine it signs App Installer, Outlook, Terminal, Game Bar, Phone Link, and two Windows App Runtime packages.
+- On one machine, services that share a file hash are one row. The name joins those service names.
+- A Windows Store package shows the uninstall button. The command is ``Remove-AppxPackage`` for every user, using the package folder name.
 - A Windows Store package is hashed from the executable named by Application in its AppxManifest.xml. Other files in the package folder are left alone. A package whose manifest names no executable is stored and left out of the list.
+- Startup items stay stored and are left out of the software list.
+- The one-machine software list is one row per source and name, the same grouping as the all-machines list. The reply keeps that machine's id and the highest version in the group.
 
 ## [0.1.45] - Unreleased
 

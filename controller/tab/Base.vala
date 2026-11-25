@@ -120,6 +120,7 @@ namespace Argus.Controller.Tab
 		 *  * A hyphen in the JSON name stands in for an underscore.
 		 *  * The file order is the column order. The first column is the row header.
 		 *  * The menu stays open so several columns can be chosen.
+		 *  * A right-click on a column header opens the menu.
 		 *  * Hiding the last visible column does nothing.
 		 *
 		 * @return the group whose actions show and hide columns
@@ -205,7 +206,16 @@ namespace Argus.Controller.Tab
 				propagation_phase = Gtk.PropagationPhase.CAPTURE
 			};
 			open.pressed.connect((n_press, x, y) => {
-				if (this.pick(x, y) != null) {
+				var header = this.grid.pick(x, y, Gtk.PickFlags.DEFAULT);
+				var on_header = false;
+				while (header != null && header != this.grid) {
+					if (header.get_type().name() == "GtkColumnViewTitle") {
+						on_header = true;
+						break;
+					}
+					header = header.parent;
+				}
+				if (!on_header) {
 					open.set_state(Gtk.EventSequenceState.DENIED);
 					return;
 				}
@@ -406,7 +416,8 @@ namespace Argus.Controller.Tab
 		 * @param name JSON name. A hyphen is an underscore.
 		 * @param format text, dim-text, controller-kind, recent-created,
 		 *   recent-last-connected, tick-registered, tick-connected, number,
-		 *   bytes, mhz, date, elapsed, cidr, status, tick, leaf, bin, remove, or archive
+		 *   bytes, mhz, date, elapsed, cidr, status, tick, leaf, bin, remove,
+		 *   archive, rating, or kind
 		 * @param header_column true for the row header
 		 * @return the factory that sets up each cell
 		 */
@@ -441,6 +452,8 @@ namespace Argus.Controller.Tab
 					case "tick-registered":
 					case "tick-connected":
 					case "leaf":
+					case "rating":
+					case "kind":
 						item.child = new Gtk.Image() {
 							halign = Gtk.Align.CENTER,
 							hexpand = true,
@@ -574,6 +587,9 @@ namespace Argus.Controller.Tab
 				if (format == "archive") {
 					lookup = "id";
 				}
+				if (format == "kind") {
+					lookup = "source";
+				}
 				var prop = row.get_class().find_property(lookup);
 				if (prop == null) {
 					return;
@@ -595,6 +611,10 @@ namespace Argus.Controller.Tab
 						break;
 
 					default:
+						if (prop.value_type.is_enum()) {
+							shown = value.get_enum().to_string();
+							break;
+						}
 						shown = value.get_string();
 						break;
 				}
@@ -873,6 +893,25 @@ namespace Argus.Controller.Tab
 						leaf_image.tooltip_text = fleet ?
 							"Top level on at least one machine." :
 							"Top level package. Nothing installed on this machine depends on it.";
+						break;
+
+					case "rating":
+						Argus.Shared.OSQuery.ProgramClass.Rating rating = 0;
+						if (prop.value_type.is_enum()) {
+							rating = (Argus.Shared.OSQuery.ProgramClass.Rating) value.get_enum();
+						}
+						rating.show(item.child);
+						break;
+
+					case "kind":
+						var kind_image = (Gtk.Image) item.child;
+						kind_image.icon_name = "video-display-symbolic";
+						kind_image.tooltip_text = "Application";
+						if (shown == "service") {
+							kind_image.icon_name = "network-wireless-symbolic";
+							kind_image.tooltip_text = "Service";
+						}
+						kind_image.visible = true;
 						break;
 
 					case "tick":

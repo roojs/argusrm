@@ -80,7 +80,7 @@ namespace Argus.Controller.Rdp
 		 */
 		public void begin()
 		{
-			this.window.rdp.note(
+			this.window.rdp.toast(
 				this.agent_id, Argus.Rdp.State.REQUEST_CONTROLLER_JOIN_RELAY, 0);
 			GLib.TlsCertificate certificate;
 			GLib.TlsDatabase trust;
@@ -97,13 +97,13 @@ namespace Argus.Controller.Rdp
 			} catch (GLib.Error e) {
 				GLib.debug("%s", e.message);
 				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
-				this.window.rdp.note(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
+				this.window.rdp.toast(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
 				return;
 			}
 			var viewer = new Viewer();
 			viewer.failed.connect((message) => {
 				GLib.debug("%s", message);
-				this.window.rdp.note(
+				this.window.rdp.toast(
 					this.agent_id, Argus.Rdp.State.RETRY_CONTROLLER_JOIN_RELAY, 1);
 			});
 			try {
@@ -116,24 +116,21 @@ namespace Argus.Controller.Rdp
 			} catch (GLib.Error e) {
 				GLib.debug("%s", e.message);
 				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
-				this.window.rdp.note(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
+				this.window.rdp.toast(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
 				return;
 			}
-			this.window.rdp.note(
+			this.window.rdp.toast(
 				this.agent_id, Argus.Rdp.State.REQUEST_RENDER_DESKTOP, 0);
 			this.instance = new FreeRDP.Instance();
 			if (!this.instance.context_new()) {
 				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
-				this.window.rdp.note(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
+				this.window.rdp.toast(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
 				return;
 			}
 			this.instance.PostConnect = Screen.connected;
 			this.instance.Authenticate = Screen.authenticate;
 			this.instance.VerifyCertificateEx = Screen.verify;
 			Screen.live.add(this);
-			unowned FreeRDP.Settings settings = this.instance.context.settings;
-			settings.set_string(FreeRDP.SettingsString.ServerHostname, "127.0.0.1");
-			settings.set_uint32(FreeRDP.SettingsUint32.ServerPort, viewer.view_port);
 			var width = this.picture.get_width();
 			var height = this.picture.get_height();
 			if (width < 64) {
@@ -142,6 +139,9 @@ namespace Argus.Controller.Rdp
 			if (height < 64) {
 				height = 720;
 			}
+			unowned FreeRDP.Settings settings = this.instance.context.settings;
+			settings.set_string(FreeRDP.SettingsString.ServerHostname, "127.0.0.1");
+			settings.set_uint32(FreeRDP.SettingsUint32.ServerPort, viewer.view_port);
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
 			settings.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
@@ -157,30 +157,68 @@ namespace Argus.Controller.Rdp
 			settings.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
 			settings.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
 			settings.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
+			var port = viewer.view_port;
 			new GLib.Thread<int>("screen", () => {
-				if (!this.instance.connect()) {
-					GLib.Idle.add(() => {
-						this.problem = Argus.Rdp.State.RETRY_RENDER_CONNECT.to_string();
-						this.window.rdp.note(
-							this.agent_id, Argus.Rdp.State.RETRY_RENDER_CONNECT, 1);
-						return false;
-					});
-					return 0;
-				}
-				while (!this.instance.shall_disconnect()) {
-					if (!FreeRDP.check_event_handles(this.instance.context)) {
+				for (var attempt = 0; attempt < 3 && !this.stopping; attempt++) {
+					if (attempt > 0) {
+						GLib.Thread.usleep(500000);
+						if (this.stopping || this.instance == null) {
+							break;
+						}
+						this.instance.disconnect();
+						FreeRDP.gdi_free(this.instance);
+						this.instance.context_free();
+						if (!this.instance.context_new()) {
+							break;
+						}
+						this.instance.PostConnect = Screen.connected;
+						this.instance.Authenticate = Screen.authenticate;
+						this.instance.VerifyCertificateEx = Screen.verify;
+						unowned FreeRDP.Settings again = this.instance.context.settings;
+						again.set_string(FreeRDP.SettingsString.ServerHostname, "127.0.0.1");
+						again.set_uint32(FreeRDP.SettingsUint32.ServerPort, port);
+						again.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
+						again.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
+						again.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
+						again.set_bool(FreeRDP.SettingsBool.BitmapCacheEnabled, true);
+						again.set_bool(FreeRDP.SettingsBool.BitmapCacheV3Enabled, true);
+						again.set_bool(FreeRDP.SettingsBool.RemoteFxCodec, true);
+						again.set_bool(FreeRDP.SettingsBool.NSCodec, true);
+						again.set_bool(FreeRDP.SettingsBool.SurfaceCommandsEnabled, true);
+						again.set_bool(FreeRDP.SettingsBool.SupportGraphicsPipeline, true);
+						again.set_bool(FreeRDP.SettingsBool.GfxH264, true);
+						again.set_bool(FreeRDP.SettingsBool.GfxAVC444, true);
+						again.set_bool(FreeRDP.SettingsBool.GfxAVC444v2, true);
+						again.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
+						again.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
+						again.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
+					}
+					if (!this.instance.connect()) {
+						var shown = attempt + 1;
+						GLib.Idle.add(() => {
+							this.problem = Argus.Rdp.State.RETRY_RENDER_CONNECT.to_string();
+							this.window.rdp.toast(
+								this.agent_id, Argus.Rdp.State.RETRY_RENDER_CONNECT, shown);
+							return false;
+						});
+						continue;
+					}
+					while (!this.stopping && !this.instance.shall_disconnect()) {
+						if (!FreeRDP.check_event_handles(this.instance.context)) {
+							break;
+						}
+						this.publish();
+					}
+					if (this.stopping) {
 						break;
 					}
-					this.publish();
-				}
-				GLib.Idle.add(() => {
-					if (this.stopping) {
+					var dropped = attempt + 1;
+					GLib.Idle.add(() => {
+						this.window.rdp.toast(
+							this.agent_id, Argus.Rdp.State.RETRY_DESKTOP_DISCONNECTED, dropped);
 						return false;
-					}
-					this.window.rdp.note(
-						this.agent_id, Argus.Rdp.State.RETRY_DESKTOP_DISCONNECTED, 1);
-					return false;
-				});
+					});
+				}
 				return 0;
 			});
 		}
@@ -221,7 +259,7 @@ namespace Argus.Controller.Rdp
 				this.picture.set_paintable(texture);
 				if (!this.rendered) {
 					this.rendered = true;
-					this.window.rdp.note(
+					this.window.rdp.toast(
 						this.agent_id, Argus.Rdp.State.SUCCESS_DESKTOP_RENDERED, 0);
 				}
 				return false;
@@ -302,8 +340,13 @@ namespace Argus.Controller.Rdp
 			password = "";
 			domain = "";
 			var screen = Screen.find(instance);
-			if (screen == null || !screen.prompt()) {
+			if (screen == null) {
 				return false;
+			}
+			if (screen.user == "" || screen.pass == "") {
+				if (!screen.prompt()) {
+					return false;
+				}
 			}
 			username = screen.user;
 			password = screen.pass;

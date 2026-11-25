@@ -61,6 +61,7 @@ namespace Argus.Agent.Windows
 		private string tip_text = "";
 		private void* restart_proc = null;
 		private bool restarting = false;
+		private bool version_retry = false;
 		private bool asking = false;
 
 		/**
@@ -204,6 +205,37 @@ namespace Argus.Agent.Windows
 				this.connected = notif.args.get(1).get_boolean();
 				this.tip_text = notif.args.get(2).get_string();
 				this.set_tip(this.tip_text);
+				if (this.version_retry && this.notice_up) {
+					var mismatch = this.tip_text.has_prefix("The server is ") &&
+						this.tip_text.contains(". This client is ");
+					var settled = this.connected || mismatch ||
+						(this.tip_text != "" &&
+							this.tip_text != "Disconnected" &&
+							this.tip_text != "Not registered");
+					if (settled) {
+						this.version_retry = false;
+						if (this.connected) {
+							this.status_notice.heading_label.label = "The agent is connected.";
+							this.status_notice.body_label.label =
+								"Connected to the management server.";
+						} else if (mismatch) {
+							this.status_notice.heading_label.label = "The versions still differ.";
+							this.status_notice.body_label.label = this.tip_text;
+						} else {
+							this.status_notice.heading_label.label = "The agent is not connected.";
+							this.status_notice.body_label.label = this.tip_text;
+						}
+						this.status_notice.body_label.visible = true;
+						this.status_notice.actions.visible = false;
+						var notice = this.status_notice;
+						GLib.Timeout.add_seconds(4, () => {
+							if (this.notice_up && this.status_notice == notice) {
+								notice.close();
+							}
+							return false;
+						});
+					}
+				}
 				if (!this.started) {
 					this.started = true;
 					if (!this.registered) {
@@ -415,7 +447,10 @@ namespace Argus.Agent.Windows
 					AppendMenuW(menu, MF_SEPARATOR, 0, null);
 					var restart_flags = this.restarting ? MF_STRING | MF_GRAYED : MF_STRING;
 					AppendMenuW(menu, restart_flags, 1001, g_utf8_to_utf16("Restart Agent"));
-					if (!this.registered || !this.connected) {
+					var version_mismatch = this.registered && !this.connected &&
+						this.tip_text.has_prefix("The server is ") &&
+						this.tip_text.contains(". This client is ");
+					if ((!this.registered || !this.connected) && !version_mismatch) {
 						AppendMenuW(menu, MF_STRING, 1002, g_utf8_to_utf16("Register…"));
 					}
 					SetForegroundWindow(this.hwnd);
@@ -464,19 +499,52 @@ namespace Argus.Agent.Windows
 					if (this.registered && !this.connected) {
 						heading = "Argus agent is not connected";
 					}
-					var offer_register = !this.registered || !this.connected;
+					var version_mismatch = this.registered && !this.connected &&
+						this.tip_text.has_prefix("The server is ") &&
+						this.tip_text.contains(". This client is ");
+					var offer_register = (!this.registered || !this.connected) &&
+						!version_mismatch;
 					this.status_notice = new Argus.Shared.Notice(heading, detail);
 					this.status_notice.title =
 						"Argus Remote Management Agent " + Argus.VERSION;
+					if (version_mismatch && !this.restarting) {
+						this.status_notice.add_response("restart", "Restart");
+					}
+					if (version_mismatch) {
+						this.status_notice.add_response("retry", "Retry", false);
+					}
 					if (offer_register) {
 						this.status_notice.add_response("register", "Register");
 					}
-					if (!this.restarting) {
+					if (!version_mismatch && !this.restarting) {
 						this.status_notice.add_response("restart", "Restart");
 					}
 					this.status_notice.responded.connect((response) => {
 						if (response == "restart") {
 							PostMessageW(this.hwnd, WM_COMMAND, 1001, 0);
+						}
+						if (response == "retry" && this.rpc.connected) {
+							this.version_retry = true;
+							this.status_notice.heading_label.label = "Trying the server again.";
+							try {
+								this.rpc.call_sync(new OLLMrpc.Request() {
+									method = "AgentService.retry"
+								});
+							} catch (GLib.Error e) {
+								this.version_retry = false;
+								this.status_notice.heading_label.label =
+									"Could not try the server again.";
+								this.status_notice.body_label.label = e.message;
+								this.status_notice.body_label.visible = true;
+								this.status_notice.actions.visible = false;
+								var notice = this.status_notice;
+								GLib.Timeout.add_seconds(4, () => {
+									if (this.notice_up && this.status_notice == notice) {
+										notice.close();
+									}
+									return false;
+								});
+							}
 						}
 						if (response == "register") {
 							this.status_notice.close();
@@ -486,6 +554,7 @@ namespace Argus.Agent.Windows
 					this.notice_up = true;
 					this.status_notice.closed.connect(() => {
 						this.notice_up = false;
+						this.version_retry = false;
 					});
 					this.status_notice.present(null);
 					return 0;

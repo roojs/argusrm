@@ -121,15 +121,15 @@ namespace Argus.Controller.Tab.Asset.Machine
 					return;
 				}
 				this.window.rdp.armed.add(agent_id);
-				this.window.rdp.note(agent_id, Argus.Rdp.State.REQUEST_TAKE_CONTROL, 0);
-				this.window.rdp.note(agent_id, Argus.Rdp.State.SUCCESS_TAKE_CONTROL, 0);
-				this.window.rdp.note(agent_id, Argus.Rdp.State.REQUEST_START_DESKTOP, 0);
+				this.window.rdp.toast(agent_id, Argus.Rdp.State.REQUEST_TAKE_CONTROL, 0);
+				this.window.rdp.toast(agent_id, Argus.Rdp.State.SUCCESS_TAKE_CONTROL, 0);
+				this.window.rdp.toast(agent_id, Argus.Rdp.State.REQUEST_START_DESKTOP, 0);
 				this.store.start_desktop.begin((obj, res) => {
 					if (!this.store.start_desktop.end(res)) {
 						this.window.rdp.forget(agent_id);
 						return;
 					}
-					this.window.rdp.note(
+					this.window.rdp.toast(
 						agent_id, Argus.Rdp.State.SUCCESS_START_DESKTOP, 0);
 					this.window.rdp.open(agent_id, name);
 					this.window.tabs.show_rdp();

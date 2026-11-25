@@ -26,6 +26,9 @@
 
 DWORD argus_active_session(void);
 
+/* Log off a Remote Desktop session so a new one can take the screen. */
+void argus_end_rdp_sessions(void);
+
 /* INVALID_HANDLE_VALUE is a macro. Vala needs a real function. */
 static inline HANDLE argus_invalid_handle(void)
 {

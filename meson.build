@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.47',
+	version: '0.1.54',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -142,7 +142,10 @@ if host_machine.system() == 'windows'
 	subdir('win32')
 endif
 subdir('agent')
-subdir('controller')
+# The Windows installer is the agent. There is no Windows controller yet.
+if host_machine.system() != 'windows'
+	subdir('controller')
+endif
 if host_machine.system() == 'linux'
 	subdir('server')
 endif

@@ -130,11 +130,11 @@ namespace Argus.Controller.Store
 		/**
 		 * Fetch ''Programs.list'' and apply it to {@link items}.
 		 *
-		 * Zero asks for every agent, added up by name. An
-		 * ''agent_id'' greater than zero asks for that agent's
-		 * stored rows. The call passes ''since'' zero, so a
-		 * deleted row stays out. The first reply fills the list.
-		 * A later reply is applied by name.
+		 * Zero asks for every agent. An ''agent_id'' greater
+		 * than zero asks for that one machine. Both replies are
+		 * added up by source and name. The call passes ''since''
+		 * zero, so a deleted row stays out. The first reply fills
+		 * the list. A later reply replaces it.
 		 *
 		 * @param agent_id agent id, or zero for every agent
 		 */

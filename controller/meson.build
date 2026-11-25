@@ -83,6 +83,14 @@ if host_machine.system() == 'linux'
 		install_dir: get_option('datadir') / 'polkit-1' / 'actions',
 	)
 endif
+if host_machine.system() != 'android'
+	deps += dependency('xlsxwriter')
+	controller_vala_args += [
+		'--vapidir', meson.project_source_root() / 'vapi',
+		'--pkg', 'xlsxwriter',
+	]
+	controller_c_args += ['-I' + meson.project_source_root() / 'vapi']
+endif
 sources = files(
 	'namespace.vala',
 	'About.vala',
@@ -164,6 +172,9 @@ sources = files(
 	'Rdp/Screen.vala',
 	'tab/Rdp.vala',
 )
+if host_machine.system() != 'android'
+	sources += files('../shared/xlsxwriter_vala_unref.c')
+endif
 if host_machine.system() == 'android'
 	sources += files(
 		'android/Application.vala',

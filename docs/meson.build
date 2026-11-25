@@ -75,6 +75,7 @@ valadoc_sources += files(
   '../shared/OSQuery/DebPackages.vala',
   '../shared/OSQuery/RpmPackages.vala',
   '../shared/OSQuery/Programs.vala',
+  '../shared/OSQuery/ProgramClass.vala',
   '../shared/OSQuery/PackageUpdates.vala',
   '../shared/OSQuery/AptSources.vala',
   '../shared/OSQuery/AptExplicitInstall.vala',

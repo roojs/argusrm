@@ -79,6 +79,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Direction: `argus-tray.exe` calls `argus-agent.exe`.
 - `AgentService.hello` `is`: protocol version, client name. Reply `msg`: `ok`.
 - `AgentService.status`: no arguments. Reply `retval` `as`: `["1"|"0" registered, "1"|"0" connected, tip]`.
+- `AgentService.retry`: no arguments. Reply `msg`: `ok`. Tries the management server again and leaves the registration as it is.
 - `AgentService.register` `ss`: six-digit PIN, `host:port` (or empty to use browse). Reply `retval` `i`: `0` on success or `OLLMrpc.RpcErrorCode`.
 - `AgentService.allow` `b`: the tray's answer. `true` turns Remote Desktop on. `false` does nothing. Reply `msg`: `ok`.
 - Notification `agent.desktop`: no arguments. The service sends it on the loopback socket when someone is logged in, before Remote Desktop is turned on. The tray shows a balloon. A click allows it. Ignoring the balloon leaves it off. Half an hour idle allows it without the balloon.
@@ -293,9 +294,9 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 - Socket: the Unix socket, or a controller TLS connection.
 - Direction: controller calls the server.
-- Arguments `ii`: `agent_id`, `since`. `agent_id` zero is every agent, one row per program name. Greater than zero is that agent's stored rows, and the added-up columns are not filled. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
-- Reply `retval` `o`: an array of `Programs` rows. A host whose `agent_id` is not in `agent` is left out.
-- When `agent_id` and `since` are zero, the reply fills `source`, `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `architecture`, `scope`, `user_account`, `extra`, `min_version`, `max_version`, `installed`, and `uninstall_count`. Rows are grouped by `source` and `name`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string.
+- Arguments `ii`: `agent_id`, `since`. `since` zero is the current list, one row per `source` and `name`. `agent_id` zero is every agent. Greater than zero is that one machine. Programs that share a certificate, a version, and a file hash are one row, and `name` joins those names. Services that share a file hash are one row, and `name` joins those names. The reply includes that `agent_id`, `version` (the highest version in the group), and `file_sha256`, `signing_result`, `signer_cert_sha256`, `signer_subject_key_id`, `signer_publisher`, `signer_issuer`, and `signer_serial`. A group with more than one distinct value joins them. `since` zero leaves out a row whose `deleted_dt` is set. A later `since` returns every stored row whose `added_dt`, `updated_dt`, or `deleted_dt` is after that time, including a deleted row. That reply is not the added-up list.
+- Reply `retval` `o`: an array of `Programs` rows. On the every-agent list, a host whose `agent_id` is not in `agent` is left out.
+- When `since` is zero, the reply fills `source`, `publisher`, `language`, `identifying_number`, `install_date`, `install_location`, `install_source`, `uninstall_string`, `architecture`, `scope`, `user_account`, `extra`, `min_version`, `max_version`, `installed`, and `uninstall_count`. Rows are grouped by `source` and `name`. The added columns are not stored. `uninstall_count` is how many of those machines have an uninstall string, or an Appx install location. On one machine that count is `0` or `1`, and the reply also fills `file_sha256`, `signing_result`, `signer_cert_sha256`, `signer_subject_key_id`, `signer_publisher`, `signer_issuer`, and `signer_serial`. When `agent_id` is zero, the reply also fills `rating` from `program_class`. That is a `Rating` number: `1` system, `2` installed, `3` unknown, `4` bad. A row with no category is `0`.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Programs.vala`. `Store.Programs` calls it. The columns are `columns/programs.csv`. [5.9](plans/done/5.9-DONE-assets-software.md).
 
@@ -307,6 +308,14 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Reply `retval` `o`: an array of live `Programs` rows (`deleted_dt = 0`) for that `name` and `source` whose `agent_id` is in `agent`, ordered by `agent_id`, with `uninstall_count` set to `1` when `uninstall_string` is non-empty.
 - A caller that is not a controller is `controller only`.
 - ℹ️ The method is `shared/OSQuery/Programs.vala`.
+
+### `ProgramClass.classify`
+
+- Socket: the Unix socket, or a controller TLS connection.
+- Direction: controller calls the server.
+- Arguments `iS`: the `ProgramClass.Rating` number, then one key per selected software-tab row. `1` is system, `2` is installed, `3` is unknown, `4` is bad. Each key is `source`, a newline, and `name`. That pair is the row on the Software page. The number is stored in `program_class`, not on `programs`.
+- Reply: empty success. A caller that is not a controller is `controller only`. Another category is `Unknown category`. A key with no source is `The row has no source and name`.
+- ℹ️ The method is `shared/OSQuery/ProgramClass.vala`. The Software page calls it from the Categorize menu.
 
 ### `PackageMachine.machines`
 

@@ -211,7 +211,8 @@ namespace Argus.Controller.Rdp
 		/**
 		 * Join one agent and copy until that socket closes.
 		 *
-		 * This is the view thread. ''Relay.view'', the accept,
+		 * This is the view thread. A closed socket is accepted
+		 * again, up to three times. ''Relay.view'', the accept,
 		 * the read, and ''Relay.write'' each have their own try.
 		 *
 		 * @param listener the loopback listen
@@ -238,47 +239,52 @@ namespace Argus.Controller.Rdp
 				GLib.warning("%s", joined.error.message);
 				return;
 			}
-			try {
-				this.plain = listener.accept(null);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-				return;
-			}
-			try {
-				this.plain.socket.set_option(6, 1, 1);
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-			}
-			var buf = new uint8[16384];
-			while (true) {
-				ssize_t n = 0;
+			for (var round = 0; round < 3; round++) {
 				try {
-					n = this.plain.input_stream.read(buf);
+					this.plain = listener.accept(null);
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
 					return;
 				}
-				if (n <= 0) {
-					return;
-				}
-				var chunk = new uint8[n];
-				GLib.Memory.copy((uint8[]) chunk, buf, n);
-				var held = GLib.Value(typeof(GLib.Bytes));
-				held.set_boxed(new GLib.Bytes(chunk));
-				var request = new OLLMrpc.Request() {
-					method = "Relay.write"
-				};
-				request.args.add(held);
-				OLLMrpc.Response response;
 				try {
-					response = this.rpc.call(request);
+					this.plain.socket.set_option(6, 1, 1);
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
-					return;
 				}
-				if (response.error != null) {
-					GLib.warning("%s", response.error.message);
-					return;
+				var buf = new uint8[16384];
+				var open = true;
+				while (open) {
+					ssize_t n = 0;
+					try {
+						n = this.plain.input_stream.read(buf);
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+						open = false;
+						continue;
+					}
+					if (n <= 0) {
+						open = false;
+						continue;
+					}
+					var chunk = new uint8[n];
+					GLib.Memory.copy((uint8[]) chunk, buf, n);
+					var held = GLib.Value(typeof(GLib.Bytes));
+					held.set_boxed(new GLib.Bytes(chunk));
+					var request = new OLLMrpc.Request() {
+						method = "Relay.write"
+					};
+					request.args.add(held);
+					OLLMrpc.Response response;
+					try {
+						response = this.rpc.call(request);
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+						return;
+					}
+					if (response.error != null) {
+						GLib.warning("%s", response.error.message);
+						return;
+					}
 				}
 			}
 		}

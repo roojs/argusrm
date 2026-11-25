@@ -49,7 +49,20 @@ namespace Argus.Shared
 		 */
 		public signal void responded(string response);
 
-		private Gtk.Box actions;
+		/**
+		 * Large centred title.
+		 */
+		public Gtk.Label heading_label { get; private set; }
+
+		/**
+		 * Dim text under the heading.
+		 */
+		public Gtk.Label body_label { get; private set; }
+
+		/**
+		 * The buttons along the bottom.
+		 */
+		public Gtk.Box actions { get; private set; }
 
 		/**
 		 * Create the dialog.
@@ -87,22 +100,21 @@ namespace Argus.Shared
 				valign = Gtk.Align.CENTER,
 				vexpand = true
 			};
-			var heading_label = new Gtk.Label(heading) {
+			this.heading_label = new Gtk.Label(heading) {
 				wrap = true,
 				xalign = 0.5f,
 				justify = Gtk.Justification.CENTER,
 				css_classes = {"title-2"}
 			};
-			body_box.append(heading_label);
-			if (body != "") {
-				var body_label = new Gtk.Label(body) {
-					wrap = true,
-					xalign = 0.5f,
-					justify = Gtk.Justification.CENTER,
-					css_classes = {"dim-label"}
-				};
-				body_box.append(body_label);
-			}
+			body_box.append(this.heading_label);
+			this.body_label = new Gtk.Label(body) {
+				wrap = true,
+				xalign = 0.5f,
+				justify = Gtk.Justification.CENTER,
+				css_classes = {"dim-label"},
+				visible = body != ""
+			};
+			body_box.append(this.body_label);
 			this.actions = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 12) {
 				halign = Gtk.Align.CENTER,
 				margin_top = 12
@@ -115,10 +127,14 @@ namespace Argus.Shared
 		/**
 		 * Add a button. The last one is the suggested action.
 		 *
+		 * ''dismiss'' false leaves the window open. The caller
+		 * closes it after showing the result.
+		 *
 		 * @param response id emitted on {@link responded}
 		 * @param label button text
+		 * @param dismiss true closes the window when pressed
 		 */
-		public void add_response(string response, string label)
+		public void add_response(string response, string label, bool dismiss = true)
 		{
 			var child = this.actions.get_first_child();
 			while (child != null) {
@@ -131,7 +147,9 @@ namespace Argus.Shared
 			};
 			button.clicked.connect(() => {
 				this.responded(response);
-				this.close();
+				if (dismiss) {
+					this.close();
+				}
 			});
 			this.actions.append(button);
 		}

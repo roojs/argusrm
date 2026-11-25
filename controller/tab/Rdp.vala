@@ -48,6 +48,7 @@ namespace Argus.Controller.Tab
 		private Gtk.Stack pictures;
 		private Gtk.Box tabs;
 		private Adw.ToastOverlay toasts;
+		private Adw.Toast step_toast;
 		internal Gee.HashMap<int, Argus.Controller.Rdp.Screen> screens {
 			get; set; default = new Gee.HashMap<int, Argus.Controller.Rdp.Screen>();
 		}
@@ -98,13 +99,16 @@ namespace Argus.Controller.Tab
 				hexpand = true,
 				vexpand = true
 			};
+			this.step_toast = new Adw.Toast("") {
+				timeout = 5
+			};
 			this.append(this.toasts);
 			this.window.app.rpc.notification.connect((notification) => {
 				if (notification.method == "relay.status" && notification.args.size >= 3) {
 					var agent_id = notification.args.get(0).get_int();
 					var state = (Argus.Rdp.State) notification.args.get(1).get_int();
 					var attempt = notification.args.get(2).get_int();
-					this.note(agent_id, state, attempt);
+					this.toast(agent_id, state, attempt);
 					return;
 				}
 				if (notification.method != "relay.ready" || notification.args.size < 1) {
@@ -150,17 +154,18 @@ namespace Argus.Controller.Tab
 		}
 
 		/**
-		 * Toast this step, and leave it on the waiting label.
+		 * Show this step, and leave it on the waiting label.
 		 *
-		 * The sentence is {@link Argus.Rdp.State.line}. The log
-		 * line is that same sentence. A step that arrives
-		 * before {@link open} waits.
+		 * The sentence is {@link Argus.Rdp.State.line}. That sentence
+		 * replaces the toast already on screen. The toast hides itself
+		 * a few seconds after the latest step. The log line is that
+		 * same sentence. A step that arrives before {@link open} waits.
 		 *
 		 * @param agent_id ''agent.id'' of the machine
 		 * @param state the step
 		 * @param attempt zero the first time, then the retry count
 		 */
-		public void note(int agent_id, Argus.Rdp.State state, int attempt)
+		public void toast(int agent_id, Argus.Rdp.State state, int attempt)
 		{
 			if (!this.screens.has_key(agent_id)) {
 				if (!this.armed.contains(agent_id)) {
@@ -173,7 +178,10 @@ namespace Argus.Controller.Tab
 				return;
 			}
 			var text = state.line(attempt);
-			this.toasts.add_toast(new Adw.Toast(text));
+			this.step_toast.title = text;
+			// add_toast takes this reference. The field keeps its own.
+			var toast = this.step_toast;
+			this.toasts.add_toast(toast);
 			GLib.debug("relay.status %s %d", state.to_string(), attempt);
 			var label = this.status.get(agent_id);
 			if (label == null) {
@@ -209,7 +217,7 @@ namespace Argus.Controller.Tab
 						var list = this.pending.get(agent_id);
 						this.pending.unset(agent_id);
 						foreach (var step in list) {
-							this.note(agent_id, step.state, step.attempt);
+							this.toast(agent_id, step.state, step.attempt);
 						}
 					}
 					return;
@@ -283,7 +291,7 @@ namespace Argus.Controller.Tab
 				var list = this.pending.get(agent_id);
 				this.pending.unset(agent_id);
 				foreach (var step in list) {
-					this.note(agent_id, step.state, step.attempt);
+					this.toast(agent_id, step.state, step.attempt);
 				}
 			}
 			if (!this.ready.contains(agent_id)) {

@@ -274,3 +274,16 @@ toggle-group > toggle:checked.keyboard-activating {
 	min-width: 140px;
 }
 
+.program-system {
+	color: #9a9996;
+}
+
+.program-installed {
+	color: #2ec27e;
+}
+
+.program-unknown,
+.program-bad {
+	color: #c01c28;
+}
+

@@ -1,9 +1,11 @@
 Column header | Database name [JSON] | Visible | Width | Format | Sort
 
-Source,source,ON,90,text,ON
-Name,name,ON,200,text,ON
+Flag,rating,ON,48,rating,ON
+Type,listing,ON,48,kind,ON
+Source,source,off,90,text,ON
 Publisher,publisher,ON,160,text,ON
-Scope,scope,ON,70,text,ON
+Name,name,ON,200,text,ON
+Scope,scope,off,70,text,ON
 Architecture,architecture,off,90,text,ON
 Min version,min-version,ON,120,text,ON
 Max version,max-version,ON,120,maxver,ON

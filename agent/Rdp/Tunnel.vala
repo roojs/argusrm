@@ -140,6 +140,8 @@ namespace Argus.Agent.Rdp
 		public Argus.Agent.Application? app;
 		public bool again;
 		private bool streaming;
+		private int stream_tries;
+		private string windows_host = "";
 
 		/**
 		 * Send one step on the main loop.
@@ -170,7 +172,10 @@ namespace Argus.Agent.Rdp
 		 *
 		 * The app connection is not this socket. ''Relay.write''
 		 * carries bytes read from port 3389. ''relay.data'' is
-		 * written back to that port.
+		 * written back to that port. The dial uses this machine's
+		 * own network address. Windows closes a session that
+		 * comes from loopback. An existing Remote Desktop
+		 * session is logged off first.
 		 *
 		 * @param rpc the agent's second connection
 		 */
@@ -178,7 +183,19 @@ namespace Argus.Agent.Rdp
 		{
 			this.dial = new GLib.SocketClient();
 			this.dial.timeout = 10;
-			this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
+#if WINDOWS
+			this.windows_host = this.app.desktop_address;
+			if (this.windows_host == "" ||
+				this.windows_host == "127.0.0.1" ||
+				this.windows_host == "::1") {
+				throw new GLib.IOError.FAILED("no network address for Remote Desktop");
+			}
+			Win32.argus_end_rdp_sessions();
+#else
+			this.windows_host = "127.0.0.1";
+#endif
+			this.plain = this.dial.connect_to_host(this.windows_host, 3389);
+			this.plain.socket.timeout = 0;
 			try {
 				this.app.connection.call(new OLLMrpc.Request() {
 					method = "Relay.report",
@@ -269,14 +286,30 @@ namespace Argus.Agent.Rdp
 			} catch (GLib.Error e) {
 				if (!this.again) {
 					GLib.warning("desktop read: %s", e.message);
-					this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, 1);
-					return false;
+					this.stream_tries++;
+					this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, this.stream_tries);
+					if (this.stream_tries >= 3) {
+						return false;
+					}
+					try {
+#if WINDOWS
+						Win32.argus_end_rdp_sessions();
+#endif
+						this.plain = this.dial.connect_to_host(this.windows_host, 3389);
+						this.plain.socket.timeout = 0;
+					} catch (GLib.Error redial) {
+						GLib.warning("desktop: %s", redial.message);
+						return false;
+					}
+					this.streaming = false;
+					return true;
 				}
 			}
 			if (this.again) {
 				this.again = false;
 				try {
-					this.plain = this.dial.connect_to_host("127.0.0.1", 3389);
+					this.plain = this.dial.connect_to_host(this.windows_host, 3389);
+					this.plain.socket.timeout = 0;
 				} catch (GLib.Error e) {
 					GLib.warning("desktop: %s", e.message);
 					this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);

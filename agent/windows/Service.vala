@@ -85,6 +85,7 @@ namespace Argus.Agent.Windows
 				"AgentService", typeof(Service),
 				"hello", "is",
 				"status", "",
+				"retry", "",
 				"register", "ss",
 				"allow", "b"
 			);
@@ -142,6 +143,26 @@ namespace Argus.Agent.Windows
 				retval = OLLMrpc.val("as", reply),
 				msg = "ok"
 			});
+		}
+
+		/**
+		 * Try the management server again.
+		 *
+		 * The tray uses this when the agent and the server
+		 * versions do not match. Registration is left as it is.
+		 *
+		 * @param request inbound RPC from the tray
+		 */
+		public void retry(OLLMrpc.Request request)
+		{
+			request.reply(new OLLMrpc.Response() {
+				msg = "ok"
+			});
+			if (!Argus.Agent.Application.connection_down) {
+				return;
+			}
+			this.application.status_notice = "";
+			this.application.server.schedule_retry(true);
 		}
 
 		/**
@@ -286,10 +307,17 @@ namespace Argus.Agent.Windows
 		 * Set Remote Desktop to accept connections and start it.
 		 *
 		 * The password prompt stays on. The firewall group is
-		 * left closed.
+		 * left closed. When the controller has asked for the
+		 * desktop, a failed start is tried again, up to three
+		 * times.
+		 *
+		 * @param attempt how many starts have already failed
 		 */
-		private void desktop()
+		internal void desktop(int attempt = 0)
 		{
+			if (this.desktop_on) {
+				return;
+			}
 			var term_key = (void*) null;
 			var term_open = Win32.RegOpenKeyExW(
 				Win32.argus_hkey_local_machine(),
@@ -320,61 +348,53 @@ namespace Argus.Agent.Windows
 					0, Win32.REG_DWORD, (void*) (&nla), 4);
 				Win32.RegCloseKey(nla_key);
 			}
+			var started = false;
 			var scm = Win32.OpenSCManagerW(null, null, Win32.SC_MANAGER_CONNECT);
 			if (scm == null) {
 				GLib.warning("remote desktop service manager %u", Win32.GetLastError());
-				if (this.start_asked && this.application.connection != null) {
-					try {
-						this.application.connection.call(new OLLMrpc.Request() {
-							method = "Relay.report",
-							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
-						});
-					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
-					}
+			}
+			if (scm != null) {
+				var svc = Win32.OpenServiceW(scm,
+					Win32.g_utf8_to_utf16("TermService"),
+					Win32.SERVICE_CHANGE_CONFIG | Win32.SERVICE_START);
+				if (svc == null) {
+					GLib.warning("remote desktop service open %u", Win32.GetLastError());
+					Win32.CloseServiceHandle(scm);
 				}
-				return;
-			}
-			var svc = Win32.OpenServiceW(scm,
-				Win32.g_utf8_to_utf16("TermService"),
-				Win32.SERVICE_CHANGE_CONFIG | Win32.SERVICE_START);
-			if (svc == null) {
-				GLib.warning("remote desktop service open %u", Win32.GetLastError());
-				Win32.CloseServiceHandle(scm);
-				if (this.start_asked && this.application.connection != null) {
-					try {
-						this.application.connection.call(new OLLMrpc.Request() {
-							method = "Relay.report",
-							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
-						});
-					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
+				if (svc != null) {
+					if (!Win32.ChangeServiceConfigW(svc, Win32.SERVICE_NO_CHANGE,
+						Win32.SERVICE_AUTO_START, Win32.SERVICE_NO_CHANGE,
+						null, null, null, null, null, null, null)) {
+						GLib.warning("remote desktop service config %u", Win32.GetLastError());
 					}
+					started = Win32.StartServiceW(svc, 0, null) ||
+						Win32.GetLastError() == Win32.ERROR_SERVICE_ALREADY_RUNNING;
+					if (!started) {
+						GLib.warning("remote desktop service start %u", Win32.GetLastError());
+					}
+					Win32.CloseServiceHandle(svc);
+					Win32.CloseServiceHandle(scm);
 				}
-				return;
 			}
-			if (!Win32.ChangeServiceConfigW(svc, Win32.SERVICE_NO_CHANGE,
-				Win32.SERVICE_AUTO_START, Win32.SERVICE_NO_CHANGE,
-				null, null, null, null, null, null, null)) {
-				GLib.warning("remote desktop service config %u", Win32.GetLastError());
-			}
-			var started = Win32.StartServiceW(svc, 0, null) ||
-				Win32.GetLastError() == Win32.ERROR_SERVICE_ALREADY_RUNNING;
-			if (!started) {
-				GLib.warning("remote desktop service start %u", Win32.GetLastError());
-			}
-			Win32.CloseServiceHandle(svc);
-			Win32.CloseServiceHandle(scm);
 			if (!started) {
 				if (this.start_asked && this.application.connection != null) {
 					try {
 						this.application.connection.call(new OLLMrpc.Request() {
 							method = "Relay.report",
-							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
+							args = OLLMrpc.args("ii",
+								(int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED,
+								attempt + 1)
 						});
 					} catch (GLib.Error e) {
 						GLib.warning("%s", e.message);
 					}
+				}
+				if (this.start_asked && attempt < 2) {
+					var next = attempt + 1;
+					GLib.Timeout.add_seconds(2, () => {
+						this.desktop(next);
+						return false;
+					});
 				}
 				return;
 			}
@@ -397,7 +417,7 @@ namespace Argus.Agent.Windows
 		/**
 		 * Open the desktop stream once Remote Desktop is on.
 		 *
-		 * A start that arrives earlier waits for {@link desktop}.
+		 * A start that arrives earlier turns Remote Desktop on.
 		 * A tunnel that is already open is left as it is.
 		 */
 		internal void relay_start()
@@ -409,15 +429,12 @@ namespace Argus.Agent.Windows
 							method = "Relay.report",
 							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_ENABLE_REMOTE_DESKTOP, 0)
 						});
-						this.application.connection.call(new OLLMrpc.Request() {
-							method = "Relay.report",
-							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, 1)
-						});
 					} catch (GLib.Error e) {
 						GLib.warning("%s", e.message);
 					}
 				}
 				this.start_asked = true;
+				this.desktop();
 				return;
 			}
 			this.start_asked = false;
