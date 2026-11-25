@@ -26,7 +26,10 @@ Build-Depends:
  libocrpc-dev,
  libocsqlite-dev,
  freerdp3-dev,
- libxlsxwriter-dev
+ libxlsxwriter-dev,
+ zlib1g-dev,
+ libminizip-dev,
+ libssl-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/roojs/argusrm
 Vcs-Browser: https://github.com/roojs/argusrm

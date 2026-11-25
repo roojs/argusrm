@@ -55,7 +55,10 @@ sudo apt install \
   libnl-route-3-dev \
   libocrpc-dev \
   libocsqlite-dev \
-  libxlsxwriter-dev
+  libxlsxwriter-dev \
+  zlib1g-dev \
+  libminizip-dev \
+  libssl-dev
 ```
 
 ### Fedora

@@ -61,7 +61,8 @@ jobs:
             libglib2.0-dev libgee-0.8-dev libjson-glib-dev libsoup-3.0-dev \
             libgnutls28-dev libsqlite3-dev libgtk-4-dev libadwaita-1-dev \
             libavahi-gobject-dev libavahi-client-dev libsecret-1-dev \
-            libocrpc-dev libocsqlite-dev freerdp3-dev libxlsxwriter-dev
+            libocrpc-dev libocsqlite-dev freerdp3-dev libxlsxwriter-dev \
+            zlib1g-dev libminizip-dev libssl-dev
 
       - name: Read sqgi revision
         id: sqgi
