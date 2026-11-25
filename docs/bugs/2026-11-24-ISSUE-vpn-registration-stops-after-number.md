@@ -1,6 +1,6 @@
 # Registration over the VPN asks for the number, then stops
 
-**Status:** ⏳
+**Status:** ✔️
 
 ### User decisions required
 
@@ -15,6 +15,8 @@
 - 🔷 The broadcast should have been picked up on the controller. If that does not happen, typing the address should at least finish registration.
 - 🔷 The registration command on the server listed the tunnel, so the broadcast was on the tunnel.
 - 🔷 Stay on the controller and the server. Leave the agent out of this.
+- 🔷 Clocks on the server and the client look the same.
+- 🔷 After the number, the window hangs, then says registration failed.
 
 ### Success scenario
 
@@ -53,7 +55,10 @@ this.app.register_firewall.enable();
 this.app.firewall.apply(Agent.allowlist(this.app.db, this.app.interfaces));
 ```
 
-- Those lines did not run for this attempt. Turning the registration lock back on logs `firewall enforced on port 819`. Updating the allowed list logs a firewall line for port 817. Neither line is in the log after the number arrived.
+- Those lines did not run for the 2026-11-24 attempt. Turning the registration lock back on logs `firewall enforced on port 819`. Updating the allowed list logs a firewall line for port 817. Neither line is in the log after the number arrived.
+- 2026-11-25, controller `0.1.54`, server log shows both lines. `Offering.enroll` replaces `alan` on `alan-office-desktop`, then `firewall.enable` runs, then the reply is written. [`server/Offering/Rpc.vala`](../../server/Offering/Rpc.vala) `enroll`
+- The registration allowlist is empty. `enable` jumps port 819 into that allowlist, and the chain rejects every other packet, including acknowledgements on the enroll connection. [`server/Net/NFTables.vala`](../../server/Net/NFTables.vala) `enable`
+- The controller calls `Offering.enroll` and waits. The timeout is reported as `Socket I/O timed out`. The label under the number then becomes `Registration failed`. [`shared/Register.vala`](../../shared/Register.vala) `try_connection`
 
 ### Debugging
 
@@ -107,6 +112,27 @@ tun0 10.9.188.77
 
 - The desktop said this machine is already registered. That is the sentence the server sent.
 - `closing connection 0` is the registration connection. It had no saved id. The server stayed up.
+- Controller cache log `~/.cache/argusrm/controller.log`, 2026-11-25, controller `0.1.54`. Same attempt as the server paste in **Current behavior**.
+
+```text
+18:18:59.421956: G_LOG_LEVEL_DEBUG : Register.vala:473: registering 10.9.188.77:819
+18:19:19.770996: G_LOG_LEVEL_WARNING : Register.vala:544: Socket I/O timed out
+18:19:19.774094: G_LOG_LEVEL_WARNING : RegisterWindow.vala:306: Registration failed
+```
+
+- Server log pasted from `root@argusrm`, 2026-11-25, same attempt. PIN `613224`.
+
+```text
+18:18:40.367512: G_LOG_LEVEL_WARNING : Network.vala:179: Unacceptable TLS certificate
+18:18:53.704842: G_LOG_LEVEL_WARNING : SslListen.vala:194: ssl handshake failed: Peer failed to perform TLS handshake: The TLS connection was non-properly terminated.
+18:18:59.607763: G_LOG_LEVEL_DEBUG : Connection.vala:389: recv id=0 method=Offering.enroll conn=0x557fcd9f9a50
+18:18:59.611184: G_LOG_LEVEL_WARNING : Rpc.vala:253: replaced registration alan alan-office-desktop
+18:18:59.616463: G_LOG_LEVEL_DEBUG : NFTables.vala:247: firewall enforced on port 819
+18:18:59.617203: G_LOG_LEVEL_DEBUG : NFTables.vala:174: firewall delete element inet argusrm_817 allowed_ipv4 { 43.250.62.178 } | add element inet argusrm_817 allowed_ipv4 { 10.9.188.9 }
+```
+
+- The command on the server then printed `Registration PIN has been used.`
+- Throwaway outside the product, user network namespace, same reject rule as port 819. An 8 KB reply still arrives on loopback. A 256 KB reply stops at 65536 bytes and the reader times out. Accepting `ct state established,related` before the reject delivers all 262144 bytes. A new connection after that rule is refused.
 
 #### Debug code added (remove when complete)
 
@@ -177,6 +203,51 @@ public override void stop()
 }
 ```
 
+#### ✔️ `server/Net/NFTables.vala` — registration close keeps the enroll connection
+
+**Why:**
+
+- The number was accepted and the row was saved.
+- `firewall.enable` then rejects every packet to port 819, including acknowledgements for the reply that has not finished.
+- The controller waits until `Socket I/O timed out` and shows `Registration failed`.
+- New connections still hit the empty allowlist and are refused.
+- The app port does not set this flag, so removing an address there still cuts that address off.
+
+#### Add
+
+```vala
+/**
+ * Accept packets on TCP connections that already exist.
+ *
+ * The registration port sets this before {@link enable}.
+ * New connections still meet the allowlist. The app port
+ * leaves this false so a removed address is cut off.
+ */
+public bool established = false;
+```
+
+#### Replace with — `enable`
+
+```vala
+var command = "flush chain inet " + this.table + " input\n";
+if (this.established) {
+	command += "add rule inet " + this.table + " input tcp dport " +
+		this.port.to_string() + " ct state established,related accept\n";
+}
+command += "add rule inet " + this.table + " input tcp dport " +
+	this.port.to_string() + " jump allowlist\n";
+```
+
+#### ✔️ `server/Offering/Network.vala` — registration firewall keeps established connections
+
+#### Replace with
+
+```vala
+this.firewall = new Net.NFTables((uint16) register_port) {
+	established = true
+};
+```
+
 ### LLM
 
 - ℹ️ Scope is the controller and the server. The agent hint at the bottom of the CLI paste is left out of the report.
@@ -187,10 +258,13 @@ public override void stop()
 - ℹ️ The check was an active controller (`status` 1) with the same `is_controller`, username, and hostname. It does not look at the VPN address. The desktop had no next step. Local login can offer re-register. The typed-number window only showed the sentence.
 - ✔️ A matching number now removes that saved controller and finishes the new registration. The server log says `replaced registration` with the login and machine name. `Registration.certificate` on the local socket still refuses a second certificate.
 - 🚫 ifconfig.me is not the peer address and not the allowlist. `Agent.vala` `offer` resolves it only to fill the public address in the offer reply. The warning at `Agent.vala:532` is `e.message` from that HTTPS fetch (`remote-connectable` to `34.160.111.145:443`).
-- 🚫 Do not treat “firewall cut the reply” as this failure. `register_firewall.enable()` logs `firewall enforced on port 819`. `firewall.apply` logs an allowlist line for port 817. Neither appears after `Agent.request_registration`. The success block in `request_registration` did not run.
+- ℹ️ Registration port 819 stays an empty allowlist. `disable` opens it for the number. `enable` closes it to new connections. With `established` set, packets on a TCP connection that already exists are still accepted. The desktop’s VPN address is a candidate for port 817 only, and only after a successful save.
+- ℹ️ 2026-11-25: `Network.vala:179` `Unacceptable TLS certificate` is still the ifconfig.me fetch. Matching clocks do not change that. The handshake line at 18:18:53 is the port probe.
+- 🚫 The 2026-11-24 note that the firewall did not cut the reply applies to that attempt only. `firewall enforced` was absent then. It is present at 18:18:59 on this attempt, before the controller’s 20 second timeout.
+- ✔️ Registration `NFTables.established` accepts `ct state established,related` on port 819 when the window closes. App port 817 stays a hard allowlist.
+- ℹ️ Throwaway: 8 KB still arrives with reject on loopback. 256 KB stops at 65536 bytes and the reader times out. The established accept delivers 262144 bytes. A later SYN is connection refused.
+- ℹ️ Product files: `server/Offering/Network.vala`, `server/Offering/Rpc.vala`, `server/Net/NFTables.vala`, `server/Net/SslConnection.vala`, `shared/Register.vala`.
 - ℹ️ Those warnings are on the refusal itself: number rejected, registration closed, already registered (with login and machine name), bad certificate request, could not sign.
 - ℹ️ 2026-11-24 gdb: `$rbx` `0x5555556f5e20` matches the registration connection, but `x/32gx $rbx` starts with a zero class pointer and glibc chunk sizes (`0x21`, `0x31`, `0x51`) plus the bytes `ng=01;35`. Use after free inside `SslConnection.stop` after `base.stop()`, at the second `user.id` read before `by_id.get`. `$r12` `0x55555568d5b0` still looks like the listener. `$rax` `0x99e309bc0e9ac53c`.
 - ℹ️ `allowlist` keeps `agent.ip` only when `Interfaces.route` finds a local source. The registration peer is stored as `ip` only on the success path.
-- ℹ️ Registration port 819 stays an empty allowlist. `disable` opens it for the number. `enable` closes it to everyone. The desktop’s VPN address is a candidate for port 817 only, and only after a successful save.
 - ℹ️ Broadcast addresses in the log are the server’s own: `192.168.254.88` and `10.9.188.77`. They are not the desktop’s source address.
-- ℹ️ Product files: `server/Agent.vala`, `server/Net/Interfaces.vala`, `server/Net/NFTables.vala`, `shared/Register.vala`.

@@ -8,6 +8,12 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.55] - Unreleased
+
+### Fixed
+
+- Registration over the VPN finishes after the number. The server was closing that port before the controller received the certificate, so the window waited and then said registration failed.
+
 ## [0.1.54] - Unreleased
 
 ### Fixed

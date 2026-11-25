@@ -4,7 +4,7 @@
 
 ### User decisions required
 
-- 💩 LibVNCServer is GPL-2.0-or-later. Its own text says linking it makes the program GPL. Argus is LGPL-3. Link it into `argus-tray`, or ship it as its own helper exe. zlib, libpng, libjpeg-turbo, and winpthreads are not GPL.
+- 💩 Which library shares the screen. FreeRDP shadow is its own server: it copies the screen that is already showing and does not use the Windows one. LibVNCServer is the one already proved, and linking it makes that exe GPL. A sender we write ourselves needs no extra library. Linking into the agent is acceptable. The capture still has to be the tray, because the service cannot see the screen.
 
 ### User reported
 
@@ -15,6 +15,8 @@
 - 🔷 Clear up whether we see the desktop that is already active, or whether a new session is required.
 - 🔷 Name the libraries and check their licenses.
 - 🔷 The next thought is some basic code in the tray.
+- 🔷 Linking the library into the agent pollutes it, and that is not a big deal.
+- 🔷 The FreeRDP library can act as a server, so the built-in Windows one is not required.
 
 ### Success scenario
 
@@ -82,7 +84,13 @@ What the throwaway showed. No product code until the license line above is decid
   - zlib, libpng, libjpeg-turbo, and winpthreads were pulled in for compressed encodings and the compiler's thread library. They are not what copied the screen.
   - Argus sources, including [`agent/windows/Service.vala`](../../agent/windows/Service.vala), are LGPL-3.
   - gtk-vnc was not used.
+- Other libraries
+  - FreeRDP shadow, `freerdp-shadow3`. Apache-2.0. It is a server of its own. It copies the current screen and speaks Remote Desktop from that library. The Windows Remote Desktop service is not started and port 3389 is not dialed. Not tried on this PC yet.
+  - neatvnc. ISC license. A VNC server library. Its own page says it is for the Linux desktop stack (GBM, libdrm). No Windows build.
+  - TightVNC, UltraVNC, TigerVNC. GPL programs you install. Not libraries to put in the tray.
+  - No extra library. The throwaway already copied the screen with `BitBlt`. The bytes the viewer read are a small protocol. That sender can be ours. Nothing GPL is required for that.
 - Not required
+  - The built-in Windows Remote Desktop service. That is the server that disconnects.
   - A TightVNC, UltraVNC, or TigerVNC Windows service.
   - A new Windows session.
 

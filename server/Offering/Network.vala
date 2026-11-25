@@ -121,7 +121,9 @@ namespace Argus.Server.Offering
 			if (register_port < 1 || register_port > 65535) {
 				register_port = Argus.REGISTER_PORT;
 			}
-			this.firewall = new Net.NFTables((uint16) register_port);
+			this.firewall = new Net.NFTables((uint16) register_port) {
+				established = true
+			};
 		}
 
 		public bool update_listener(bool up)

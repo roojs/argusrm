@@ -46,6 +46,15 @@ namespace Argus.Server.Net
 		 */
 		public bool enabled { get; private set; default = false; }
 
+		/**
+		 * Accept packets on TCP connections that already exist.
+		 *
+		 * The registration port sets this before {@link enable}.
+		 * New connections still meet the allowlist. The app port
+		 * leaves this false so a removed address is cut off.
+		 */
+		public bool established = false;
+
 		private string table = "";
 		private bool ready = false;
 		private bool loaded = false;
@@ -229,15 +238,21 @@ add chain inet %s allowlist
 		 * Enforce the retained allowlist on this port.
 		 *
 		 * Repeated calls leave one jump rule in the input chain.
+		 * {@link established} adds an earlier accept for packets
+		 * on TCP connections that already exist.
 		 */
 		public void enable()
 		{
 			if (!this.ready || this.enabled) {
 				return;
 			}
-			var command = "flush chain inet " + this.table + " input\n" +
-				"add rule inet " + this.table + " input tcp dport " + this.port.to_string() +
-				" jump allowlist\n";
+			var command = "flush chain inet " + this.table + " input\n";
+			if (this.established) {
+				command += "add rule inet " + this.table + " input tcp dport " +
+					this.port.to_string() + " ct state established,related accept\n";
+			}
+			command += "add rule inet " + this.table + " input tcp dport " +
+				this.port.to_string() + " jump allowlist\n";
 			if (this.context.run_cmd_from_buffer(command) != 0) {
 				GLib.warning("could not enable nftables for port %u: %s",
 					(uint) this.port, this.context.get_error_buffer().strip());
