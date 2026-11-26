@@ -53,8 +53,19 @@ if host_machine.system() == 'android'
 		endif
 	endforeach
 	gee_dep = dependency('gee-0.8', allow_fallback: false)
-	gee_vapi_dir = gee_dep.get_variable(pkgconfig: 'prefix') / 'share' / 'vala' / 'vapi'
-	add_project_arguments(['--vapidir', gee_vapi_dir], language: 'vala')
+	pixie_vapi_dir = gee_dep.get_variable(pkgconfig: 'prefix') / 'share' / 'vala' / 'vapi'
+	adw_vapi = pixie_vapi_dir / 'libadwaita-1.vapi'
+	if not fs.exists(adw_vapi)
+		error(
+			'Pixie sysroot is missing libadwaita-1.vapi (' + adw_vapi + '). ' +
+			'Refresh Pixie packages (see packaging/android/fetch-pixie-deps.sh); ' +
+			'do not vendor libadwaita VAPI in this repository.'
+		)
+	endif
+	add_project_arguments([
+		'--vapidir', pixie_vapi_dir,
+		'--vapidir', meson.project_source_root() / 'android' / 'vapi',
+	], language: 'vala')
 	add_project_arguments([
 		'--pkg=json-glib-1.0',
 		'--pkg=libsoup-3.0',

@@ -105,6 +105,7 @@ done
 # unpacked. A new glib, freerdp, ocrpc, or ocsqlite in pins must replace it.
 if [ -f "$DEST/share/pixiewood/pixie.cross" ] &&
    [ -f "$DEST/share/pixiewood/gtk-android-java/org/gtk/android/ImContext.java" ] &&
+   [ -f "$DEST/share/vala/vapi/libadwaita-1.vapi" ] &&
    [ -f "$PKG_DIR/ocrpc.pc" ] &&
    [ -f "$PKG_DIR/ocsqlite.pc" ] &&
    [ -f "$PKG_DIR/freerdp3.pc" ] &&
@@ -144,5 +145,11 @@ for pc in ocrpc.pc ocsqlite.pc freerdp3.pc freerdp-client3.pc winpr3.pc; do
     exit 1
   fi
 done
+adw_vapi="$DEST/share/vala/vapi/libadwaita-1.vapi"
+if [ ! -f "$adw_vapi" ]; then
+  echo "Pixie sysroot is missing libadwaita-1.vapi ($adw_vapi)." >&2
+  echo "Republish the libadwaita pixie with share/vala/vapi and bump release.pins." >&2
+  exit 1
+fi
 cp "$work/merged.pins" "$PINS_STAMP"
 printf '%s\n' "$DEST"
