@@ -181,9 +181,9 @@ namespace Argus.Agent.Rdp
 		 *
 		 * The app connection is not this socket. ''Relay.write''
 		 * carries bytes read from the desktop. ''relay.data'' is
-		 * written back. On Windows that socket is the local end
-		 * of the virtual adapter. TermService sees 10.200.0.1.
-		 * An existing Remote Desktop session is logged off first.
+		 * written back. On Windows {@link Adapter.connect} dials
+		 * TermService directly on 127.0.0.1:3389. An existing Remote
+		 * Desktop session is logged off first.
 		 *
 		 * @param rpc the agent's second connection
 		 */
@@ -324,6 +324,37 @@ namespace Argus.Agent.Rdp
 		}
 
 		/**
+		 * Open the Windows connection again after the read stopped.
+		 *
+		 * Three tries, then the desktop thread stops.
+		 *
+		 * @return true when the desktop thread should read again
+		 */
+		private bool redial()
+		{
+			this.stream_tries++;
+			this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, this.stream_tries);
+			if (this.stream_tries >= 3) {
+				return false;
+			}
+			try {
+				this.adapter.logoff();
+				this.plain = this.adapter.connect();
+				this.plain.socket.timeout = 0;
+			} catch (GLib.Error e) {
+				GLib.warning("desktop: %s", e.message);
+				return false;
+			}
+			try {
+				this.plain.socket.set_option(6, 1, 1);
+			} catch (GLib.Error e) {
+				GLib.warning("nodelay: %s", e.message);
+			}
+			this.streaming = false;
+			return true;
+		}
+
+		/**
 		 * Dial Windows again and mark that socket as the start.
 		 *
 		 * @return false when the dial or ''Relay.fresh'' failed
@@ -338,6 +369,13 @@ namespace Argus.Agent.Rdp
 				this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
 				return false;
 			}
+			try {
+				this.plain.socket.set_option(6, 1, 1);
+			} catch (GLib.Error e) {
+				GLib.warning("nodelay: %s", e.message);
+			}
+			this.stream_tries = 0;
+			this.streaming = false;
 			try {
 				var mark = this.rpc.call(new OLLMrpc.Request() {
 					method = "Relay.fresh"
@@ -374,21 +412,7 @@ namespace Argus.Agent.Rdp
 			} catch (GLib.Error e) {
 				if (!this.again) {
 					GLib.warning("desktop read: %s", e.message);
-					this.stream_tries++;
-					this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, this.stream_tries);
-					if (this.stream_tries >= 3) {
-						return false;
-					}
-					try {
-						this.adapter.logoff();
-						this.plain = this.adapter.connect();
-						this.plain.socket.timeout = 0;
-					} catch (GLib.Error redial) {
-						GLib.warning("desktop: %s", redial.message);
-						return false;
-					}
-					this.streaming = false;
-					return true;
+					return this.redial();
 				}
 			}
 			if (this.again && !this.dropped) {
@@ -396,8 +420,8 @@ namespace Argus.Agent.Rdp
 				return this.fresh_dial();
 			}
 			if (n <= 0) {
-				this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, 1);
-				return false;
+				GLib.warning("desktop read ended");
+				return this.redial();
 			}
 			var chunk = new uint8[n];
 			GLib.Memory.copy((uint8[]) chunk, this.buf, n);

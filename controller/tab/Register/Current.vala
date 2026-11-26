@@ -23,7 +23,9 @@ namespace Argus.Controller.Tab.Register
 	 *
 	 * A {@link Gtk.ColumnView} over
 	 * {@link Argus.Controller.Store.Agent}.
-	 * One button on the page opens registration.
+	 * Agent and Controller open the six-digit window.
+	 * Bulk registration is for agents. The Pending tab
+	 * stops it, and the button hides while that is open.
 	 * The remove column uses click and hold. Other machines
 	 * remove at once. This controller asks first.
 	 *
@@ -38,9 +40,24 @@ namespace Argus.Controller.Tab.Register
 		public Argus.Controller.Window window;
 		private Argus.Controller.Store.Agent store;
 		private Gtk.Stack body;
+		/**
+		 * Opens the six-digit window for one agent.
+		 */
+		public Gtk.Button agent_registration;
+		/**
+		 * Opens the six-digit window for one controller.
+		 */
+		public Gtk.Button controller_registration;
+		/**
+		 * Starts provisional registration for agents.
+		 *
+		 * Hidden while that registration is open. Stop is on
+		 * the Pending tab.
+		 */
+		public Gtk.Button bulk_registration;
 
 		/**
-		 * Build the list. One button opens registration.
+		 * Build the list and the registration buttons.
 		 *
 		 * @param window the controller window this page belongs to
 		 */
@@ -56,15 +73,86 @@ namespace Argus.Controller.Tab.Register
 				visible = false
 			};
 			var remove_queue = new Gee.ArrayList<int>();
-			var register_add = new Gtk.Button() {
+			this.agent_registration = new Gtk.Button() {
 				child = new Adw.ButtonContent() {
 					icon_name = "list-add-symbolic",
-					label = "Agent or Controller"
+					label = "Agent"
 				},
-				tooltip_text = "Register an agent or a controller"
+				tooltip_text = "Register one agent"
 			};
-			register_add.clicked.connect(() => {
+			this.controller_registration = new Gtk.Button() {
+				child = new Adw.ButtonContent() {
+					icon_name = "list-add-symbolic",
+					label = "Controller"
+				},
+				tooltip_text = "Register one controller"
+			};
+			this.bulk_registration = new Gtk.Button() {
+				child = new Adw.ButtonContent() {
+					icon_name = "list-add-symbolic",
+					label = "Bulk registration"
+				},
+				tooltip_text = "Register agents without a PIN"
+			};
+			this.agent_registration.clicked.connect(() => {
+				if (this.store.busy) {
+					return;
+				}
 				this.activate_action("win.register", null);
+			});
+			this.controller_registration.clicked.connect(() => {
+				if (this.store.busy) {
+					return;
+				}
+				this.activate_action("win.register", null);
+			});
+			this.bulk_registration.clicked.connect(() => {
+				if (this.store.busy) {
+					return;
+				}
+				var rpc = this.window.app.rpc;
+				if (rpc == null || !rpc.connected) {
+					var down = new Argus.Shared.Notice(
+						"Could not start bulk registration",
+						"The server connection is not open.");
+					down.add_response("ok", "OK");
+					down.present(this.window);
+					return;
+				}
+				this.bulk_registration.sensitive = false;
+				this.agent_registration.sensitive = false;
+				this.controller_registration.sensitive = false;
+				rpc.call.begin(new OLLMrpc.Request() {
+					method = "Offering.open",
+					args = OLLMrpc.args("b", true)
+				}, (obj, res) => {
+					OLLMrpc.Response response;
+					try {
+						response = rpc.call.end(res);
+					} catch (GLib.Error e) {
+						this.bulk_registration.sensitive = true;
+						this.agent_registration.sensitive = true;
+						this.controller_registration.sensitive = true;
+						var failed = new Argus.Shared.Notice(
+							"Could not start bulk registration", e.message);
+						failed.add_response("ok", "OK");
+						failed.present(this.window);
+						return;
+					}
+					if (response.error != null) {
+						this.bulk_registration.sensitive = true;
+						this.agent_registration.sensitive = true;
+						this.controller_registration.sensitive = true;
+						var failed = new Argus.Shared.Notice(
+							"Could not start bulk registration",
+							response.error.message);
+						failed.add_response("ok", "OK");
+						failed.present(this.window);
+						return;
+					}
+					this.bulk_registration.sensitive = true;
+					this.window.register_page.bulk_on = true;
+				});
 			});
 			this.column_grid(this.store, true);
 			if (window.server.pem_client_certificate != "") {
@@ -141,13 +229,13 @@ namespace Argus.Controller.Tab.Register
 			toolbar.append(new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0) {
 				hexpand = true
 			});
-			toolbar.append(register_add);
+			toolbar.append(this.agent_registration);
+			toolbar.append(this.controller_registration);
+			toolbar.append(this.bulk_registration);
 			this.content.append(toolbar);
 			this.content.append(this.body);
 			this.store.bind_property("busy", bar_spinner, "visible",
 				GLib.BindingFlags.SYNC_CREATE);
-			this.store.bind_property("busy", register_add, "sensitive",
-				GLib.BindingFlags.SYNC_CREATE | GLib.BindingFlags.INVERT_BOOLEAN);
 			this.store.notify["empty"].connect(() => {
 				if (this.store.empty) {
 					this.body.visible_child_name = "empty";

@@ -319,7 +319,7 @@ namespace Argus.Agent
 				if (this.client_db == null) {
 					return;
 				}
-				this.client_db.backupDB();
+				this.client_db.backup_real();
 			});
 		}
 

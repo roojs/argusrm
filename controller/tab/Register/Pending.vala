@@ -24,7 +24,8 @@ namespace Argus.Controller.Tab.Register
 	 * {@link Argus.Controller.Tab.Pairing} and
 	 * {@link Argus.Controller.Store.Pairing} back the list.
 	 * Accept and Reject call ''Offering.accept'' and
-	 * ''Offering.reject''.
+	 * ''Offering.reject''. Stop bulk registration is shown
+	 * here while provisional registration is open.
 	 *
 	 * == Example ==
 	 *
@@ -39,6 +40,12 @@ namespace Argus.Controller.Tab.Register
 		 * Tick list and {@link Argus.Controller.Store.Pairing}.
 		 */
 		public Argus.Controller.Tab.Pairing queue { get; private set; }
+		/**
+		 * Ends provisional registration.
+		 *
+		 * Shown on this tab only while bulk registration is open.
+		 */
+		public Gtk.Button stop_bulk;
 		private Adw.ToastOverlay toasts;
 
 		/**
@@ -68,11 +75,45 @@ namespace Argus.Controller.Tab.Register
 			accept.clicked.connect(() => {
 				this.decide(true);
 			});
+			this.stop_bulk = new Gtk.Button.with_label("Stop bulk registration") {
+				visible = false,
+				halign = Gtk.Align.START,
+				margin_top = 12,
+				margin_start = 12,
+				margin_end = 12,
+				css_classes = { "destructive-action" }
+			};
+			this.stop_bulk.clicked.connect(() => {
+				var rpc = this.window.app.rpc;
+				if (rpc == null || !rpc.connected) {
+					this.toasts.add_toast(new Adw.Toast(
+						"The server connection is not open."));
+					return;
+				}
+				rpc.call.begin(new OLLMrpc.Request() {
+					method = "Offering.close",
+					args = OLLMrpc.args("b", true)
+				}, (obj, res) => {
+					OLLMrpc.Response response;
+					try {
+						response = rpc.call.end(res);
+					} catch (GLib.Error e) {
+						this.toasts.add_toast(new Adw.Toast(e.message));
+						return;
+					}
+					if (response.error != null) {
+						this.toasts.add_toast(new Adw.Toast(response.error.message));
+						return;
+					}
+					this.window.register_page.bulk_on = false;
+				});
+			});
 			this.toasts = new Adw.ToastOverlay() {
 				hexpand = true,
 				vexpand = true,
 				child = this.queue
 			};
+			this.append(this.stop_bulk);
 			this.append(this.toasts);
 			this.window.app.rpc.notification.connect((notification) => {
 				if (notification.method != "event.pair") {

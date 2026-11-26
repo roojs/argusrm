@@ -60,6 +60,7 @@ namespace Argus.Agent.Rdp
 	 */
 	public class Adapter : GLib.Object
 	{
+		private bool use_wintun = false;
 		private void* module;
 		private void* wintun_adapter;
 		private void* session;
@@ -104,17 +105,22 @@ namespace Argus.Agent.Rdp
 		}
 
 		/**
-		 * Open one desktop connection through the virtual adapter.
+		 * Open one desktop connection on Windows.
 		 *
-		 * The returned socket is loopback. TermService sees
-		 * 10.200.0.1. Closing it ends that TCP connection. A later
-		 * call reuses the same adapter.
+		 * Connects directly to TermService on 127.0.0.1:3389 while
+		 * Wintun is disabled. When {@link use_wintun} is enabled,
+		 * opens the virtual adapter so TermService sees 10.200.0.1.
 		 *
-		 * @return the local end of the desktop socket
-		 * @throws GLib.Error when the adapter or loopback listen fails
+		 * @return the desktop socket
+		 * @throws GLib.Error when the connect or adapter setup fails
 		 */
 		public new GLib.SocketConnection connect() throws GLib.Error
 		{
+			if (!this.use_wintun) {
+				var client = new GLib.SocketClient();
+				client.timeout = 10;
+				return client.connect_to_host("127.0.0.1", 3389);
+			}
 			this.ensure();
 			this.stop = true;
 			while (this.busy) {
@@ -441,6 +447,13 @@ namespace Argus.Agent.Rdp
 				if (wait_ev != null) {
 					Win32.WaitForSingleObject(wait_ev, 20);
 				}
+			}
+			if (this.rst) {
+				GLib.warning("desktop tcp reset");
+			} else if (this.peer_fin) {
+				GLib.warning("desktop tcp closed by windows");
+			} else if (this.local_eof) {
+				GLib.warning("desktop tcp closed locally");
 			}
 			if (!this.rst && !this.up) {
 				this.send_tcp(this.snd_nxt, 0x04, new uint8[0], false);

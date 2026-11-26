@@ -22,10 +22,13 @@ namespace Argus.Controller.Tab.Register
 	 * Agent / Controller registration page.
 	 *
 	 * {@link Current} lists registered agents and controllers.
-	 * {@link Pending} is the provisional queue. The
-	 * {@link Adw.ViewSwitcher} switches between them. The
-	 * Pending tab is hidden while the queue is empty and is
-	 * selected when a new row arrives.
+	 * Its bar is Agent, Controller, and Bulk registration.
+	 * Bulk registration is for agents. {@link Pending} is the
+	 * provisional queue and the place that stops bulk
+	 * registration. The {@link Adw.ViewSwitcher} switches
+	 * between them. Pending stays hidden until the queue has
+	 * a row or bulk registration is open, and it is selected
+	 * when bulk registration starts or a new row arrives.
 	 *
 	 * == Example ==
 	 *
@@ -51,6 +54,13 @@ namespace Argus.Controller.Tab.Register
 		private Adw.ViewStack pages;
 		private Adw.ViewStackPage pending_stack_page;
 		private uint queue_size = 0;
+		/**
+		 * True while provisional agent registration is open.
+		 *
+		 * The Bulk registration button hides, and the Pending
+		 * tab is shown so it can be stopped.
+		 */
+		public bool bulk_on { get; set; default = false; }
 
 		/**
 		 * The pending queue went from empty to non-empty.
@@ -102,6 +112,22 @@ namespace Argus.Controller.Tab.Register
 				margin_bottom = 4
 			});
 			this.append(this.pages);
+			this.notify["bulk-on"].connect(() => {
+				this.current.bulk_registration.visible = !this.bulk_on;
+				this.current.agent_registration.sensitive = !this.bulk_on;
+				this.current.controller_registration.sensitive = !this.bulk_on;
+				this.pending.stop_bulk.visible = this.bulk_on;
+				if (!this.bulk_on) {
+					var count = this.pending.queue.store.get_n_items();
+					this.pending_stack_page.visible = count > 0;
+					if (count < 1 && this.pages.visible_child_name == "pending") {
+						this.pages.visible_child_name = "current";
+					}
+					return;
+				}
+				this.pending_stack_page.visible = true;
+				this.pages.visible_child_name = "pending";
+			});
 		}
 
 		/**
@@ -129,12 +155,12 @@ namespace Argus.Controller.Tab.Register
 			var was = this.queue_size;
 			this.queue_size = count;
 			var on_pending = this.pages.visible_child_name == "pending";
-			this.pending_stack_page.visible = count > 0;
+			this.pending_stack_page.visible = count > 0 || this.bulk_on;
 			this.pending_stack_page.needs_attention = count > 0;
+			if (count < 1 && on_pending && !this.bulk_on) {
+				this.pages.visible_child_name = "current";
+			}
 			if (count < 1) {
-				if (on_pending) {
-					this.pages.visible_child_name = "current";
-				}
 				return;
 			}
 			if (was < 1) {

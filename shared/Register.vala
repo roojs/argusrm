@@ -722,35 +722,17 @@ namespace Argus.Shared
 				if (response != null && response.error != null) {
 					GLib.warning("%s", response.error.message);
 				} else if (response != null) {
-					var server_version = "0.0.0";
-					if (response.retval.holds(typeof(string)) && response.retval.get_string() != "") {
-						server_version = response.retval.get_string();
-					}
-					var client_api = Argus.VERSION;
-					var client_dot = client_api.index_of(".");
-					if (client_dot >= 0) {
-						var client_end = client_api.index_of(".", client_dot + 1);
-						if (client_end > client_dot) {
-							client_api = client_api.substring(0, client_end);
-						}
-					}
-					var server_api = server_version;
-					var server_dot = server_api.index_of(".");
-					if (server_dot >= 0) {
-						var server_end = server_api.index_of(".", server_dot + 1);
-						if (server_end > server_dot) {
-							server_api = server_api.substring(0, server_end);
-						}
-					}
-					var order = GLib.strcmp(client_api.collate_key_for_filename(), server_api.collate_key_for_filename());
-					if (order > 0) {
+					var daemon = new OLLMrpc.Daemon();
+					daemon.version = response.retval.get_string();
+					var order = daemon.compare(Argus.VERSION, 2);
+					if (order < 0) {
 						GLib.stdout.printf("\n");
-						GLib.stderr.printf("The server is %s. This client is %s.\n", server_version, Argus.VERSION);
+						GLib.stderr.printf("The server is %s. This client is %s.\n", daemon.version, Argus.VERSION);
 						this.server_row = null;
 						return 1;
 					}
-					if (order < 0) {
-						GLib.warning("This client is %s. The server is %s.", Argus.VERSION, server_version);
+					if (order > 0) {
+						GLib.warning("This client is %s. The server is %s.", Argus.VERSION, daemon.version);
 					}
 					approved = true;
 				}
@@ -822,7 +804,7 @@ namespace Argus.Shared
 				GLib.warning("%s", e.message);
 				return false;
 			}
-			db.backupDB();
+			db.backup_real();
 			return true;
 		}
 
@@ -913,6 +895,7 @@ namespace Argus.Shared
 				this.remove_failed(e.message);
 				return;
 			}
+			db.backup_real();
 			this.remove_row_deleted();
 		}
 	}

@@ -113,7 +113,7 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - Socket: the Unix socket, or the app socket.
 - Direction: a controller or an agent calls the server. This is the first call on that socket.
 - Arguments `iss`: the protocol number, the client name, and the client version (`Argus.VERSION`). The controller sends `1`, `argus-controller`, and its version. The agent sends `1`, `argus-agent`, and its version. An older client may omit the version (defaults to `0.0.0`).
-- The last number is not compared. `0.1.55` and `0.1.58` are the same API. A different middle number, such as `0.2`, is a different API.
+- Compared with `OLLMrpc.Daemon.compare` at depth 2. The last number is not compared. `0.1.60` and `0.1.59` are the same API. A different middle number, such as `0.2`, is a different API.
 - A client newer on the first two numbers is refused. The error says both full versions.
 - A client older on the first two numbers, or a client that omitted the version, is accepted. `msg` is the warning sentence. The server also logs that warning.
 - Reply `msg`: `ok` when the first two numbers match, otherwise the warning sentence.

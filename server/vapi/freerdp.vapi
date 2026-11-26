@@ -10,6 +10,7 @@ namespace FreeRDP
 		NlaSecurity,
 		TlsSecurity,
 		RdpSecurity,
+		SupportMultitransport,
 		SupportGraphicsPipeline,
 		RemoteFxCodec,
 		NSCodec,
@@ -32,6 +33,7 @@ namespace FreeRDP
 		ServerPort,
 		DesktopWidth,
 		DesktopHeight,
+		MultitransportFlags,
 	}
 
 	[CCode (cprefix = "FreeRDP_", has_type_id = false, cheader_filename = "freerdp/settings_keys.h")]
@@ -228,8 +230,17 @@ namespace FreeRDP
 		public bool shall_disconnect ();
 	}
 
+	[CCode (cname = "freerdp_get_event_handles")]
+	public uint32 get_event_handles (Context context, [CCode (array_length = false)] void*[] events, uint32 count);
+
 	[CCode (cname = "freerdp_check_event_handles")]
 	public bool check_event_handles (Context context);
+
+	[CCode (cname = "freerdp_get_last_error")]
+	public uint32 get_last_error (Context context);
+
+	[CCode (cname = "freerdp_get_last_error_name")]
+	public unowned string get_last_error_name (uint32 error);
 
 	[CCode (cname = "gdi_init", cheader_filename = "freerdp/gdi/gdi.h")]
 	public bool gdi_init (Instance instance, uint32 format);

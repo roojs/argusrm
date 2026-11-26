@@ -128,7 +128,7 @@ namespace Argus.Controller
 			}
 			this.shutdown.connect(() => {
 				if (this.client_db != null) {
-					this.client_db.backupDB();
+					this.client_db.backup_real();
 				}
 			});
 		}

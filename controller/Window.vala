@@ -37,9 +37,11 @@ namespace Argus.Controller
 	 * The open server's row is ''Deregister and disconnect''.
 	 * Holding it for two seconds closes this window and returns
 	 * to the startup check.
-	 * ''Agent or Controller'' is on the Agent / Controller
-	 * registration page.
-	 * It opens {@link Dialog.Pairing}.
+	 * ''Agent'', ''Controller'', and ''Bulk registration'' are
+	 * on the Agent / Controller registration page. Agent and
+	 * Controller open {@link Dialog.Pairing}. Bulk registration
+	 * is for agents. It hides that button and shows Pending,
+	 * where bulk registration is stopped.
 	 *
 	 * == Example ==
 	 *

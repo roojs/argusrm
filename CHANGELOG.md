@@ -8,11 +8,34 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.62] - Unreleased
+
+### Fixed
+
+- Registering a fresh agent now writes `server.sqlite` to disk immediately before restarting the service, so `argusrm-agent --request` and `--pin` no longer time out waiting for the service to connect.
+- Disabled Wintun virtual-adapter routing on Windows so the agent dials Remote Desktop directly on 127.0.0.1:3389, and reset the reconnect retry counter on fresh desktop cuts.
+- Disabled uninitialized FreeRDP graphics pipeline, surface codecs, and UDP multi-transport in the controller viewer and waited on FreeRDP event handles instead of busy-spinning.
+
+## [0.1.61] - Unreleased
+
+### Fixed
+
+- Hello uses the library compare of the first two numbers. 0.1.60 and 0.1.59 connect. A different middle number, such as 0.2, is still refused.
+
+## [0.1.60] - Unreleased
+
+### Fixed
+
+- The machine reported "The machine could not send the desktop. Trying 1 of 3" when Windows closed the desktop, and then stopped. That close now starts the desktop again, up to three times.
+
 ## [0.1.59] - Unreleased
 
 ### Fixed
 
 - Could not connect puts the address in the title. The server name and the reason are underneath.
+- Opening the desktop again, after the machine had stopped sending, left the join waiting. The window then reported that FreeRDP could not open the desktop, trying 3 of 3. A later open starts the Windows connection again.
+- A new desktop from the machine left the controller on "The machine is about to send the desktop." The server was still holding the join from the previous desktop. That join is released when the machine connects again.
+- After the server restarted, the machine kept its old desktop connection and ignored the new request. The window then showed "Told the server this controller wants to take control" on top of the later step. A dead desktop connection is replaced, and that earlier sentence is no longer painted last.
 
 ## [0.1.58] - Unreleased
 
@@ -23,9 +46,6 @@ package changelogs.
 - When that refusal happens, the window names the server and offers Retry and Select another server.
 - The Windows desktop connection kept the handshake and then sent the screen bytes over the TCP header. Remote Desktop never answered, so the window stayed on "The desktop data is coming through."
 - The controller kept a full copy of the desktop for every update. The picture now keeps one copy and paints that.
-- Opening the desktop again, after the machine had stopped sending, left the join waiting. The window then reported that FreeRDP could not open the desktop, trying 3 of 3. A later open starts the Windows connection again.
-- A new desktop from the machine left the controller on "The machine is about to send the desktop." The server was still holding the join from the previous desktop. That join is released when the machine connects again.
-- After the server restarted, the machine kept its old desktop connection and ignored the new request. The window then showed "Told the server this controller wants to take control" on top of the later step. A dead desktop connection is replaced, and that earlier sentence is no longer painted last.
 
 ## [0.1.57] - Unreleased
 

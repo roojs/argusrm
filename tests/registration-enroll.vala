@@ -25,6 +25,7 @@ class RegistrationEnrollTest
 		var store_dir = GLib.Path.build_filename(root, "certs");
 		var db = new SQ.Database(db_path, true);
 		Argus.Shared.SQT.Server.init_db(db);
+		db.backupDB();
 		var reply = new Argus.Shared.SQT.Server() {
 			name = "enroll-test",
 			port = 817,

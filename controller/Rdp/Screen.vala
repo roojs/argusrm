@@ -151,20 +151,23 @@ namespace Argus.Controller.Rdp
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
 			settings.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
+			settings.set_bool(FreeRDP.SettingsBool.SupportMultitransport, false);
+			settings.set_uint32(FreeRDP.SettingsUint32.MultitransportFlags, 0);
 			settings.set_bool(FreeRDP.SettingsBool.BitmapCacheEnabled, true);
 			settings.set_bool(FreeRDP.SettingsBool.BitmapCacheV3Enabled, true);
-			settings.set_bool(FreeRDP.SettingsBool.RemoteFxCodec, true);
-			settings.set_bool(FreeRDP.SettingsBool.NSCodec, true);
-			settings.set_bool(FreeRDP.SettingsBool.SurfaceCommandsEnabled, true);
-			settings.set_bool(FreeRDP.SettingsBool.SupportGraphicsPipeline, true);
-			settings.set_bool(FreeRDP.SettingsBool.GfxH264, true);
-			settings.set_bool(FreeRDP.SettingsBool.GfxAVC444, true);
-			settings.set_bool(FreeRDP.SettingsBool.GfxAVC444v2, true);
+			settings.set_bool(FreeRDP.SettingsBool.RemoteFxCodec, false);
+			settings.set_bool(FreeRDP.SettingsBool.NSCodec, false);
+			settings.set_bool(FreeRDP.SettingsBool.SurfaceCommandsEnabled, false);
+			settings.set_bool(FreeRDP.SettingsBool.SupportGraphicsPipeline, false);
+			settings.set_bool(FreeRDP.SettingsBool.GfxH264, false);
+			settings.set_bool(FreeRDP.SettingsBool.GfxAVC444, false);
+			settings.set_bool(FreeRDP.SettingsBool.GfxAVC444v2, false);
 			settings.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
 			settings.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
 			settings.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
 			var port = viewer.view_port;
 			new GLib.Thread<int>("screen", () => {
+				var handles = new void*[64];
 				for (var attempt = 0; attempt < 3 && !this.stopping; attempt++) {
 					if (attempt > 0) {
 						GLib.Thread.usleep(500000);
@@ -186,20 +189,25 @@ namespace Argus.Controller.Rdp
 						again.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
 						again.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
 						again.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
+						again.set_bool(FreeRDP.SettingsBool.SupportMultitransport, false);
+						again.set_uint32(FreeRDP.SettingsUint32.MultitransportFlags, 0);
 						again.set_bool(FreeRDP.SettingsBool.BitmapCacheEnabled, true);
 						again.set_bool(FreeRDP.SettingsBool.BitmapCacheV3Enabled, true);
-						again.set_bool(FreeRDP.SettingsBool.RemoteFxCodec, true);
-						again.set_bool(FreeRDP.SettingsBool.NSCodec, true);
-						again.set_bool(FreeRDP.SettingsBool.SurfaceCommandsEnabled, true);
-						again.set_bool(FreeRDP.SettingsBool.SupportGraphicsPipeline, true);
-						again.set_bool(FreeRDP.SettingsBool.GfxH264, true);
-						again.set_bool(FreeRDP.SettingsBool.GfxAVC444, true);
-						again.set_bool(FreeRDP.SettingsBool.GfxAVC444v2, true);
+						again.set_bool(FreeRDP.SettingsBool.RemoteFxCodec, false);
+						again.set_bool(FreeRDP.SettingsBool.NSCodec, false);
+						again.set_bool(FreeRDP.SettingsBool.SurfaceCommandsEnabled, false);
+						again.set_bool(FreeRDP.SettingsBool.SupportGraphicsPipeline, false);
+						again.set_bool(FreeRDP.SettingsBool.GfxH264, false);
+						again.set_bool(FreeRDP.SettingsBool.GfxAVC444, false);
+						again.set_bool(FreeRDP.SettingsBool.GfxAVC444v2, false);
 						again.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
 						again.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
 						again.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
 					}
 					if (!this.instance.connect()) {
+						var err = FreeRDP.get_last_error(this.instance.context);
+						GLib.warning("desktop connect failed: 0x%08x %s",
+							err, FreeRDP.get_last_error_name(err));
 						var shown = attempt + 1;
 						GLib.Idle.add(() => {
 							this.problem = Argus.Rdp.State.RETRY_RENDER_CONNECT.to_string();
@@ -210,6 +218,17 @@ namespace Argus.Controller.Rdp
 						continue;
 					}
 					while (!this.stopping && !this.instance.shall_disconnect()) {
+						var count = FreeRDP.get_event_handles(this.instance.context, handles, 64);
+						if (count == 0) {
+							break;
+						}
+						var waited = WinPr.wait(count, handles, false, 100);
+						if (waited == WinPr.WAIT_FAILED) {
+							break;
+						}
+						if (waited == WinPr.WAIT_TIMEOUT) {
+							continue;
+						}
 						if (!FreeRDP.check_event_handles(this.instance.context)) {
 							break;
 						}
@@ -218,6 +237,9 @@ namespace Argus.Controller.Rdp
 					if (this.stopping) {
 						break;
 					}
+					var err = FreeRDP.get_last_error(this.instance.context);
+					GLib.warning("desktop disconnected: 0x%08x %s",
+						err, FreeRDP.get_last_error_name(err));
 					var dropped = attempt + 1;
 					GLib.Idle.add(() => {
 						this.window.rdp.toast(
