@@ -302,9 +302,25 @@ namespace Argus.Agent
 						response.retval.get_string() != "") {
 						server_version = response.retval.get_string();
 					}
+					var client_api = Argus.VERSION;
+					var client_dot = client_api.index_of(".");
+					if (client_dot >= 0) {
+						var client_end = client_api.index_of(".", client_dot + 1);
+						if (client_end > client_dot) {
+							client_api = client_api.substring(0, client_end);
+						}
+					}
+					var server_api = server_version;
+					var server_dot = server_api.index_of(".");
+					if (server_dot >= 0) {
+						var server_end = server_api.index_of(".", server_dot + 1);
+						if (server_end > server_dot) {
+							server_api = server_api.substring(0, server_end);
+						}
+					}
 					var order = GLib.strcmp(
-						Argus.VERSION.collate_key_for_filename(),
-						server_version.collate_key_for_filename());
+						client_api.collate_key_for_filename(),
+						server_api.collate_key_for_filename());
 					if (order > 0) {
 						this.client_newer = true;
 						retry = false;

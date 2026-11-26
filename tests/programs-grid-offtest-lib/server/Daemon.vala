@@ -27,7 +27,8 @@ namespace Argus.Server
 	 * ''RPC-Daemon.hello'' is the first call on the Unix socket
 	 * and on the app socket, the same hello ''ollmfilesd'' answers.
 	 * The client sends its version. The reply carries this server's
-	 * version. A newer client is refused. An older client is warned.
+	 * version. The last number is ignored. A newer client on the
+	 * first two numbers is refused. An older client is warned.
 	 *
 	 * == Example ==
 	 *
@@ -51,10 +52,12 @@ namespace Argus.Server
 		/**
 		 * Answer the first call from a controller or an agent.
 		 *
-		 * The client version is compared with {@link Argus.VERSION}.
-		 * A missing version is an older client. A newer client is
-		 * refused. An older client is warned and still accepted.
-		 * The reply value is this server's version.
+		 * The client version is compared with {@link Argus.VERSION}
+		 * on the first two numbers. The last number can differ.
+		 * A missing version is an older client. A newer client on
+		 * those two numbers is refused. An older client is warned
+		 * and still accepted. The reply value is this server's
+		 * version.
 		 *
 		 * @param request inbound RPC
 		 * @param protocol client protocol number
@@ -67,7 +70,23 @@ namespace Argus.Server
 			GLib.debug("hello %s %d %s", client, protocol, theirs);
 			var mine = Argus.VERSION;
 			var notice = "ok";
-			var order = strverscmp(theirs, mine);
+			var theirs_api = theirs;
+			var theirs_dot = theirs.index_of(".");
+			if (theirs_dot >= 0) {
+				var theirs_end = theirs.index_of(".", theirs_dot + 1);
+				if (theirs_end > theirs_dot) {
+					theirs_api = theirs.substring(0, theirs_end);
+				}
+			}
+			var mine_api = mine;
+			var mine_dot = mine.index_of(".");
+			if (mine_dot >= 0) {
+				var mine_end = mine.index_of(".", mine_dot + 1);
+				if (mine_end > mine_dot) {
+					mine_api = mine.substring(0, mine_end);
+				}
+			}
+			var order = strverscmp(theirs_api, mine_api);
 			if (order > 0) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_PARAMS(

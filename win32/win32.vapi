@@ -487,6 +487,48 @@ namespace Win32 {
 	public uint32 argus_active_session ();
 	[CCode (cheader_filename = "win32.h")]
 	public void argus_end_rdp_sessions ();
+	[CCode (cname = "LoadLibraryW", cheader_filename = "win32.h")]
+	public void* LoadLibraryW (string16 path);
+	[CCode (cname = "GetProcAddress", cheader_filename = "win32.h")]
+	public void* GetProcAddress (void* module, string name);
+	[CCode (cname = "ERROR_OBJECT_ALREADY_EXISTS", cheader_filename = "win32.h")]
+	public const uint32 ERROR_OBJECT_ALREADY_EXISTS;
+	[CCode (cname = "ERROR_NO_MORE_ITEMS", cheader_filename = "win32.h")]
+	public const uint32 ERROR_NO_MORE_ITEMS;
+
+	[CCode (has_target = false)]
+	public delegate void* WintunCreateAdapter (string16 name, string16 tunnel_type, void* guid);
+	[CCode (has_target = false)]
+	public delegate void* WintunOpenAdapter (string16 name);
+	[CCode (has_target = false)]
+	public delegate void WintunCloseAdapter (void* adapter);
+	[CCode (has_target = false)]
+	public delegate void WintunGetLuid (void* adapter, out uint64 luid);
+	[CCode (has_target = false)]
+	public delegate void* WintunStartSession (void* adapter, uint32 capacity);
+	[CCode (has_target = false)]
+	public delegate void* WintunReceive (void* session, out uint32 size);
+	[CCode (has_target = false)]
+	public delegate void WintunRelease (void* session, void* packet);
+	[CCode (has_target = false)]
+	public delegate void* WintunAllocSend (void* session, uint32 size);
+	[CCode (has_target = false)]
+	public delegate void WintunSend (void* session, void* packet);
+	[CCode (has_target = false)]
+	public delegate void* WintunWait (void* session);
+
+	[CCode (cheader_filename = "adapter-row.h")]
+	public uint32 argus_adapter_address (uint64 luid, string ip, uint8 prefix);
+	[CCode (cheader_filename = "adapter-row.h")]
+	public uint32 argus_adapter_route (uint64 luid, string ip);
+	[CCode (cheader_filename = "adapter-row.h")]
+	public uint32 argus_adapter_neighbor (uint64 luid, string ip);
+	[CCode (cheader_filename = "adapter-row.h")]
+	public void argus_adapter_read ([CCode (array_length = false)] uint8[] dest, void* src, uint32 n);
+	[CCode (cheader_filename = "adapter-row.h")]
+	public void argus_adapter_write (void* dest, [CCode (array_length = false)] uint8[] src, uint32 n);
+	[CCode (cheader_filename = "adapter-row.h")]
+	public void argus_adapter_move ([CCode (array_length = false)] uint8[] dest, uint32 dest_off, [CCode (array_length = false)] uint8[] src, uint32 n);
 	[CCode (cname = "ConnectNamedPipe", cheader_filename = "win32.h")]
 	public bool ConnectNamedPipe (void* pipe, Overlapped* ov);
 	[CCode (cname = "DisconnectNamedPipe", cheader_filename = "win32.h")]

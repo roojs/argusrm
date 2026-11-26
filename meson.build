@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.56',
+	version: '0.1.59',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -189,6 +189,7 @@ if host_machine.system() == 'linux'
 			server_sources,
 			files(
 				'agent/Rdp/Tunnel.vala',
+				'agent/linux/Adapter.vala',
 				'controller/Rdp/Viewer.vala',
 				'server/tests/rdp-relay-agent-application.vala',
 				'server/tests/rdp-relay.vala',

@@ -59,6 +59,20 @@ command -v makensis >/dev/null || {
 
 rm -rf "${stage}"
 mkdir -p "${stage}" "${out_dir}"
+wintun_cache="${out_dir}/wintun/wintun.dll"
+wintun_url="https://www.wintun.net/builds/wintun-0.14.1.zip"
+if [[ ! -s "${wintun_cache}" ]]; then
+	mkdir -p "$(dirname "${wintun_cache}")"
+	wintun_tmp="$(mktemp -d)"
+	curl -fsSL -A "Argus" -o "${wintun_tmp}/wintun.zip" "${wintun_url}"
+	unzip -p "${wintun_tmp}/wintun.zip" wintun/bin/amd64/wintun.dll > "${wintun_cache}"
+	rm -rf "${wintun_tmp}"
+fi
+if [[ ! -s "${wintun_cache}" ]]; then
+	echo "wintun.dll is not available" >&2
+	exit 1
+fi
+cp -f "${wintun_cache}" "${stage}/wintun.dll"
 cp -f "${exe}" "${stage}/argus-agent.exe"
 cp -f "${exe}" "${stage}/argus-tray.exe"
 objcopy --subsystem windows "${stage}/argus-tray.exe"

@@ -133,15 +133,24 @@ namespace Argus.Agent.Rdp
 			new GLib.MainLoop().run();
 		}
 
-		private GLib.SocketClient dial;
 		private uint8[] buf { get; set; }
 		public GLib.SocketConnection? plain;
 		public OLLMrpc.Transport.TlsClient? rpc;
 		public Argus.Agent.Application? app;
 		public bool again;
+		private bool dropped;
 		private bool streaming;
+		private bool reading;
+		private GLib.Mutex read_lock;
 		private int stream_tries;
-		private string windows_host = "";
+
+		/**
+		 * Desktop dial for this platform.
+		 *
+		 * Windows opens the virtual adapter. Linux has the same
+		 * methods so this file compiles without a platform ifdef.
+		 */
+		private Adapter adapter = new Adapter();
 
 		/**
 		 * Send one step on the main loop.
@@ -168,33 +177,20 @@ namespace Argus.Agent.Rdp
 		}
 
 		/**
-		 * Dial Windows on loopback and join the server as ''agent''.
+		 * Dial Windows and join the server as ''agent''.
 		 *
 		 * The app connection is not this socket. ''Relay.write''
-		 * carries bytes read from port 3389. ''relay.data'' is
-		 * written back to that port. The dial uses this machine's
-		 * own network address. Windows closes a session that
-		 * comes from loopback. An existing Remote Desktop
-		 * session is logged off first.
+		 * carries bytes read from the desktop. ''relay.data'' is
+		 * written back. On Windows that socket is the local end
+		 * of the virtual adapter. TermService sees 10.200.0.1.
+		 * An existing Remote Desktop session is logged off first.
 		 *
 		 * @param rpc the agent's second connection
 		 */
 		public void open_windows(OLLMrpc.Transport.TlsClient rpc) throws GLib.Error
 		{
-			this.dial = new GLib.SocketClient();
-			this.dial.timeout = 10;
-#if WINDOWS
-			this.windows_host = this.app.desktop_address;
-			if (this.windows_host == "" ||
-				this.windows_host == "127.0.0.1" ||
-				this.windows_host == "::1") {
-				throw new GLib.IOError.FAILED("no network address for Remote Desktop");
-			}
-			Win32.argus_end_rdp_sessions();
-#else
-			this.windows_host = "127.0.0.1";
-#endif
-			this.plain = this.dial.connect_to_host(this.windows_host, 3389);
+			this.adapter.logoff();
+			this.plain = this.adapter.connect();
 			this.plain.socket.timeout = 0;
 			try {
 				this.app.connection.call(new OLLMrpc.Request() {
@@ -262,12 +258,101 @@ namespace Argus.Agent.Rdp
 				GLib.warning("%s", e.message);
 			}
 			this.rpc.watch();
+			this.read_desktop(false);
+		}
+
+		/**
+		 * Read the desktop on the desktop thread.
+		 *
+		 * ''cut'' dials Windows again and calls ''Relay.fresh''
+		 * before the first read. When the read has already
+		 * returned, {@link reopen} starts this again.
+		 *
+		 * @param cut true when this run replaces the Windows socket
+		 */
+		private void read_desktop(bool cut)
+		{
+			this.read_lock.lock();
+			this.reading = true;
+			this.read_lock.unlock();
 			new GLib.Thread<int>("desktop", () => {
-				this.buf = new uint8[16384];
-				while (this.handle_stream()) {
-				}
+				this.desktop_loop(cut);
 				return 0;
 			});
+		}
+
+		/**
+		 * Read until the Windows socket ends.
+		 *
+		 * A cut that arrives as the read returns dials again on
+		 * this same thread.
+		 *
+		 * @param cut true when the first step is a fresh dial
+		 */
+		private void desktop_loop(bool cut)
+		{
+			if (this.buf == null) {
+				this.buf = new uint8[16384];
+			}
+			if (cut && !this.fresh_dial()) {
+				this.read_lock.lock();
+				this.reading = false;
+				this.read_lock.unlock();
+				return;
+			}
+			while (true) {
+				while (this.handle_stream()) {
+				}
+				this.read_lock.lock();
+				var pending = this.again;
+				if (pending) {
+					this.again = false;
+				} else {
+					this.reading = false;
+				}
+				this.read_lock.unlock();
+				if (!pending) {
+					return;
+				}
+				if (!this.fresh_dial()) {
+					this.read_lock.lock();
+					this.reading = false;
+					this.read_lock.unlock();
+					return;
+				}
+			}
+		}
+
+		/**
+		 * Dial Windows again and mark that socket as the start.
+		 *
+		 * @return false when the dial or ''Relay.fresh'' failed
+		 */
+		private bool fresh_dial()
+		{
+			try {
+				this.plain = this.adapter.connect();
+				this.plain.socket.timeout = 0;
+			} catch (GLib.Error e) {
+				GLib.warning("desktop: %s", e.message);
+				this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
+				return false;
+			}
+			try {
+				var mark = this.rpc.call(new OLLMrpc.Request() {
+					method = "Relay.fresh"
+				});
+				if (mark.error != null) {
+					GLib.warning("fresh: %s", mark.error.message);
+					this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
+					return false;
+				}
+			} catch (GLib.Error e) {
+				GLib.warning("fresh: %s", e.message);
+				this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
+				return false;
+			}
+			return true;
 		}
 
 		/**
@@ -280,6 +365,9 @@ namespace Argus.Agent.Rdp
 		 */
 		private bool handle_stream()
 		{
+			if (this.dropped) {
+				return false;
+			}
 			ssize_t n = 0;
 			try {
 				n = this.plain.input_stream.read(this.buf);
@@ -292,10 +380,8 @@ namespace Argus.Agent.Rdp
 						return false;
 					}
 					try {
-#if WINDOWS
-						Win32.argus_end_rdp_sessions();
-#endif
-						this.plain = this.dial.connect_to_host(this.windows_host, 3389);
+						this.adapter.logoff();
+						this.plain = this.adapter.connect();
 						this.plain.socket.timeout = 0;
 					} catch (GLib.Error redial) {
 						GLib.warning("desktop: %s", redial.message);
@@ -305,31 +391,9 @@ namespace Argus.Agent.Rdp
 					return true;
 				}
 			}
-			if (this.again) {
+			if (this.again && !this.dropped) {
 				this.again = false;
-				try {
-					this.plain = this.dial.connect_to_host(this.windows_host, 3389);
-					this.plain.socket.timeout = 0;
-				} catch (GLib.Error e) {
-					GLib.warning("desktop: %s", e.message);
-					this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
-					return false;
-				}
-				try {
-					var mark = this.rpc.call(new OLLMrpc.Request() {
-						method = "Relay.fresh"
-					});
-					if (mark.error != null) {
-						GLib.warning("fresh: %s", mark.error.message);
-						this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
-						return false;
-					}
-				} catch (GLib.Error e) {
-					GLib.warning("fresh: %s", e.message);
-					this.report(Argus.Rdp.State.RETRY_STREAM_FRESH_CUT, 1);
-					return false;
-				}
-				return true;
+				return this.fresh_dial();
 			}
 			if (n <= 0) {
 				this.report(Argus.Rdp.State.RETRY_MACHINE_STREAM, 1);
@@ -363,19 +427,61 @@ namespace Argus.Agent.Rdp
 		}
 
 		/**
-		 * Close the Windows socket so the read dials a new one.
+		 * Stop this desktop. The server connection is already gone.
+		 *
+		 * The read returns and does not dial again.
+		 */
+		public void retire()
+		{
+			this.read_lock.lock();
+			this.again = false;
+			this.dropped = true;
+			this.read_lock.unlock();
+			if (this.plain != null) {
+				try {
+					this.plain.close();
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			}
+			var until = GLib.get_monotonic_time() + 1000000;
+			while (GLib.get_monotonic_time() < until) {
+				this.read_lock.lock();
+				var live = this.reading;
+				this.read_lock.unlock();
+				if (!live) {
+					return;
+				}
+				GLib.Thread.usleep(20000);
+			}
+		}
+
+		/**
+		 * Dial Windows again and call ''Relay.fresh''.
+		 *
+		 * A live read is closed so it notices. A read that has
+		 * already returned starts a new desktop thread.
 		 */
 		public void reopen()
 		{
-			this.again = true;
-			if (this.plain == null) {
+			this.read_lock.lock();
+			var live = this.reading;
+			if (live) {
+				this.again = true;
+			}
+			this.read_lock.unlock();
+			if (live) {
+				if (this.plain == null) {
+					return;
+				}
+				try {
+					this.plain.close();
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
 				return;
 			}
-			try {
-				this.plain.close();
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-			}
+			this.read_desktop(true);
 		}
 	}
 }

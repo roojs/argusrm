@@ -52,6 +52,12 @@ namespace Argus.Controller.Rdp
 		public string problem { get; set; default = ""; }
 		private bool stopping = false;
 		private bool rendered = false;
+		private GLib.Mutex paint_lock;
+		private bool painting = false;
+		private uint8[] latest = new uint8[0];
+		private int latest_width;
+		private int latest_height;
+		private int latest_stride;
 		private static Gee.ArrayList<Screen> live = new Gee.ArrayList<Screen>();
 		private Argus.Controller.Window window;
 		private int agent_id;
@@ -240,6 +246,12 @@ namespace Argus.Controller.Rdp
 			this.instance = null;
 		}
 
+		/**
+		 * Copy the current desktop into the picture.
+		 *
+		 * One copy is kept. A later event replaces it. The window
+		 * paints that copy once.
+		 */
 		private void publish()
 		{
 			unowned FreeRDP.Gdi? gdi = this.instance.context.gdi;
@@ -250,12 +262,36 @@ namespace Argus.Controller.Rdp
 			var height = gdi.height;
 			var stride = (int) gdi.stride;
 			var size = stride * height;
-			var copy = new uint8[size];
-			GLib.Memory.copy((void*) copy, gdi.primary_buffer, size);
-			var bytes = new GLib.Bytes(copy);
+			this.paint_lock.lock();
+			if (this.latest.length != size) {
+				this.latest = new uint8[size];
+			}
+			GLib.Memory.copy((void*) this.latest, gdi.primary_buffer, size);
+			this.latest_width = width;
+			this.latest_height = height;
+			this.latest_stride = stride;
+			if (this.painting) {
+				this.paint_lock.unlock();
+				return;
+			}
+			this.painting = true;
+			this.paint_lock.unlock();
 			GLib.Idle.add(() => {
+				this.paint_lock.lock();
+				var copy = new uint8[this.latest.length];
+				GLib.Memory.copy((void*) copy, this.latest, this.latest.length);
+				var frame_width = this.latest_width;
+				var frame_height = this.latest_height;
+				var frame_stride = this.latest_stride;
+				this.painting = false;
+				this.paint_lock.unlock();
+				if (this.stopping) {
+					return false;
+				}
+				var bytes = new GLib.Bytes(copy);
 				var texture = new Gdk.MemoryTexture(
-					width, height, Gdk.MemoryFormat.B8G8R8A8, bytes, (uint) stride);
+					frame_width, frame_height, Gdk.MemoryFormat.B8G8R8A8,
+					bytes, (uint) frame_stride);
 				this.picture.set_paintable(texture);
 				if (!this.rendered) {
 					this.rendered = true;

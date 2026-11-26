@@ -129,8 +129,6 @@ namespace Argus.Controller.Tab.Asset.Machine
 						this.window.rdp.forget(agent_id);
 						return;
 					}
-					this.window.rdp.toast(
-						agent_id, Argus.Rdp.State.SUCCESS_START_DESKTOP, 0);
 					this.window.rdp.open(agent_id, name);
 					this.window.tabs.show_rdp();
 				});

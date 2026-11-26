@@ -153,8 +153,10 @@ namespace Argus.Controller.Rdp
 		 * Listen on loopback and carry that socket to one agent.
 		 *
 		 * {@link view_port} is set before this returns. FreeRDP
-		 * connects there. ''Relay.view'' is the join. ''run'' is
-		 * the test and is not this method.
+		 * connects there. ''Relay.view'' is the join. A second
+		 * open waits until the machine starts the desktop again,
+		 * so this socket has no read timeout. ''run'' is the
+		 * test and is not this method.
 		 *
 		 * @param host server that answered
 		 * @param port server port
@@ -179,9 +181,9 @@ namespace Argus.Controller.Rdp
 			this.view_port = ((GLib.InetSocketAddress) bound).get_port();
 			this.rpc = new OLLMrpc.Transport.TlsClient(host, port) {
 				tls_certificate = certificate,
-				tls_database = database
+				tls_database = database,
+				timeout = 0
 			};
-			this.rpc.timeout = 5;
 			this.rpc.notification.connect((notif) => {
 				if (notif.method != "relay.data" || notif.args.size < 1 || this.plain == null) {
 					return;

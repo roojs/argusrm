@@ -439,12 +439,17 @@ namespace Argus.Shared
 				} else {
 					this.tunnel_spinner.stop();
 				}
-				if (step == TunnelScan.Step.SCANNING) {
-					this.tunnel_label.label =
-						"I've got a VPN. Seeing if I can find any servers.";
-				}
-				if (step == TunnelScan.Step.CHECKING_PORTS) {
-					this.tunnel_label.label = "Checking registration ports…";
+				if (step == TunnelScan.Step.SCANNING ||
+					step == TunnelScan.Step.CHECKING_PORTS) {
+					var line = "I've got a VPN";
+					if (this.tunnel_scan.tunnel_address != "") {
+						line += " (" + this.tunnel_scan.tunnel_address + ")";
+					}
+					line += ". Seeing if I can find any servers.";
+					if (step == TunnelScan.Step.CHECKING_PORTS) {
+						line += " Checking registration ports.";
+					}
+					this.tunnel_label.label = line;
 				}
 				if (step == TunnelScan.Step.FOUND) {
 					this.tunnel_label.label =

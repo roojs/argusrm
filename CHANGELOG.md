@@ -8,6 +8,31 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.59] - Unreleased
+
+### Fixed
+
+- Could not connect puts the address in the title. The server name and the reason are underneath.
+
+## [0.1.58] - Unreleased
+
+### Fixed
+
+- The connect dialog keeps the VPN notice, with this machine's tunnel address, while it looks for a server. The PIN step names the address it found.
+- A client and a server on the same middle version connect. 0.1.55 and 0.1.58 are the same API. A newer client on a different middle number, such as 0.2, is still refused.
+- When that refusal happens, the window names the server and offers Retry and Select another server.
+- The Windows desktop connection kept the handshake and then sent the screen bytes over the TCP header. Remote Desktop never answered, so the window stayed on "The desktop data is coming through."
+- The controller kept a full copy of the desktop for every update. The picture now keeps one copy and paints that.
+- Opening the desktop again, after the machine had stopped sending, left the join waiting. The window then reported that FreeRDP could not open the desktop, trying 3 of 3. A later open starts the Windows connection again.
+- A new desktop from the machine left the controller on "The machine is about to send the desktop." The server was still holding the join from the previous desktop. That join is released when the machine connects again.
+- After the server restarted, the machine kept its old desktop connection and ignored the new request. The window then showed "Told the server this controller wants to take control" on top of the later step. A dead desktop connection is replaced, and that earlier sentence is no longer painted last.
+
+## [0.1.57] - Unreleased
+
+### Fixed
+
+- The Windows agent opens Remote Desktop through a virtual adapter. Windows sees that connection from 10.200.0.1, not from this PC. The installer places wintun.dll next to the agent.
+
 ## [0.1.56] - Unreleased
 
 ### Added

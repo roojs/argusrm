@@ -418,7 +418,9 @@ namespace Argus.Agent.Windows
 		 * Open the desktop stream once Remote Desktop is on.
 		 *
 		 * A start that arrives earlier turns Remote Desktop on.
-		 * A tunnel that is already open is left as it is.
+		 * A tunnel whose server connection is still up is left
+		 * as it is. A tunnel left behind by a server restart is
+		 * dropped, and this start opens a new one.
 		 */
 		internal void relay_start()
 		{
@@ -439,7 +441,11 @@ namespace Argus.Agent.Windows
 			}
 			this.start_asked = false;
 			if (this.tunnel != null) {
-				return;
+				if (this.tunnel.rpc != null && this.tunnel.rpc.connected) {
+					return;
+				}
+				this.tunnel.retire();
+				this.tunnel = null;
 			}
 			var rpc = this.application.stream_connection();
 			if (rpc == null) {

@@ -274,6 +274,9 @@ namespace Argus.Shared
 		 * Stop browse and wait for the PIN on a host that already
 		 * answered the registration port (for example
 		 * {@link TunnelScan}).
+		 *
+		 * {@link detail} names that host so the PIN step shows the
+		 * address.
 		 */
 		public void adopt_probed_server(string host, uint16 port)
 		{
@@ -283,7 +286,8 @@ namespace Argus.Shared
 			this.port = port;
 			this.server_id = "";
 			this.phase = Phase.AWAITING_PIN;
-			this.detail = "Management server found. Enter the six-digit PIN.";
+			this.detail = "Found on the VPN at " + host +
+				". Enter the six-digit PIN.";
 		}
 
 		/**
@@ -722,7 +726,23 @@ namespace Argus.Shared
 					if (response.retval.holds(typeof(string)) && response.retval.get_string() != "") {
 						server_version = response.retval.get_string();
 					}
-					var order = GLib.strcmp(Argus.VERSION.collate_key_for_filename(), server_version.collate_key_for_filename());
+					var client_api = Argus.VERSION;
+					var client_dot = client_api.index_of(".");
+					if (client_dot >= 0) {
+						var client_end = client_api.index_of(".", client_dot + 1);
+						if (client_end > client_dot) {
+							client_api = client_api.substring(0, client_end);
+						}
+					}
+					var server_api = server_version;
+					var server_dot = server_api.index_of(".");
+					if (server_dot >= 0) {
+						var server_end = server_api.index_of(".", server_dot + 1);
+						if (server_end > server_dot) {
+							server_api = server_api.substring(0, server_end);
+						}
+					}
+					var order = GLib.strcmp(client_api.collate_key_for_filename(), server_api.collate_key_for_filename());
 					if (order > 0) {
 						GLib.stdout.printf("\n");
 						GLib.stderr.printf("The server is %s. This client is %s.\n", server_version, Argus.VERSION);

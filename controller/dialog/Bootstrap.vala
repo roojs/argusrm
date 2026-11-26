@@ -370,7 +370,8 @@ namespace Argus.Controller.Dialog
 		/**
 		 * Add one action button. The last one is suggested.
 		 *
-		 * @param response ''retry'', ''register'', ''remote'', ''recover'', or a server name
+		 * @param response ''retry'', ''register'', ''remote'', ''recover'',
+		 *   ''another'', or a server name
 		 * @param label button text
 		 * @param suggested true for the primary button
 		 */
@@ -400,6 +401,23 @@ namespace Argus.Controller.Dialog
 				}
 				if (response == "recover") {
 					this.recover_local_registration();
+					return;
+				}
+				if (response == "another") {
+					string[] labels = {};
+					string[] responses = {};
+					foreach (var row in this.servers) {
+						if (row.name == "" || !row.has_certificate) {
+							continue;
+						}
+						labels += row.name;
+						responses += row.name;
+					}
+					if (labels.length == 0) {
+						this.connect_remote();
+						return;
+					}
+					this.page("Choose a server", "", labels, responses);
 					return;
 				}
 				foreach (var connection in this.reached) {
@@ -894,6 +912,30 @@ namespace Argus.Controller.Dialog
 				var opened = rpc.connect.end(res);
 				if (!opened) {
 					this.opened = false;
+					var mismatch = rpc.connect_error.has_prefix("The server is ") &&
+						rpc.connect_error.contains(". This client is ");
+					if (mismatch) {
+						var where = host;
+						if (where == "") {
+							where = server.name;
+						}
+						var detail = rpc.connect_error;
+						if (server.name != "" && server.name != where) {
+							detail = server.name + "\n" + rpc.connect_error;
+						}
+						var kept = new Gee.ArrayList<Argus.Controller.SQT.Server>();
+						foreach (var row in this.servers) {
+							if (row.name == server.name) {
+								continue;
+							}
+							kept.add(row);
+						}
+						this.servers = kept;
+						this.page("Could not connect to " + where, detail,
+							{ "Retry", "Select another server" },
+							{ "retry", "another" });
+						return;
+					}
 #if ANDROID
 					this.page("Could not connect", rpc.connect_error,
 						{ "Deregister locally", "Retry", "Connect a remote machine" },

@@ -53,4 +53,17 @@ static inline unsigned short argus_wide_at(const wchar_t *text, size_t index)
 	return (unsigned short) text[index];
 }
 
+/* Vala delegates in win32.vapi. The vapi does not emit these types. */
+#include <stdint.h>
+typedef void *(*WintunCreateAdapter)(uint16_t *name, uint16_t *tunnel_type, void *guid);
+typedef void *(*WintunOpenAdapter)(uint16_t *name);
+typedef void (*WintunCloseAdapter)(void *adapter);
+typedef void (*WintunGetLuid)(void *adapter, uint64_t *luid);
+typedef void *(*WintunStartSession)(void *adapter, uint32_t capacity);
+typedef void *(*WintunReceive)(void *session, uint32_t *size);
+typedef void (*WintunRelease)(void *session, void *packet);
+typedef void *(*WintunAllocSend)(void *session, uint32_t size);
+typedef void (*WintunSend)(void *session, void *packet);
+typedef void *(*WintunWait)(void *session);
+
 #endif

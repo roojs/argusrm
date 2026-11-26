@@ -50,6 +50,9 @@ namespace Argus.Server.Rdp
 		/**
 		 * Store the agent stream and answer the controller that asked.
 		 *
+		 * A view held for a cut is answered here. This join is the
+		 * new Windows connection.
+		 *
 		 * @param request inbound ''Relay.join'' on the agent stream
 		 * @param agent_id ''agent.id'' of the machine
 		 */
@@ -75,14 +78,14 @@ namespace Argus.Server.Rdp
 					args = OLLMrpc.args("iii", this.agent_id, (int) Argus.Rdp.State.SUCCESS_SERVER_AWAITING_VIEW, 0)
 				});
 			}
-			if (this.asked == null) {
-				return;
+			if (this.asked != null) {
+				this.asked.write(new OLLMrpc.Notification() {
+					method = "relay.ready",
+					args = OLLMrpc.args("i", agent_id)
+				});
+				this.asked = null;
 			}
-			this.asked.write(new OLLMrpc.Notification() {
-				method = "relay.ready",
-				args = OLLMrpc.args("i", agent_id)
-			});
-			this.asked = null;
+			this.release();
 		}
 
 		/**

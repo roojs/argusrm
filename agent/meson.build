@@ -71,6 +71,8 @@ if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('wevtapi')
 	deps += meson.get_compiler('c').find_library('crypt32')
 	deps += meson.get_compiler('c').find_library('wintrust')
+	deps += meson.get_compiler('c').find_library('iphlpapi')
+	deps += meson.get_compiler('c').find_library('ws2_32')
 	sources += win32_c_sources
 	sources += files(
 		'OSQuery/Initialize.vala',
@@ -89,6 +91,7 @@ if host_machine.system() == 'windows'
 		'windows/UpdatesAvailable.vala',
 		'windows/main.vala',
 		'Rdp/Tunnel.vala',
+		'windows/Adapter.vala',
 	)
 	vala_args += win32_vala_args + ['-D', 'WINDOWS']
 	c_args += [

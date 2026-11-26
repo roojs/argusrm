@@ -1447,13 +1447,14 @@ controller_vala_args += [
 - ✔️ 2026-11-19: The click at 12:14 failed because the machine was not connected. The server called that `unknown agent`, so the notice did not say what was wrong. `Relay.start` now replies `The machine is not connected.` The notice heading is the hostname and the body is that sentence. The desktop page says `Waiting for Remote Desktop on <name>.` until `relay.ready`, and a FreeRDP failure replaces that sentence. `meson test -C build rdp-start` requires the new sentence.
 
 - ✔️ 2026-11-19: After 0.1.28, `Relay.start` at 11:52:31 and the agent log `name-ref token 21 alias mismatch`. The server had restarted at 11:52:15. The agent called `open` on the same client, so the old name table stayed. `/tmp/argus-nameref` prints `stale name-ref token 1 alias mismatch` and `fresh relay.start`. A dropped connection is now a new client.
+- ✔️ 2026-11-26: Throwaway on `snappr-win`, not in the tree. Wintun 0.14 adapter `ArgusWintun0` at `10.200.0.2/32`. This process owned `10.200.0.1` and injected IPv4 TCP to `10.200.0.2:3389`. Windows listed that connection established from `10.200.0.1:51422`. TermService answered the opening request with the same 19 bytes a normal socket got, selected protocol Network Level Authentication. The session from `192.168.88.132:51982` stayed established. No logon was sent. The adapter, the driver, and `C:\Users\Alan\argus-wintun-probe` were removed.
 
 ## Next
 
 - ⏳ 🔷 Phase 5 is not verified on a machine. The Windows agent installer for that try is 0.1.29. Phase 6 is the session tabs.
 - ⏳ 🔷 Phase 6.5 is the tray ask, the controller notice while that ask is open, Force, and the tray notice that names who has the screen.
 - ⏳ 💩 The proof listen is still `Relay.listen`. Phase 2 does not move it into `SslListen`.
-- ⏳ 🔷 Reachability for remote control: trial tunnel-style VPN on the Windows machine and pipe RDP relay traffic through it (off-repo investigation; not controller registration VPN).
+- ⏳ The virtual adapter is `2026-11-26-FEATURE-windows-rdp-virtual-adapter.md`.
 
 ## LLM notes
 
@@ -1469,3 +1470,7 @@ controller_vala_args += [
 - 🚫 Do not hide the button on Android.
 - 🚫 Do not open the viewer in another window.
 - 🚫 Do not add an RDP connections list.
+- ℹ️ 2026-11-26 throwaway was `/tmp/argus-wintun-probe.c`, copied to `snappr-win` and deleted after the run. The 4-byte frame in the sketch is not an IP packet. The probe built IPv4 and TCP. The export is `WintunGetAdapterLUID`. Send with `WintunAllocateSendPacket`, then `WintunSendPacket`.
+- ℹ️ The inbound Remote Desktop firewall rules were already enabled on that PC. This run did not test a closed firewall group.
+- 🚫 Do not treat the negotiation answer as a desktop that stayed on screen. No credentials were sent.
+- ℹ️ 2026-11-26: The virtual adapter is its own report, `2026-11-26-FEATURE-windows-rdp-virtual-adapter.md`.

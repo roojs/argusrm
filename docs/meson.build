@@ -103,6 +103,7 @@ valadoc_sources += files(
   '../agent/Connection.vala',
   '../agent/SQT/Server.vala',
   '../agent/Rdp/Tunnel.vala',
+  '../agent/linux/Adapter.vala',
   '../agent/Download.vala',
   '../agent/OSQuery/Initialize.vala',
   '../agent/OSQuery/Execute.vala',
