@@ -39,3 +39,8 @@ if [ ! -f "$OLLM_ROOT/vapi/gioopenssl.vapi" ]; then
 fi
 mkdir -p "$ARGUS_ROOT/android/vapi"
 cp -a "$OLLM_ROOT/vapi/gioopenssl.vapi" "$ARGUS_ROOT/android/vapi/gioopenssl.vapi"
+
+if [ -d "$ARGUS_ROOT/scripts/android" ]; then
+  cp -a "$ARGUS_ROOT/packaging/android/fetch-pixie-deps.sh" "$ARGUS_ROOT/scripts/android/fetch-pixie-deps.sh"
+  chmod +x "$ARGUS_ROOT/scripts/android/fetch-pixie-deps.sh"
+fi

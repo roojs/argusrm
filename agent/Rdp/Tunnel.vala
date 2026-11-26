@@ -97,7 +97,7 @@ namespace Argus.Agent.Rdp
 			stderr.printf("agent joined\n");
 			rpc.watch();
 			new GLib.Thread<int>("agent", () => {
-				var buf = new uint8[16384];
+				var buf = new uint8[65536];
 				while (true) {
 					ssize_t n = 0;
 					try {
@@ -292,7 +292,7 @@ namespace Argus.Agent.Rdp
 		private void desktop_loop(bool cut)
 		{
 			if (this.buf == null) {
-				this.buf = new uint8[16384];
+				this.buf = new uint8[65536];
 			}
 			if (cut && !this.fresh_dial()) {
 				this.read_lock.lock();

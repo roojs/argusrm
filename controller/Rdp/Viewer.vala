@@ -113,7 +113,7 @@ namespace Argus.Controller.Rdp
 			stderr.printf("view joined\n");
 			rpc.watch();
 			new GLib.Thread<int>("view", () => {
-				var buf = new uint8[16384];
+				var buf = new uint8[65536];
 				while (true) {
 					ssize_t n = 0;
 					try {
@@ -253,7 +253,7 @@ namespace Argus.Controller.Rdp
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
 				}
-				var buf = new uint8[16384];
+				var buf = new uint8[65536];
 				var open = true;
 				while (open) {
 					ssize_t n = 0;

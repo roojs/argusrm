@@ -35,15 +35,18 @@ controller_vala_args = ocrpc_vala_args + ocsqlite_vala_args + [
 # The Windows installer is the agent. FreeRDP is the controller picture.
 if host_machine.system() != 'windows'
 	dependency('freerdp3')
+	dependency('freerdp-client3')
 	dependency('winpr3')
-	pkgconfig = find_program('pkg-config')
+	pkgconfig = find_program('pkg-config', native: false)
 	freerdp_cflags = run_command(pkgconfig, '--cflags', 'freerdp3', check: true).stdout().split()
 	freerdp_libs = run_command(pkgconfig, '--libs', 'freerdp3', check: true).stdout().split()
+	freerdp_client_cflags = run_command(pkgconfig, '--cflags', 'freerdp-client3', check: true).stdout().split()
+	freerdp_client_libs = run_command(pkgconfig, '--libs', 'freerdp-client3', check: true).stdout().split()
 	winpr_cflags = run_command(pkgconfig, '--cflags', 'winpr3', check: true).stdout().split()
 	winpr_libs = run_command(pkgconfig, '--libs', 'winpr3', check: true).stdout().split()
 	deps += declare_dependency(
-		compile_args: freerdp_cflags + winpr_cflags,
-		link_args: freerdp_libs + winpr_libs,
+		compile_args: freerdp_cflags + freerdp_client_cflags + winpr_cflags,
+		link_args: freerdp_libs + freerdp_client_libs + winpr_libs,
 	)
 	controller_vala_args += [
 		'--vapidir', meson.project_source_root() / 'server' / 'vapi',

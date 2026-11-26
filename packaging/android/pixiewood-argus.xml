@@ -49,6 +49,7 @@
     <libsoup/>
     <openssl/>
     <glib-networking/>
+    <freerdp/>
     <ocrpc/>
     <ocsqlite/>
   </dependencies>

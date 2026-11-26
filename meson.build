@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.62',
+	version: '0.1.63',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -38,6 +38,9 @@ if host_machine.system() == 'android'
 		'gioopenssl',
 		'ocrpc',
 		'ocsqlite',
+		'freerdp3',
+		'freerdp-client3',
+		'winpr3',
 	]
 	foreach dep_name : pixie_deps
 		dep = dependency(dep_name, allow_fallback: false, required: false)

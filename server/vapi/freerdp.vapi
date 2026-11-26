@@ -11,12 +11,15 @@ namespace FreeRDP
 		TlsSecurity,
 		RdpSecurity,
 		SupportMultitransport,
+		SupportDynamicChannels,
 		SupportGraphicsPipeline,
 		RemoteFxCodec,
 		NSCodec,
 		BitmapCacheEnabled,
 		BitmapCacheV3Enabled,
 		SurfaceCommandsEnabled,
+		GfxProgressive,
+		GfxProgressiveV2,
 		GfxH264,
 		GfxAVC444,
 		GfxAVC444v2,
@@ -70,12 +73,38 @@ namespace FreeRDP
 	}
 
 	[Compact]
+	[CCode (cname = "rdpChannels", cheader_filename = "freerdp/freerdp.h")]
+	public class Channels
+	{
+	}
+
+	[Compact]
+	[CCode (cname = "rdpInput", cheader_filename = "freerdp/input.h")]
+	public class Input
+	{
+	}
+
+	[CCode (has_target = false, cname = "pEndPaint", cheader_filename = "freerdp/update.h")]
+	public delegate bool EndPaint (Context context);
+
+	[Compact]
+	[CCode (cname = "rdpUpdate", cheader_filename = "freerdp/update.h")]
+	public class Update
+	{
+		public EndPaint EndPaint;
+	}
+
+	[Compact]
 	[CCode (cname = "rdpContext", cheader_filename = "freerdp/freerdp.h")]
 	public class Context
 	{
 		public unowned Settings settings;
 		public unowned Instance instance;
 		public unowned Gdi? gdi;
+		public unowned Channels? channels;
+		public unowned Input? input;
+		public unowned Update? update;
+		public void* pubSub;
 	}
 
 	[Compact]
@@ -181,6 +210,9 @@ namespace FreeRDP
 		public void *primary_buffer;
 	}
 
+	[CCode (has_target = false, cname = "pPreConnect")]
+	public delegate bool PreConnect (Instance instance);
+
 	[CCode (has_target = false, cname = "pPostConnect")]
 	public delegate bool PostConnect (Instance instance);
 
@@ -210,6 +242,7 @@ namespace FreeRDP
 		public Instance ();
 
 		public unowned Context context;
+		public PreConnect PreConnect;
 		public PostConnect PostConnect;
 		public Authenticate Authenticate;
 		public VerifyCertificateEx VerifyCertificateEx;
@@ -229,6 +262,92 @@ namespace FreeRDP
 		[CCode (cname = "freerdp_shall_disconnect")]
 		public bool shall_disconnect ();
 	}
+
+	[CCode (cname = "PTR_FLAGS_HWHEEL", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_HWHEEL;
+
+	[CCode (cname = "PTR_FLAGS_WHEEL", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_WHEEL;
+
+	[CCode (cname = "PTR_FLAGS_WHEEL_NEGATIVE", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_WHEEL_NEGATIVE;
+
+	[CCode (cname = "PTR_FLAGS_MOVE", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_MOVE;
+
+	[CCode (cname = "PTR_FLAGS_DOWN", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_DOWN;
+
+	[CCode (cname = "PTR_FLAGS_BUTTON1", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_BUTTON1;
+
+	[CCode (cname = "PTR_FLAGS_BUTTON2", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_BUTTON2;
+
+	[CCode (cname = "PTR_FLAGS_BUTTON3", cheader_filename = "freerdp/input.h")]
+	public const uint16 PTR_FLAGS_BUTTON3;
+
+	[CCode (cname = "RDPGFX_DVC_CHANNEL_NAME", cheader_filename = "freerdp/channels/rdpgfx.h")]
+	public const string RDPGFX_DVC_CHANNEL_NAME;
+
+	[Compact]
+	[CCode (cname = "ChannelConnectedEventArgs", cheader_filename = "freerdp/event.h")]
+	public class ChannelConnectedEventArgs
+	{
+		public unowned string name;
+		public void* pInterface;
+	}
+
+	[Compact]
+	[CCode (cname = "ChannelDisconnectedEventArgs", cheader_filename = "freerdp/event.h")]
+	public class ChannelDisconnectedEventArgs
+	{
+		public unowned string name;
+		public void* pInterface;
+	}
+
+	[CCode (has_target = false, cname = "pChannelConnectedEventHandler", cheader_filename = "freerdp/event.h")]
+	public delegate void ChannelConnectedEventHandler (
+		void* context,
+		[CCode (type = "const ChannelConnectedEventArgs*")] ChannelConnectedEventArgs e);
+
+	[CCode (has_target = false, cname = "pChannelDisconnectedEventHandler", cheader_filename = "freerdp/event.h")]
+	public delegate void ChannelDisconnectedEventHandler (
+		void* context,
+		[CCode (type = "const ChannelDisconnectedEventArgs*")] ChannelDisconnectedEventArgs e);
+
+	[CCode (has_target = false, cname = "FREERDP_LOAD_CHANNEL_ADDIN_ENTRY_FN", cheader_filename = "freerdp/addin.h")]
+	public delegate void* LoadChannelAddinEntry (string name, string? subsystem, string? type, uint32 flags);
+
+	[CCode (cname = "(FREERDP_LOAD_CHANNEL_ADDIN_ENTRY_FN) freerdp_channels_load_static_addin_entry", cheader_filename = "freerdp/client/channels.h")]
+	public LoadChannelAddinEntry static_addin_loader;
+
+	[CCode (cname = "freerdp_register_addin_provider", cheader_filename = "freerdp/addin.h")]
+	public int register_addin_provider (LoadChannelAddinEntry provider, uint32 flags);
+
+	[CCode (cname = "freerdp_client_load_addins", cheader_filename = "freerdp/client/cmdline.h")]
+	public bool client_load_addins (Channels channels, Settings settings);
+
+	[CCode (cname = "PubSub_SubscribeChannelConnected", cheader_filename = "freerdp/event.h")]
+	public int subscribe_channel_connected (void* pub_sub, ChannelConnectedEventHandler handler);
+
+	[CCode (cname = "PubSub_SubscribeChannelDisconnected", cheader_filename = "freerdp/event.h")]
+	public int subscribe_channel_disconnected (void* pub_sub, ChannelDisconnectedEventHandler handler);
+
+	[CCode (cname = "gdi_graphics_pipeline_init", cheader_filename = "freerdp/gdi/gfx.h")]
+	public bool gdi_graphics_pipeline_init (Gdi gdi, void* gfx);
+
+	[CCode (cname = "gdi_graphics_pipeline_uninit", cheader_filename = "freerdp/gdi/gfx.h")]
+	public void gdi_graphics_pipeline_uninit (Gdi gdi, void* gfx);
+
+	[CCode (cname = "freerdp_input_send_mouse_event", cheader_filename = "freerdp/input.h")]
+	public bool input_send_mouse_event (Input input, uint16 flags, uint16 x, uint16 y);
+
+	[CCode (cname = "freerdp_input_send_keyboard_event_ex", cheader_filename = "freerdp/input.h")]
+	public bool input_send_keyboard_event_ex (Input input, bool down, bool repeat, uint32 rdp_scancode);
+
+	[CCode (cname = "freerdp_input_send_focus_in_event", cheader_filename = "freerdp/input.h")]
+	public bool input_send_focus_in_event (Input input, uint16 toggle_states);
 
 	[CCode (cname = "freerdp_get_event_handles")]
 	public uint32 get_event_handles (Context context, [CCode (array_length = false)] void*[] events, uint32 count);
@@ -272,4 +391,16 @@ namespace WinPr
 
 	[CCode (cname = "WAIT_FAILED", cheader_filename = "winpr/synch.h")]
 	public const uint32 WAIT_FAILED;
+
+	[CCode (cname = "WINPR_KEYCODE_TYPE_XKB", cheader_filename = "winpr/input.h")]
+	public const uint32 KEYCODE_TYPE_XKB;
+
+	[CCode (cname = "WINPR_KBD_TYPE_IBM_ENHANCED", cheader_filename = "winpr/input.h")]
+	public const uint32 KBD_TYPE_IBM_ENHANCED;
+
+	[CCode (cname = "GetVirtualKeyCodeFromKeycode", cheader_filename = "winpr/input.h")]
+	public uint32 get_vk_from_keycode (uint32 keycode, uint32 type);
+
+	[CCode (cname = "GetVirtualScanCodeFromVirtualKeyCode", cheader_filename = "winpr/input.h")]
+	public uint32 get_scancode_from_vk (uint32 vkcode, uint32 kbd_type);
 }

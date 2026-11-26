@@ -51,7 +51,7 @@ jobs:
         run: |
           mkdir -p scripts/android android
           cp -a ../OLLMchat/scripts/android/. scripts/android/
-          git checkout HEAD -- scripts/android/fetch-pixie-deps.sh
+          cp -a packaging/android/fetch-pixie-deps.sh scripts/android/fetch-pixie-deps.sh
           bash packaging/android/stage-ollmchat-android-pins.sh
           cp -a ../OLLMchat/android/local-build.local.env android/
           chmod +x scripts/android/*.sh packaging/android/*.sh

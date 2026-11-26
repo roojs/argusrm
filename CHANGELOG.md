@@ -8,6 +8,13 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.63] - Unreleased
+
+### Fixed
+
+- Wired mouse motion, clicks, wheel scroll, keyboard input, and focus events into the controller RDP viewer.
+- Enabled FreeRDP3 GFX RFX Progressive pipeline, EndPaint-driven redraws, single-copy frame publishing, and 64 KiB relay chunks in both the agent and controller.
+
 ## [0.1.62] - Unreleased
 
 ### Fixed
