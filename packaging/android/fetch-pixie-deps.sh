@@ -3,7 +3,7 @@
 # The GTK + FreeRDP stack comes from the pixiewood-pkgs GitHub Pages pin lists.
 # android/pixie-gtk.pins lists Knowles/gtk at track latest;
 # scripts/android/resolve-pixie-gtk-pins.sh expands it before merge.
-# ocrpc and ocsqlite come from OLLMchat's published release.pins.
+# ocrpc and ocsqlite come from OLLMchat's <tag>-packages GitHub release.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -12,7 +12,7 @@ DEST="${PIXIEWOOD_PIXIE:-$PIXIEWOOD_BASE/pixie}"
 CLONE="$PIXIEWOOD_BASE/pixie-pkg"
 RELEASE_URL="${PIXIE_RELEASE_PINS_URL:-https://roojs.github.io/pixiewood-pkgs/release.pins}"
 SNAPSHOT_URL="${PIXIE_SNAPSHOT_PINS_URL:-https://roojs.github.io/pixiewood-pkgs/snapshot.pins}"
-OLLMCHAT_PINS_URL="${PIXIE_OLLMCHAT_PINS_URL:-https://roojs.github.io/OLLMchat/release.pins}"
+OLLMCHAT_RELEASE_TAG="${OLLMCHAT_RELEASE:-}"
 GTK_TEMPLATE="$ROOT_DIR/android/pixie-gtk.pins"
 PINS_STAMP="$DEST/share/pixiewood/pixie.pins"
 PKG_DIR="$DEST/lib/arm64-v8a/pkgconfig"
@@ -31,11 +31,47 @@ if [ ! -f "$GTK_TEMPLATE" ]; then
   exit 1
 fi
 
+if [ -z "$OLLMCHAT_RELEASE_TAG" ]; then
+  OLLMCHAT_RELEASE_TAG="$(curl -fsSL --retry 3 --retry-delay 2 https://api.github.com/repos/roojs/OLLMchat/releases/latest | jq -r .tag_name)"
+fi
+if [ -z "$OLLMCHAT_RELEASE_TAG" ] || [ "$OLLMCHAT_RELEASE_TAG" = null ]; then
+  echo "Could not resolve latest OLLMchat release tag" >&2
+  exit 1
+fi
+OLLMCHAT_VERSION="${OLLMCHAT_RELEASE_TAG#v}"
+OLLMCHAT_BASE_URL="https://github.com/roojs/OLLMchat/releases/download/${OLLMCHAT_RELEASE_TAG}-packages"
+
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 curl -fsSL --retry 3 --retry-delay 2 "$RELEASE_URL" -o "$work/release.pins"
 curl -fsSL --retry 3 --retry-delay 2 "$SNAPSHOT_URL" -o "$work/snapshot.pins"
-curl -fsSL --retry 3 --retry-delay 2 "$OLLMCHAT_PINS_URL" -o "$work/ollmchat.pins"
+jq -n \
+  --arg tag "$OLLMCHAT_RELEASE_TAG" \
+  --arg ver "$OLLMCHAT_VERSION" \
+  --arg base "$OLLMCHAT_BASE_URL" '
+  {
+    packages: [
+      {
+        abi: "arm64-v8a",
+        repo: "https://github.com/roojs/OLLMchat.git",
+        name: "ocsqlite",
+        track: $ver,
+        resolved: $tag,
+        inputs: $tag,
+        url: ($base + "/ocsqlite-arm-v31-" + $ver + ".pixie")
+      },
+      {
+        abi: "arm64-v8a",
+        repo: "https://github.com/roojs/OLLMchat.git",
+        name: "ocrpc",
+        track: $ver,
+        resolved: $tag,
+        inputs: $tag,
+        url: ($base + "/ocrpc-arm-v31-" + $ver + ".pixie")
+      }
+    ]
+  }
+' > "$work/ollmchat.pins"
 "$ROOT_DIR/scripts/android/resolve-pixie-gtk-pins.sh" > "$work/gtk.pins"
 jq -s '
   ([.[0].packages[] | select(.abi == "arm64-v8a")]) as $rel

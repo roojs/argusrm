@@ -59,6 +59,7 @@ jobs:
       - name: Prepare and configure Pixiewood
         working-directory: argusrm
         env:
+          OLLMCHAT_RELEASE: ${{ steps.ollm_release.outputs.tag }}
           PIXIEWOOD_USE_PIXIE: "1"
           PIXIEWOOD_MANIFEST: ${{ github.workspace }}/argusrm/packaging/android/pixiewood-argus.xml
         run: |
@@ -70,6 +71,7 @@ jobs:
       - name: Build APK
         working-directory: argusrm
         env:
+          OLLMCHAT_RELEASE: ${{ steps.ollm_release.outputs.tag }}
           PIXIEWOOD_USE_PIXIE: "1"
           PIXIEWOOD_MANIFEST: ${{ github.workspace }}/argusrm/packaging/android/pixiewood-argus.xml
         run: bash packaging/android/build-apk.sh

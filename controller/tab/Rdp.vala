@@ -212,7 +212,10 @@ namespace Argus.Controller.Tab
 						existing = existing.get_next_sibling();
 						continue;
 					}
-					((Gtk.ToggleButton) existing).active = true;
+					var button = existing.get_first_child() as Gtk.ToggleButton;
+					if (button != null) {
+						button.active = true;
+					}
 					if (this.pending.has_key(agent_id)) {
 						var list = this.pending.get(agent_id);
 						this.pending.unset(agent_id);
@@ -254,6 +257,11 @@ namespace Argus.Controller.Tab
 			};
 			overlay.add_overlay(waiting);
 			this.pictures.add_named(overlay, key);
+			var select = new Gtk.ToggleButton() {
+				child = new Gtk.Label(name),
+				css_classes = { "flat", "rdp-tab-select" },
+				valign = Gtk.Align.CENTER
+			};
 			var close = new Gtk.Button.from_icon_name("window-close-symbolic") {
 				css_classes = { "flat", "rdp-tab-close" },
 				valign = Gtk.Align.CENTER,
@@ -262,31 +270,35 @@ namespace Argus.Controller.Tab
 			close.clicked.connect(() => {
 				this.drop(agent_id);
 			});
-			var row = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 2);
-			row.append(new Gtk.Label(name));
-			row.append(close);
-			var tab = new Gtk.ToggleButton() {
+			var tab = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 2) {
 				name = key,
-				child = row,
-				css_classes = { "flat", "rdp-tab" },
+				css_classes = { "rdp-tab" },
 				halign = Gtk.Align.START,
 				valign = Gtk.Align.CENTER
 			};
-			tab.toggled.connect(() => {
-				if (!tab.active) {
+			tab.append(select);
+			tab.append(close);
+			select.toggled.connect(() => {
+				if (!select.active) {
+					tab.remove_css_class("active");
 					return;
 				}
+				tab.add_css_class("active");
 				this.pictures.visible_child_name = key;
 				var other = this.tabs.get_first_child();
 				while (other != null) {
 					if (other != tab) {
-						((Gtk.ToggleButton) other).active = false;
+						var other_select = other.get_first_child() as Gtk.ToggleButton;
+						if (other_select != null) {
+							other_select.active = false;
+						}
+						other.remove_css_class("active");
 					}
 					other = other.get_next_sibling();
 				}
 			});
 			this.tabs.append(tab);
-			tab.active = true;
+			select.active = true;
 			if (this.pending.has_key(agent_id)) {
 				var list = this.pending.get(agent_id);
 				this.pending.unset(agent_id);
@@ -347,6 +359,11 @@ namespace Argus.Controller.Tab
 				tab = next;
 			}
 			if (this.screens.size > 0) {
+				var remaining = this.tabs.get_first_child();
+				var first_select = remaining != null ? remaining.get_first_child() as Gtk.ToggleButton : null;
+				if (first_select != null && this.pictures.visible_child == null) {
+					first_select.active = true;
+				}
 				return;
 			}
 			this.window.tabs.hide_rdp();

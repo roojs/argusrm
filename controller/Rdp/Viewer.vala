@@ -47,8 +47,10 @@ namespace Argus.Controller.Rdp
 		 * @param message the transport error
 		 */
 		public signal void failed(string message);
-		private OLLMrpc.Transport.TlsClient rpc;
+		private OLLMrpc.Transport.TlsClient? rpc;
+		private GLib.SocketListener? listener;
 		private GLib.SocketConnection? plain;
+		private bool stopping = false;
 		/**
 		 * Accept one FreeRDP client and copy until that socket closes.
 		 *
@@ -173,6 +175,7 @@ namespace Argus.Controller.Rdp
 		) throws GLib.Error
 		{
 			var listener = new GLib.SocketListener();
+			this.listener = listener;
 			var where = new GLib.InetSocketAddress(
 				new GLib.InetAddress.loopback(GLib.SocketFamily.IPV4), 0);
 			GLib.SocketAddress? bound = null;
@@ -185,7 +188,7 @@ namespace Argus.Controller.Rdp
 				timeout = 0
 			};
 			this.rpc.notification.connect((notif) => {
-				if (notif.method != "relay.data" || notif.args.size < 1 || this.plain == null) {
+				if (this.stopping || notif.method != "relay.data" || notif.args.size < 1 || this.plain == null) {
 					return;
 				}
 				var blob = (GLib.Bytes) notif.args.get(0).get_boxed();
@@ -198,7 +201,9 @@ namespace Argus.Controller.Rdp
 					try {
 						off += this.plain.output_stream.write(data[off:data.length]);
 					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
+						if (!this.stopping) {
+							GLib.warning("%s", e.message);
+						}
 						return;
 					}
 				}
@@ -208,6 +213,27 @@ namespace Argus.Controller.Rdp
 				this.view(listener, agent_id);
 				return 0;
 			});
+		}
+
+		/**
+		 * Close the loopback listener, local socket, and relay link.
+		 */
+		public void stop()
+		{
+			this.stopping = true;
+			if (this.listener != null) {
+				this.listener.close();
+				this.listener = null;
+			}
+			if (this.plain != null) {
+				try {
+					this.plain.close();
+				} catch (GLib.Error e) {
+					GLib.debug("%s", e.message);
+				}
+				this.plain = null;
+			}
+			this.rpc = null;
 		}
 
 		/**
@@ -222,13 +248,20 @@ namespace Argus.Controller.Rdp
 		 */
 		private void view(GLib.SocketListener listener, int agent_id)
 		{
+			var rpc = this.rpc;
+			if (rpc == null || this.stopping) {
+				return;
+			}
 			OLLMrpc.Response joined;
 			try {
-				joined = this.rpc.call(new OLLMrpc.Request() {
+				joined = rpc.call(new OLLMrpc.Request() {
 					method = "Relay.view",
 					args = OLLMrpc.args("i", agent_id)
 				});
 			} catch (GLib.Error e) {
+				if (this.stopping) {
+					return;
+				}
 				GLib.warning("%s", e.message);
 				var message = e.message;
 				GLib.Idle.add(() => {
@@ -241,11 +274,13 @@ namespace Argus.Controller.Rdp
 				GLib.warning("%s", joined.error.message);
 				return;
 			}
-			for (var round = 0; round < 3; round++) {
+			for (var round = 0; round < 3 && !this.stopping; round++) {
 				try {
 					this.plain = listener.accept(null);
 				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
+					if (!this.stopping) {
+						GLib.warning("%s", e.message);
+					}
 					return;
 				}
 				try {
@@ -255,12 +290,14 @@ namespace Argus.Controller.Rdp
 				}
 				var buf = new uint8[65536];
 				var open = true;
-				while (open) {
+				while (open && !this.stopping) {
 					ssize_t n = 0;
 					try {
 						n = this.plain.input_stream.read(buf);
 					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
+						if (!this.stopping) {
+							GLib.warning("%s", e.message);
+						}
 						open = false;
 						continue;
 					}
@@ -278,13 +315,17 @@ namespace Argus.Controller.Rdp
 					request.args.add(held);
 					OLLMrpc.Response response;
 					try {
-						response = this.rpc.call(request);
+						response = rpc.call(request);
 					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
+						if (!this.stopping) {
+							GLib.warning("%s", e.message);
+						}
 						return;
 					}
 					if (response.error != null) {
-						GLib.warning("%s", response.error.message);
+						if (!this.stopping) {
+							GLib.warning("%s", response.error.message);
+						}
 						return;
 					}
 				}

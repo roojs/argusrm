@@ -224,8 +224,30 @@ namespace Argus.Agent.Linux
 				command_line.printerr("Could not set up the Argus agent service: %s\n", e.message);
 				return 1;
 			}
-			var certificate = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
-			if (GLib.FileUtils.test(certificate, GLib.FileTest.EXISTS)) {
+			if (!this.ensure_client_db()) {
+				command_line.printerr("registration needs the agent data directory\n");
+				return 1;
+			}
+			var existing = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+			Argus.Agent.SQT.Server.query(this.client_db).selectWhere(
+				"WHERE deleted_dt = 0",
+				new Gee.HashMap<string, int>(),
+				new Gee.HashMap<string, string>(),
+				existing);
+			Argus.Agent.SQT.Server? saved_server = null;
+			if (existing.size > 0) {
+				var row = existing.get(0);
+				row.data_dir = this.data_dir;
+				try {
+					row.load_certificates();
+					if (row.has_certificate) {
+						saved_server = row;
+					}
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			}
+			if (saved_server != null) {
 				OLLMrpc.rpc_register();
 				var opened = this.open_connection();
 				if (opened == null) {
@@ -260,7 +282,12 @@ namespace Argus.Agent.Linux
 					command_line.printerr("%s\n", response.error.message);
 					return 1;
 				}
-				GLib.FileUtils.remove(certificate);
+				try {
+					saved_server.remove(this.client_db);
+					this.client_db.backup_real();
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
 				GLib.debug("certificate rejected");
 			}
 			if (host == "") {
@@ -297,10 +324,6 @@ namespace Argus.Agent.Linux
 				}
 				host = hostport.substring(0, colon);
 				port = announced;
-			}
-			if (!this.ensure_client_db()) {
-				command_line.printerr("registration needs the agent data directory\n");
-				return 1;
 			}
 			var registration = new Argus.Shared.Register() {
 				data_dir = this.data_dir,

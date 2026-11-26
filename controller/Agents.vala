@@ -65,9 +65,11 @@ namespace Argus.Controller
 					this.app.loop.quit();
 					return;
 				}
-				var rows = (Gee.ArrayList<Argus.Shared.Agent>) response.retval;
-				foreach (var row in rows) {
-					this.app.cli.print("%lld %s\n", row.id, row.requester);
+				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
+					var rows = (Gee.ArrayList<Argus.Shared.Agent>) response.retval.get_object();
+					foreach (var row in rows) {
+						this.app.cli.print("%lld %s\n", row.id, row.requester);
+					}
 				}
 			} catch (GLib.Error e) {
 				this.app.cli.printerr("%s\n", e.message);

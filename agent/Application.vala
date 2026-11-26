@@ -184,15 +184,56 @@ namespace Argus.Agent
 		};
 
 		/**
-		 * Management TLS client from the link state machine.
+		 * Management TLS client from the link state machine, or a
+		 * one-off TLS session to the saved server for CLI checks
+		 * when no live link is running.
 		 *
-		 * Non-null only when {@link Argus.Agent.Connection.State.CONNECTED}.
-		 *
-		 * @return the live session, or null
+		 * @return an open session, or null
 		 */
 		internal OLLMrpc.Transport.TlsClient? open_connection()
 		{
-			return this.server.client();
+			var live = this.server.client();
+			if (live != null) {
+				return live;
+			}
+			if (this.client_db == null) {
+				return null;
+			}
+			var rows = new Gee.ArrayList<Argus.Agent.SQT.Server>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			try {
+				Argus.Agent.SQT.Server.query(this.client_db).selectWhere(
+					"WHERE deleted_dt = 0", int_binds, text_binds, rows);
+				if (rows.size < 1) {
+					return null;
+				}
+				var row = rows.get(0);
+				row.data_dir = this.data_dir;
+				row.load_certificates();
+				if (!row.has_certificate) {
+					return null;
+				}
+				var endpoint = row.socket(0);
+				var tls_files = new OLLMrpc.Transport.Cert() {
+					dir = this.data_dir,
+					cert_pem = "client.pem",
+					key_pem = "client-key.pem",
+					cn = "argus-agent",
+				};
+				tls_files.ensure();
+				var socket = new OLLMrpc.Transport.TlsClient(
+					endpoint.get_address().to_string(), endpoint.get_port()) {
+					accept_any = true,
+					tls_certificate = tls_files.certificate,
+					timeout = 5
+				};
+				socket.open();
+				return socket;
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return null;
+			}
 		}
 
 		/**

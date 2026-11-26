@@ -51,6 +51,7 @@ namespace Argus.Controller.Rdp
 		 */
 		public string problem { get; set; default = ""; }
 		private bool stopping = false;
+		private bool running = false;
 		private bool rendered = false;
 		private bool ready = false;
 		private bool dirty = false;
@@ -68,6 +69,8 @@ namespace Argus.Controller.Rdp
 		private static Gee.ArrayList<Screen> live = new Gee.ArrayList<Screen>();
 		private Argus.Controller.Window window;
 		private int agent_id;
+		private Viewer? viewer;
+		private Adw.AlertDialog? auth_dialog;
 		private FreeRDP.Instance? instance;
 		private string user = "";
 		private string pass = "";
@@ -317,6 +320,7 @@ namespace Argus.Controller.Rdp
 				return;
 			}
 			var viewer = new Viewer();
+			this.viewer = viewer;
 			viewer.failed.connect((message) => {
 				GLib.debug("%s", message);
 				this.window.rdp.toast(
@@ -384,6 +388,7 @@ namespace Argus.Controller.Rdp
 			settings.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
 			settings.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
 			var port = viewer.view_port;
+			this.running = true;
 			new GLib.Thread<int>("screen", () => {
 				var handles = new void*[64];
 				for (var attempt = 0; attempt < 3 && !this.stopping; attempt++) {
@@ -432,6 +437,9 @@ namespace Argus.Controller.Rdp
 						this.input_lock.unlock();
 					}
 					if (!this.instance.connect()) {
+						if (this.stopping) {
+							break;
+						}
 						var err = FreeRDP.get_last_error(this.instance.context);
 						GLib.warning("desktop connect failed: 0x%08x %s",
 							err, FreeRDP.get_last_error_name(err));
@@ -487,6 +495,16 @@ namespace Argus.Controller.Rdp
 						return false;
 					});
 				}
+				this.input_lock.lock();
+				this.ready = false;
+				this.running = false;
+				if (this.instance != null) {
+					this.instance.disconnect();
+					FreeRDP.gdi_free(this.instance);
+					this.instance.context_free();
+					this.instance = null;
+				}
+				this.input_lock.unlock();
 				return 0;
 			});
 		}
@@ -501,15 +519,23 @@ namespace Argus.Controller.Rdp
 			this.stopping = true;
 			this.ready = false;
 			Screen.live.remove(this);
-			if (this.instance == null) {
-				this.input_lock.unlock();
-				return;
+			var viewer = this.viewer;
+			this.viewer = null;
+			var dialog = this.auth_dialog;
+			this.auth_dialog = null;
+			if (!this.running && this.instance != null) {
+				this.instance.disconnect();
+				FreeRDP.gdi_free(this.instance);
+				this.instance.context_free();
+				this.instance = null;
 			}
-			this.instance.disconnect();
-			FreeRDP.gdi_free(this.instance);
-			this.instance.context_free();
-			this.instance = null;
 			this.input_lock.unlock();
+			if (dialog != null) {
+				dialog.force_close();
+			}
+			if (viewer != null) {
+				viewer.stop();
+			}
 		}
 
 		/**
@@ -595,15 +621,39 @@ namespace Argus.Controller.Rdp
 			var mutex = GLib.Mutex();
 			var cond = GLib.Cond();
 			GLib.Idle.add(() => {
-				dialog.response.connect((response) => {
+				if (this.stopping) {
 					mutex.lock();
-					if (response == "ok") {
-						this.user = user_entry.text;
-						this.pass = pass_entry.text;
-						ok = this.user != "" && this.pass != "";
-					}
 					done = true;
 					cond.signal();
+					mutex.unlock();
+					return false;
+				}
+				this.auth_dialog = dialog;
+				dialog.response.connect((response) => {
+					if (this.auth_dialog == dialog) {
+						this.auth_dialog = null;
+					}
+					mutex.lock();
+					if (!done) {
+						if (response == "ok") {
+							this.user = user_entry.text;
+							this.pass = pass_entry.text;
+							ok = this.user != "" && this.pass != "";
+						}
+						done = true;
+						cond.signal();
+					}
+					mutex.unlock();
+				});
+				dialog.closed.connect(() => {
+					if (this.auth_dialog == dialog) {
+						this.auth_dialog = null;
+					}
+					mutex.lock();
+					if (!done) {
+						done = true;
+						cond.signal();
+					}
 					mutex.unlock();
 				});
 				dialog.present(this.picture);

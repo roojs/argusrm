@@ -1,6 +1,6 @@
 # Windows resets the desktop TCP session about six seconds after the picture is on screen
 
-**Status:** ⏳
+**Status:** ✅
 
 ### User decisions required
 
@@ -59,8 +59,8 @@ None.
 
 ### Codebase observed behavior
 
-- [`agent/windows/Adapter.vala`](../../agent/windows/Adapter.vala) `on_packet` sets `rst` when the peer segment has the RST flag, then the splice logs `desktop tcp reset` and stops.
-- [`agent/Rdp/Tunnel.vala`](../../agent/Rdp/Tunnel.vala) reads 0 from the loopback socket after that close and logs `desktop read ended`, then `redial()`.
+- [`agent/windows/Adapter.vala`](../../../agent/windows/Adapter.vala) `on_packet` sets `rst` when the peer segment has the RST flag, then the splice logs `desktop tcp reset` and stops.
+- [`agent/Rdp/Tunnel.vala`](../../../agent/Rdp/Tunnel.vala) reads 0 from the loopback socket after that close and logs `desktop read ended`, then `redial()`.
 - That redial is already in 0.1.60. The 15:01 run still stopped on attempt 1.
 - In-order payload is appended and acknowledged.
 - Any other payload length is acknowledged and discarded. There is no out-of-order buffer.
@@ -145,9 +145,9 @@ exit 4
 
 ### Proposed fix
 
-Disable the broken FreeRDP 3 client settings in [`controller/Rdp/Screen.vala`](../../controller/Rdp/Screen.vala) (`SupportMultitransport=false`, `MultitransportFlags=0`, `RemoteFxCodec=false`, `NSCodec=false`, `SurfaceCommandsEnabled=false`, `SupportGraphicsPipeline=false`, `GfxH264=false`, `GfxAVC444=false`, `GfxAVC444v2=false`), wait on FreeRDP event handles with `WinPr.wait` instead of busy-spinning `check_event_handles`, and log `freerdp_get_last_error` on disconnect.
+Disable the broken FreeRDP 3 client settings in [`controller/Rdp/Screen.vala`](../../../controller/Rdp/Screen.vala) (`SupportMultitransport=false`, `MultitransportFlags=0`, `RemoteFxCodec=false`, `NSCodec=false`, `SurfaceCommandsEnabled=false`, `SupportGraphicsPipeline=false`, `GfxH264=false`, `GfxAVC444=false`, `GfxAVC444v2=false`), wait on FreeRDP event handles with `WinPr.wait` instead of busy-spinning `check_event_handles`, and log `freerdp_get_last_error` on disconnect.
 
-Disable Wintun at runtime in [`agent/windows/Adapter.vala`](../../agent/windows/Adapter.vala) (`use_wintun = false`) so Windows connects directly to `127.0.0.1:3389` without deleting the Wintun implementation, and reset `stream_tries` on fresh reconnect in [`agent/Rdp/Tunnel.vala`](../../agent/Rdp/Tunnel.vala).
+Disable Wintun at runtime in [`agent/windows/Adapter.vala`](../../../agent/windows/Adapter.vala) (`use_wintun = false`) so Windows connects directly to `127.0.0.1:3389` without deleting the Wintun implementation, and reset `stream_tries` on fresh reconnect in [`agent/Rdp/Tunnel.vala`](../../../agent/Rdp/Tunnel.vala).
 
 ### Phase 3 — Live proof on `snappr-win` over plain `127.0.0.1:3389`
 
@@ -187,4 +187,6 @@ Disable Wintun at runtime in [`agent/windows/Adapter.vala`](../../agent/windows/
 - ℹ️ `query user` was empty and `cmdkey /list` was empty, so `mstsc /restrictedadmin` from the SSH session had no interactive logon to use. The listener never saw that client.
 - 🚫 Hypothesis disproven: the 6-second drop was not Wintun TCP or Windows rejecting `127.0.0.1`. It was `controller/Rdp/Screen.vala` leaving `SupportMultitransport` enabled (6 s UDP timeout) and advertising uninitialized `SupportGraphicsPipeline` / `SurfaceCommandsEnabled` + `RemoteFxCodec`/`NSCodec` (immediate `RDP_GFX 0x8000000A` / `WD error 303`).
 - ✔️ Proven live on `snappr-win` (both `xfreerdp` and `/tmp/argus-rdp-repro` held 35 s over plain `127.0.0.1:3389`), then applied to `server/vapi/freerdp.vapi`, `controller/Rdp/Screen.vala`, `agent/windows/Adapter.vala` (`use_wintun = false`), and `agent/Rdp/Tunnel.vala`.
-- ⏳ Ready for Windows rebuild/install and end-to-end controller verification.
+- ✔️ Built and installed `0.1.62` on `snappr-win`: session stayed up past 80 s with no 6-second drop.
+- ✔️ Follow-up responsiveness fixes in `0.1.63`: wired GTK 4 mouse motion/clicks/scroll/keyboard/focus input in `controller/Rdp/Screen.vala`, enabled FreeRDP3 GFX RFX Progressive (`freerdp-client3` static addins + `gdi_graphics_pipeline_init`), switched to `EndPaint`-driven redraws with single-copy `GLib.Bytes.take`, and bumped relay chunks to 64 KiB in `controller/Rdp/Viewer.vala` and `agent/Rdp/Tunnel.vala`.
+- ✅ User verified `0.1.63` live on `snappr-win` (session holds, performance and mouse clicks working) and closed this bug. Remaining session takeover and desktop sizing work moved to `docs/bugs/2026-11-26-ISSUE-windows-rdp-session-takeover.md`.
