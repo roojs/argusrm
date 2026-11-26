@@ -350,9 +350,10 @@ namespace Argus.Server.Offering
 						if (owner != null && owner.running) {
 							return true;
 						}
-						this.update_bulk(DeskState.CLOSED);
-						GLib.debug(
-							"registration closed after controller disconnected");
+						var pending_rows = new Gee.ArrayList<Argus.Shared.AgentPending>();
+						Argus.Shared.AgentPending.query(this.app.db).select("", pending_rows);
+						this.update_bulk(pending_rows.size > 0 ? DeskState.POLLING : DeskState.CLOSED);
+						GLib.debug("registration closed after controller disconnected");
 						return false;
 					});
 					return true;

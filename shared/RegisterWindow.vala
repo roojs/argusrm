@@ -27,41 +27,115 @@ namespace Argus.Shared
 	 * registration pipe. The broadcast starts after that. Android sends
 	 * {@link Browse.label} as the requester. Linux and Windows send
 	 * the host name. While it listens, it names the server command
-	 * that turns on broadcast and prints the number. Enter IP/domain
-	 * reveals an address. Connect checks that address every twenty
-	 * seconds. Okay shows the same six digits.
+	 * that turns on broadcast and prints the number. When a VPN
+	 * tunnel is up, {@link TunnelScan} runs beside browse. Enter
+	 * IP/domain reveals an address. Connect checks that address
+	 * every twenty seconds.
 	 */
 	public class RegisterWindow : Adw.Dialog
 	{
 		/**
-		 * Certificate and listen addresses from a successful registration.
-		 *
-		 * Null until {@link certificate_received}.
+		 * One open-registration attempt: {@link Register} flow, saved
+		 * outcome, and auto-close timer. Replaced via {@link renew}.
 		 */
+		public class RegisterState : GLib.Object
+		{
+			/**
+			 * Successful {@link Register.try_connection} outcome.
+			 * Null until {@link RegisterWindow.remember}.
+			 */
+			public Register? registration { get; set; }
+
+			public string registration_name { get; set; default = ""; }
+
+			public string registered_url { get; set; default = ""; }
+
+			public string registered_addresses { get; set; default = ""; }
+
+			public string server_id { get; set; default = ""; }
+
+			public bool registering { get; set; default = false; }
+
+			public uint close_id { get; set; default = 0; }
+
+			public int close_remaining { get; set; default = 0; }
+
+			public string data_dir { get; set; default = ""; }
+
+			public SQ.Database? client_db { get; set; default = null; }
+
+			public bool is_controller { get; set; default = false; }
+
+			public string username { get; set; default = ""; }
+
+			public string hostname { get; set; default = ""; }
+
+			public Register reg { get; set; }
+
+			/**
+			 * @param window enrol settings for {@link reg}
+			 * @param reg registration flow for this attempt
+			 */
+			public RegisterState(RegisterWindow window, Register reg)
+			{
+				Object(
+					data_dir: window.data_dir,
+					client_db: window.client_db,
+					is_controller: window.is_controller,
+					username: window.username,
+					hostname: window.hostname
+				);
+				this.reg = reg;
+				this.reg.data_dir = this.data_dir;
+				this.reg.client_db = this.client_db;
+				this.reg.is_controller = this.is_controller;
+				this.reg.username = this.username;
+				this.reg.hostname = this.hostname;
+			}
+
+			/**
+			 * Stop this attempt and return a new state that keeps
+			 * {@link reg}.
+			 *
+			 * @param window registration dialog
+			 */
+			public RegisterState renew(RegisterWindow window)
+			{
+				if (this.close_id != 0) {
+					GLib.Source.remove(this.close_id);
+					this.close_id = 0;
+				}
+				this.reg.stop();
+				return new RegisterState(window, this.reg);
+			}
+		}
+
+		private RegisterState? state;
+
+		private ulong reg_notify_id = 0;
+
 		/**
 		 * Successful {@link Register.try_connection} outcome for this dialog.
-		 * Null until {@link remember} succeeds.
 		 */
-		public Register? registration { get; private set; }
-		/**
-		 * Row {@link Argus.Shared.SQT.Server.name} — connected registration host.
-		 */
-		public string registration_name { get; private set; default = ""; }
+		public Register? registration {
+			get { return this.state.registration; }
+		}
 
-		/**
-		 * {{{tcp://host:port}}} that answered hello. Null until then.
-		 */
-		public string? registered_url { get; private set; }
+		public string registration_name {
+			get { return this.state.registration_name; }
+		}
 
-		/**
-		 * Every ''host:port'' from the reply, one per line.
-		 */
-		public string registered_addresses { get; private set; default = ""; }
+		public string registered_url {
+			get { return this.state.registered_url; }
+		}
 
-		/**
-		 * Id from the broadcast TXT record.
-		 */
-		public string server_id { get; private set; default = ""; }
+		public string registered_addresses {
+			get { return this.state.registered_addresses; }
+		}
+
+		public string server_id {
+			get { return this.state.server_id; }
+		}
 
 		/**
 		 * Certificate storage directory.
@@ -75,7 +149,10 @@ namespace Argus.Shared
 		 */
 		public SQ.Database? client_db = null;
 
-		public Register reg { get; set; default = new Register (); }
+		public Register reg {
+			get { return this.state.reg; }
+			set { this.state.reg = value; }
+		}
 
 		public Gtk.Label listen_label;
 		private Gtk.Spinner service_spinner;
@@ -85,9 +162,10 @@ namespace Argus.Shared
 		private Gtk.Box address_box;
 		private Gtk.Box offer_box;
 		private Gtk.Button address_button;
-		private uint close_id = 0;
-		private int close_remaining = 0;
-		private bool registering = false;
+		private TunnelScan tunnel_scan { get; default = new TunnelScan (); }
+		private Gtk.Box tunnel_box;
+		private Gtk.Spinner tunnel_spinner;
+		private Gtk.Label tunnel_label;
 
 		/**
 		 * The tray asks the service to register.
@@ -158,6 +236,7 @@ namespace Argus.Shared
 		public RegisterWindow()
 		{
 			Object ();
+			this.state = new RegisterState(this, new Register());
 			this.title = "Connect to management server " + Argus.VERSION;
 			this.set_content_height(480);
 			this.set_content_width(520);
@@ -223,6 +302,24 @@ namespace Argus.Shared
 				margin_bottom = 12
 			};
 			body.append(this.listen_label);
+			this.tunnel_spinner = new Gtk.Spinner() {
+				halign = Gtk.Align.CENTER,
+				visible = false
+			};
+			this.tunnel_label = new Gtk.Label("") {
+				wrap = true,
+				xalign = 0.5f,
+				justify = Gtk.Justification.CENTER,
+				css_classes = {"dim-label"}
+			};
+			this.tunnel_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 8) {
+				visible = false,
+				margin_top = 8,
+				margin_bottom = 8
+			};
+			this.tunnel_box.append(this.tunnel_spinner);
+			this.tunnel_box.append(this.tunnel_label);
+			body.append(this.tunnel_box);
 			var server_hint = new Gtk.Label(
 				"Run this on the server to turn on broadcast and display the number.") {
 				wrap = true,
@@ -290,10 +387,9 @@ namespace Argus.Shared
 					this.listen_label.label = "Enter an IP address or domain";
 					return;
 				}
+				this.tunnel_scan.stop();
 				this.pin_box.visible = false;
-				this.reg.data_dir = this.data_dir;
-				this.reg.client_db = this.client_db;
-				this.reg.connect(host, (uint16) port);
+				this.state.reg.connect(host, (uint16) port);
 			});
 			this.address_entry.activate.connect(() => {
 				connect_button.clicked();
@@ -301,7 +397,7 @@ namespace Argus.Shared
 
 			this.error_occurred.connect((error_message) => {
 				this.listen_label.label = error_message;
-				this.registering = false;
+				this.state.registering = false;
 				this.pin_entry.grab_focus();
 				GLib.warning("%s", error_message);
 			});
@@ -310,7 +406,7 @@ namespace Argus.Shared
 					return;
 				}
 				GLib.Timeout.add(300, () => {
-					if (this.registering ||
+					if (this.state.registering ||
 						!this.valid_pin(this.pin_entry.text.strip())) {
 						return false;
 					}
@@ -323,28 +419,71 @@ namespace Argus.Shared
 			});
 			this.closed.connect(() => {
 				this.can_close = true;
-				if (this.close_id != 0) {
-					GLib.Source.remove(this.close_id);
-					this.close_id = 0;
+				if (this.state.close_id != 0) {
+					GLib.Source.remove(this.state.close_id);
+					this.state.close_id = 0;
 				}
-				this.reg.stop();
+				this.tunnel_scan.stop();
+				this.state.reg.stop();
 				this.pin_entry.text = "";
 				this.dialog_closed();
 			});
-			this.reg.notify.connect((obj, pspec) => {
+			this.tunnel_scan.notify["step"].connect(() => {
+				var step = this.tunnel_scan.step;
+				this.tunnel_box.visible = step != TunnelScan.Step.IDLE;
+				var busy = step == TunnelScan.Step.SCANNING ||
+					step == TunnelScan.Step.CHECKING_PORTS;
+				this.tunnel_spinner.visible = busy;
+				if (busy) {
+					this.tunnel_spinner.start();
+				} else {
+					this.tunnel_spinner.stop();
+				}
+				if (step == TunnelScan.Step.SCANNING) {
+					this.tunnel_label.label =
+						"I've got a VPN. Seeing if I can find any servers.";
+				}
+				if (step == TunnelScan.Step.CHECKING_PORTS) {
+					this.tunnel_label.label = "Checking registration ports…";
+				}
+				if (step == TunnelScan.Step.FOUND) {
+					this.tunnel_label.label =
+						"Management server found. Enter the six-digit PIN.";
+				}
+			});
+			this.tunnel_scan.server_found.connect((host, port) => {
+				this.tunnel_scan.stop();
+				this.state.reg.adopt_probed_server(host, port);
+			});
+			this.wire_register_state();
+		}
+
+		private void wire_register_state()
+		{
+			if (this.reg_notify_id != 0) {
+				this.state.reg.disconnect(this.reg_notify_id);
+				this.reg_notify_id = 0;
+			}
+			this.reg_notify_id = this.state.reg.notify.connect((obj, pspec) => {
 				if (pspec.name != "phase" && pspec.name != "detail") {
 					return;
 				}
-				this.listen_label.label = this.reg.detail;
-				if (this.reg.phase == Register.Phase.AWAITING_PIN) {
-					this.server_id = this.reg.server_id;
+				if (this.tunnel_scan.step != TunnelScan.Step.IDLE &&
+					this.state.reg.phase == Register.Phase.BROWSING &&
+					pspec.name == "detail") {
+					return;
+				}
+				this.listen_label.label = this.state.reg.detail;
+				if (this.state.reg.phase == Register.Phase.AWAITING_PIN) {
+					this.tunnel_scan.stop();
+					this.state.server_id = this.state.reg.server_id;
 					this.offer_box.visible = false;
 					this.address_box.visible = false;
 					this.pin_box.visible = true;
 					this.pin_entry.grab_focus();
 				}
-				if (this.reg.phase == Register.Phase.FAILED) {
-					this.error_occurred(this.reg.detail);
+				if (this.state.reg.phase == Register.Phase.FAILED) {
+					this.error_occurred(this.state.reg.detail);
 				}
 			});
 		}
@@ -360,19 +499,20 @@ namespace Argus.Shared
 		 */
 		public void show_add(bool connect_local = false)
 		{
-			this.reg.data_dir = this.data_dir;
-			this.reg.client_db = this.client_db;
+			if (this.reg_notify_id != 0) {
+				this.state.reg.disconnect(this.reg_notify_id);
+				this.reg_notify_id = 0;
+			}
+			this.tunnel_scan.stop();
+			this.state = this.state.renew(this);
+			this.wire_register_state();
+			this.pin_entry.text = "";
+			this.pin_box.visible = false;
+			this.address_entry.text = "";
+			this.address_box.visible = false;
+			this.address_button.visible = true;
+			this.offer_box.visible = true;
 			if (this.use_pipe && !this.service_spinner.spinning) {
-				this.registration = null;
-				this.registration_name = "";
-				this.registered_url = null;
-				this.registered_addresses = "";
-				this.server_id = "";
-				this.registering = false;
-				this.pin_entry.text = "";
-				this.pin_box.visible = false;
-				this.address_entry.text = "";
-				this.address_box.visible = false;
 				this.offer_box.visible = false;
 				this.listen_label.label = "Waiting for the Windows service…";
 				this.service_spinner.visible = true;
@@ -383,47 +523,34 @@ namespace Argus.Shared
 				this.service_spinner.stop();
 				this.service_spinner.visible = false;
 			}
-			this.registration = null;
-			this.registration_name = "";
-			this.registered_url = null;
-			this.registered_addresses = "";
-			this.server_id = "";
-			this.registering = false;
-			this.pin_entry.text = "";
-			this.pin_box.visible = false;
-			this.address_entry.text = "";
-			this.address_box.visible = false;
-			this.address_button.visible = true;
-			this.offer_box.visible = true;
 			this.listen_label.label = "Looking for a management server…";
-			if (this.close_id != 0) {
-				GLib.Source.remove(this.close_id);
-				this.close_id = 0;
-			}
 			if (connect_local) {
-				this.reg.connect("127.0.0.1", (uint16) Argus.REGISTER_PORT);
+				this.state.reg.connect("127.0.0.1", (uint16) Argus.REGISTER_PORT);
 				return;
 			}
-			this.reg.start_browse();
+			if (this.tunnel_scan.has_tunnel()) {
+				this.tunnel_scan.start();
+			}
+			this.state.reg.start_browse();
 		}
 
 		private async void request()
 		{
-			if (this.registering) {
+			if (this.state.registering) {
 				return;
 			}
-			if (this.reg.phase != Register.Phase.AWAITING_PIN) {
+			if (this.state.reg.phase != Register.Phase.AWAITING_PIN) {
 				this.error_occurred("No management server found");
 				return;
 			}
-			if (this.reg.hostport == "") {
+			if (this.state.reg.hostport == "") {
 				this.error_occurred("Bad address");
 				return;
 			}
-			var host = this.reg.host;
-			var port = (int) this.reg.port;
-			if (!this.reg.probe_by_address &&
-				!GLib.Uuid.string_is_valid(this.reg.server_id)) {
+			var host = this.state.reg.host;
+			var port = (int) this.state.reg.port;
+			if (!this.state.reg.probe_by_address &&
+				!GLib.Uuid.string_is_valid(this.state.reg.server_id)) {
 				this.error_occurred("No server id");
 				return;
 			}
@@ -432,16 +559,11 @@ namespace Argus.Shared
 				this.error_occurred("Enter the six digits");
 				return;
 			}
-			this.registering = true;
-			this.reg.data_dir = this.data_dir;
-			this.reg.client_db = this.client_db;
-			this.reg.is_controller = this.is_controller;
-			this.reg.username = this.username;
-			this.reg.hostname = this.hostname;
+			this.state.registering = true;
 			this.listen_label.label = "Registering…";
 			if (this.use_pipe) {
 				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
-				this.send_pin(pin, this.reg.hostport);
+				this.send_pin(pin, this.state.reg.hostport);
 			}
 			if (this.use_pipe) {
 				if (this.pipe_code != 0) {
@@ -468,18 +590,18 @@ namespace Argus.Shared
 				return;
 			}
 			try {
-				yield this.reg.submit_pin(pin);
+				yield this.state.reg.submit_pin(pin);
 			} catch (GLib.Error e) {
 				this.error_occurred(e.message);
-				this.registering = false;
+				this.state.registering = false;
 				return;
 			}
-			if (this.reg.phase != Register.Phase.SUCCEEDED) {
-				this.error_occurred(this.reg.detail);
-				this.registering = false;
+			if (this.state.reg.phase != Register.Phase.SUCCEEDED) {
+				this.error_occurred(this.state.reg.detail);
+				this.state.registering = false;
 				return;
 			}
-			var registration = this.reg;
+			var registration = this.state.reg;
 			var app_port = port;
 			if (registration.server_row != null) {
 				var lines = registration.server_row.addresses.split("\n");
@@ -490,12 +612,13 @@ namespace Argus.Shared
 						int.try_parse(listed.substring(mark + 1), out app_port);
 					}
 				}
-				this.registered_url = "tcp://" + host + ":" + app_port.to_string();
-				this.registered_addresses = registration.server_row.addresses;
+				this.state.registered_url =
+					"tcp://" + host + ":" + app_port.to_string();
+				this.state.registered_addresses = registration.server_row.addresses;
 				if (!this.remember(
 					registration, host, registration.server_row.port,
 					registration.server_row.addresses)) {
-					this.registering = false;
+					this.state.registering = false;
 					return;
 				}
 			}
@@ -547,8 +670,8 @@ namespace Argus.Shared
 				this.error_occurred("The server did not return a connection.");
 				return false;
 			}
-			this.registration = registration;
-			this.registration_name = host;
+			this.state.registration = registration;
+			this.state.registration_name = host;
 			return true;
 		}
 
@@ -557,17 +680,18 @@ namespace Argus.Shared
 			this.pin_box.visible = false;
 			this.offer_box.visible = false;
 			this.address_box.visible = false;
+			this.tunnel_scan.stop();
 			this.certificate_received();
-			if (!this.registering || this.is_controller) {
+			if (!this.state.registering || this.is_controller) {
 				return;
 			}
-			this.close_remaining = 10;
+			this.state.close_remaining = 10;
 			this.listen_label.label =
 				"Registration succeeded. This window will close in 10 seconds.";
-			this.close_id = GLib.Timeout.add_seconds(1, () => {
-				this.close_remaining--;
-				if (this.close_remaining <= 0) {
-					this.close_id = 0;
+			this.state.close_id = GLib.Timeout.add_seconds(1, () => {
+				this.state.close_remaining--;
+				if (this.state.close_remaining <= 0) {
+					this.state.close_id = 0;
 					this.close();
 					return false;
 				}
@@ -575,9 +699,9 @@ namespace Argus.Shared
 				var prefix = marker >= 0 ?
 					this.listen_label.label.substring(0, marker) :
 					"Registration succeeded. ";
-				var unit = this.close_remaining == 1 ? " second." : " seconds.";
+				var unit = this.state.close_remaining == 1 ? " second." : " seconds.";
 				this.listen_label.label = prefix + "This window will close in " +
-					this.close_remaining.to_string() + unit;
+					this.state.close_remaining.to_string() + unit;
 				return true;
 			});
 		}

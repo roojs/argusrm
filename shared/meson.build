@@ -86,7 +86,7 @@ if host_machine.system() == 'linux'
 	endif
 	shared_deps += [libnl, nl_route]
 	shared_vala_args += [
-		'-D', 'LINUX', '--pkg', 'posix',
+		'-D', 'LINUX', '--pkg', 'posix', '--pkg', 'linux',
 		'--vapidir', meson.project_source_root() / 'server/vapi',
 		'--pkg', 'libnl-3.0',
 	]
@@ -100,7 +100,10 @@ shared_client_deps = shared_deps
 if host_machine.system() == 'windows'
 	shared_vala_args += ['-D', 'G_OS_WIN32']
 	shared_client_vala_args += ['-D', 'G_OS_WIN32']
-	shared_register_sources += files('windows/Browse.vala')
+	shared_register_sources += files(
+		'windows/Browse.vala',
+		'windows/TunnelScan.vala',
+	)
 	shared_client_deps += meson.get_compiler('c').find_library('dnsapi')
 	shared_client_vala_args += [
 		'--vapidir', meson.current_source_dir() / 'windows', '--pkg', 'windns',
@@ -110,14 +113,19 @@ if host_machine.system() == 'windows'
 		'-I' + meson.current_source_dir() / 'windows',
 	]
 elif host_machine.system() == 'android'
-	shared_register_sources += files('android/Browse.vala', 'android/pair-browse.c')
+	shared_register_sources += files(
+		'android/Browse.vala',
+		'android/pair-browse.c',
+		'TunnelScan.vala',
+	)
 	shared_client_vala_args += [
-		'--vapidir', meson.current_source_dir() / 'android', '--pkg', 'pair-browse',
+		'--vapidir', meson.current_source_dir() / 'android',
+		'--pkg', 'pair-browse', '--pkg', 'posix', '--pkg', 'linux',
 		'-D', 'ANDROID',
 	]
 	shared_client_c_args += ['-I' + meson.current_source_dir() / 'android']
 else
-	shared_register_sources += files('Browse.vala')
+	shared_register_sources += files('Browse.vala', 'TunnelScan.vala')
 	shared_client_deps += dependency('avahi-gobject')
 	shared_client_deps += dependency('avahi-client')
 endif

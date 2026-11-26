@@ -37,6 +37,10 @@ namespace Argus.Server.Offering
 		public Application app { get; private set; }
 		public Network network { get; private set; }
 
+		private Gee.HashSet<string> rejected_provisional {
+			get; set; default = new Gee.HashSet<string>();
+		}
+
 		public Rpc.for_rpc(Application app, Network network)
 		{
 			Object();
@@ -126,9 +130,50 @@ namespace Argus.Server.Offering
 
 		public void status(OLLMrpc.Request request)
 		{
+			var rpc = request.connection as Net.SslConnection;
+			if (rpc == null) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("socket registration only")
+				});
+				return;
+			}
+			if (rpc.cert_fingerprint == "") {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("provisional certificate required")
+				});
+				return;
+			}
+			if (this.rejected_provisional.contains(rpc.cert_fingerprint)) {
+				request.reply(new OLLMrpc.Response() {
+					msg = "rejected"
+				});
+				return;
+			}
+			var pending = new Gee.ArrayList<Argus.Shared.AgentPending>();
+			var int_binds = new Gee.HashMap<string, int>();
+			var text_binds = new Gee.HashMap<string, string>();
+			text_binds.set("fingerprint", rpc.cert_fingerprint);
+			Argus.Shared.AgentPending.query(this.app.db).selectWhere(
+				"WHERE fingerprint = $fingerprint",
+				int_binds, text_binds, pending);
+			if (pending.size > 0) {
+				request.reply(new OLLMrpc.Response() {
+					msg = "pending"
+				});
+				return;
+			}
+			var agents = new Gee.ArrayList<Argus.Shared.Agent>();
+			Argus.Shared.Agent.query(this.app.db).selectWhere(
+				"WHERE fingerprint = $fingerprint AND status = 1",
+				int_binds, text_binds, agents);
+			if (agents.size > 0) {
+				request.reply(new OLLMrpc.Response() {
+					msg = "accepted"
+				});
+				return;
+			}
 			request.reply(new OLLMrpc.Response() {
-				error = new OLLMrpc.Error.INVALID_REQUEST(
-					"status not implemented")
+				error = new OLLMrpc.Error.INVALID_REQUEST("unknown registration")
 			});
 		}
 
@@ -147,14 +192,19 @@ namespace Argus.Server.Offering
 			if (rpc == null) {
 				GLib.warning("socket registration only");
 				request.reply(new OLLMrpc.Response() {
-					error = new OLLMrpc.Error.INVALID_REQUEST(
-						"socket registration only")
+					error = new OLLMrpc.Error.INVALID_REQUEST("socket registration only")
 				});
 				return;
 			}
 			var net = this.network;
-			var open = net.pin != "" || net.accepting || net.polling;
-			var queued = batch && pin == "0000" && !is_controller && open;
+			if (is_controller &&
+				(batch || net.pending || net.polling || net.pin != "")) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("This registration is for agents only.")
+				});
+				return;
+			}
+			var queued = batch && pin == "0000" && !is_controller && net.pending && !net.polling;
 			if (!queued && (pin != net.pin || net.pin == "")) {
 				if (net.pin == "") {
 					GLib.warning("number rejected because registration is closed");
@@ -360,7 +410,20 @@ namespace Argus.Server.Offering
 				});
 				return;
 			}
+			var pending_rows = new Gee.ArrayList<Argus.Shared.AgentPending>();
+			Argus.Shared.AgentPending.query(this.app.db).select("", pending_rows);
+			var pending_by_id = new Gee.HashMap<int, Argus.Shared.AgentPending>();
+			foreach (var pending_row in pending_rows) {
+				pending_by_id.set((int) pending_row.id, pending_row);
+			}
 			foreach (var id in ids) {
+				if (!pending_by_id.has_key(id)) {
+					continue;
+				}
+				var row = pending_by_id.get(id);
+				if (row.fingerprint != "") {
+					this.rejected_provisional.add(row.fingerprint);
+				}
 				Argus.Shared.AgentPending.query(this.app.db).deleteId(id);
 			}
 			this.app.db.backupDB();
@@ -381,17 +444,17 @@ namespace Argus.Server.Offering
 				return;
 			}
 			var changed = false;
+			var pending_rows = new Gee.ArrayList<Argus.Shared.AgentPending>();
+			Argus.Shared.AgentPending.query(this.app.db).select("", pending_rows);
+			var pending_by_id = new Gee.HashMap<int, Argus.Shared.AgentPending>();
+			foreach (var pending_row in pending_rows) {
+				pending_by_id.set((int) pending_row.id, pending_row);
+			}
 			foreach (var id in ids) {
-				var rows = new Gee.ArrayList<Argus.Shared.AgentPending>();
-				var int_binds = new Gee.HashMap<string, int>();
-				var text_binds = new Gee.HashMap<string, string>();
-				int_binds.set("id", id);
-				Argus.Shared.AgentPending.query(this.app.db).selectWhere(
-					"WHERE id = $id", int_binds, text_binds, rows);
-				if (rows.size < 1) {
+				if (!pending_by_id.has_key(id)) {
 					continue;
 				}
-				var row = rows.get(0);
+				var row = pending_by_id.get(id);
 				var existing = new Gee.ArrayList<Argus.Shared.Agent>();
 				var have_int = new Gee.HashMap<string, int>();
 				var have_text = new Gee.HashMap<string, string>();
@@ -410,6 +473,17 @@ namespace Argus.Server.Offering
 					});
 				}
 				Argus.Shared.AgentPending.query(this.app.db).deleteId(row.id);
+				if (row.fingerprint != "") {
+					var stalled_fingerprint = row.fingerprint;
+					GLib.Timeout.add_seconds(30 * 60, () => {
+						this.app.broadcast(new OLLMrpc.Notification() {
+							method = "event.pair",
+							action = "stalled",
+							args = OLLMrpc.args("s", stalled_fingerprint)
+						});
+						return false;
+					});
+				}
 				changed = true;
 			}
 			if (!changed) {

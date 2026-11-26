@@ -271,6 +271,22 @@ namespace Argus.Shared
 		}
 
 		/**
+		 * Stop browse and wait for the PIN on a host that already
+		 * answered the registration port (for example
+		 * {@link TunnelScan}).
+		 */
+		public void adopt_probed_server(string host, uint16 port)
+		{
+			this.stop();
+			this.probe_by_address = true;
+			this.host = host;
+			this.port = port;
+			this.server_id = "";
+			this.phase = Phase.AWAITING_PIN;
+			this.detail = "Management server found. Enter the six-digit PIN.";
+		}
+
+		/**
 		 * Send the PIN on the current {@link hostport}.
 		 *
 		 * A refusal from the server is kept as {@link detail}. Any

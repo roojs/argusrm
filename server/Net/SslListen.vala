@@ -213,7 +213,7 @@ namespace Argus.Server.Net
 						"WHERE fingerprint = $fingerprint AND status = 1",
 						int_binds, text_binds, rows);
 					var known = false;
-					if (rows.size > 0) {
+					if (rows.size > 0 && !this.registration) {
 						var row = rows.get(0);
 						row.last_connected = new GLib.DateTime.now_utc().to_unix();
 						Argus.Shared.Agent.query(this.app.db).updateById(row);
@@ -222,7 +222,7 @@ namespace Argus.Server.Net
 					}
 					rpc.start();
 					this.connections.add(rpc);
-					if (known) {
+					if (known && !this.registration) {
 						var now = new GLib.DateTime.now_utc().to_unix();
 						var pending = new Gee.ArrayList<Argus.Shared.SQT.TaskTarget>();
 						var pending_binds = new Gee.HashMap<string, int>();

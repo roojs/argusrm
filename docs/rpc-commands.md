@@ -68,10 +68,12 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 
 ### `Offering.status`
 
-- Socket: the registration socket with the provisional client certificate.
+- Socket: the registration socket with the provisional client certificate from `Offering.enroll`.
 - Direction: agent calls the server.
 - Arguments: none.
-- ℹ️ Stub in `server/Offering/Rpc.vala` until registration-port status polling lands.
+- Reply `msg`: `pending` while the fingerprint is in `agent_pending`; `accepted` after `Offering.accept` promoted the row to `agent` with `status = 1`; `rejected` after `Offering.reject` removed that pending row (client wipes local cert).
+- No client certificate: `provisional certificate required`. Unknown fingerprint: `unknown registration`.
+- ℹ️ The method is `server/Offering/Rpc.vala`.
 
 ### `AgentService.hello` / `AgentService.status` / `AgentService.register`
 

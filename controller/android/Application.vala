@@ -43,6 +43,15 @@ namespace Argus.Controller
 		 * Local ''server.sqlite'' for this process.
 		 */
 		public SQ.Database client_db { get; private set; }
+
+		/**
+		 * Server data for a table changed (relay from ''event.osquery'').
+		 *
+		 * @param table server class name (notification action)
+		 * @param agent_id host that posted the change
+		 */
+		public signal void db_changed(string table, int agent_id);
+
 		/**
 		 * Main window opened after a connection answers.
 		 */

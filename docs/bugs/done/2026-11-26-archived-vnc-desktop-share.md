@@ -1,6 +1,6 @@
 # Is a VNC library enough to share the desktop that is already on screen?
 
-**Status:** ⏳
+**Status:** 📦 archived 2026-11-26 — VNC path parked (LibVNCServer GPL / licensing). Active remote desktop work: 2026-11-17-remote-desktop.md only.
 
 ### User decisions required
 

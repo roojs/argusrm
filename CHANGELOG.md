@@ -8,6 +8,12 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.56] - Unreleased
+
+### Added
+
+- While the connect dialog is open over a VPN, the client scans the tunnel /24 for the registration port every twenty seconds and moves to the PIN step when a server answers. Browse continues until then.
+
 ## [0.1.55] - Unreleased
 
 ### Fixed

@@ -41,7 +41,7 @@ check_static_rules() {
   fi
 
   gtk_pins="$ARGUS_ROOT/android/pixie-gtk.pins"
-  if [ ! -f "$gtk_pins" ] || ! grep -q 'Knowles%2Fgtk' "$gtk_pins"; then
+  if [ ! -f "$gtk_pins" ] || ! grep -qE 'Knowles(/|%2F)gtk' "$gtk_pins"; then
     fail_illegal "android/pixie-gtk.pins must pin the Knowles GTK IME Pixie (run packaging/android/stage-ollmchat-android-pins.sh from pinned OLLMchat)."
   fi
 

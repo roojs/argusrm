@@ -51,6 +51,7 @@ valadoc_sources = files(
   '../shared/AgentPending.vala',
   '../shared/OsReleases.vala',
   '../shared/Register.vala',
+  '../shared/TunnelScan.vala',
   '../shared/linux/Net/Route.vala',
   '../shared/RegisterWindow.vala',
   '../shared/Notice.vala',

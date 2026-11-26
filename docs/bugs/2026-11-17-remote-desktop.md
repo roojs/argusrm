@@ -1453,6 +1453,7 @@ controller_vala_args += [
 - ⏳ 🔷 Phase 5 is not verified on a machine. The Windows agent installer for that try is 0.1.29. Phase 6 is the session tabs.
 - ⏳ 🔷 Phase 6.5 is the tray ask, the controller notice while that ask is open, Force, and the tray notice that names who has the screen.
 - ⏳ 💩 The proof listen is still `Relay.listen`. Phase 2 does not move it into `SslListen`.
+- ⏳ 🔷 Reachability for remote control: trial tunnel-style VPN on the Windows machine and pipe RDP relay traffic through it (off-repo investigation; not controller registration VPN).
 
 ## LLM notes
 

@@ -95,13 +95,15 @@ namespace Argus.Server
 			public bool done { get; private set; default = false; }
 			public OLLMrpc.Response? response { get; private set; }
 			public GLib.Error? error { get; private set; }
+			public GLib.TlsCertificate? client_cert { get; set; }
 
 			public void run(uint16 reg_port, OLLMrpc.Request request)
 			{
 				try {
 					var connection = new OLLMrpc.Transport.TlsClient(
 						"127.0.0.1", reg_port) {
-						accept_any = true
+						accept_any = true,
+						tls_certificate = this.client_cert
 					};
 					this.response = connection.call(request);
 				} catch (GLib.Error e) {
@@ -113,10 +115,13 @@ namespace Argus.Server
 
 		static OLLMrpc.Response? registration_tls_call(
 			uint16 reg_port,
-			OLLMrpc.Request request
+			OLLMrpc.Request request,
+			GLib.TlsCertificate? client_cert = null
 		) throws GLib.Error
 		{
-			var job = new RegistrationTlsJob();
+			var job = new RegistrationTlsJob() {
+				client_cert = client_cert
+			};
 			var thread = new GLib.Thread<void>("reg-tls", () => {
 				job.run(reg_port, request);
 			});
@@ -168,14 +173,39 @@ namespace Argus.Server
 			}
 		}
 
-		static OLLMrpc.Response? status_tls(uint16 reg_port)
+		static OLLMrpc.Response? status_tls(
+			uint16 reg_port,
+			GLib.TlsCertificate? client_cert = null)
 		{
 			try {
 				return registration_tls_call(reg_port,
 					new OLLMrpc.Request() {
 						method = "Offering.status"
-					});
+					},
+					client_cert);
 			} catch (GLib.Error e) {
+				return null;
+			}
+		}
+
+		static GLib.TlsCertificate? provisional_cert(
+			string tls_dir,
+			string label,
+			string signed_pem)
+		{
+			if (signed_pem == "") {
+				return null;
+			}
+			var cert_path = GLib.Path.build_filename(
+				tls_dir, label, "signed-client.pem");
+			var key_path = GLib.Path.build_filename(
+				tls_dir, label, "client-key.pem");
+			try {
+				GLib.FileUtils.set_contents(cert_path, signed_pem);
+				return new GLib.TlsCertificate.from_files(
+					cert_path, key_path);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
 				return null;
 			}
 		}
@@ -393,12 +423,28 @@ namespace Argus.Server
 			note(registration_tls_handshake(reg_port),
 				"registration TLS up in polling");
 
-			var status = status_tls(reg_port);
-			note(status != null && status.error != null,
-				"Offering.status returns error while stub");
-			note(status != null && status.error != null &&
-				status.error.message.index_of("not implemented") >= 0,
-				"Offering.status stub message");
+			var packed_a = prov_a != null ? (string[]) prov_a.retval : null;
+			var signed_a = packed_a != null && packed_a.length > 0 ?
+				packed_a[0] : "";
+			var cert_a = provisional_cert(tls_dir, "bulk-a", signed_a);
+			var status_accepted = status_tls(reg_port, cert_a);
+			note(status_accepted != null && status_accepted.error == null &&
+				status_accepted.msg == "accepted",
+				"Offering.status accepted after accept");
+
+			var packed_b = prov_b != null ? (string[]) prov_b.retval : null;
+			var signed_b = packed_b != null && packed_b.length > 0 ?
+				packed_b[0] : "";
+			var cert_b = provisional_cert(tls_dir, "bulk-b", signed_b);
+			var status_rejected = status_tls(reg_port, cert_b);
+			note(status_rejected != null && status_rejected.error == null &&
+				status_rejected.msg == "rejected",
+				"Offering.status rejected after reject");
+
+			var late_bulk = enroll_tls(reg_port, "0000", csr_bulk_b,
+				"late-bulk", true);
+			note(late_bulk == null || late_bulk.msg != "pending",
+				"no provisional enroll while polling");
 
 			server.stop();
 			return failures == 0 ? 0 : 1;

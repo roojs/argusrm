@@ -28,7 +28,7 @@ if [ -d "$OLLM_ROOT/android/pixiewood-wraps" ]; then
   cp -a "$OLLM_ROOT/android/pixiewood-wraps" "$ARGUS_ROOT/android/pixiewood-wraps"
 fi
 
-if ! grep -q 'Knowles%2Fgtk' "$ARGUS_ROOT/android/pixie-gtk.pins"; then
+if ! grep -qE 'Knowles(/|%2F)gtk' "$ARGUS_ROOT/android/pixie-gtk.pins"; then
   echo "android/pixie-gtk.pins does not reference the Knowles GTK IME Pixie (expected like OLLMchat)" >&2
   exit 1
 fi
