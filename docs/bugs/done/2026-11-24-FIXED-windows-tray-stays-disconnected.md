@@ -1,6 +1,6 @@
 # Windows tray stays disconnected after the service connects
 
-**Status:** ✔️
+**Status:** ✅ closed 2026-11-26 — `agent/Connection.vala` emits `state_changed` when the TLS link state the tray reads changes.
 
 ### User decisions required
 

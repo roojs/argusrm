@@ -54,6 +54,7 @@ namespace Argus.Controller
 		 * Remote desktop page for this window.
 		 */
 		public Tab.Rdp rdp;
+		public Tab.Register.Agent register_page;
 		/**
 		 * Header of the active page.
 		 */
@@ -295,8 +296,13 @@ namespace Argus.Controller
 					vexpand = true
 				}, key);
 			}
-			pages.add_named(new Tab.Agent(this), "agents");
+			this.register_page = new Tab.Register.Agent(this);
+			pages.add_named(this.register_page, "registration");
 			pages.add_named(new Tab.Settings(this), "settings");
+			this.register_page.pending_opened.connect(() => {
+				this.tabs.select_registration();
+				this.register_page.focus_pending();
+			});
 			this.rdp = new Tab.Rdp(this);
 			pages.add_named(this.rdp, "rdp");
 			pages.visible_child_name = tabs.keys[0];

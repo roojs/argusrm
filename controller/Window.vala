@@ -26,17 +26,19 @@ namespace Argus.Controller
 	 * opened again every thirty seconds. The page on the right is
 	 * the saved server name, a dash, and the place in front. An
 	 * empty name uses the first saved address. {@link TabList}
-	 * lists places. {@link Tab.Agent} lists registered machines.
+	 * lists places. {@link Tab.Register.Agent} lists registered
+	 * machines and the pending queue.
 	 * {@link Tab.Assets} switches {@link Tab.Asset.SystemInfo} and
 	 * {@link Tab.Asset.Software}. {@link Store.SystemInfo} loads
 	 * ''SystemInfo.list''. Software is three package grids.
 	 * {@link Tab.Repository} lists script clones. The other places
-	 * are blank. Agent / Controllers and Settings stay at the
-	 * bottom of the list.
+	 * are blank. Agent / Controller registration and Settings stay
+	 * at the bottom of the list.
 	 * The open server's row is ''Deregister and disconnect''.
 	 * Holding it for two seconds closes this window and returns
 	 * to the startup check.
-	 * ''Agent or Controller'' is on the Agent / Controllers page.
+	 * ''Agent or Controller'' is on the Agent / Controller
+	 * registration page.
 	 * It opens {@link Dialog.Pairing}.
 	 *
 	 * == Example ==
@@ -65,6 +67,7 @@ namespace Argus.Controller
 		 * Remote desktop page for this window.
 		 */
 		public Tab.Rdp rdp;
+		public Tab.Register.Agent register_page;
 		/**
 		 * Header of the page on the right.
 		 */
@@ -233,8 +236,13 @@ namespace Argus.Controller
 					vexpand = true
 				}, key);
 			}
-			pages.add_named(new Tab.Agent(this), "agents");
+			this.register_page = new Tab.Register.Agent(this);
+			pages.add_named(this.register_page, "registration");
 			pages.add_named(new Tab.Settings(this), "settings");
+			this.register_page.pending_opened.connect(() => {
+				this.tabs.select_registration();
+				this.register_page.focus_pending();
+			});
 			this.rdp = new Tab.Rdp(this);
 			pages.add_named(this.rdp, "rdp");
 			var sidebar_page = new Adw.NavigationPage(sidebar_bar, "Argus RM");

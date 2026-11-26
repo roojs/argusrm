@@ -21,8 +21,9 @@ namespace Argus.Controller
 	/**
 	 * Sidebar places for {@link Window}.
 	 *
-	 * The scrolling rows are the places. Agent / Controllers and
-	 * Settings are separate rows pinned to the bottom, drawn over
+	 * The scrolling rows are the places. Agent / Controller
+	 * registration and Settings are separate rows pinned to the
+	 * bottom, drawn over
 	 * the list, so a long list slides underneath them. A bottom
 	 * margin on the list keeps the last place from staying hidden
 	 * under those rows. {@link chosen} is the place to show on the
@@ -41,8 +42,8 @@ namespace Argus.Controller
 	public class TabList : Gtk.Box
 	{
 		/**
-		 * Page names, in sidebar order. Agent / Controllers and
-		 * Settings are pinned under these.
+		 * Page names, in sidebar order. Agent / Controller
+		 * registration and Settings are pinned under these.
 		 */
 		public string[] keys = {
 			"dashboard",
@@ -54,6 +55,8 @@ namespace Argus.Controller
 			"repositories"
 		};
 		private Gtk.ListBox places;
+		private Gtk.ListBox? settings_list;
+		private Gtk.ListBoxRow? registration_row;
 		private Gtk.ListBoxRow? rdp_row;
 		/**
 		 * Header text for {@link keys}, in the same order.
@@ -115,27 +118,30 @@ namespace Argus.Controller
 				vexpand = true
 			};
 			overlay.child = scroll;
-			var settings_list = new Gtk.ListBox() {
+			this.settings_list = new Gtk.ListBox() {
 				selection_mode = Gtk.SelectionMode.SINGLE,
 				activate_on_single_click = true,
 				css_classes = { "navigation-sidebar" },
 				hexpand = true
 			};
-			var agents_row = new Gtk.ListBoxRow();
-			var agents_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8) {
+			this.registration_row = new Gtk.ListBoxRow();
+			var registration_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8) {
 				margin_top = 6,
 				margin_bottom = 6,
 				margin_start = 12,
 				margin_end = 12
 			};
-			agents_box.append(new Gtk.Image.from_icon_name("computer-symbolic"));
-			agents_box.append(new Gtk.Label("Agent / Controllers") {
+			registration_box.append(new Gtk.Image.from_icon_name(
+				"system-users-symbolic"));
+			registration_box.append(new Gtk.Label(
+				"Agent / Controller registration") {
 				xalign = 0,
-				hexpand = true
+				hexpand = true,
+				ellipsize = Pango.EllipsizeMode.END
 			});
-			agents_row.child = agents_box;
-			agents_row.name = "agents";
-			settings_list.append(agents_row);
+			this.registration_row.child = registration_box;
+			this.registration_row.name = "registration";
+			this.settings_list.append(this.registration_row);
 			var settings_row = new Gtk.ListBoxRow();
 			var settings_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 8) {
 				margin_top = 6,
@@ -150,30 +156,31 @@ namespace Argus.Controller
 			});
 			settings_row.child = settings_box;
 			settings_row.name = "settings";
-			settings_list.append(settings_row);
+			this.settings_list.append(settings_row);
 			var settings_bar = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
 				valign = Gtk.Align.END,
 				hexpand = true,
 				css_classes = { "tab-list-settings" }
 			};
-			settings_bar.append(settings_list);
+			settings_bar.append(this.settings_list);
 			overlay.add_overlay(settings_bar);
 			this.append(overlay);
 			list.row_selected.connect((row) => {
 				if (row == null) {
 					return;
 				}
-				settings_list.unselect_all();
+				this.settings_list.unselect_all();
 				this.chosen(row.name, ((Gtk.Label) row.child).label);
 			});
-			settings_list.row_selected.connect((row) => {
+			this.settings_list.row_selected.connect((row) => {
 				if (row == null) {
 					return;
 				}
 				list.unselect_all();
 				switch (row.name) {
-					case "agents":
-						this.chosen("agents", "Agent / Controllers");
+					case "registration":
+						this.chosen("registration",
+							"Agent / Controller registration");
 						break;
 
 					default:
@@ -186,13 +193,14 @@ namespace Argus.Controller
 					this.chosen(row.name, ((Gtk.Label) row.child).label);
 				}
 			});
-			settings_list.row_activated.connect((row) => {
-				if (row != settings_list.get_selected_row()) {
+			this.settings_list.row_activated.connect((row) => {
+				if (row != this.settings_list.get_selected_row()) {
 					return;
 				}
 				switch (row.name) {
-					case "agents":
-						this.chosen("agents", "Agent / Controllers");
+					case "registration":
+						this.chosen("registration",
+							"Agent / Controller registration");
 						break;
 
 					default:
@@ -269,6 +277,20 @@ namespace Argus.Controller
 				return;
 			}
 			this.places.select_row(this.places.get_row_at_index(1));
+		}
+
+		/**
+		 * Select Agent / Controller registration in the sidebar.
+		 */
+		public void select_registration()
+		{
+			if (this.settings_list == null || this.registration_row == null) {
+				return;
+			}
+			this.places.unselect_all();
+			this.settings_list.select_row(this.registration_row);
+			this.chosen("registration",
+				"Agent / Controller registration");
 		}
 	}
 }

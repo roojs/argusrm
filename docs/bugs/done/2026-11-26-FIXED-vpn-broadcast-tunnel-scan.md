@@ -1,6 +1,6 @@
 # The controller does not see the registration broadcast over the VPN
 
-**Status:** ⏳
+**Status:** ✅ closed 2026-11-26 — `shared/TunnelScan.vala`, `shared/RegisterWindow.vala`: when a tunnel is up, probe the /24 for the registration port in parallel with mDNS (0.1.56). No Avahi/mDNS change on the VPN.
 
 ### User decisions required
 
@@ -81,7 +81,8 @@ None.
 
 ### LLM
 
-- ℹ️ The unseen broadcast was written into `2026-11-24-ISSUE-vpn-registration-stops-after-number.md`. The change applied there is the registration reply after the number. This file is only the missing publish.
+- ℹ️ The unseen broadcast was written into `2026-11-24-FIXED-vpn-registration-stops-after-number.md`. The change applied there is the registration reply after the number. This file is only the missing publish.
+- ✔️ 2026-11-26: Product fix is tunnel scan + registration dialog UI, not multicast on `tun0`. Ping step dropped; TCP connect to `Argus.REGISTER_PORT` on the tunnel /24 every twenty seconds while the connect dialog is open.
 - 💩 A note in that report said a tunnel usually cannot carry a local-network shout, so the shout still leaves on `eth0` with the tunnel address named inside it. That was not measured. The user says the OLLMchat publish of this same class used to arrive over a VPN.
 - 🚫 Do not treat `Broadcast on: tun0 10.9.188.77` as proof the packets left `tun0`, and do not treat it as proof they cannot.
 - ℹ️ `ifaces` keeps every up IPv4 except `0.0.0.0` and `127.0.0.1`. It does not drop a tunnel. `tun0` was in the command output, so that address was in the list given to `PairPublish.start`.

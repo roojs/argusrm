@@ -1,6 +1,6 @@
 # ProgramClass.classify never answers
 
-**Status:** fixed in the source. The running server still needs a rebuild and a restart.
+**Status:** ✅ closed 2026-11-26 — `[CCode (cname = "argus_shared_os_query_program_class_classify")]` on `ProgramClass.classify` (RPC symbol mismatch).
 
 ## Symptom
 

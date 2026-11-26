@@ -16,30 +16,24 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-namespace Argus.Controller.Tab
+namespace Argus.Controller.Tab.Register
 {
 	/**
-	 * Agent page.
+	 * Registered agents and controllers.
 	 *
 	 * A {@link Gtk.ColumnView} over
 	 * {@link Argus.Controller.Store.Agent}.
 	 * One button on the page opens registration.
-	 * The trash column uses click and hold to remove.
-	 * On a desktop, that asks first. On Android it does not.
-	 * Right-click a column header to show or hide columns.
-	 * Registered starts hidden.
-	 * The Kind cell of the controller this window is using
-	 * has a green background.
-	 * The store loads when the page is shown.
+	 * The remove column uses click and hold. Other machines
+	 * remove at once. This controller asks first.
 	 *
 	 * == Example ==
 	 *
 	 * {{{
-	 * var page = new Argus.Controller.Tab.Agent(window);
-	 * stack.add_named(page, "agents");
+	 * var page = new Argus.Controller.Tab.Register.Current(window);
 	 * }}}
 	 */
-	public class Agent : Argus.Controller.Tab.Base
+	public class Current : Argus.Controller.Tab.Base
 	{
 		public Argus.Controller.Window window;
 		private Argus.Controller.Store.Agent store;
@@ -50,7 +44,7 @@ namespace Argus.Controller.Tab
 		 *
 		 * @param window the controller window this page belongs to
 		 */
-		public Agent(Argus.Controller.Window window)
+		public Current(Argus.Controller.Window window)
 		{
 			base("agent", "display-name");
 			this.window = window;
@@ -61,7 +55,7 @@ namespace Argus.Controller.Tab
 			var removing_label = new Gtk.Label("Removing") {
 				visible = false
 			};
-			var pending = new Gee.ArrayList<int>();
+			var remove_queue = new Gee.ArrayList<int>();
 			var register_add = new Gtk.Button() {
 				child = new Adw.ButtonContent() {
 					icon_name = "list-add-symbolic",
@@ -90,16 +84,21 @@ namespace Argus.Controller.Tab
 				if (row == null || this.store.busy || removing_label.visible) {
 					return;
 				}
+				var mine = this.grid.get_data<string>(
+					"argus-controller-fingerprint");
+				var self_remove = mine != null && mine != "" &&
+					row.fingerprint == mine;
+				if (!self_remove) {
+					remove_queue.clear();
+					remove_queue.add((int) row.id);
+					removing_label.visible = true;
+					this.store.remove(remove_queue.get(0));
+					return;
+				}
 				var name = row.display_name;
-#if ANDROID
-				pending.clear();
-				pending.add((int) row.id);
-				removing_label.visible = true;
-				this.store.remove(pending.get(0));
-#else
 				var confirm = new Adw.AlertDialog(
 					"Remove " + name,
-					name + "\nThis removes the machine from the server.");
+					name + "\nThis removes this controller from the server.");
 				confirm.add_response("cancel", "Cancel");
 				confirm.add_response("remove", "Remove");
 				confirm.set_response_appearance(
@@ -110,13 +109,12 @@ namespace Argus.Controller.Tab
 					if (response != "remove") {
 						return;
 					}
-					pending.clear();
-					pending.add((int) row.id);
+					remove_queue.clear();
+					remove_queue.add((int) row.id);
 					removing_label.visible = true;
-					this.store.remove(pending.get(0));
+					this.store.remove(remove_queue.get(0));
 				});
 				confirm.present(this);
-#endif
 			});
 			var empty = new Adw.StatusPage() {
 				title = "No machines",
@@ -158,19 +156,19 @@ namespace Argus.Controller.Tab
 				this.body.visible_child_name = "list";
 			});
 			this.store.failed.connect((heading, message) => {
-				pending.clear();
+				remove_queue.clear();
 				removing_label.visible = false;
 				var notice = new Argus.Shared.Notice(heading, message);
 				notice.add_response("ok", "OK");
 				notice.present(this);
 			});
 			this.store.removed.connect(() => {
-				if (pending.size < 1) {
+				if (remove_queue.size < 1) {
 					return;
 				}
-				pending.remove_at(0);
-				if (pending.size > 0) {
-					this.store.remove(pending.get(0));
+				remove_queue.remove_at(0);
+				if (remove_queue.size > 0) {
+					this.store.remove(remove_queue.get(0));
 					return;
 				}
 				removing_label.visible = false;
