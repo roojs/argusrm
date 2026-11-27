@@ -104,45 +104,120 @@ namespace Argus.Agent
 			tls_files.ensure();
 			var url = "https://" + host + ":" + port.to_string() + request_path;
 			GLib.debug("start downloading %s", url);
-			var blob = new GLib.Bytes(new uint8[0]);
-			var status = (uint) 0;
+			var dest = GLib.Path.build_filename(GLib.Environment.get_tmp_dir(), file_name);
+			var written = (size_t) 0;
+			GLib.SocketConnection conn;
 			try {
-				var session = new Soup.Session() {
-					timeout = 30,
-					idle_timeout = 10,
-				};
-				var message = new Soup.Message("GET", url);
-				message.set_tls_client_certificate(tls_files.certificate);
-				message.request_certificate.connect((tls_connection) => {
-					tls_connection.set_certificate(tls_files.certificate);
-					return true;
-				});
-				message.accept_certificate.connect((peer_cert, errors) => {
-					return true;
-				});
-				blob = session.send_and_read(message, null);
-				status = message.status_code;
-				GLib.debug("download %u %zu", status, blob.get_size());
+				var client = new GLib.SocketClient();
+				client.timeout = 15;
+				conn = client.connect_to_host(host, (uint16) port, null);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
+			conn.socket.timeout = 120;
+			GLib.TlsClientConnection tls;
+			try {
+				tls = GLib.TlsClientConnection.@new(conn, null);
+				tls.set_certificate(tls_files.certificate);
+				tls.accept_certificate.connect((peer_cert, errors) => {
+					return true;
+				});
+				tls.handshake(null);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
+			GLib.debug("download connected");
+			var request = @"GET $(request_path) HTTP/1.1\r\nHost: $(host):$(port)\r\nConnection: close\r\n\r\n";
+			try {
+				tls.get_output_stream().write(request.data);
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
+			var input = new GLib.DataInputStream(tls.get_input_stream());
+			var status = (uint) 0;
+			int64 content_length = -1;
+			try {
+				var status_line = input.read_line(null);
+				if (status_line == null || status_line == "") {
+					GLib.warning("empty HTTP response");
+					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				}
+				var parts = status_line.split(" ");
+				if (parts.length < 2) {
+					GLib.warning("%s", status_line);
+					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				}
+				status = uint.parse(parts[1]);
+				while (true) {
+					var line = input.read_line(null);
+					if (line == null || line == "") {
+						break;
+					}
+					if (line.casefold().has_prefix("content-length:")) {
+						content_length = int64.parse(line.substring(15).strip());
+					}
+				}
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+			}
+			GLib.debug("download %u", status);
 			if (status != 200) {
 				GLib.warning("download %u", status);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			if (blob.get_size() == 0) {
-				return (int) OLLMrpc.RpcErrorCode.INVALID_REQUEST;
+			if (content_length < 1) {
+				GLib.warning("missing Content-Length");
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
-			var dest = GLib.Path.build_filename(GLib.Environment.get_tmp_dir(), file_name);
+			GLib.debug("download body %s", content_length.to_string());
+			GLib.FileOutputStream output;
 			try {
-				GLib.FileUtils.set_data(dest, blob.get_data());
+				output = GLib.File.new_for_path(dest).replace(
+					null, false, GLib.FileCreateFlags.PRIVATE);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
+			var remaining = content_length;
+			var chunk = new uint8[1048576];
+			var next_mark = (size_t) 4194304;
+			while (remaining > 0) {
+				var want = (int) int64.min(remaining, (int64) chunk.length);
+				ssize_t n;
+				try {
+					n = input.read(chunk[0:want]);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				}
+				if (n <= 0) {
+					GLib.warning("short read");
+					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				}
+				try {
+					output.write(chunk[0:n]);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
+				}
+				written += (size_t) n;
+				remaining -= n;
+				if (written >= next_mark || remaining == 0) {
+					GLib.debug("download %zu %s", written, content_length.to_string());
+					while (next_mark <= written) {
+						next_mark += 4194304;
+					}
+				}
+			}
+			if (written == 0) {
+				return (int) OLLMrpc.RpcErrorCode.INVALID_REQUEST;
+			}
 			this.path = dest;
-			GLib.debug("fetched %s %zu", dest, blob.get_size());
+			GLib.debug("fetched %s %zu", dest, written);
 			return 0;
 		}
 	}

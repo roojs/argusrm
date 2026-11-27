@@ -12,7 +12,7 @@ package changelogs.
 
 ### Fixed
 
-- The agent download socket now times out instead of hanging, and debug logging traces the HTTPS fetch and the `dpkg -i` / `rpm -U` / `msiexec` osquery install step through success or failure.
+- The agent download socket no longer uses libsoup on the osquery worker thread (which could hang after proxy resolution while openssl to the same URL succeeded). Downloads use a timed Gio TLS GET, with debug logging through `dpkg -i` / `rpm -U` / `msiexec` install success or failure.
 
 ## [0.1.63] - Unreleased
 
