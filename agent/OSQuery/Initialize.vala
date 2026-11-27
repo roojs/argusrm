@@ -89,6 +89,7 @@ namespace Argus.Agent.OSQuery
 				pass++;
 				Execute.init();
 				if (Execute.osqueryi != "") {
+					GLib.debug("osqueryi %s", Execute.osqueryi);
 					break;
 				}
 				if (pass > 1) {
@@ -109,9 +110,11 @@ namespace Argus.Agent.OSQuery
 					GLib.warning("%s", e.message);
 					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				}
+				GLib.debug("osquery package %s", url_path.strip());
 				var download = new Download();
 				var fetched = download.fetch(url_path.strip());
 				if (fetched != 0) {
+					GLib.debug("download %d", fetched);
 					return fetched;
 				}
 				string[] argv = {};
@@ -131,6 +134,8 @@ namespace Argus.Agent.OSQuery
 					GLib.warning("osquery installer %s", download.path);
 					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				}
+				var command = string.joinv(" ", argv);
+				GLib.debug("%s", command);
 				GLib.Subprocess installer;
 				try {
 					installer = new GLib.Subprocess.newv(argv, GLib.SubprocessFlags.NONE);
@@ -145,9 +150,10 @@ namespace Argus.Agent.OSQuery
 					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				}
 				if (installer.get_exit_status() != 0) {
-					GLib.warning("osquery installer exited %d", installer.get_exit_status());
+					GLib.warning("%s failed %d", command, installer.get_exit_status());
 					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				}
+				GLib.debug("%s succeeded", command);
 				continue;
 			}
 			if (Execute.osqueryi == "") {

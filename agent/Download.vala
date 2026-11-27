@@ -103,11 +103,14 @@ namespace Argus.Agent
 			};
 			tls_files.ensure();
 			var url = "https://" + host + ":" + port.to_string() + request_path;
-			GLib.debug("fetching %s", request_path);
+			GLib.debug("start downloading %s", url);
 			var blob = new GLib.Bytes(new uint8[0]);
 			var status = (uint) 0;
 			try {
-				var session = new Soup.Session();
+				var session = new Soup.Session() {
+					timeout = 30,
+					idle_timeout = 10,
+				};
 				var message = new Soup.Message("GET", url);
 				message.set_tls_client_certificate(tls_files.certificate);
 				message.request_certificate.connect((tls_connection) => {
@@ -119,6 +122,7 @@ namespace Argus.Agent
 				});
 				blob = session.send_and_read(message, null);
 				status = message.status_code;
+				GLib.debug("download %u %zu", status, blob.get_size());
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
@@ -138,6 +142,7 @@ namespace Argus.Agent
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			this.path = dest;
+			GLib.debug("fetched %s %zu", dest, blob.get_size());
 			return 0;
 		}
 	}

@@ -8,6 +8,12 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.64] - Unreleased
+
+### Fixed
+
+- The agent download socket now times out instead of hanging, and debug logging traces the HTTPS fetch and the `dpkg -i` / `rpm -U` / `msiexec` osquery install step through success or failure.
+
 ## [0.1.63] - Unreleased
 
 ### Fixed
