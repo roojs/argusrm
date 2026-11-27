@@ -264,8 +264,8 @@ namespace Argus.Shared
 			this.host = host;
 			this.port = port;
 			this.server_id = "";
+			this.detail = "Connecting to " + this.host + "…";
 			this.phase = Phase.PROBING;
-			this.detail = "Looking for a management server…";
 			this.poll_source = GLib.Timeout.add_seconds(20, this.probe);
 			this.probe();
 		}
@@ -285,9 +285,9 @@ namespace Argus.Shared
 			this.host = host;
 			this.port = port;
 			this.server_id = "";
-			this.phase = Phase.AWAITING_PIN;
 			this.detail = "Found on the VPN at " + host +
 				". Enter the six-digit PIN.";
+			this.phase = Phase.AWAITING_PIN;
 		}
 
 		/**
@@ -303,25 +303,26 @@ namespace Argus.Shared
 			if (this.phase != Phase.AWAITING_PIN) {
 				throw new GLib.IOError.FAILED("registration is not waiting for a PIN");
 			}
-			this.phase = Phase.ENROLLING;
-			this.detail = "Registering…";
 			if (this.host == "" || this.port < 1) {
-				this.phase = Phase.FAILED;
 				this.detail = "Bad address";
+				this.phase = Phase.FAILED;
 				return;
 			}
+			var registering = "Registering with " + this.host + "…";
+			this.detail = registering;
+			this.phase = Phase.ENROLLING;
 			var requester = this.host_name != "" ?
 				this.host_name : GLib.Environment.get_host_name();
 			var code = this.try_connection(this.host, this.port, pin, requester);
 			if (code != 0) {
-				this.phase = Phase.FAILED;
-				if (this.detail == "Registering…") {
+				if (this.detail == registering) {
 					this.detail = "Registration failed";
 				}
+				this.phase = Phase.FAILED;
 				return;
 			}
-			this.phase = Phase.SUCCEEDED;
 			this.detail = "Registration succeeded";
+			this.phase = Phase.SUCCEEDED;
 			this.enrolled();
 		}
 
@@ -360,8 +361,9 @@ namespace Argus.Shared
 			this.server_id = hit.substring(0, nl);
 			this.hostport = hit.substring(nl + 1);
 			this.probe_by_address = false;
+			this.detail = "Management server found at " + this.host +
+				". Enter the six-digit PIN.";
 			this.phase = Phase.AWAITING_PIN;
-			this.detail = "Management server found. Enter the six-digit PIN.";
 			return false;
 		}
 
@@ -425,7 +427,7 @@ namespace Argus.Shared
 				opened = false;
 			}
 			if (!opened) {
-				this.detail = "Not active";
+				this.detail = this.host + " is not active";
 				return;
 			}
 			if (this.poll_source != 0) {
@@ -433,8 +435,9 @@ namespace Argus.Shared
 				this.poll_source = 0;
 			}
 			this.poll_token++;
+			this.detail = "Management server found at " + this.host +
+				". Enter the six-digit PIN.";
 			this.phase = Phase.AWAITING_PIN;
-			this.detail = "Okay";
 		}
 
 		/**
@@ -562,6 +565,7 @@ namespace Argus.Shared
 				});
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
+				this.detail = e.message;
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			if (response.error != null) {
@@ -574,6 +578,7 @@ namespace Argus.Shared
 			}
 			var packed = (string[]) response.retval;
 			if (packed.length < 3) {
+				this.detail = "Invalid registration reply from " + host;
 				return (int) OLLMrpc.RpcErrorCode.INVALID_REQUEST;
 			}
 			var stored_port = port.to_string();
@@ -590,6 +595,7 @@ namespace Argus.Shared
 					GLib.Path.build_filename(dir, "client-key.pem"), out key_pem);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
+				this.detail = e.message;
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			var listen = "";

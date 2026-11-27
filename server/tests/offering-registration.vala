@@ -143,7 +143,11 @@ namespace Argus.Server
 			string pin,
 			string csr,
 			string requester,
-			bool batch)
+			bool batch,
+			bool is_controller = false,
+			string family = "debian",
+			string username = "",
+			string hostname = "")
 		{
 			try {
 				return registration_tls_call(reg_port,
@@ -151,8 +155,8 @@ namespace Argus.Server
 						method = "Offering.enroll",
 						args = OLLMrpc.args(
 							"ssssbbss",
-							pin, csr, requester, "debian",
-							false, batch, "", "")
+							pin, csr, requester, family,
+							is_controller, batch, username, hostname)
 					});
 			} catch (GLib.Error e) {
 				GLib.warning("enroll tls: %s", e.message);
@@ -445,6 +449,42 @@ namespace Argus.Server
 				"late-bulk", true);
 			note(late_bulk == null || late_bulk.msg != "pending",
 				"no provisional enroll while polling");
+
+			var ctrl_poll = enroll_tls(reg_port, "0000", csr_pin,
+				"phone", false, true, "android", "u0_a1", "phone");
+			note(ctrl_poll != null && ctrl_poll.error != null &&
+				ctrl_poll.error.message == "This registration is for agents only.",
+				"controller rejected while polling");
+
+			yield open_pin(client, true);
+			var ctrl_bulk = enroll_tls(reg_port, "0000", csr_pin,
+				"phone", false, true, "android", "u0_a1", "phone");
+			note(ctrl_bulk != null && ctrl_bulk.error != null &&
+				ctrl_bulk.error.message == "This registration is for agents only.",
+				"controller rejected during bulk open");
+
+			var ctrl_pin = yield open_pin(client, false);
+			var ctrl_batch = enroll_tls(reg_port, "0000", csr_pin,
+				"phone", true, true, "android", "u0_a1", "phone");
+			note(ctrl_batch != null && ctrl_batch.error != null &&
+				ctrl_batch.error.message == "This registration is for agents only.",
+				"controller batch rejected during pin open");
+
+			var ctrl_ok = enroll_tls(reg_port, ctrl_pin, csr_pin,
+				"phone", false, true, "android", "u0_a1", "phone");
+			note(ctrl_ok != null && ctrl_ok.error == null &&
+				ctrl_ok.msg == "ok",
+				"controller enrolls with matching pin");
+			agents.clear();
+			Argus.Shared.Agent.query(server.app.db).select("", agents);
+			var found_ctrl = false;
+			foreach (var row in agents) {
+				if (row.is_controller && row.username == "u0_a1" &&
+					row.hostname == "phone" && row.status == 1) {
+					found_ctrl = true;
+				}
+			}
+			note(found_ctrl, "controller row saved with is_controller=true");
 
 			server.stop();
 			return failures == 0 ? 0 : 1;

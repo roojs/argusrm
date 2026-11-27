@@ -68,6 +68,9 @@ namespace FreeRDP
 		[CCode (cname = "freerdp_settings_set_uint32")]
 		public bool set_uint32 (SettingsUint32 key, uint32 value);
 
+		[CCode (cname = "freerdp_settings_get_uint32")]
+		public uint32 get_uint32 (SettingsUint32 key);
+
 		[CCode (cname = "freerdp_settings_set_pointer")]
 		public bool set_pointer (SettingsPointer key, void* value);
 
@@ -90,11 +93,15 @@ namespace FreeRDP
 	[CCode (has_target = false, cname = "pEndPaint", cheader_filename = "freerdp/update.h")]
 	public delegate bool EndPaint (Context context);
 
+	[CCode (has_target = false, cname = "pDesktopResize", cheader_filename = "freerdp/update.h")]
+	public delegate bool DesktopResize (Context context);
+
 	[Compact]
 	[CCode (cname = "rdpUpdate", cheader_filename = "freerdp/update.h")]
 	public class Update
 	{
 		public EndPaint EndPaint;
+		public DesktopResize DesktopResize;
 	}
 
 	[Compact]
@@ -202,6 +209,9 @@ namespace FreeRDP
 
 	[CCode (cname = "PIXEL_FORMAT_BGRA32", cheader_filename = "freerdp/codec/color.h")]
 	public const uint32 PIXEL_FORMAT_BGRA32;
+
+	[CCode (cname = "PIXEL_FORMAT_BGRX32", cheader_filename = "freerdp/codec/color.h")]
+	public const uint32 PIXEL_FORMAT_BGRX32;
 
 	[Compact]
 	[CCode (cname = "rdpGdi", cheader_filename = "freerdp/gdi/gdi.h")]
@@ -395,6 +405,9 @@ namespace FreeRDP
 
 	[CCode (cname = "gdi_init", cheader_filename = "freerdp/gdi/gdi.h")]
 	public bool gdi_init (Instance instance, uint32 format);
+
+	[CCode (cname = "gdi_resize", cheader_filename = "freerdp/gdi/gdi.h")]
+	public bool gdi_resize (Gdi gdi, uint32 width, uint32 height);
 
 	[CCode (cname = "gdi_free", cheader_filename = "freerdp/gdi/gdi.h")]
 	public void gdi_free (Instance instance);

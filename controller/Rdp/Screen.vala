@@ -37,8 +37,7 @@ namespace Argus.Controller.Rdp
 		/**
 		 * The picture for this machine.
 		 *
-		 * It stays at the desktop's pixel size. The remote desktop
-		 * page scrolls it when that is larger than the view.
+		 * Scales to fit the remote desktop pane while preserving aspect ratio.
 		 */
 		public Gtk.Picture picture { get; private set; }
 		/**
@@ -93,12 +92,14 @@ namespace Argus.Controller.Rdp
 			this.window = window;
 			this.agent_id = agent_id;
 			this.picture = new Gtk.Picture() {
-				can_shrink = false,
+				can_shrink = true,
 				can_focus = true,
 				focusable = true,
-				content_fit = Gtk.ContentFit.SCALE_DOWN,
-				halign = Gtk.Align.START,
-				valign = Gtk.Align.START
+				hexpand = true,
+				vexpand = true,
+				content_fit = Gtk.ContentFit.CONTAIN,
+				halign = Gtk.Align.FILL,
+				valign = Gtk.Align.FILL
 			};
 			var motion = new Gtk.EventControllerMotion();
 			motion.motion.connect((x, y) => {
@@ -109,22 +110,12 @@ namespace Argus.Controller.Rdp
 				}
 				unowned FreeRDP.Gdi? gdi = this.instance.context.gdi;
 				unowned FreeRDP.Input? input = this.instance.context.input;
-				if (gdi == null || input == null || gdi.width < 1 || gdi.height < 1) {
+				if (gdi == null || input == null || !this.map_pointer(x, y, gdi)) {
 					this.input_lock.unlock();
 					return;
 				}
-				var pw = this.picture.get_width();
-				var ph = this.picture.get_height();
-				if (pw < 1 || ph < 1) {
-					this.input_lock.unlock();
-					return;
-				}
-				var scale = double.min((double) pw / (double) gdi.width, (double) ph / (double) gdi.height);
-				var rx = ((int) (x / scale)).clamp(0, gdi.width - 1);
-				var ry = ((int) (y / scale)).clamp(0, gdi.height - 1);
-				this.pointer_x = rx;
-				this.pointer_y = ry;
-				FreeRDP.input_send_mouse_event(input, FreeRDP.PTR_FLAGS_MOVE, (uint16) rx, (uint16) ry);
+				FreeRDP.input_send_mouse_event(
+					input, FreeRDP.PTR_FLAGS_MOVE, (uint16) this.pointer_x, (uint16) this.pointer_y);
 				this.input_lock.unlock();
 			});
 			this.picture.add_controller(motion);
@@ -154,23 +145,13 @@ namespace Argus.Controller.Rdp
 				}
 				unowned FreeRDP.Gdi? gdi = this.instance.context.gdi;
 				unowned FreeRDP.Input? input = this.instance.context.input;
-				if (gdi == null || input == null || gdi.width < 1 || gdi.height < 1) {
+				if (gdi == null || input == null || !this.map_pointer(x, y, gdi)) {
 					this.input_lock.unlock();
 					return;
 				}
-				var pw = this.picture.get_width();
-				var ph = this.picture.get_height();
-				if (pw < 1 || ph < 1) {
-					this.input_lock.unlock();
-					return;
-				}
-				var scale = double.min((double) pw / (double) gdi.width, (double) ph / (double) gdi.height);
-				var rx = ((int) (x / scale)).clamp(0, gdi.width - 1);
-				var ry = ((int) (y / scale)).clamp(0, gdi.height - 1);
-				this.pointer_x = rx;
-				this.pointer_y = ry;
 				FreeRDP.input_send_mouse_event(
-					input, (uint16) (FreeRDP.PTR_FLAGS_DOWN | flag), (uint16) rx, (uint16) ry);
+					input, (uint16) (FreeRDP.PTR_FLAGS_DOWN | flag),
+					(uint16) this.pointer_x, (uint16) this.pointer_y);
 				this.input_lock.unlock();
 			});
 			click.released.connect((n_press, x, y) => {
@@ -195,22 +176,12 @@ namespace Argus.Controller.Rdp
 				}
 				unowned FreeRDP.Gdi? gdi = this.instance.context.gdi;
 				unowned FreeRDP.Input? input = this.instance.context.input;
-				if (gdi == null || input == null || gdi.width < 1 || gdi.height < 1) {
+				if (gdi == null || input == null || !this.map_pointer(x, y, gdi)) {
 					this.input_lock.unlock();
 					return;
 				}
-				var pw = this.picture.get_width();
-				var ph = this.picture.get_height();
-				if (pw < 1 || ph < 1) {
-					this.input_lock.unlock();
-					return;
-				}
-				var scale = double.min((double) pw / (double) gdi.width, (double) ph / (double) gdi.height);
-				var rx = ((int) (x / scale)).clamp(0, gdi.width - 1);
-				var ry = ((int) (y / scale)).clamp(0, gdi.height - 1);
-				this.pointer_x = rx;
-				this.pointer_y = ry;
-				FreeRDP.input_send_mouse_event(input, flag, (uint16) rx, (uint16) ry);
+				FreeRDP.input_send_mouse_event(
+					input, flag, (uint16) this.pointer_x, (uint16) this.pointer_y);
 				this.input_lock.unlock();
 			});
 			this.picture.add_controller(click);
@@ -603,7 +574,7 @@ namespace Argus.Controller.Rdp
 					return false;
 				}
 				var texture = new Gdk.MemoryTexture(
-					frame_width, frame_height, Gdk.MemoryFormat.B8G8R8A8,
+					frame_width, frame_height, Gdk.MemoryFormat.B8G8R8X8,
 					ready_bytes, (uint) frame_stride);
 				this.picture.set_paintable(texture);
 				if (!this.rendered) {
@@ -706,13 +677,62 @@ namespace Argus.Controller.Rdp
 			return FreeRDP.client_load_addins(ctx.channels, ctx.settings);
 		}
 
+		/**
+		 * Map widget coordinates inside the letterboxed {@link picture} to remote desktop pixels
+		 * and store them in {@link pointer_x} and {@link pointer_y}.
+		 *
+		 * @param x widget X coordinate
+		 * @param y widget Y coordinate
+		 * @param gdi active FreeRDP GDI framebuffer
+		 * @return false when the widget or desktop has no non-zero size
+		 */
+		private bool map_pointer(double x, double y, FreeRDP.Gdi gdi)
+		{
+			var pw = this.picture.get_width();
+			var ph = this.picture.get_height();
+			if (pw < 1 || ph < 1 || gdi.width < 1 || gdi.height < 1) {
+				return false;
+			}
+			var scale = double.min((double) pw / (double) gdi.width, (double) ph / (double) gdi.height);
+			var ox = ((double) pw - (double) gdi.width * scale) / 2.0;
+			var oy = ((double) ph - (double) gdi.height * scale) / 2.0;
+			this.pointer_x = ((int) ((x - ox) / scale)).clamp(0, gdi.width - 1);
+			this.pointer_y = ((int) ((y - oy) / scale)).clamp(0, gdi.height - 1);
+			return true;
+		}
+
 		private static bool connected(FreeRDP.Instance instance)
 		{
-			if (!FreeRDP.gdi_init(instance, FreeRDP.PIXEL_FORMAT_BGRA32)) {
+			if (!FreeRDP.gdi_init(instance, FreeRDP.PIXEL_FORMAT_BGRX32)) {
 				return false;
 			}
 			instance.context.update.EndPaint = Screen.end_paint;
+			instance.context.update.DesktopResize = Screen.desktop_resize;
+			GLib.debug("desktop connected: gdi=%dx%d",
+				instance.context.gdi.width, instance.context.gdi.height);
 			return true;
+		}
+
+		private static bool desktop_resize(FreeRDP.Context context)
+		{
+			var screen = Screen.find(context.instance);
+			if (screen == null) {
+				return true;
+			}
+			screen.input_lock.lock();
+			unowned FreeRDP.Gdi? gdi = context.gdi;
+			var w = context.settings.get_uint32(FreeRDP.SettingsUint32.DesktopWidth);
+			var h = context.settings.get_uint32(FreeRDP.SettingsUint32.DesktopHeight);
+			var ok = true;
+			if (gdi != null && w > 0 && h > 0) {
+				ok = FreeRDP.gdi_resize(gdi, w, h);
+				if (ok) {
+					screen.dirty = true;
+					GLib.debug("desktop resized: gdi=%ux%u", w, h);
+				}
+			}
+			screen.input_lock.unlock();
+			return ok;
 		}
 
 		private static bool end_paint(FreeRDP.Context context)

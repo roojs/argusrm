@@ -198,7 +198,7 @@ namespace Argus.Server.Offering
 			}
 			var net = this.network;
 			if (is_controller &&
-				(batch || net.pending || net.polling || net.pin != "")) {
+				(batch || net.pending || net.polling)) {
 				request.reply(new OLLMrpc.Response() {
 					error = new OLLMrpc.Error.INVALID_REQUEST("This registration is for agents only.")
 				});

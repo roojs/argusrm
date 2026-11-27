@@ -83,11 +83,9 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - `AgentService.status`: no arguments. Reply `retval` `as`: `["1"|"0" registered, "1"|"0" connected, tip]`.
 - `AgentService.retry`: no arguments. Reply `msg`: `ok`. Tries the management server again and leaves the registration as it is.
 - `AgentService.register` `ss`: six-digit PIN, `host:port` (or empty to use browse). Reply `retval` `i`: `0` on success or `OLLMrpc.RpcErrorCode`.
-- `AgentService.allow` `b`: the tray's answer to `agent.desktop`. `true` starts sharing the active desktop (or unattended Remote Desktop). `false` declines and reports `FAIL_USER_DENIED`. Reply `msg`: `ok`.
 - `AgentService.disconnect`: no arguments. Ends an active remote control session immediately at the signed-in user's request, stops the sharing helper, reports `FAIL_USER_DISCONNECTED`, and broadcasts `agent.desktop_active` `(false)`. Reply `msg`: `ok`.
-- Notification `agent.desktop`: no arguments. The service sends it on the loopback socket when someone is signed in, before starting desktop sharing. Half an hour idle calls `AgentService.allow(true)` automatically; otherwise the tray shows a consent dialog and balloon (60-second timeout auto-declines).
 - Notification `agent.desktop_active` `b`: `active` flag. Sent when remote control starts (`true`) and ends (`false`). While active, the tray updates its tooltip and adds a `Disconnect remote control` action.
-- ℹ️ The handlers are in `agent/windows/Service.vala`, called from `agent/windows/tray/Tray.vala`.
+- ℹ️ The handlers are in `agent/windows/TrayServer.vala`, called from `agent/windows/tray/Tray.vala`.
 
 ### `Registration.certificate`
 

@@ -53,7 +53,6 @@ namespace Argus.Agent.Windows
 				"status", "",
 				"retry", "",
 				"register", "ss",
-				"allow", "b",
 				"disconnect", ""
 			);
 			OLLMrpc.Request.register("AgentService", this);
@@ -258,20 +257,6 @@ namespace Argus.Agent.Windows
 				});
 				return false;
 			});
-		}
-
-		/**
-		 * Handle the signed-in user's Allow or Deny choice from the tray.
-		 *
-		 * @param request inbound RPC from the tray
-		 * @param yes true when the person at the PC allowed remote control
-		 */
-		public void allow(OLLMrpc.Request request, bool yes)
-		{
-			request.reply(new OLLMrpc.Response() {
-				msg = "ok"
-			});
-			this.service.allow(yes);
 		}
 
 		/**

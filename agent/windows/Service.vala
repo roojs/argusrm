@@ -68,36 +68,7 @@ namespace Argus.Agent.Windows
 		private DesktopShare share = new DesktopShare();
 		private bool desktop_on = false;
 		private bool start_asked = false;
-		private bool awaiting_consent = false;
 		internal Argus.Agent.Rdp.Tunnel? tunnel;
-
-		/**
-		 * Handle the signed-in user's Allow or Deny choice from the tray.
-		 *
-		 * @param yes true when the person at the PC allowed remote control
-		 */
-		internal void allow(bool yes)
-		{
-			if (!this.awaiting_consent) {
-				return;
-			}
-			this.awaiting_consent = false;
-			if (yes) {
-				this.relay_start(true);
-				return;
-			}
-			if (this.application.connection == null) {
-				return;
-			}
-			try {
-				this.application.connection.call(new OLLMrpc.Request() {
-					method = "Relay.report",
-					args = OLLMrpc.args("ii", (int) Argus.Rdp.State.FAIL_USER_DENIED, 0)
-				});
-			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
-			}
-		}
 
 		/**
 		 * Set Remote Desktop to accept connections and start it.
@@ -195,7 +166,7 @@ namespace Argus.Agent.Windows
 					GLib.warning("%s", e.message);
 				}
 			}
-			this.relay_start(true);
+			this.relay_start();
 		}
 
 		/**
@@ -205,7 +176,6 @@ namespace Argus.Agent.Windows
 		 */
 		internal void relay_stop(bool by_user = false)
 		{
-			this.awaiting_consent = false;
 			this.start_asked = false;
 			if (this.tunnel != null) {
 				this.tunnel.retire();
@@ -233,10 +203,8 @@ namespace Argus.Agent.Windows
 
 		/**
 		 * Open the desktop stream for a signed-in user or unattended RDP.
-		 *
-		 * @param approved true after tray consent has been granted
 		 */
-		internal void relay_start(bool approved = false)
+		internal void relay_start()
 		{
 			if (this.tunnel != null) {
 				if (this.tunnel.rpc != null && this.tunnel.rpc.connected) {
@@ -246,23 +214,6 @@ namespace Argus.Agent.Windows
 			}
 			var session = argus_active_session();
 			if (session != (uint32) 0xFFFFFFFF) {
-				if (!approved && this.tray.connected) {
-					this.awaiting_consent = true;
-					if (this.application.connection != null) {
-						try {
-							this.application.connection.call(new OLLMrpc.Request() {
-								method = "Relay.report",
-								args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_USER_CONSENT, 0)
-							});
-						} catch (GLib.Error e) {
-							GLib.warning("%s", e.message);
-						}
-					}
-					this.tray.local_listen.broadcast(new OLLMrpc.Notification() {
-						method = "agent.desktop"
-					});
-					return;
-				}
 				this.share.start(session, this.application.data_dir);
 				return;
 			}

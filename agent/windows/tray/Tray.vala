@@ -62,9 +62,6 @@ namespace Argus.Agent.Windows
 		private void* restart_proc = null;
 		private bool restarting = false;
 		private bool version_retry = false;
-		private bool asking = false;
-		private Argus.Shared.Notice? consent_notice = null;
-		private uint consent_timeout = 0;
 		private bool remote_active = false;
 
 		/**
@@ -197,10 +194,6 @@ namespace Argus.Agent.Windows
 			OLLMrpc.rpc_register();
 			this.rpc = new OLLMrpc.Client("", "", "tcp://127.0.0.1:4142");
 			this.rpc.notification.connect((notif) => {
-				if (notif.method == "agent.desktop") {
-					this.ask();
-					return;
-				}
 				if (notif.method == "agent.desktop_active" && notif.args.size >= 1) {
 					this.remote_active = notif.args.get(0).get_boolean();
 					if (this.remote_active) {
@@ -277,7 +270,7 @@ namespace Argus.Agent.Windows
 			while (true) {
 				while (GLib.MainContext.@default().iteration(false)) {
 				}
-				if (this.window_up || this.notice_up || this.asking) {
+				if (this.window_up || this.notice_up) {
 					GLib.MainContext.@default().iteration(true);
 					continue;
 				}
@@ -396,8 +389,6 @@ namespace Argus.Agent.Windows
 
 		/**
 		 * Put the icon back after Explorer restarts.
-		 *
-		 * A takeover question that is still waiting is shown again.
 		 */
 		private void on_taskbar()
 		{
@@ -406,18 +397,12 @@ namespace Argus.Agent.Windows
 			if (this.remote_active) {
 				this.set_tip("Remote control active");
 			}
-			if (!this.asking) {
-				return;
-			}
-			this.balloon("An administrator wants to take over",
-				"Your programs stay open, and you will not be logged off. Click to allow.");
 		}
 
 		/**
 		 * Handle a click on the tray icon.
 		 *
-		 * A click on the takeover balloon allows it. A left click
-		 * opens status. A right click opens the menu.
+		 * A left click opens status. A right click opens the menu.
 		 *
 		 * @param hwnd window the message was sent to
 		 * @param lparam notification code in the low word
@@ -426,32 +411,6 @@ namespace Argus.Agent.Windows
 		private int64 on_icon(void* hwnd, int64 lparam)
 		{
 			switch ((uint32) (lparam & 0xffff)) {
-				case NIN_BALLOONUSERCLICK:
-					if (!this.asking) {
-						return 0;
-					}
-					this.asking = false;
-					if (this.consent_timeout != 0) {
-						GLib.Source.remove(this.consent_timeout);
-						this.consent_timeout = 0;
-					}
-					if (this.consent_notice != null) {
-						this.consent_notice.close();
-						this.consent_notice = null;
-					}
-					if (!this.rpc.connected) {
-						return 0;
-					}
-					try {
-						this.rpc.call_sync(new OLLMrpc.Request() {
-							method = "AgentService.allow",
-							args = OLLMrpc.args("b", true)
-						});
-					} catch (GLib.Error e) {
-						GLib.warning("%s", e.message);
-					}
-					return 0;
-
 				case NIN_SELECT:
 				case NIN_KEYSELECT:
 				case WM_LBUTTONUP:
@@ -869,106 +828,6 @@ namespace Argus.Agent.Windows
 			}
 			tip.info[255] = 0;
 			Shell_NotifyIconW(NIM_MODIFY, &tip);
-		}
-
-		/**
-		 * Ask before sharing the signed-in desktop.
-		 *
-		 * Half an hour with no keyboard or mouse calls
-		 * ''AgentService.allow(true)'' without prompting. Otherwise
-		 * shows a consent dialog and tray balloon; Allow or clicking
-		 * the balloon grants control, Deny/close/timeout declines it.
-		 */
-		private void ask()
-		{
-			var last = Win32.LastInputInfo();
-			last.cb_size = (uint32) sizeof(Win32.LastInputInfo);
-			if (GetLastInputInfo(ref last) &&
-				GetTickCount() - last.time >= (uint32) (30 * 60 * 1000)) {
-				if (!this.rpc.connected) {
-					return;
-				}
-				try {
-					this.rpc.call_sync(new OLLMrpc.Request() {
-						method = "AgentService.allow",
-						args = OLLMrpc.args("b", true)
-					});
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-				}
-				return;
-			}
-			if (this.asking) {
-				return;
-			}
-			this.asking = true;
-			this.balloon("An administrator wants to take over",
-				"Your programs stay open, and you will not be logged off. Click to allow.");
-			if (!this.gtk_up) {
-				Adw.init();
-				this.gtk_up = true;
-			}
-			var notice = new Argus.Shared.Notice("An administrator wants to take control of your desktop",
-				"Your programs stay open, and you will not be logged off.");
-			notice.title = "Argus Remote Management Agent " + Argus.VERSION;
-			notice.add_response("allow", "Allow");
-			notice.add_response("deny", "Deny");
-			this.consent_notice = notice;
-			notice.responded.connect((response) => {
-				if (!this.asking) {
-					return;
-				}
-				this.asking = false;
-				if (this.consent_timeout != 0) {
-					GLib.Source.remove(this.consent_timeout);
-					this.consent_timeout = 0;
-				}
-				this.consent_notice = null;
-				if (!this.rpc.connected) {
-					return;
-				}
-				try {
-					this.rpc.call_sync(new OLLMrpc.Request() {
-						method = "AgentService.allow",
-						args = OLLMrpc.args("b", response == "allow")
-					});
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-				}
-			});
-			notice.closed.connect(() => {
-				if (!this.asking) {
-					return;
-				}
-				this.asking = false;
-				if (this.consent_timeout != 0) {
-					GLib.Source.remove(this.consent_timeout);
-					this.consent_timeout = 0;
-				}
-				this.consent_notice = null;
-				if (!this.rpc.connected) {
-					return;
-				}
-				try {
-					this.rpc.call_sync(new OLLMrpc.Request() {
-						method = "AgentService.allow",
-						args = OLLMrpc.args("b", false)
-					});
-				} catch (GLib.Error e) {
-					GLib.warning("%s", e.message);
-				}
-			});
-			this.consent_timeout = GLib.Timeout.add_seconds(60, () => {
-				this.consent_timeout = 0;
-				if (!this.asking) {
-					return false;
-				}
-				if (this.consent_notice != null) {
-					this.consent_notice.close();
-				}
-				return false;
-			});
-			notice.present(null);
 		}
 
 		/**

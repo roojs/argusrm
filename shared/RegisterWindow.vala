@@ -155,6 +155,7 @@ namespace Argus.Shared
 		}
 
 		public Gtk.Label listen_label;
+		private Gtk.Label pin_label;
 		private Gtk.Spinner service_spinner;
 		private Gtk.Entry pin_entry;
 		private Gtk.Box pin_box;
@@ -265,7 +266,8 @@ namespace Argus.Shared
 				valign = Gtk.Align.CENTER,
 				vexpand = true
 			};
-			var pin_label = new Gtk.Label("Enter registration PIN") {
+			this.pin_label = new Gtk.Label("Enter registration PIN") {
+				wrap = true,
 				xalign = 0.5f,
 				justify = Gtk.Justification.CENTER,
 				css_classes = {"dim-label"}
@@ -286,7 +288,7 @@ namespace Argus.Shared
 				margin_start = 12,
 				margin_end = 12
 			};
-			this.pin_box.append(pin_label);
+			this.pin_box.append(this.pin_label);
 			this.pin_box.append(this.pin_entry);
 			body.append(this.pin_box);
 			this.service_spinner = new Gtk.Spinner() {
@@ -482,6 +484,10 @@ namespace Argus.Shared
 				if (this.state.reg.phase == Register.Phase.AWAITING_PIN) {
 					this.tunnel_scan.stop();
 					this.state.server_id = this.state.reg.server_id;
+					this.pin_label.label = "Enter registration PIN";
+					if (this.state.reg.host != "") {
+						this.pin_label.label = "Enter registration PIN for " + this.state.reg.host;
+					}
 					this.offer_box.visible = false;
 					this.address_box.visible = false;
 					this.pin_box.visible = true;
@@ -511,6 +517,7 @@ namespace Argus.Shared
 			this.tunnel_scan.stop();
 			this.state = this.state.renew(this);
 			this.wire_register_state();
+			this.pin_label.label = "Enter registration PIN";
 			this.pin_entry.text = "";
 			this.pin_box.visible = false;
 			this.address_entry.text = "";
@@ -565,7 +572,7 @@ namespace Argus.Shared
 				return;
 			}
 			this.state.registering = true;
-			this.listen_label.label = "Registering…";
+			this.listen_label.label = "Registering with " + host + "…";
 			if (this.use_pipe) {
 				this.pipe_code = (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				this.send_pin(pin, this.state.reg.hostport);

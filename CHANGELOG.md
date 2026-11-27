@@ -8,6 +8,26 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.69] - Unreleased
+
+### Changed
+
+- Registration dialog (`RegisterWindow` / `Register`) now shows the target management server address during connection, PIN entry (`Enter registration PIN for <host>`), and enrollment, and displays transport or reply errors instead of a generic failure message.
+
+### Fixed
+
+- `Offering.enroll` no longer rejects controller PIN registrations (`is_controller = true`) while the six-digit PIN window is open; only batch, pending, and polling registrations remain agents-only.
+
+## [0.1.68] - Unreleased
+
+### Changed
+
+- Removed the Windows tray permission prompt (`agent.desktop` / `AgentService.allow`) so live desktop sharing attaches immediately without interrupting the signed-in user; the passive tray active indicator and Disconnect action remain.
+
+### Fixed
+
+- Controller remote desktop now handles FreeRDP `DesktopResize` callbacks (`gdi_resize`), scales the desktop to fit the window (`Gtk.ContentFit.CONTAIN`) with letterbox-aware pointer mapping, and uses opaque `BGRX32` (`Gdk.MemoryFormat.B8G8R8X8`).
+
 ## [0.1.67] - Unreleased
 
 ### Fixed

@@ -276,13 +276,8 @@ namespace Argus.Controller.Tab
 				waiting.label = screen.problem;
 				waiting.visible = true;
 			});
-			var scroll = new Gtk.ScrolledWindow() {
-				child = screen.picture,
-				hexpand = true,
-				vexpand = true
-			};
 			var overlay = new Gtk.Overlay() {
-				child = scroll,
+				child = screen.picture,
 				hexpand = true,
 				vexpand = true
 			};
