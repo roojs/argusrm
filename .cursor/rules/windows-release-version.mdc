@@ -10,3 +10,7 @@ A Windows installer uses the first version in `CHANGELOG.md`. Bump that version,
 `scripts/ci/windows-package-nsis.sh` refuses to package when `meson.build` or the compiled `argus-agent.exe` is a different version. It also refuses when `dist-windows/ArgusAgent-{version}-Setup.exe` already exists. Reconfigure and rebuild after the bump. The agent window shows the compiled version.
 
 The window title already appends `Argus.VERSION`. Do not ship a Windows build on a version that was already installed. Delete the old installer only when intentionally replacing that same version — normally bump instead.
+
+## Output directory on `snappr-win`
+
+The ONLY Windows installer directory on `snappr-win` is `C:\msys64\tmp\argusrm\dist-windows` (`/tmp/argusrm/dist-windows` in MSYS2). Build/package there and never put installers in `C:\Users\Alan\argus-pkg\dist-windows` or any other directory on `snappr-win`.

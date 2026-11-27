@@ -263,8 +263,9 @@ namespace Argus.Server.Offering
 
 				case DeskState.ARM:
 					this.armed_pin = this.pin;
+					var armed = this.armed_pin;
 					GLib.Timeout.add_seconds(60, () => {
-						if (this.pin != this.armed_pin) {
+						if (this.pin != armed) {
 							return false;
 						}
 						this.update_pin(DeskState.CLOSED);
