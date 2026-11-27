@@ -52,11 +52,17 @@ jobs:
     permissions:
       contents: read
 
-  # Android is not part of tag releases until it is stable. Use workflow
-  # "Release - Android" (workflow_dispatch) to build and verify an APK.
+  android:
+    needs: verify
+    uses: ./.github/workflows/x-android.yml
+    with:
+      non_blocking: false
+    permissions:
+      contents: read
+
   publish:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [debian, build-rpm-fedora, windows]
+    needs: [debian, build-rpm-fedora, windows, android]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -82,12 +88,17 @@ jobs:
           done
           package_files=(artifacts/*.deb artifacts/*.rpm)
           windows_files=(artifacts/*.exe)
+          apk_files=(artifacts/*.apk)
           ((${#package_files[@]})) || {
             echo "No Debian or RPM artifacts were downloaded" >&2
             exit 1
           }
           ((${#windows_files[@]})) || {
             echo "No Windows installer was downloaded" >&2
+            exit 1
+          }
+          ((${#apk_files[@]})) || {
+            echo "No Android APK was downloaded" >&2
             exit 1
           }
           chmod +x scripts/release/changelog.sh \
