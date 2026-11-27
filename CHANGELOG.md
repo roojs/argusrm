@@ -8,6 +8,12 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.67] - Unreleased
+
+### Fixed
+
+- Windows service startup no longer enters `GLib.Application.run()` on the main thread before `StartServiceCtrlDispatcherW`, avoiding the cross-thread default `GMainContext` acquisition failure in `Service.service_main()`.
+
 ## [0.1.66] - Unreleased
 
 ### Added

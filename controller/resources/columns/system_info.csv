@@ -2,10 +2,10 @@ Column header | Database name [JSON] | Visible | Width | Format | Sort
 
 
 Pkgs,pkgs-updated,off,110,date,ON
-S/W,pkgs-status,ON,60,status,off
+S/W,pkgs-status,ON,36,status,off
 
 OS updated,os-updated,off,110,date,ON
-OS,os-status,ON,60,status,off
+OS,os-status,ON,36,status,off
 
 Logged in users,logged-in-users,ON,120,text,ON
 Hostname,hostname,ON,160,text,off

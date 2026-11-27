@@ -130,6 +130,8 @@ namespace Argus.Server.SQV
 						AND
 							logged_in_users.user != ''
 						AND
+							LOWER(logged_in_users.user) NOT IN ('login', 'reboot', 'runlevel')
+						AND
 							logged_in_users.deleted_dt = 0
 					), '') AS logged_in_users
 				FROM

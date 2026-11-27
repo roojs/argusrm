@@ -26,8 +26,13 @@ namespace Argus.Agent.Windows
 	 * ''--restart'', ''--share-invite'', ''argus-tray'', and the Windows
 	 * Service Control Manager, and falls back to
 	 * {@link Argus.Agent.Application} for console launches.
+	 *
+	 * Extends {@link GLib.Object} rather than {@link GLib.Application} so
+	 * the main thread does not acquire the default {@link GLib.MainContext}
+	 * before ''StartServiceCtrlDispatcherW'' invokes
+	 * {@link Service.service_main} on the SCM thread.
 	 */
-	internal class Application : Argus.Agent.Application
+	internal class Application : GLib.Object
 	{
 		private static bool opt_restart;
 		private static int opt_share_port;
@@ -55,22 +60,21 @@ namespace Argus.Agent.Windows
 		}
 
 		/**
-		 * Parse Windows options and dispatch before the base agent command line.
+		 * Parse Windows options and dispatch before starting {@link Argus.Agent.Application}.
 		 *
-		 * @param command_line arguments for this launch
+		 * @param args process arguments
 		 * @return process exit code
 		 */
-		public override int command_line(GLib.ApplicationCommandLine command_line)
+		public int run(string[] args)
 		{
 			opt_restart = false;
 			opt_share_port = 0;
 			opt_share_pass = "";
 			opt_share_invite = "";
 			opt_share_stop = "";
-			var args = command_line.get_arguments();
-			var opt_context = new GLib.OptionContext(this.application_id);
-			opt_context.set_help_enabled(true);
-			opt_context.add_main_entries(app_options, null);
+			var opt_context = new GLib.OptionContext("org.roojs.ArgusAgent");
+			opt_context.set_help_enabled(false);
+			opt_context.set_ignore_unknown_options(true);
 			GLib.OptionEntry[] win_options = {
 				{ "restart", 0, 0, GLib.OptionArg.NONE, ref opt_restart, "Restart the Windows agent service", null },
 				{ "share-port", 0, 0, GLib.OptionArg.INT, ref opt_share_port, "TCP port for desktop sharing", "PORT" },
@@ -80,36 +84,36 @@ namespace Argus.Agent.Windows
 				{ null }
 			};
 			opt_context.add_main_entries(win_options, null);
+			string[] parse_args = {};
+			foreach (var arg in args) {
+				parse_args += arg;
+			}
 			try {
-				unowned string[] unowned_args = args;
+				unowned string[] unowned_args = parse_args;
 				opt_context.parse(ref unowned_args);
 			} catch (GLib.OptionError e) {
-				command_line.printerr("error: %s\n", e.message);
+				GLib.stderr.printf("error: %s\n", e.message);
 				return 1;
 			}
 			if (opt_restart) {
-				this.server.stand_down();
 				return Service.restart();
 			}
 			if (opt_share_invite != "") {
-				this.server.stand_down();
 				var share = new DesktopShare();
 				return share.run((uint16) opt_share_port, opt_share_pass, opt_share_invite, opt_share_stop);
 			}
 			var exe_name = args.length > 0 ? GLib.Path.get_basename(args[0]).down() : "";
 			if (exe_name == "argus-tray" || exe_name == "argus-tray.exe") {
-				this.server.stand_down();
 				var tray = new Tray();
 				return tray.run();
 			}
-			this.server.stand_down();
 			var service = new Service();
 			var service_exit = service.start();
 			if (service_exit >= 0) {
 				return service_exit;
 			}
-			this.attach_connection();
-			return base.command_line(command_line);
+			var app = new Argus.Agent.Application();
+			return app.run(args);
 		}
 	}
 }
