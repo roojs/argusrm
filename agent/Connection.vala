@@ -381,7 +381,7 @@ namespace Argus.Agent
 				opened.watch();
 				GLib.debug("watching the server connection");
 #if !LINUX
-				this.app.start_inventory_once();
+				this.app.send_inventory();
 #endif
 			}
 			this.enter_state(State.CONNECTED);

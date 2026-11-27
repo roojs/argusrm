@@ -87,36 +87,48 @@ namespace Argus.Server.Net
 			}
 			this.soup.set_tls_auth_mode(GLib.TlsAuthenticationMode.REQUIRED);
 			this.soup.request_started.connect((server, msg) => {
+				var remote = msg.get_remote_host();
+				GLib.debug("download request started from %s", remote != null ? remote : "");
 				msg.accept_certificate.connect((peer_cert, errors) => {
-					if (peer_cert == null) {
-						return false;
-					}
-					return (errors & ~GLib.TlsCertificateFlags.BAD_IDENTITY) == 0;
+					var accepted = peer_cert != null &&
+						(errors & ~GLib.TlsCertificateFlags.BAD_IDENTITY) == 0;
+					GLib.debug("download client cert %s errors %u accepted %s",
+						peer_cert != null ? "present" : "missing", (uint) errors, accepted.to_string());
+					return accepted;
 				});
 			});
 			this.soup.add_handler(null, (server, msg, path, query) => {
+				var remote = msg.get_remote_host();
+				GLib.debug("download %s %s from %s",
+					msg.get_method(), path, remote != null ? remote : "");
 				if (msg.get_method() != "GET") {
+					GLib.debug("download %s 405", path);
 					msg.set_status(405, null);
 					return;
 				}
 				var peer = msg.get_tls_peer_certificate();
 				var errors = msg.get_tls_peer_certificate_errors();
 				if (peer == null || (errors & ~GLib.TlsCertificateFlags.BAD_IDENTITY) != 0) {
+					GLib.debug("download %s 403 errors %u", path, (uint) errors);
 					msg.set_status(403, null);
 					return;
 				}
 				if (!path.has_prefix("/") || path.contains("..") || path.has_suffix("/")) {
+					GLib.debug("download %s 404 invalid path", path);
 					msg.set_status(404, null);
 					return;
 				}
 				var relative = path.substring(1);
 				if (relative == "") {
+					GLib.debug("download %s 404 empty path", path);
 					msg.set_status(404, null);
 					return;
 				}
-				var file_path = GLib.Path.build_filename(
-					Argus.SERVER_DATA_DIR, "packages", relative);
+				var data_dir = Application.opt_data_dir != "" ?
+					Application.opt_data_dir : Argus.SERVER_DATA_DIR;
+				var file_path = GLib.Path.build_filename(data_dir, "packages", relative);
 				if (!GLib.FileUtils.test(file_path, GLib.FileTest.EXISTS)) {
+					GLib.debug("download %s 404 missing %s", path, file_path);
 					msg.set_status(404, null);
 					return;
 				}
@@ -133,6 +145,7 @@ namespace Argus.Server.Net
 						msg.unpause();
 						return;
 					}
+					GLib.debug("download %s 200 %d bytes", path, contents.length);
 					msg.set_status(200, null);
 					msg.set_response("application/octet-stream", Soup.MemoryUse.COPY, contents);
 					msg.unpause();

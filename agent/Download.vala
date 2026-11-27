@@ -131,13 +131,15 @@ namespace Argus.Agent
 			GLib.debug("download connected");
 			var request = @"GET $(request_path) HTTP/1.1\r\nHost: $(host):$(port)\r\nConnection: close\r\n\r\n";
 			try {
-				tls.get_output_stream().write(request.data);
+				size_t sent;
+				tls.get_output_stream().write_all(request.data, out sent);
 			} catch (GLib.Error e) {
 				GLib.warning("%s", e.message);
 				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			var input = new GLib.DataInputStream(tls.get_input_stream());
-			var status = (uint) 0;
+			input.newline_type = GLib.DataStreamNewlineType.CR_LF;
+			uint status = 0;
 			int64 content_length = -1;
 			try {
 				var status_line = input.read_line(null);
@@ -199,7 +201,8 @@ namespace Argus.Agent
 					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 				}
 				try {
-					output.write(chunk[0:n]);
+					size_t wrote;
+					output.write_all(chunk[0:n], out wrote);
 				} catch (GLib.Error e) {
 					GLib.warning("%s", e.message);
 					return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
@@ -212,6 +215,12 @@ namespace Argus.Agent
 						next_mark += 4194304;
 					}
 				}
+			}
+			try {
+				output.close();
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+				return (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR;
 			}
 			if (written == 0) {
 				return (int) OLLMrpc.RpcErrorCode.INVALID_REQUEST;

@@ -8,6 +8,14 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.65] - Unreleased
+
+### Fixed
+
+- Agent downloads now parse HTTP `\r\n` response headers with `CR_LF` line endings, use full `write_all` writes, and close the output file explicitly so binary package downloads no longer eat the body as headers.
+- Server download listener now logs incoming requests, client certificate checks, status codes, and served byte counts, and honors `--data-dir`.
+- Linux agent startup runs osquery initialization off the main loop via `send_inventory()`, and an automated `download` Meson test exercises agent-to-server mTLS downloads end-to-end.
+
 ## [0.1.64] - Unreleased
 
 ### Fixed

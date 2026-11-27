@@ -74,6 +74,39 @@ if host_machine.system() == 'linux'
 		install: false,
 	)
 	test('agent-command', command_test, timeout: 8, is_parallel: false)
+	agent_download_live = custom_target(
+		'agent-download-vala',
+		input: files('../agent/Download.vala'),
+		output: 'agent-Download.vala',
+		command: ['cp', '@INPUT@', '@OUTPUT@'],
+	)
+	server_download_live = custom_target(
+		'server-download-vala',
+		input: files('../server/Net/Download.vala'),
+		output: 'server-Download.vala',
+		command: ['cp', '@INPUT@', '@OUTPUT@'],
+	)
+	download_test = executable(
+		'argus-download',
+		files('download.vala'),
+		agent_download_live,
+		server_download_live,
+		dependencies: [
+			dependency('glib-2.0'),
+			dependency('gobject-2.0'),
+			dependency('gio-2.0'),
+			dependency('gee-0.8'),
+			dependency('json-glib-1.0'),
+			dependency('libsoup-3.0'),
+			ocrpc_dep,
+		],
+		vala_args: ocrpc_vala_args + [
+			'--pkg', 'gee-0.8', '--pkg', 'json-glib-1.0', '--pkg', 'libsoup-3.0',
+			'-D', 'LINUX',
+		],
+		install: false,
+	)
+	test('download', download_test, timeout: 15)
 	apt_history_test = executable(
 		'argus-apt-history-test',
 		files('apt-history.vala'),

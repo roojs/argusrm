@@ -297,7 +297,7 @@ namespace Argus.Agent
 			}
 		}
 
-		internal void start_inventory_once()
+		internal void send_inventory()
 		{
 			if (this.inventory_started) {
 				return;
@@ -305,6 +305,7 @@ namespace Argus.Agent
 			this.inventory_started = true;
 			new GLib.Thread<int>("osquery-init", () => {
 				var code = new OSQuery.Initialize(this).run();
+				GLib.debug("osquery %d", code);
 				GLib.Idle.add(() => {
 					if (code != 0 || this.connection == null || Application.connection_down) {
 						return false;
@@ -571,12 +572,7 @@ namespace Argus.Agent
 			var cert = GLib.Path.build_filename(Argus.AGENT_DATA_DIR, "client.pem");
 			if (GLib.FileUtils.test(cert, GLib.FileTest.EXISTS)) {
 				if (this.connection != null && !Application.connection_down) {
-					new OSQuery.Initialize(this).start();
-					this.osquery.send_startup();
-					this.monitor = new PackageMonitor(this);
-					this.monitor.start();
-					this.user_monitor = new UserMonitor(this);
-					this.user_monitor.start();
+					this.send_inventory();
 				}
 				if (this.connection == null || Application.connection_down) {
 					GLib.debug("waiting for connection");
@@ -585,12 +581,7 @@ namespace Argus.Agent
 							GLib.debug("waiting for connection");
 							return true;
 						}
-						new OSQuery.Initialize(this).start();
-						this.osquery.send_startup();
-						this.monitor = new PackageMonitor(this);
-						this.monitor.start();
-						this.user_monitor = new UserMonitor(this);
-						this.user_monitor.start();
+						this.send_inventory();
 						return false;
 					});
 				}

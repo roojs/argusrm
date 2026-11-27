@@ -2,7 +2,7 @@ project(
 	'argus',
 	'vala',
 	'c',
-	version: '0.1.64',
+	version: '0.1.65',
 	license: 'LGPL-3.0-or-later',
 	meson_version: '>= 1.0.0',
 	default_options: [
@@ -62,7 +62,9 @@ if host_machine.system() == 'android'
 			'do not vendor libadwaita VAPI in this repository.'
 		)
 	endif
+	pixie_pkgconfig = find_program('pkg-config', native: false)
 	add_project_arguments([
+		'--pkg-config=' + pixie_pkgconfig.full_path(),
 		'--vapidir', pixie_vapi_dir,
 		'--vapidir', meson.project_source_root() / 'android' / 'vapi',
 	], language: 'vala')
