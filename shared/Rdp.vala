@@ -108,7 +108,12 @@ namespace Argus.Rdp
 		SUCCESS_SERVER_RECONNECTED,
 		RETRY_SERVER_DISCONNECTED,
 		RETRY_SERVER_CONNECT_REFUSED,
-		RETRY_CERTIFICATE_RESTORE;
+		RETRY_CERTIFICATE_RESTORE,
+
+		REQUEST_USER_CONSENT,
+		FAIL_USER_DENIED,
+		FAIL_USER_DISCONNECTED,
+		FAIL_SHARE_START;
 
 		/**
 		 * The sentence for this step.
@@ -210,6 +215,14 @@ namespace Argus.Rdp
 				return "Could not reach the server.";
 			case RETRY_CERTIFICATE_RESTORE:
 				return "The machine certificate is missing.";
+			case REQUEST_USER_CONSENT:
+				return "Waiting for the signed-in user to allow remote control.";
+			case FAIL_USER_DENIED:
+				return "The signed-in user declined remote control.";
+			case FAIL_USER_DISCONNECTED:
+				return "The signed-in user disconnected remote control.";
+			case FAIL_SHARE_START:
+				return "The machine could not start desktop sharing.";
 			default:
 				return "";
 			}

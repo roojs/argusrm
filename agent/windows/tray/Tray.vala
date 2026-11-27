@@ -63,6 +63,9 @@ namespace Argus.Agent.Windows
 		private bool restarting = false;
 		private bool version_retry = false;
 		private bool asking = false;
+		private Argus.Shared.Notice? consent_notice = null;
+		private uint consent_timeout = 0;
+		private bool remote_active = false;
 
 		/**
 		 * Return true when another ''argus-tray.exe'' process is running.
@@ -198,13 +201,26 @@ namespace Argus.Agent.Windows
 					this.ask();
 					return;
 				}
+				if (notif.method == "agent.desktop_active" && notif.args.size >= 1) {
+					this.remote_active = notif.args.get(0).get_boolean();
+					if (this.remote_active) {
+						this.set_tip("Remote control active");
+						this.balloon("Remote control active",
+							"An administrator is controlling your desktop. Right-click the Argus icon to disconnect.");
+						return;
+					}
+					this.set_tip(this.tip_text != "" ? this.tip_text : "Connected to management server");
+					return;
+				}
 				if (notif.method != "agent.status" || notif.args.size < 3) {
 					return;
 				}
 				this.registered = notif.args.get(0).get_boolean();
 				this.connected = notif.args.get(1).get_boolean();
 				this.tip_text = notif.args.get(2).get_string();
-				this.set_tip(this.tip_text);
+				if (!this.remote_active) {
+					this.set_tip(this.tip_text);
+				}
 				if (this.version_retry && this.notice_up) {
 					var mismatch = this.tip_text.has_prefix("The server is ") &&
 						this.tip_text.contains(". This client is ");
@@ -261,7 +277,7 @@ namespace Argus.Agent.Windows
 			while (true) {
 				while (GLib.MainContext.@default().iteration(false)) {
 				}
-				if (this.window_up || this.notice_up) {
+				if (this.window_up || this.notice_up || this.asking) {
 					GLib.MainContext.@default().iteration(true);
 					continue;
 				}
@@ -387,11 +403,13 @@ namespace Argus.Agent.Windows
 		{
 			this.added = false;
 			this.add_icon();
+			if (this.remote_active) {
+				this.set_tip("Remote control active");
+			}
 			if (!this.asking) {
 				return;
 			}
-			this.balloon(
-				"An admin wants to take over",
+			this.balloon("An administrator wants to take over",
 				"Your programs stay open, and you will not be logged off. Click to allow.");
 		}
 
@@ -413,6 +431,14 @@ namespace Argus.Agent.Windows
 						return 0;
 					}
 					this.asking = false;
+					if (this.consent_timeout != 0) {
+						GLib.Source.remove(this.consent_timeout);
+						this.consent_timeout = 0;
+					}
+					if (this.consent_notice != null) {
+						this.consent_notice.close();
+						this.consent_notice = null;
+					}
 					if (!this.rpc.connected) {
 						return 0;
 					}
@@ -440,11 +466,17 @@ namespace Argus.Agent.Windows
 					AppendMenuW(menu, MF_STRING | MF_GRAYED, 0,
 						g_utf8_to_utf16("Argus RM Agent " + Argus.VERSION));
 					var status = this.tip_text != "" ? this.tip_text : "Not registered";
+					if (this.remote_active) {
+						status = "Remote control active";
+					}
 					if (this.restarting) {
 						status = "Restarting agent…";
 					}
 					AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, g_utf8_to_utf16(status));
 					AppendMenuW(menu, MF_SEPARATOR, 0, null);
+					if (this.remote_active) {
+						AppendMenuW(menu, MF_STRING, 1003, g_utf8_to_utf16("Disconnect remote control"));
+					}
 					var restart_flags = this.restarting ? MF_STRING | MF_GRAYED : MF_STRING;
 					AppendMenuW(menu, restart_flags, 1001, g_utf8_to_utf16("Restart Agent"));
 					var version_mismatch = this.registered && !this.connected &&
@@ -507,6 +539,9 @@ namespace Argus.Agent.Windows
 					this.status_notice = new Argus.Shared.Notice(heading, detail);
 					this.status_notice.title =
 						"Argus Remote Management Agent " + Argus.VERSION;
+					if (this.remote_active) {
+						this.status_notice.add_response("disconnect", "Disconnect remote control");
+					}
 					if (version_mismatch && !this.restarting) {
 						this.status_notice.add_response("restart", "Restart");
 					}
@@ -520,6 +555,9 @@ namespace Argus.Agent.Windows
 						this.status_notice.add_response("restart", "Restart");
 					}
 					this.status_notice.responded.connect((response) => {
+						if (response == "disconnect") {
+							PostMessageW(this.hwnd, WM_COMMAND, 1003, 0);
+						}
 						if (response == "restart") {
 							PostMessageW(this.hwnd, WM_COMMAND, 1001, 0);
 						}
@@ -699,6 +737,21 @@ namespace Argus.Agent.Windows
 					this.present(true);
 					return 0;
 
+				case 1003:
+					this.remote_active = false;
+					this.set_tip(this.tip_text != "" ? this.tip_text : "Connected to management server");
+					if (!this.rpc.connected) {
+						return 0;
+					}
+					try {
+						this.rpc.call_sync(new OLLMrpc.Request() {
+							method = "AgentService.disconnect"
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+					return 0;
+
 				default:
 					return DefWindowProcW(hwnd, WM_COMMAND, wparam, lparam);
 			}
@@ -819,12 +872,12 @@ namespace Argus.Agent.Windows
 		}
 
 		/**
-		 * Ask before Remote Desktop is turned on.
+		 * Ask before sharing the signed-in desktop.
 		 *
 		 * Half an hour with no keyboard or mouse calls
-		 * ''AgentService.allow'' without a question. Otherwise
-		 * a balloon asks. A click allows it. Ignoring the
-		 * balloon leaves it off.
+		 * ''AgentService.allow(true)'' without prompting. Otherwise
+		 * shows a consent dialog and tray balloon; Allow or clicking
+		 * the balloon grants control, Deny/close/timeout declines it.
 		 */
 		private void ask()
 		{
@@ -845,10 +898,77 @@ namespace Argus.Agent.Windows
 				}
 				return;
 			}
+			if (this.asking) {
+				return;
+			}
 			this.asking = true;
-			this.balloon(
-				"An admin wants to take over",
+			this.balloon("An administrator wants to take over",
 				"Your programs stay open, and you will not be logged off. Click to allow.");
+			if (!this.gtk_up) {
+				Adw.init();
+				this.gtk_up = true;
+			}
+			var notice = new Argus.Shared.Notice("An administrator wants to take control of your desktop",
+				"Your programs stay open, and you will not be logged off.");
+			notice.title = "Argus Remote Management Agent " + Argus.VERSION;
+			notice.add_response("allow", "Allow");
+			notice.add_response("deny", "Deny");
+			this.consent_notice = notice;
+			notice.responded.connect((response) => {
+				if (!this.asking) {
+					return;
+				}
+				this.asking = false;
+				if (this.consent_timeout != 0) {
+					GLib.Source.remove(this.consent_timeout);
+					this.consent_timeout = 0;
+				}
+				this.consent_notice = null;
+				if (!this.rpc.connected) {
+					return;
+				}
+				try {
+					this.rpc.call_sync(new OLLMrpc.Request() {
+						method = "AgentService.allow",
+						args = OLLMrpc.args("b", response == "allow")
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			});
+			notice.closed.connect(() => {
+				if (!this.asking) {
+					return;
+				}
+				this.asking = false;
+				if (this.consent_timeout != 0) {
+					GLib.Source.remove(this.consent_timeout);
+					this.consent_timeout = 0;
+				}
+				this.consent_notice = null;
+				if (!this.rpc.connected) {
+					return;
+				}
+				try {
+					this.rpc.call_sync(new OLLMrpc.Request() {
+						method = "AgentService.allow",
+						args = OLLMrpc.args("b", false)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			});
+			this.consent_timeout = GLib.Timeout.add_seconds(60, () => {
+				this.consent_timeout = 0;
+				if (!this.asking) {
+					return false;
+				}
+				if (this.consent_notice != null) {
+					this.consent_notice.close();
+				}
+				return false;
+			});
+			notice.present(null);
 		}
 
 		/**

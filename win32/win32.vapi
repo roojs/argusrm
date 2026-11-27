@@ -252,6 +252,20 @@ namespace Win32 {
 
 	[CCode (cname = "GetTickCount", cheader_filename = "win32.h")]
 	public uint32 GetTickCount ();
+	[CCode (cname = "GetTickCount64", cheader_filename = "win32.h")]
+	public uint64 GetTickCount64 ();
+	[CCode (cname = "GetCurrentProcess", cheader_filename = "win32.h")]
+	public void* GetCurrentProcess ();
+	[CCode (cname = "OpenProcessToken", cheader_filename = "win32.h")]
+	public bool OpenProcessToken (void* process, uint32 access, out void* token);
+	[CCode (cname = "SetTokenInformation", cheader_filename = "win32.h")]
+	public bool SetTokenInformation (void* token, int info_class, void* info, uint32 length);
+	[CCode (cname = "CreateEventW", cheader_filename = "win32.h")]
+	public void* CreateEventW (void* security, bool manual_reset, bool initial_state, string16 name);
+	[CCode (cname = "OpenEventW", cheader_filename = "win32.h")]
+	public void* OpenEventW (uint32 access, bool inherit, string16 name);
+	[CCode (cname = "SetEvent", cheader_filename = "win32.h")]
+	public bool SetEvent (void* event);
 
 	[CCode (cname = "NOTIFYICONDATAW", has_type_id = false, destroy_function = "", cheader_filename = "win32.h")]
 	public struct NotifyIcon {
@@ -547,6 +561,20 @@ namespace Win32 {
 	public bool CreateProcessW (string16? app, [CCode (array_length = false)] uint16[]? command, void* process_attr, void* thread_attr, bool inherit, uint32 flags, [CCode (array_length = false)] uint16[]? env, string16? cwd, StartupInfo* startup, out ProcessInfo info);
 	[CCode (cname = "CREATE_SUSPENDED", cheader_filename = "win32.h")]
 	public const uint32 CREATE_SUSPENDED;
+	[CCode (cname = "CREATE_NO_WINDOW", cheader_filename = "win32.h")]
+	public const uint32 CREATE_NO_WINDOW;
+	[CCode (cname = "TOKEN_DUPLICATE", cheader_filename = "win32.h")]
+	public const uint32 TOKEN_DUPLICATE;
+	[CCode (cname = "TOKEN_QUERY", cheader_filename = "win32.h")]
+	public const uint32 TOKEN_QUERY;
+	[CCode (cname = "TOKEN_ASSIGN_PRIMARY", cheader_filename = "win32.h")]
+	public const uint32 TOKEN_ASSIGN_PRIMARY;
+	[CCode (cname = "TOKEN_ADJUST_SESSIONID", cheader_filename = "win32.h")]
+	public const uint32 TOKEN_ADJUST_SESSIONID;
+	[CCode (cname = "TokenSessionId", cheader_filename = "win32.h")]
+	public const int TokenSessionId;
+	[CCode (cname = "SecurityImpersonation", cheader_filename = "win32.h")]
+	public const int SecurityImpersonation;
 	[CCode (cname = "CREATE_UNICODE_ENVIRONMENT", cheader_filename = "win32.h")]
 	public const uint32 CREATE_UNICODE_ENVIRONMENT;
 	[CCode (cname = "STARTF_USESTDHANDLES", cheader_filename = "win32.h")]
@@ -651,4 +679,18 @@ namespace Win32 {
 
 	[CCode (cname = "win_pe_read_authenticode", cheader_filename = "pe-authenticode.h")]
 	public bool win_pe_read_authenticode (string16 path, ref WinPeAuthenticode out);
+
+	/* Windows Desktop Sharing COM wrapper (desktop-share.c). */
+
+	[CCode (cname = "ArgusShareEventFn", cheader_filename = "desktop-share.h")]
+	public delegate void ArgusShareEventFn (int dispid);
+
+	[CCode (cheader_filename = "desktop-share.h")]
+	public void* argus_rdp_share_open (uint16 port, string password, ArgusShareEventFn on_event);
+
+	[CCode (cheader_filename = "desktop-share.h")]
+	public unowned string argus_rdp_share_invite (void* handle);
+
+	[CCode (cheader_filename = "desktop-share.h")]
+	public void argus_rdp_share_close (void* handle);
 }

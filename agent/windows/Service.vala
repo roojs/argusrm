@@ -19,24 +19,18 @@
 namespace Argus.Agent.Windows
 {
 	using Win32;
+
 	/**
 	 * Windows service for {@link Argus.Agent.Application}.
 	 *
 	 * Construct one and call {@link start}. That calls
 	 * ''StartServiceCtrlDispatcherW''. The manager then enters
-	 * {@link service_main}, which reports running and starts the
-	 * application. {@link control} accepts stop. Those two API entry
-	 * points are function pointers with no instance, so they call back
-	 * into this object. A console launch is not a service, and
-	 * {@link start} returns -1 so the caller runs
-	 * {@link Argus.Agent.Application} directly. While the service
-	 * is running it starts ''argus-tray'' in the signed-in session
-		 * when that process is not already running, reads the number
-		 * and ''host:port'' from the local pipe, and calls
-		 * {@link Argus.Shared.Register}.
-	 * The tray tip is ''Connected to management server'' or
-	 * ''Disconnected''. A failed reach is tried again two minutes
-	 * later.
+	 * {@link service_main}, which reports running, starts
+	 * {@link TrayServer}, and runs the application. {@link control}
+	 * accepts stop, and {@link restart} stops and restarts the service
+	 * via the Service Control Manager. A console launch is not a service,
+	 * and {@link start} returns -1 so the caller runs
+	 * {@link Argus.Agent.Application} directly.
 	 *
 	 * == Example ==
 	 *
@@ -70,246 +64,47 @@ namespace Argus.Agent.Windows
 		private void* handle;
 		private uint32 state;
 		private Argus.Agent.Application application;
-		private OLLMrpc.Transport.TcpListen local_listen;
-		private int ticks = 0;
+		private TrayServer tray = new TrayServer();
+		private DesktopShare share = new DesktopShare();
 		private bool desktop_on = false;
 		private bool start_asked = false;
+		private bool awaiting_consent = false;
 		internal Argus.Agent.Rdp.Tunnel? tunnel;
 
 		/**
-		 * Register ''AgentService'' RPC methods on {@link OLLMrpc.Request}.
-		 */
-		public static void rpc_register()
-		{
-			OLLMrpc.Request.add_class(
-				"AgentService", typeof(Service),
-				"hello", "is",
-				"status", "",
-				"retry", "",
-				"register", "ss",
-				"allow", "b"
-			);
-		}
-
-		/**
-		 * Answer the tray client's initial handshake.
+		 * Handle the signed-in user's Allow or Deny choice from the tray.
 		 *
-		 * @param request inbound RPC from the tray
-		 * @param protocol client protocol version
-		 * @param client client name
+		 * @param yes true when the person at the PC allowed remote control
 		 */
-		public void hello(OLLMrpc.Request request, int protocol, string client)
+		internal void allow(bool yes)
 		{
-			GLib.debug("local hello %s %d", client, protocol);
-			request.reply(new OLLMrpc.Response() {
-				msg = "ok"
-			});
-		}
-
-		/**
-		 * Return registered flag, server connection flag, and tray tip.
-		 *
-		 * @param request inbound RPC from the tray
-		 */
-		public void status(OLLMrpc.Request request)
-		{
-			var dir = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus");
-			var registered =
-				GLib.FileUtils.test(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"),
-					GLib.FileTest.EXISTS) &&
-				GLib.FileUtils.test(GLib.Path.build_filename(dir, "client.pem"),
-					GLib.FileTest.EXISTS);
-			var connected = registered &&
-				this.application.connection != null &&
-				!Argus.Agent.Application.connection_down;
-			var tip = "Not registered";
-			if (!registered && this.application.status_notice != "") {
-				tip = this.application.status_notice;
-			}
-			if (registered && connected) {
-				tip = "Connected to management server";
-			}
-			if (registered && !connected) {
-				tip = this.application.status_notice != "" ?
-					this.application.status_notice : "Disconnected";
-			}
-			string[] reply = {
-				registered ? "1" : "0",
-				connected ? "1" : "0",
-				tip
-			};
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("as", reply),
-				msg = "ok"
-			});
-		}
-
-		/**
-		 * Try the management server again.
-		 *
-		 * The tray uses this when the agent and the server
-		 * versions do not match. Registration is left as it is.
-		 *
-		 * @param request inbound RPC from the tray
-		 */
-		public void retry(OLLMrpc.Request request)
-		{
-			request.reply(new OLLMrpc.Response() {
-				msg = "ok"
-			});
-			if (!Argus.Agent.Application.connection_down) {
+			if (!this.awaiting_consent) {
 				return;
 			}
-			this.application.status_notice = "";
-			this.application.server.schedule_retry(true);
-		}
-
-		/**
-		 * Register this machine using a PIN and optional ''host:port''.
-		 *
-		 * @param request inbound RPC from the tray
-		 * @param pin six-digit registration PIN
-		 * @param hostport management server address, or empty to browse
-		 */
-		public void register(OLLMrpc.Request request, string pin, string hostport)
-		{
-			var dir = GLib.Path.build_filename(
-				GLib.Environment.get_user_data_dir(), "argus");
-			var registered =
-				GLib.FileUtils.test(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"),
-					GLib.FileTest.EXISTS) &&
-				GLib.FileUtils.test(GLib.Path.build_filename(dir, "client.pem"),
-					GLib.FileTest.EXISTS);
-			if (registered &&
-				this.application.connection != null &&
-				!Argus.Agent.Application.connection_down) {
-				request.reply(new OLLMrpc.Response() {
-					retval = OLLMrpc.val("i", (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR),
-					msg = "ok"
-				});
-				return;
-			}
-			var target = hostport.strip();
-			if (target == "") {
-				var line = this.application.browse.poll();
-				var split = line.index_of("\n");
-				if (split >= 1) {
-					target = line.substring(split + 1);
-				}
-			}
-			var colon = target.last_index_of(":");
-			var host = colon >= 1 ? target.substring(0, colon) : "";
-			var port = colon >= 1 ? int.parse(target.substring(colon + 1)) : 0;
-			if (host == "" || port <= 0) {
-				request.reply(new OLLMrpc.Response() {
-					retval = OLLMrpc.val("i", (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR),
-					msg = "ok"
-				});
-				return;
-			}
-			var registration = new Argus.Shared.Register() {
-				data_dir = this.application.data_dir,
-				client_db = this.application.client_db,
-				host_name = GLib.Environment.get_host_name(),
-			};
-			var code = registration.try_connection(host, (uint16) port, pin.strip());
-			GLib.debug("registration %d", code);
-			if (code != 0) {
-				request.reply(new OLLMrpc.Response() {
-					retval = OLLMrpc.val("i", code),
-					msg = "ok"
-				});
-				return;
-			}
-			var row = new Argus.Agent.SQT.Server() {
-				data_dir = registration.data_dir != "" ? registration.data_dir : this.application.data_dir,
-			};
-			if (!registration.save(row)) {
-				request.reply(new OLLMrpc.Response() {
-					retval = OLLMrpc.val("i", (int) OLLMrpc.RpcErrorCode.INTERNAL_ERROR),
-					msg = "ok"
-				});
-				return;
-			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("i", code),
-				msg = "ok"
-			});
-			this.application.status_notice = "";
-			GLib.Idle.add(() => {
-				this.application.attach_connection();
-				if (this.application.connection == null) {
-					return false;
-				}
-				new GLib.Thread<int>("osquery-init", () => {
-					var init_code = new Argus.Agent.OSQuery.Initialize(this.application).run();
-					GLib.Idle.add(() => {
-						this.initialize(init_code);
-						return false;
-					});
-					return 0;
-				});
-				return false;
-			});
-		}
-
-		/**
-		 * Start osquery, then the package and user monitors.
-		 *
-		 * Remote Desktop is turned on after the monitors when
-		 * this Windows edition supports it.
-		 *
-		 * @param init_code result of osquery init, 0 when it worked
-		 */
-		private void initialize(int init_code)
-		{
-			if (init_code != 0) {
+			this.awaiting_consent = false;
+			if (yes) {
+				this.relay_start(true);
 				return;
 			}
 			if (this.application.connection == null) {
 				return;
 			}
-			this.application.osquery.send_startup();
-			this.application.monitor = new Argus.Agent.PackageMonitor(this.application);
-			this.application.monitor.start();
-			this.application.user_monitor = new Argus.Agent.UserMonitor(this.application);
-			this.application.user_monitor.start();
-			if (!this.application.os_version.supports_rdp()) {
-				return;
+			try {
+				this.application.connection.call(new OLLMrpc.Request() {
+					method = "Relay.report",
+					args = OLLMrpc.args("ii", (int) Argus.Rdp.State.FAIL_USER_DENIED, 0)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
 			}
-			this.desktop();
-		}
-
-		/**
-		 * Turn Remote Desktop on after the tray says yes.
-		 *
-		 * ''yes'' false does nothing. A Home edition does nothing.
-		 *
-		 * @param request inbound RPC from the tray
-		 * @param yes true when the person at the PC allowed it
-		 */
-		public void allow(OLLMrpc.Request request, bool yes)
-		{
-			request.reply(new OLLMrpc.Response() {
-				msg = "ok"
-			});
-			if (!yes) {
-				return;
-			}
-			if (!this.application.os_version.supports_rdp()) {
-				return;
-			}
-			this.desktop();
 		}
 
 		/**
 		 * Set Remote Desktop to accept connections and start it.
 		 *
-		 * The password prompt stays on. The firewall group is
-		 * left closed. When the controller has asked for the
-		 * desktop, a failed start is tried again, up to three
-		 * times.
+		 * The password prompt stays on. The firewall group is left closed.
+		 * When the controller has asked for the desktop, a failed start is
+		 * tried again, up to three times.
 		 *
 		 * @param attempt how many starts have already failed
 		 */
@@ -319,61 +114,51 @@ namespace Argus.Agent.Windows
 				return;
 			}
 			var term_key = (void*) null;
-			var term_open = Win32.RegOpenKeyExW(
-				Win32.argus_hkey_local_machine(),
-				Win32.g_utf8_to_utf16("SYSTEM\\CurrentControlSet\\Control\\Terminal Server"),
-				0, Win32.KEY_SET_VALUE, (void*) (&term_key));
+			var term_open = RegOpenKeyExW(argus_hkey_local_machine(),
+				g_utf8_to_utf16("SYSTEM\\CurrentControlSet\\Control\\Terminal Server"),
+				0, KEY_SET_VALUE, (void*) (&term_key));
 			if (term_open != 0) {
 				GLib.warning("remote desktop registry open failed %d", term_open);
 			}
 			if (term_open == 0) {
 				var deny = (uint32) 0;
-				Win32.RegSetValueExW(term_key,
-					Win32.g_utf8_to_utf16("fDenyTSConnections"),
-					0, Win32.REG_DWORD, (void*) (&deny), 4);
-				Win32.RegCloseKey(term_key);
+				RegSetValueExW(term_key, g_utf8_to_utf16("fDenyTSConnections"), 0, REG_DWORD, (void*) (&deny), 4);
+				RegCloseKey(term_key);
 			}
 			var nla_key = (void*) null;
-			var nla_open = Win32.RegOpenKeyExW(
-				Win32.argus_hkey_local_machine(),
-				Win32.g_utf8_to_utf16("SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp"),
-				0, Win32.KEY_SET_VALUE, (void*) (&nla_key));
+			var nla_open = RegOpenKeyExW(argus_hkey_local_machine(),
+				g_utf8_to_utf16("SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp"),
+				0, KEY_SET_VALUE, (void*) (&nla_key));
 			if (nla_open != 0) {
 				GLib.warning("remote desktop password prompt open failed %d", nla_open);
 			}
 			if (nla_open == 0) {
 				var nla = (uint32) 1;
-				Win32.RegSetValueExW(nla_key,
-					Win32.g_utf8_to_utf16("UserAuthentication"),
-					0, Win32.REG_DWORD, (void*) (&nla), 4);
-				Win32.RegCloseKey(nla_key);
+				RegSetValueExW(nla_key, g_utf8_to_utf16("UserAuthentication"), 0, REG_DWORD, (void*) (&nla), 4);
+				RegCloseKey(nla_key);
 			}
 			var started = false;
-			var scm = Win32.OpenSCManagerW(null, null, Win32.SC_MANAGER_CONNECT);
+			var scm = OpenSCManagerW(null, null, SC_MANAGER_CONNECT);
 			if (scm == null) {
-				GLib.warning("remote desktop service manager %u", Win32.GetLastError());
+				GLib.warning("remote desktop service manager %u", GetLastError());
 			}
 			if (scm != null) {
-				var svc = Win32.OpenServiceW(scm,
-					Win32.g_utf8_to_utf16("TermService"),
-					Win32.SERVICE_CHANGE_CONFIG | Win32.SERVICE_START);
+				var svc = OpenServiceW(scm, g_utf8_to_utf16("TermService"), SERVICE_CHANGE_CONFIG | SERVICE_START);
 				if (svc == null) {
-					GLib.warning("remote desktop service open %u", Win32.GetLastError());
-					Win32.CloseServiceHandle(scm);
+					GLib.warning("remote desktop service open %u", GetLastError());
+					CloseServiceHandle(scm);
 				}
 				if (svc != null) {
-					if (!Win32.ChangeServiceConfigW(svc, Win32.SERVICE_NO_CHANGE,
-						Win32.SERVICE_AUTO_START, Win32.SERVICE_NO_CHANGE,
+					if (!ChangeServiceConfigW(svc, SERVICE_NO_CHANGE, SERVICE_AUTO_START, SERVICE_NO_CHANGE,
 						null, null, null, null, null, null, null)) {
-						GLib.warning("remote desktop service config %u", Win32.GetLastError());
+						GLib.warning("remote desktop service config %u", GetLastError());
 					}
-					started = Win32.StartServiceW(svc, 0, null) ||
-						Win32.GetLastError() == Win32.ERROR_SERVICE_ALREADY_RUNNING;
+					started = StartServiceW(svc, 0, null) || GetLastError() == ERROR_SERVICE_ALREADY_RUNNING;
 					if (!started) {
-						GLib.warning("remote desktop service start %u", Win32.GetLastError());
+						GLib.warning("remote desktop service start %u", GetLastError());
 					}
-					Win32.CloseServiceHandle(svc);
-					Win32.CloseServiceHandle(scm);
+					CloseServiceHandle(svc);
+					CloseServiceHandle(scm);
 				}
 			}
 			if (!started) {
@@ -381,9 +166,7 @@ namespace Argus.Agent.Windows
 					try {
 						this.application.connection.call(new OLLMrpc.Request() {
 							method = "Relay.report",
-							args = OLLMrpc.args("ii",
-								(int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED,
-								attempt + 1)
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_REMOTE_DESKTOP_DISABLED, attempt + 1)
 						});
 					} catch (GLib.Error e) {
 						GLib.warning("%s", e.message);
@@ -399,31 +182,103 @@ namespace Argus.Agent.Windows
 				return;
 			}
 			this.desktop_on = true;
-			if (this.start_asked) {
+			if (!this.start_asked) {
+				return;
+			}
+			if (this.application.connection != null) {
+				try {
+					this.application.connection.call(new OLLMrpc.Request() {
+						method = "Relay.report",
+						args = OLLMrpc.args("ii", (int) Argus.Rdp.State.SUCCESS_REMOTE_DESKTOP_ENABLED, 0)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+				}
+			}
+			this.relay_start(true);
+		}
+
+		/**
+		 * Stop any active desktop tunnel and sharing helper.
+		 *
+		 * @param by_user true when the signed-in user clicked Disconnect
+		 */
+		internal void relay_stop(bool by_user = false)
+		{
+			this.awaiting_consent = false;
+			this.start_asked = false;
+			if (this.tunnel != null) {
+				this.tunnel.retire();
+				this.tunnel = null;
+			}
+			this.share.stop();
+			if (this.tray.local_listen != null) {
+				this.tray.local_listen.broadcast(new OLLMrpc.Notification() {
+					method = "agent.desktop_active",
+					args = OLLMrpc.args("b", false)
+				});
+			}
+			if (!by_user || this.application.connection == null) {
+				return;
+			}
+			try {
+				this.application.connection.call(new OLLMrpc.Request() {
+					method = "Relay.report",
+					args = OLLMrpc.args("ii", (int) Argus.Rdp.State.FAIL_USER_DISCONNECTED, 0)
+				});
+			} catch (GLib.Error e) {
+				GLib.warning("%s", e.message);
+			}
+		}
+
+		/**
+		 * Open the desktop stream for a signed-in user or unattended RDP.
+		 *
+		 * @param approved true after tray consent has been granted
+		 */
+		internal void relay_start(bool approved = false)
+		{
+			if (this.tunnel != null) {
+				if (this.tunnel.rpc != null && this.tunnel.rpc.connected) {
+					return;
+				}
+				this.relay_stop(false);
+			}
+			var session = argus_active_session();
+			if (session != (uint32) 0xFFFFFFFF) {
+				if (!approved && this.tray.connected) {
+					this.awaiting_consent = true;
+					if (this.application.connection != null) {
+						try {
+							this.application.connection.call(new OLLMrpc.Request() {
+								method = "Relay.report",
+								args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_USER_CONSENT, 0)
+							});
+						} catch (GLib.Error e) {
+							GLib.warning("%s", e.message);
+						}
+					}
+					this.tray.local_listen.broadcast(new OLLMrpc.Notification() {
+						method = "agent.desktop"
+					});
+					return;
+				}
+				this.share.start(session, this.application.data_dir);
+				return;
+			}
+			if (this.application.os_version == null || !this.application.os_version.supports_rdp()) {
 				if (this.application.connection != null) {
 					try {
 						this.application.connection.call(new OLLMrpc.Request() {
 							method = "Relay.report",
-							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.SUCCESS_REMOTE_DESKTOP_ENABLED, 0)
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.FAIL_SHARE_START, 0)
 						});
 					} catch (GLib.Error e) {
 						GLib.warning("%s", e.message);
 					}
 				}
-				this.relay_start();
+				return;
 			}
-		}
-
-		/**
-		 * Open the desktop stream once Remote Desktop is on.
-		 *
-		 * A start that arrives earlier turns Remote Desktop on.
-		 * A tunnel whose server connection is still up is left
-		 * as it is. A tunnel left behind by a server restart is
-		 * dropped, and this start opens a new one.
-		 */
-		internal void relay_start()
-		{
 			if (!this.desktop_on) {
 				if (this.application.connection != null) {
 					try {
@@ -440,12 +295,15 @@ namespace Argus.Agent.Windows
 				return;
 			}
 			this.start_asked = false;
-			if (this.tunnel != null) {
-				if (this.tunnel.rpc != null && this.tunnel.rpc.connected) {
-					return;
+			if (this.application.connection != null) {
+				try {
+					this.application.connection.call(new OLLMrpc.Request() {
+						method = "Relay.ticket",
+						args = OLLMrpc.args("ss", "", "")
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
 				}
-				this.tunnel.retire();
-				this.tunnel = null;
 			}
 			var rpc = this.application.stream_connection();
 			if (rpc == null) {
@@ -477,6 +335,9 @@ namespace Argus.Agent.Windows
 			}
 			this.tunnel = new Argus.Agent.Rdp.Tunnel();
 			this.tunnel.app = this.application;
+			this.tunnel.adapter.target_host = "127.0.0.1";
+			this.tunnel.adapter.target_port = 3389;
+			this.tunnel.adapter.skip_logoff = false;
 			var refused = false;
 			try {
 				this.tunnel.open_windows(rpc);
@@ -498,6 +359,99 @@ namespace Argus.Agent.Windows
 				}
 			}
 			this.tunnel = null;
+		}
+
+		/**
+		 * Stop and start the ''argus-agent'' Windows service elevated.
+		 *
+		 * Called by ''argus-agent --restart'' from the tray menu.
+		 *
+		 * @return 0 when the service is running again, non-zero Win32 error or 1
+		 */
+		public static int restart()
+		{
+			var scm = OpenSCManagerW(null, null, SC_MANAGER_CONNECT);
+			if (scm == null) {
+				var err = (int) GetLastError();
+				return err != 0 ? err : 1;
+			}
+			var access = SERVICE_STOP | SERVICE_START | SERVICE_QUERY_STATUS;
+			var svc = OpenServiceW(scm, g_utf8_to_utf16("argus-agent"), access);
+			if (svc == null) {
+				var err = (int) GetLastError();
+				CloseServiceHandle(scm);
+				return err != 0 ? err : 1;
+			}
+			var ssp = SERVICE_STATUS_PROCESS();
+			var needed = (uint32) 0;
+			var ssp_size = (uint32) sizeof(SERVICE_STATUS_PROCESS);
+			if (!QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO, (void*) (&ssp), ssp_size, (void*) (&needed))) {
+				var err = (int) GetLastError();
+				CloseServiceHandle(svc);
+				CloseServiceHandle(scm);
+				return err != 0 ? err : 1;
+			}
+			var stop_sent = false;
+			for (var i = 0; i < 60; i++) {
+				if (!QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO, (void*) (&ssp), ssp_size, (void*) (&needed))) {
+					break;
+				}
+				if (ssp.dwCurrentState == SERVICE_STOPPED) {
+					break;
+				}
+				if (!stop_sent && ssp.dwCurrentState == SERVICE_RUNNING) {
+					var ctrl = SERVICE_STATUS();
+					if (ControlService(svc, SERVICE_CONTROL_STOP, ref ctrl)) {
+						stop_sent = true;
+					}
+				}
+				Sleep(250);
+			}
+			if (ssp.dwCurrentState != SERVICE_STOPPED && ssp.dwProcessId != 0) {
+				var proc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, false, ssp.dwProcessId);
+				if (proc != null) {
+					TerminateProcess(proc, 1);
+					WaitForSingleObject(proc, 5000);
+					CloseHandle(proc);
+				}
+				for (var i = 0; i < 20; i++) {
+					if (!QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO, (void*) (&ssp), ssp_size, (void*) (&needed))) {
+						break;
+					}
+					if (ssp.dwCurrentState == SERVICE_STOPPED) {
+						break;
+					}
+					Sleep(250);
+				}
+			}
+			if (ssp.dwCurrentState != SERVICE_STOPPED) {
+				CloseServiceHandle(svc);
+				CloseServiceHandle(scm);
+				return 1;
+			}
+			if (!StartServiceW(svc, 0, null) && GetLastError() != ERROR_SERVICE_ALREADY_RUNNING) {
+				var err = (int) GetLastError();
+				CloseServiceHandle(svc);
+				CloseServiceHandle(scm);
+				return err != 0 ? err : 1;
+			}
+			for (var i = 0; i < 60; i++) {
+				if (!QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO, (void*) (&ssp), ssp_size, (void*) (&needed))) {
+					break;
+				}
+				if (ssp.dwCurrentState == SERVICE_RUNNING) {
+					CloseServiceHandle(svc);
+					CloseServiceHandle(scm);
+					return 0;
+				}
+				if (ssp.dwCurrentState == SERVICE_STOPPED) {
+					break;
+				}
+				Sleep(250);
+			}
+			CloseServiceHandle(svc);
+			CloseServiceHandle(scm);
+			return 1;
 		}
 
 		/**
@@ -535,9 +489,9 @@ namespace Argus.Agent.Windows
 		/**
 		 * Service entry after {@link start} connects to the manager.
 		 *
-		 * Reports running, then runs {@link Argus.Agent.Application}
-		 * until {@link control} stops it. {@link tick} runs once a
-		 * second on that loop.
+		 * Reports running, starts {@link TrayServer}, wires
+		 * {@link DesktopShare}, and runs {@link Argus.Agent.Application}
+		 * until {@link control} stops it.
 		 */
 		private void service_main()
 		{
@@ -553,37 +507,82 @@ namespace Argus.Agent.Windows
 			pending.dwCurrentState = this.state;
 			SetServiceStatus(this.handle, ref pending);
 			OLLMrpc.rpc_register();
-			Service.rpc_register();
-			OLLMrpc.Request.register("AgentService", this);
-			this.local_listen = new OLLMrpc.Transport.TcpListen("127.0.0.1", 4142);
-			if (!this.local_listen.start()) {
-				GLib.warning("local RPC listener did not bind");
-			}
-			this.application.state_changed.connect(() => {
-				var dir = GLib.Path.build_filename(
-					GLib.Environment.get_user_data_dir(), "argus");
-				var registered =
-					GLib.FileUtils.test(GLib.Path.build_filename(dir, "ollmrpc-ca.pem"),
-						GLib.FileTest.EXISTS) &&
-					GLib.FileUtils.test(GLib.Path.build_filename(dir, "client.pem"),
-						GLib.FileTest.EXISTS);
-				var connected = registered &&
-					this.application.connection != null &&
-					!Argus.Agent.Application.connection_down;
-				var tip = "Not registered";
-				if (!registered && this.application.status_notice != "") {
-					tip = this.application.status_notice;
+			this.tray.start(this.application, this);
+			this.share.failed.connect(() => {
+				this.relay_stop(false);
+				if (this.application.connection == null) {
+					return;
 				}
-				if (registered && connected) {
-					tip = "Connected to management server";
+				try {
+					this.application.connection.call(new OLLMrpc.Request() {
+						method = "Relay.report",
+						args = OLLMrpc.args("ii", (int) Argus.Rdp.State.FAIL_SHARE_START, 0)
+					});
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
 				}
-				if (registered && !connected) {
-					tip = this.application.status_notice != "" ?
-						this.application.status_notice : "Disconnected";
+			});
+			this.share.ready.connect((invite, password, host, port) => {
+				if (this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.ticket",
+							args = OLLMrpc.args("ss", invite, password)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
 				}
-				this.local_listen.broadcast(new OLLMrpc.Notification() {
-					method = "agent.status",
-					args = OLLMrpc.args("bbs", registered, connected, tip)
+				var rpc = this.application.stream_connection();
+				if (rpc == null) {
+					this.relay_stop(false);
+					if (this.application.connection != null) {
+						try {
+							this.application.connection.call(new OLLMrpc.Request() {
+								method = "Relay.report",
+								args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_SECOND_CONNECTION, 1)
+							});
+						} catch (GLib.Error e) {
+							GLib.warning("%s", e.message);
+						}
+					}
+					return;
+				}
+				if (this.application.connection != null) {
+					try {
+						this.application.connection.call(new OLLMrpc.Request() {
+							method = "Relay.report",
+							args = OLLMrpc.args("ii", (int) Argus.Rdp.State.REQUEST_CONNECT_LOCAL_RDP, 0)
+						});
+					} catch (GLib.Error e) {
+						GLib.warning("%s", e.message);
+					}
+				}
+				this.tunnel = new Argus.Agent.Rdp.Tunnel();
+				this.tunnel.app = this.application;
+				this.tunnel.adapter.target_host = host;
+				this.tunnel.adapter.target_port = port;
+				this.tunnel.adapter.skip_logoff = true;
+				try {
+					this.tunnel.open_windows(rpc);
+				} catch (GLib.Error e) {
+					GLib.warning("%s", e.message);
+					this.relay_stop(false);
+					if (this.application.connection != null) {
+						try {
+							this.application.connection.call(new OLLMrpc.Request() {
+								method = "Relay.report",
+								args = OLLMrpc.args("ii", (int) Argus.Rdp.State.RETRY_LOCAL_RDP_REFUSED, 1)
+							});
+						} catch (GLib.Error err) {
+							GLib.warning("%s", err.message);
+						}
+					}
+					return;
+				}
+				this.tray.local_listen.broadcast(new OLLMrpc.Notification() {
+					method = "agent.desktop_active",
+					args = OLLMrpc.args("b", true)
 				});
 			});
 			this.state = SERVICE_RUNNING;
@@ -592,128 +591,14 @@ namespace Argus.Agent.Windows
 			running.dwCurrentState = this.state;
 			running.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 			SetServiceStatus(this.handle, ref running);
-			GLib.Timeout.add_seconds(1, this.tick);
 			this.application.run({ "argus-agent" });
-			this.local_listen.stop();
+			this.relay_stop(false);
+			this.tray.stop();
 			this.state = SERVICE_STOPPED;
 			var stopped = SERVICE_STATUS();
 			stopped.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
 			stopped.dwCurrentState = this.state;
 			SetServiceStatus(this.handle, ref stopped);
-		}
-
-		/**
-		 * One second of service work.
-		 *
-		 * Opens the registration pipe, reads a pin, and calls
-		 * {@link Argus.Shared.Register}. Starts ''argus-tray''
-		 * when that process is not already running. A launch that
-		 * is not ready waits for the next second. Reaches the
-		 * stored download socket every two minutes.
-		 *
-		 * @return true so the timeout repeats
-		 */
-		private bool tick()
-		{
-			this.ticks++;
-			if (this.ticks % 5 != 1) {
-				return true;
-			}
-			var found = false;
-			var ids = new uint32[4096];
-			uint32 needed = 0;
-			if (!EnumProcesses(ids, (uint32) (ids.length * 4), out needed)) {
-				return true;
-			}
-			var count = int.min((int) (needed / 4), ids.length);
-			for (var i = 0; i < count; i++) {
-				if (ids[i] == 0) {
-					continue;
-				}
-				var proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, ids[i]);
-				if (proc == null) {
-					continue;
-				}
-				var image = g_utf8_to_utf16(string.nfill(259, ' '));
-				uint32 size = 260;
-				if (!QueryFullProcessImageNameW(proc, 0, image, ref size)) {
-					CloseHandle(proc);
-					continue;
-				}
-				var name = "";
-				try {
-					name = image.to_utf8().down();
-				} catch (GLib.ConvertError e) {
-					CloseHandle(proc);
-					continue;
-				}
-				CloseHandle(proc);
-				if (!name.has_suffix("\\argus-tray.exe")) {
-					continue;
-				}
-				found = true;
-				break;
-			}
-			if (found) {
-				return true;
-			}
-			var session = argus_active_session();
-			if (session == (uint32) 0xFFFFFFFF) {
-				return true;
-			}
-			void* user;
-			if (!WTSQueryUserToken(session, out user)) {
-				return true;
-			}
-			void* dup;
-			if (!DuplicateTokenEx(user, MAXIMUM_ALLOWED, null,
-				SecurityIdentification, TokenPrimary, out dup)) {
-				CloseHandle(user);
-				return true;
-			}
-			var exe = g_utf8_to_utf16(string.nfill(259, ' '));
-			if (GetModuleFileNameW(null, exe, 260) == 0) {
-				CloseHandle(dup);
-				CloseHandle(user);
-				return true;
-			}
-			var path = "";
-			try {
-				path = exe.to_utf8();
-			} catch (GLib.ConvertError e) {
-				GLib.warning("tray path: %s", e.message);
-			}
-			var slash = path.last_index_of("\\");
-			if (path == "" || slash < 0) {
-				CloseHandle(dup);
-				CloseHandle(user);
-				return true;
-			}
-			var si = Win32.StartupInfo() {
-				cb = (uint32) sizeof(Win32.StartupInfo),
-				desktop = g_utf8_to_utf16("winsta0\\default"),
-			};
-			var info = ProcessInfo();
-			try {
-				var started = CreateProcessAsUserW(dup,
-					(path.substring(0, slash + 1) + "argus-tray.exe").to_utf16(),
-					null, null, null, false, 0, null,
-					path.substring(0, slash).to_utf16(),
-					&si, out info);
-				if (!started) {
-					GLib.warning("tray start failed: %u", GetLastError());
-				}
-				if (started) {
-					CloseHandle(info.thread);
-					CloseHandle(info.process);
-					GLib.debug("starting tray");
-				}
-			} catch (GLib.ConvertError e) {
-				GLib.warning("tray start: %s", e.message);
-			}
-			CloseHandle(dup);
-			CloseHandle(user);
-			return true;
 		}
 
 		/**
@@ -735,6 +620,7 @@ namespace Argus.Agent.Windows
 					SetServiceStatus(this.handle, ref stopping);
 					this.application.quit();
 					return;
+
 				case SERVICE_CONTROL_INTERROGATE:
 					var status = SERVICE_STATUS();
 					status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -742,6 +628,7 @@ namespace Argus.Agent.Windows
 					status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 					SetServiceStatus(this.handle, ref status);
 					return;
+
 				default:
 					return;
 			}

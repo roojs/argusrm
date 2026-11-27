@@ -43,6 +43,8 @@ namespace Argus.Server.Rdp
 		internal OLLMrpc.Transport.Connection? watcher;
 		internal OLLMrpc.Request? holding;
 		internal int agent_id;
+		internal string invite = "";
+		internal string password = "";
 		private bool begun;
 		private bool forwarded;
 		private bool dropped;
@@ -79,6 +81,12 @@ namespace Argus.Server.Rdp
 				});
 			}
 			if (this.asked != null) {
+				if (this.invite != "") {
+					this.asked.write(new OLLMrpc.Notification() {
+						method = "relay.ticket",
+						args = OLLMrpc.args("iss", agent_id, this.invite, this.password)
+					});
+				}
 				this.asked.write(new OLLMrpc.Notification() {
 					method = "relay.ready",
 					args = OLLMrpc.args("i", agent_id)

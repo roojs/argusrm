@@ -8,6 +8,13 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
+## [0.1.66] - Unreleased
+
+### Added
+
+- Windows live desktop takeover via `IRDPSRAPISharingSession` (`RdpEncom.dll`) with zero user credentials, tray consent dialog/balloon, active remote-control indicator and Disconnect, Windows Home support, and unattended `TermService` fallback.
+- Split Windows tray IPC and process supervision out of `Service` into `TrayServer`, and moved Windows CLI dispatch to `GLib.OptionContext` in `agent/windows/Application.vala`.
+
 ## [0.1.65] - Unreleased
 
 ### Fixed

@@ -83,8 +83,10 @@ The server handler for `OSQuery.sync` is `server/OSQuery.vala`. The download soc
 - `AgentService.status`: no arguments. Reply `retval` `as`: `["1"|"0" registered, "1"|"0" connected, tip]`.
 - `AgentService.retry`: no arguments. Reply `msg`: `ok`. Tries the management server again and leaves the registration as it is.
 - `AgentService.register` `ss`: six-digit PIN, `host:port` (or empty to use browse). Reply `retval` `i`: `0` on success or `OLLMrpc.RpcErrorCode`.
-- `AgentService.allow` `b`: the tray's answer. `true` turns Remote Desktop on. `false` does nothing. Reply `msg`: `ok`.
-- Notification `agent.desktop`: no arguments. The service sends it on the loopback socket when someone is logged in, before Remote Desktop is turned on. The tray shows a balloon. A click allows it. Ignoring the balloon leaves it off. Half an hour idle allows it without the balloon.
+- `AgentService.allow` `b`: the tray's answer to `agent.desktop`. `true` starts sharing the active desktop (or unattended Remote Desktop). `false` declines and reports `FAIL_USER_DENIED`. Reply `msg`: `ok`.
+- `AgentService.disconnect`: no arguments. Ends an active remote control session immediately at the signed-in user's request, stops the sharing helper, reports `FAIL_USER_DISCONNECTED`, and broadcasts `agent.desktop_active` `(false)`. Reply `msg`: `ok`.
+- Notification `agent.desktop`: no arguments. The service sends it on the loopback socket when someone is signed in, before starting desktop sharing. Half an hour idle calls `AgentService.allow(true)` automatically; otherwise the tray shows a consent dialog and balloon (60-second timeout auto-declines).
+- Notification `agent.desktop_active` `b`: `active` flag. Sent when remote control starts (`true`) and ends (`false`). While active, the tray updates its tooltip and adds a `Disconnect remote control` action.
 - ℹ️ The handlers are in `agent/windows/Service.vala`, called from `agent/windows/tray/Tray.vala`.
 
 ### `Registration.certificate`
@@ -540,11 +542,33 @@ Socket: the app socket. A second connection to that same port. No other listen.
 - 🔷 Argument `i`: `agent.id`.
 - 🔷 The server writes notification `relay.start` on that agent's app connection. No arguments. That is not the desktop.
 - 🔷 Reply: empty success. A disconnected agent is `The machine is not connected.` A request that is not on the machine socket is `The desktop request did not arrive on the server's machine socket.` A caller that is not a controller is `controller only`.
-- 🔷 When that agent has already joined, the reply is followed by notification `relay.ready` on this controller connection.
+- 🔷 When that agent has already joined, the reply is followed by notification `relay.ticket` (when a Remote Assistance ticket is active) and `relay.ready` on this controller connection.
 
 ### `relay.start`
 
-- 🔷 Notification on the agent's app connection. No arguments. The agent opens the second connection once Remote Desktop is on.
+- 🔷 Notification on the agent's app connection. No arguments. When a user is signed in, the Windows agent requests consent via `argus-tray` and starts `IRDPSRAPISharingSession`; when nobody is signed in, it enables TermService (on supported editions) and opens the second connection.
+
+### `Relay.stop`
+
+- 🔷 Socket: the app socket. The first connection.
+- 🔷 Direction: controller calls the server when closing an RDP tab.
+- 🔷 Argument `i`: `agent.id`.
+- 🔷 Clears the server seat state and writes notification `relay.stop` to that agent's app connection. Reply: empty success. A caller that is not a controller is `controller only`.
+
+### `relay.stop`
+
+- 🔷 Notification on the agent's app connection. No arguments. The Windows agent retires its tunnel, stops any active desktop-sharing helper, and broadcasts `agent.desktop_active` `(false)` to `argus-tray`.
+
+### `Relay.ticket`
+
+- 🔷 Socket: the app socket. The agent's first connection.
+- 🔷 Direction: Windows agent calls the server before opening its second connection.
+- 🔷 Arguments `ss`: RACS2 connection string XML and one-time invitation password (both empty for unattended TermService).
+- 🔷 Reply: empty success. A caller that is not that agent is `The desktop ticket did not arrive on the agent's socket.`
+
+### `relay.ticket`
+
+- 🔷 Notification on the controller connection that called `Relay.start`, sent immediately before `relay.ready` when taking over a signed-in desktop via `IRDPSRAPISharingSession`. Arguments `iss`: `agent.id`, RACS2 connection string XML, one-time invitation password.
 
 ### `relay.ready`
 

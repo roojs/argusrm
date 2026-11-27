@@ -311,13 +311,6 @@ namespace Argus.Agent
 						return false;
 					}
 					this.osquery.send_startup();
-#if WINDOWS
-					if (Windows.Service.current != null &&
-						this.os_version != null &&
-						this.os_version.supports_rdp()) {
-						Windows.Service.current.desktop();
-					}
-#endif
 					this.monitor = new PackageMonitor(this);
 					this.monitor.start();
 					this.user_monitor = new UserMonitor(this);
@@ -672,6 +665,16 @@ namespace Argus.Agent
 					if (Windows.Service.current != null) {
 						GLib.Idle.add(() => {
 							Windows.Service.current.relay_start();
+							return false;
+						});
+					}
+#endif
+					return;
+				case "relay.stop":
+#if WINDOWS
+					if (Windows.Service.current != null) {
+						GLib.Idle.add(() => {
+							Windows.Service.current.relay_stop();
 							return false;
 						});
 					}

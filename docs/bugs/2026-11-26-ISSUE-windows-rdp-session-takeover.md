@@ -4,11 +4,8 @@
 
 ### User decisions required
 
-- 💩 **Takeover mechanism when a user is signed in at the Windows desktop:** choose which path Phase 1 should target (or combine):
-  1. **Tray-coordinated RDP takeover (same-user or admin-approved):** `argus-tray.exe` handles consent/idle auto-allow, reports the signed-in account and session state to the controller, stops `argus_end_rdp_sessions()` from killing an active session, and shows who took control + a Disconnect button. Note: standard Windows 10/11 Pro RDP only attaches to the user's *existing* desktop (keeping their open windows) when signing in as that **same Windows account** (which locks the physical screen); signing in as a *different* admin account logs the user off / opens a separate desktop.
-  2. **Session-1 live desktop takeover via the tray / Session-1 helper (non-RDP):** reuses the proven `tests/screenshot-poc/` path (`BitBlt` + `libjpeg-turbo` + `SendInput` over the existing `Relay` channel) so an admin can view and click directly inside the signed-in user's live session without needing the user's Windows password and without locking them out. (Elevated/UAC prompts require a SYSTEM-token helper spawned into Session 1 by `argus-agent`.)
-  3. **Hybrid:** use RDP when nobody is signed in (or when the operator signs into the same account), and use Session-1 takeover (coordinated with `argus-tray.exe`) when taking over another signed-in user's active desktop.
-- 💩 **Desktop window sizing mode (deferred to Phase 3 alongside takeover):** choose whether the controller viewer should (a) negotiate and dynamically resize the remote desktop to match the controller tab (`MS-RDPEDISP` for RDP), or (b) scale the remote desktop to fit the controller pane (aspect-preserving fit with optional 1:1 scroll toggle, which works identically for both RDP and native-monitor Session-1 takeover).
+- ✅ **Takeover mechanism chosen (2026-11-27):** **`IRDPSRAPISharingSession` (`RdpEncom.dll`) + existing FreeRDP3 viewer** when a user is signed in (passwordless live takeover of the active desktop, coordinated with `argus-tray.exe`), with **standard `TermService` (`127.0.0.1:3389`)** as fallback when nobody is signed in.
+- 💩 **Desktop window sizing mode (deferred to Phase 3 alongside takeover):** choose whether the controller viewer should (a) negotiate and dynamically resize the remote desktop to match the controller tab (`MS-RDPEDISP` for `TermService` RDP), or (b) scale the remote desktop to fit the controller pane (aspect-preserving fit with optional 1:1 scroll toggle, which works identically for both `IRDPSRAPISharingSession` and `TermService`).
 
 ### User reported
 
@@ -53,7 +50,51 @@
 
 #### Current debug output
 
-- None yet for this issue. Prior RDP transport evidence is archived in [`docs/bugs/done/2026-11-26-FIXED-windows-desktop-tcp-reset.md`](done/2026-11-26-FIXED-windows-desktop-tcp-reset.md).
+- Prior RDP transport evidence is archived in `2026-11-26-FIXED-windows-desktop-tcp-reset.md`.
+- **2026-11-27 passwordless takeover investigation & live throwaway proof on `snappr-win` (`Windows 10 Pro 10.0.19045.6466`, `alan` active in Session 16 `RDP-Tcp#46`):**
+  - Confirmed OS boundary for standard `TermService` (port 3389): attaching to an active user's desktop requires that user's exact Windows credentials; `SYSTEM` cannot extract/replay passwords (especially Microsoft Account / Azure AD / Windows Hello PIN); logging in as a different account disconnects/replaces the session with a separate desktop; FreeRDP3 client does not support remote `mstsc /shadow` (`RpcShadow2` over SMB/DCE-RPC).
+  - Tested built-in **Windows Desktop Sharing API (`IRDPSRAPISharingSession` in `RdpEncom.dll`)** — the same local engine `RdpSa.exe` / `RpcShadow2` uses — in a throwaway C probe (`ArgusWdsProbe`, spawned as `NT AUTHORITY\SYSTEM` into active Session 16) connected by a throwaway Linux **FreeRDP 3** (`3.14.0`) client over an SSH tunnel (`127.0.0.1:13399 -> 192.168.88.244:3399`) using **zero Windows user credentials** (only the one-time invitation string + random one-time password):
+    ```text
+    parse_file_buffer rc=1
+    populate_settings=1
+    orig TargetNetAddressCount=1
+    Calling freerdp_connect (NO Windows username/password)...
+    PreConnect: mode=1 host=127.0.0.1 port=13399
+    PostConnect OK: gdi 1024x768
+    freerdp_connect SUCCEEDED!
+    RESULT: elapsed=5s gdi=1024x768 paints=106 nonzero=520726/786432 last_err=0x00000000 (ERRBASE_SUCCESS)
+    ```
+    Windows worker log (running as `SYSTEM` inside Session 16):
+    ```text
+    worker_start pid=14736 session=16 user=SYSTEM
+    Open hr=0x00000000
+    CreateInvitation hr=0x00000000
+    rdp_event dispid=301 cArgs=1
+    event connected: put_ControlLevel(3) hr=0x00000000
+    rdp_event dispid=302 cArgs=1
+    worker_done
+    ```
+    `query user` afterward confirmed `alan` remained `Active` in Session 16 (`rdp-tcp#46`) throughout — no logoff, no lockout.
+  - **2026-11-27 follow-up throwaway (`wds-test2.exe` + `argus-wds-client2` on `snappr-win`, Session 16):** verified interactive mouse clicks, keyboard input on a `SYSTEM`-owned (UIPI-protected) test window, exact `controller/Rdp/Screen.vala` GFX settings, and ephemeral certificate handling:
+    - Caught a real FreeRDP3 cert-caching failure on the first run (`ERRCONNECT_TLS_CONNECT_FAILED`): each `IRDPSRAPISharingSession` generates a fresh ephemeral self-signed certificate; returning `1` (`ACCEPT_PERMANENT`) in `VerifyCertificateEx` wrote `~/.config/freerdp/server/127.0.0.1_<port>.pem` and broke the next connection. Setting `FreeRDP_IgnoreCertificate = TRUE`, `FreeRDP_NlaSecurity = FALSE`, and returning `2` (`ACCEPT_TEMPORARY`) in both `VerifyCertificateEx` and `VerifyChangedCertificateEx` fixed it cleanly.
+    - Verified with exact `Screen.vala` GFX settings (`SupportDynamicChannels=true`, `SupportGraphicsPipeline=true`, `GfxProgressive=true`, `GfxProgressiveV2=true`):
+      ```text
+      PostConnect OK: gdi 1024x768
+      connect SUCCEEDED! auth_called=1 gfx_connected=0
+      sending 2 clicks at (203,186), focus edit (273,242), typing 'ok'+Enter
+      RESULT: auth_called=1 gfx=0 paints=154 err=0x00000000 (ERRBASE_SUCCESS)
+      ```
+      Windows `SYSTEM` worker log:
+      ```text
+      event connected: put_ControlLevel(3) hr=0x00000000
+      ui_btn_clicked 1
+      ui_btn_clicked 2
+      ui_return_seen 1
+      ui_summary clicks=2 text="" return_seen=1
+      worker_done
+      ```
+    - Verified `Authenticate` returning `FALSE` (without prompting) still connects cleanly in Remote Assistance mode because `RemoteAssistancePassword` is already populated.
+    - Temporary `ArgusWdsProbe` service (`sc query` returned `1060`), `C:\Users\Alan\argus-wds-probe`, and local `/tmp/argus-wds-*` files were deleted after the test.
 
 #### Debug code added (remove when complete)
 
@@ -61,36 +102,52 @@
 
 ### Proposed fix
 
-#### Phase 1 — Define and verify the Windows session takeover path
+#### Phase 1 — Passwordless live desktop sharing (`IRDPSRAPISharingSession` + FreeRDP3)
 
-- Confirm the target takeover mode with the user (see **User decisions required**):
-  - **If RDP takeover:** test on `snappr-win` what happens with an active Console user (same account vs different account) and with an active RDP session when `argus_end_rdp_sessions()` is removed/gated; check whether Windows 10/11 Pro supports any non-destructive session attach or if same-account sign-in is the hard OS boundary.
-  - **If Session-1 helper / tray takeover (or hybrid):** wire the proven `tests/screenshot-poc/` capture + input worker design into a clean Session-1 takeover flow coordinated by `argus-agent` and `argus-tray.exe` over the existing `Relay` channel (no Windows user password required, no console lockout, native monitor resolution).
-- Do not edit product code until the takeover path is chosen and any Windows session-API edge cases are verified in a throwaway on `snappr-win`.
+- **Windows C COM module (`win32/desktop-share.c`, `win32/desktop-share.h`, `win32/win32.vapi`, `win32/meson.build`, `agent/meson.build`):**
+  - Implement `argus_desktop_share_run(uint16_t port, const char *password, const char *invite_file, const char *stop_event)` in `win32/desktop-share.c` (linking `ole32`, `oleaut32`, `uuid`):
+    - Opens `IRDPSRAPISharingSession` (`PortId`, `PortProtocol = AF_INET`, `EnabledTransports = 1` TCP-only, `DefaultAttendeeControlLevel = CTRL_LEVEL_VIEW`), creates a single-attendee invitation with the random one-time password, writes the RACS2 `ConnectionString` to the given file/pipe, grants `CTRL_LEVEL_INTERACTIVE` on `OnAttendeeConnected` / `OnControlLevelChangeRequest`, pumps Win32 messages until attendee disconnects or the stop event is signaled, and calls `Close()`.
+  - Implement `argus_spawn_session_system(uint32_t session_id, const wchar_t *cmdline)` in `win32/register-pipe.c` (or `desktop-share.c`): duplicates the service's own `SYSTEM` token with `SetTokenInformation(TokenSessionId)` and calls `CreateProcessAsUserW` on `winsta0\default` so the share worker runs as `SYSTEM` inside the signed-in user's session (handling elevated windows).
+  - Add `--share <port> <password> <invite_path> <stop_event>` CLI entry in `agent/windows/main.vala` before `Service.start()` so no extra `.exe` needs to be packaged.
+- **Agent tunnel & service (`agent/windows/Service.vala`, `agent/windows/Adapter.vala`, `agent/Rdp/Tunnel.vala`):**
+  - When `relay.start` arrives and `argus_active_session() != 0xFFFFFFFF`:
+    - Do **not** call `argus_end_rdp_sessions()`.
+    - Generate a random one-time password + ephemeral local port + stop event name, spawn `argus-agent.exe --share ...` into the active session, read the generated `ConnectionString` (parsing its `<L P="..." N="..."/>` local IP and port), send `Relay.ticket(invite, password)` to the server, and have `Adapter.connect()` dial that local `<ip>:<port>` instead of `127.0.0.1:3389`.
+    - When the tunnel retires/disconnects, signal the stop event so the share worker closes `IRDPSRAPISharingSession` cleanly.
+  - When `argus_active_session() == 0xFFFFFFFF` (nobody signed in):
+    - Fall back to standard `TermService` on `127.0.0.1:3389` (sending empty ticket so the controller uses normal NLA sign-in).
+- **Server relay (`server/Rdp/Relay.vala`, `server/Rdp/Seat.vala`, `docs/rpc-commands.md`):**
+  - Add `Relay.ticket` (`"ss"`, agent stream/app connection) storing `seat.invite` and `seat.password` on the `Seat`, and emit `relay.ticket` (`"iss"`, `(agent_id, invite, password)`) to the requesting controller right before `relay.ready` (`"i"`) — keeping existing `relay.ready` callers and unit tests unbroken.
+  - Document `Relay.ticket` and `relay.ticket` in `docs/rpc-commands.md` in the same change.
+- **Controller FreeRDP3 viewer (`server/vapi/freerdp.vapi`, `controller/tab/Rdp.vala`, `controller/Rdp/Screen.vala`):**
+  - Bind `FreeRDP.AssistanceFile` (`freerdp_assistance_file_new`, `parse_file_buffer`, `populate_settings_from_assistance_file`, `free`), `TargetNetAddressCount`, `RemoteAssistanceRequestControl`, `IgnoreCertificate`, `NlaSecurity`, and `VerifyChangedCertificateEx` in `server/vapi/freerdp.vapi`.
+  - In `controller/tab/Rdp.vala`, handle `relay.ticket` and store `(invite, password)` on the target `Screen`.
+  - In `controller/Rdp/Screen.vala`:
+    - Return `2` (`ACCEPT_TEMPORARY`) from both `VerifyCertificateEx` and `VerifyChangedCertificateEx` and set `IgnoreCertificate = true`.
+    - When `this.invite != ""`, populate FreeRDP3 settings from `AssistanceFile`, set `TargetNetAddressCount = 0`, `ServerHostname = "127.0.0.1"`, `ServerPort = port`, `RemoteAssistanceRequestControl = true`, `NlaSecurity = false`, and return `false` immediately in `Authenticate` without showing the Windows sign-in dialog.
+    - When `this.invite == ""`, keep the existing NLA sign-in dialog for unattended `TermService` sessions.
 
 #### Phase 2 — Argus Tray consent, status, and disconnect handshake
 
 - Extend the local RPC contract between `agent/windows/Service.vala` and `agent/windows/tray/Tray.vala` (and update `docs/rpc-commands.md` + `Argus.Rdp.State` in `shared/Rdp.vala`):
-  - **Pre-takeover check:** when `relay.start` arrives and an interactive session exists (`argus_active_session() != 0xFFFFFFFF`), the service queries/notifies `argus-tray.exe` (`agent.desktop` with operator identity and `force` flag).
-  - **Consent / idle gate:** if `force` is false and `GetLastInputInfo` is under 30 minutes idle, the tray asks the signed-in user (allow / deny / timeout), while the service reports a waiting-for-user state via `Relay.report` so the controller displays a clear status instead of hanging blank.
-  - **Active takeover banner & disconnect:** once takeover starts, the service notifies the tray with the controller/operator name; the tray updates its tooltip/menu/dialog to show who has control and offers a **Disconnect** action (`AgentService.disconnect`) that tears down the active tunnel/session immediately.
-  - **Session metadata to controller:** report whether a user is signed in (and which account / session type) so the controller UI can inform the operator before/during sign-in (or prefill/skip credentials if using Session-1 takeover).
+  - **Pre-takeover consent / idle gate:** when `relay.start` arrives and an interactive session exists (`argus_active_session() != 0xFFFFFFFF`), `Service.vala` sends `agent.desktop` (operator name, `force` flag) to `argus-tray.exe` and reports a waiting-for-user state via `Relay.report` so the controller displays a clear status instead of hanging blank. If `force` is false and `GetLastInputInfo` is under 30 minutes idle, the tray asks the signed-in user (allow / deny / timeout); if idle ≥30 min or `force` is true, it auto-allows and calls `AgentService.allow(true)`.
+  - **Active takeover notice & disconnect:** once the share worker is live, the service notifies the tray (`agent.desktop_active` with operator name); the tray updates its tooltip/menu to show who has control and offers a **Disconnect** action (`AgentService.disconnect`) that signals the share worker stop event and tears down the tunnel immediately.
+  - **Home edition support:** because `IRDPSRAPISharingSession` (`RdpEncom.dll`) works on Windows Home as well as Pro, review `OsVersion.supports_rdp()` so Windows Home machines can still offer live session takeover when a user is signed in.
 
 #### Phase 3 — Desktop window sizing and scaling
 
 - Fix initial dimension detection in [`controller/Rdp/Screen.vala`](../../controller/Rdp/Screen.vala) / [`controller/tab/Rdp.vala`](../../controller/tab/Rdp.vala): read the viewport (`Gtk.ScrolledWindow` / `pictures` stack) allocation instead of the uninitialized `0×0` `Gtk.Picture`.
-- Align sizing with the chosen Phase 1 takeover mechanism:
-  - For **RDP:** request the viewport size at connect time and add dynamic display resize (`MS-RDPEDISP` / `disp` virtual channel in FreeRDP3) or clean fit-to-window scaling (`can_shrink = true`, `ContentFit.CONTAIN`, with offset-aware pointer coordinate mapping so clicks stay exact when letterboxed).
-  - For **Session-1 takeover:** capture the real monitor resolution and scale smoothly to fit the controller pane (with optional 1:1 scroll toggle) with exact aspect-offset pointer mapping.
-- Fix mouse coordinate mapping in `Screen.vala` (`motion`, `click.pressed`, `click.released`) so any letterboxing offset from `ContentFit.CONTAIN` / `SCALE_DOWN` is subtracted before dividing by `scale`.
+- Add clean fit-to-window scaling (`can_shrink = true`, `ContentFit.CONTAIN`, with optional 1:1 scroll toggle) and update mouse coordinate mapping in `Screen.vala` (`motion`, `click.pressed`, `click.released`) to subtract letterbox offsets before dividing by `scale` so clicks stay exact at any window size.
 
 ### LLM
 
-- ℹ️ Closed predecessor bug: [`docs/bugs/done/2026-11-26-FIXED-windows-desktop-tcp-reset.md`](done/2026-11-26-FIXED-windows-desktop-tcp-reset.md) (`0.1.63` verified holding with GFX RFX Progressive + mouse/keyboard/scroll).
-- ℹ️ Related master spec (Phase 6.5 Takeover edges): [`docs/bugs/2026-11-17-remote-desktop.md`](2026-11-17-remote-desktop.md).
-- ℹ️ Related proven Session-1 capture + input PoC (65.7 s, 3-hop mTLS relay, UIPI findings): [`docs/bugs/2026-11-26-FEATURE-screenshot-stream-remote-control.md`](2026-11-26-FEATURE-screenshot-stream-remote-control.md) and archived source in `tests/screenshot-poc/`.
+- ℹ️ Closed predecessor bug: `2026-11-26-FIXED-windows-desktop-tcp-reset.md` (`0.1.63` verified holding with GFX RFX Progressive + mouse/keyboard/scroll).
+- ℹ️ Related master spec (Phase 6.5 Takeover edges): `2026-11-17-remote-desktop.md`.
+- ℹ️ Related proven Session-1 capture + input PoC (65.7 s, 3-hop mTLS relay, UIPI findings): `2026-11-26-FEATURE-screenshot-stream-remote-control.md` and archived source in `tests/screenshot-poc/`.
+- ℹ️ 2026-11-27 live proof on `snappr-win`: `IRDPSRAPISharingSession` (`RdpEncom.dll`, COM in MinGW `<rdpencomapi.h>`) running as `SYSTEM` in Session 16 + FreeRDP 3 (`freerdp_assistance_parse_file_buffer` + `freerdp_assistance_populate_settings_from_assistance_file` + `TargetNetAddressCount = 0`) connected over a tunnel with zero Windows user credentials, rendered 1024×768 (`106` paints, `ERRBASE_SUCCESS`), granted `CTRL_LEVEL_INTERACTIVE` (`hr=0x00000000`), and left `alan` active without logoff.
 - ℹ️ `agent/windows/tray/Tray.vala` already has partial Phase 6.5 scaffolding (`agent.desktop` listener, 30-min `GetLastInputInfo` check, balloon prompt, `AgentService.allow`), which was disabled in `Service.vala` on 2026-11-19 because `initialize()` turned RDP on unconditionally and nothing sent `agent.desktop`.
 - ℹ️ `controller/Rdp/Screen.vala` pointer math currently computes `scale = double.min(pw / gdi.width, ph / gdi.height)` and `rx = x / scale` without subtracting letterbox margins — safe only while `halign = START, valign = START` and `can_shrink = false`, and must be updated together with Phase 3 sizing.
 - 🚫 Do not patch `termsrv.dll` or weaken Windows NLA (`UserAuthentication` stays `1`).
 - 🚫 Do not put takeover/Disconnect/size controls in the window header bar (`.cursor/rules/no-header-bar-controls.mdc`).
-- ⏳ Waiting on user direction for Phase 1 takeover mechanism and Phase 3 sizing preference before running throwaway verification on `snappr-win`.
+- ℹ️ 2026-11-27 follow-up proof on `snappr-win`: verified mouse clicks + keyboard Enter landing on a `SYSTEM`-owned (UIPI-protected) window (`ui_btn_clicked 1`, `ui_btn_clicked 2`, `ui_return_seen 1`), verified exact `Screen.vala` GFX settings negotiate cleanly (`paints=154`, `ERRBASE_SUCCESS`), caught FreeRDP3 permanent cert caching (`1`) failing on fresh ephemeral WDS certs (fixed with `IgnoreCertificate=true` + `VerifyCertificateEx`/`VerifyChangedCertificateEx` returning `2`), and verified `Authenticate` returning `false` skips password prompting in Remote Assistance mode.
+- ⏳ Ready for user approval on the Phase 1–3 implementation plan in this file (remember: Phase 1 changes RPC commands, so update `docs/rpc-commands.md` in the same change, and bump version in `CHANGELOG.md` + `meson.build` before packaging a Windows installer).

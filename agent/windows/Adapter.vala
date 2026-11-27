@@ -60,6 +60,18 @@ namespace Argus.Agent.Rdp
 	 */
 	public class Adapter : GLib.Object
 	{
+		/**
+		 * Host address dialed by {@link connect} when Wintun is off.
+		 */
+		public string target_host = "127.0.0.1";
+		/**
+		 * TCP port dialed by {@link connect} when Wintun is off.
+		 */
+		public uint16 target_port = 3389;
+		/**
+		 * Skip logging off existing RDP sessions when sharing an active desktop.
+		 */
+		public bool skip_logoff = false;
 		private bool use_wintun = false;
 		private void* module;
 		private void* wintun_adapter;
@@ -101,14 +113,17 @@ namespace Argus.Agent.Rdp
 		 */
 		public void logoff()
 		{
+			if (this.skip_logoff) {
+				return;
+			}
 			Win32.argus_end_rdp_sessions();
 		}
 
 		/**
 		 * Open one desktop connection on Windows.
 		 *
-		 * Connects directly to TermService on 127.0.0.1:3389 while
-		 * Wintun is disabled. When {@link use_wintun} is enabled,
+		 * Connects directly to {@link target_host}:{@link target_port}
+		 * while Wintun is disabled. When {@link use_wintun} is enabled,
 		 * opens the virtual adapter so TermService sees 10.200.0.1.
 		 *
 		 * @return the desktop socket
@@ -119,7 +134,7 @@ namespace Argus.Agent.Rdp
 			if (!this.use_wintun) {
 				var client = new GLib.SocketClient();
 				client.timeout = 10;
-				return client.connect_to_host("127.0.0.1", 3389);
+				return client.connect_to_host(this.target_host, this.target_port);
 			}
 			this.ensure();
 			this.stop = true;

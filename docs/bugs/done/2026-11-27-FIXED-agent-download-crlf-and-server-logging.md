@@ -1,6 +1,6 @@
 # Agent download fails on CRLF headers and server logs no download activity
 
-**Status:** ✔️
+**Status:** ✅
 
 ### User decisions required
 
@@ -31,7 +31,7 @@ None.
 
 ### Codebase observed behavior
 
-- [`agent/Download.vala`](../../agent/Download.vala) constructs `GLib.DataInputStream` with its default `newline_type` (`GLib.DataStreamNewlineType.LF`) and checks `if (line == null || line == "")`, so HTTP/1.1 `\r\n` lines retain trailing `"\r"` and the blank separator line is `"\r"` instead of `""`.
+- [`agent/Download.vala`](../../../agent/Download.vala) constructs `GLib.DataInputStream` with its default `newline_type` (`GLib.DataStreamNewlineType.LF`) and checks `if (line == null || line == "")`, so HTTP/1.1 `\r\n` lines retain trailing `"\r"` and the blank separator line is `"\r"` instead of `""`.
   ```vala
   var input = new GLib.DataInputStream(tls.get_input_stream());
   ...
@@ -41,10 +41,10 @@ None.
           break;
       }
   ```
-- [`agent/Download.vala`](../../agent/Download.vala) uses `OutputStream.write(...)` instead of `write_all(...)` for both the HTTP request and body chunks.
-- [`server/Net/Download.vala`](../../server/Net/Download.vala) has no `GLib.debug()` calls inside `request_started`, `accept_certificate`, or `add_handler`, so server debug logs show nothing when an agent connects or downloads.
-- [`server/Net/Download.vala`](../../server/Net/Download.vala) builds `file_path` from `Argus.SERVER_DATA_DIR` directly instead of checking `Application.opt_data_dir` like [`server/Application.vala`](../../server/Application.vala).
-- [`agent/Application.vala`](../../agent/Application.vala) runs `new OSQuery.Initialize(this).start()` synchronously on the main loop on Linux instead of calling `this.send_inventory()` on a worker thread as non-Linux builds do.
+- [`agent/Download.vala`](../../../agent/Download.vala) uses `OutputStream.write(...)` instead of `write_all(...)` for both the HTTP request and body chunks.
+- [`server/Net/Download.vala`](../../../server/Net/Download.vala) has no `GLib.debug()` calls inside `request_started`, `accept_certificate`, or `add_handler`, so server debug logs show nothing when an agent connects or downloads.
+- [`server/Net/Download.vala`](../../../server/Net/Download.vala) builds `file_path` from `Argus.SERVER_DATA_DIR` directly instead of checking `Application.opt_data_dir` like [`server/Application.vala`](../../../server/Application.vala).
+- [`agent/Application.vala`](../../../agent/Application.vala) runs `new OSQuery.Initialize(this).start()` synchronously on the main loop on Linux instead of calling `this.send_inventory()` on a worker thread as non-Linux builds do.
 
 ### Debugging
 
@@ -92,7 +92,7 @@ None (the permanent `GLib.debug` lines added to `server/Net/Download.vala` are p
 
 ### Proposed fix
 
-### ✔️ Phase 1 — Fix CRLF header parsing and writes in `agent/Download.vala`
+### ✅ Phase 1 — Fix CRLF header parsing and writes in `agent/Download.vala`
 
 #### Remove (`agent/Download.vala` lines 132–221)
 
@@ -293,7 +293,7 @@ None (the permanent `GLib.debug` lines added to `server/Net/Download.vala` are p
 			return 0;
 ```
 
-### ✔️ Phase 2 — Add server download debug logging and honor `opt_data_dir` in `server/Net/Download.vala`
+### ✅ Phase 2 — Add server download debug logging and honor `opt_data_dir` in `server/Net/Download.vala`
 
 #### Remove (`server/Net/Download.vala` lines 89–140)
 
@@ -422,7 +422,7 @@ None (the permanent `GLib.debug` lines added to `server/Net/Download.vala` are p
 			});
 ```
 
-### ✔️ Phase 3 — Run Linux `OSQuery.Initialize` off the main loop in `agent/Application.vala`
+### ✅ Phase 3 — Run Linux `OSQuery.Initialize` off the main loop in `agent/Application.vala`
 
 #### Remove (`agent/Application.vala` lines 306–309)
 
@@ -489,7 +489,7 @@ None (the permanent `GLib.debug` lines added to `server/Net/Download.vala` are p
 				}
 ```
 
-### ✔️ Phase 4 — Add end-to-end download test in `tests/download.vala` and `tests/meson.build`
+### ✅ Phase 4 — Add end-to-end download test in `tests/download.vala` and `tests/meson.build`
 
 #### Add (`tests/download.vala` and `tests/meson.build`)
 
@@ -508,12 +508,13 @@ None (the permanent `GLib.debug` lines added to `server/Net/Download.vala` are p
   - Because the remote log printed `px_manager_get_proxies_sync: url=https://192.168.254.88:818`, the installed agent on that host was still the `Soup.Session` build (`3cdc85e`), likely because `0.1.64` was not bumped again when `cf385c8` landed or the newer build was not installed there yet.
   - Upgrading the remote machine to a build including Phases 1–3 fixes both the `Soup.Session` main-loop deadlock and the `cf385c8` CRLF header bug, and adds server-side download debug logs.
 - ℹ️ Source files
-  - [`agent/Download.vala`](../../agent/Download.vala)
-  - [`server/Net/Download.vala`](../../server/Net/Download.vala)
-  - [`agent/Application.vala`](../../agent/Application.vala)
-  - [`tests/download.vala`](../../tests/download.vala)
-  - [`tests/meson.build`](../../tests/meson.build)
+  - [`agent/Download.vala`](../../../agent/Download.vala)
+  - [`server/Net/Download.vala`](../../../server/Net/Download.vala)
+  - [`agent/Application.vala`](../../../agent/Application.vala)
+  - [`tests/download.vala`](../../../tests/download.vala)
+  - [`tests/meson.build`](../../../tests/meson.build)
 - ✔️ Verification
   - `ninja -C build tests/argus-download agent/argusrm-agent agent/argusrm-agent-gtk` succeeded.
   - Clean build verified `server/argusrm-server` links cleanly.
-  - `meson test -C build download --print-errorlogs` passed (`1/1 download OK 0.22s`), confirming 512 KiB binary SHA-256 match, HTTP 404 failure, untrusted client mTLS rejection, and server `GLib.debug` output.
+  - `meson test -C build download --print-errorlogs` passed (`1/1 download OK 0.38s`), confirming 512 KiB binary SHA-256 match, HTTP 404 failure, untrusted client mTLS rejection, and server `GLib.debug` output.
+- ✅ User confirmed working on `0.1.65` (`2026-11-27`); closed and moved to `docs/bugs/done/`.

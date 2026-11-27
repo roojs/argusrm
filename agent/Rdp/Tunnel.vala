@@ -147,10 +147,11 @@ namespace Argus.Agent.Rdp
 		/**
 		 * Desktop dial for this platform.
 		 *
-		 * Windows opens the virtual adapter. Linux has the same
-		 * methods so this file compiles without a platform ifdef.
+		 * Windows dials either the active sharing session or TermService.
+		 * Linux has the same methods so this file compiles without a
+		 * platform ifdef.
 		 */
-		private Adapter adapter = new Adapter();
+		internal Adapter adapter = new Adapter();
 
 		/**
 		 * Send one step on the main loop.

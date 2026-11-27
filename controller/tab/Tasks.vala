@@ -45,6 +45,11 @@ namespace Argus.Controller.Tab
 		private int watched_identifier = 0;
 		private int64 watched_ended = 0;
 		private uint expiry_timer = 0;
+		private bool stick_bottom = false;
+		private bool auto_scrolling = false;
+		private bool trimming = false;
+		private uint trim_idle = 0;
+		private uint scroll_idle = 0;
 
 		/**
 		 * Build the filter bar, task target grid, and terminal log pane.
@@ -315,6 +320,77 @@ namespace Argus.Controller.Tab
 				vexpand = true,
 				css_classes = { "tool-output" }
 			};
+			term_view.buffer.changed.connect(() => {
+				if (this.trimming) {
+					return;
+				}
+				this.stick_bottom = true;
+				if (this.trim_idle == 0) {
+					this.trim_idle = GLib.Idle.add(() => {
+						this.trim_idle = 0;
+						Gtk.TextIter buf_end;
+						term_view.buffer.get_end_iter(out buf_end);
+						var line_count = term_view.buffer.get_line_count();
+						if (buf_end.get_line_offset() == 0 && line_count > 1) {
+							line_count--;
+						}
+						if (line_count > 200) {
+							Gtk.TextIter buf_start;
+							Gtk.TextIter cut;
+							term_view.buffer.get_start_iter(out buf_start);
+							term_view.buffer.get_iter_at_line(out cut, line_count - 200);
+							this.trimming = true;
+							term_view.buffer.delete(ref buf_start, ref cut);
+							this.trimming = false;
+						}
+						return false;
+					}, GLib.Priority.HIGH);
+				}
+				if (this.scroll_idle == 0) {
+					this.scroll_idle = GLib.Idle.add(() => {
+						this.scroll_idle = 0;
+						if (!this.stick_bottom) {
+							return false;
+						}
+						var target = term_scroll.vadjustment.upper -
+							term_scroll.vadjustment.page_size;
+						if (target < term_scroll.vadjustment.lower) {
+							target = term_scroll.vadjustment.lower;
+						}
+						this.auto_scrolling = true;
+						term_scroll.vadjustment.value = target;
+						this.auto_scrolling = false;
+						return false;
+					});
+				}
+			});
+			term_scroll.vadjustment.changed.connect(() => {
+				if (!this.stick_bottom || this.scroll_idle != 0) {
+					return;
+				}
+				this.scroll_idle = GLib.Idle.add(() => {
+					this.scroll_idle = 0;
+					if (!this.stick_bottom) {
+						return false;
+					}
+					var target = term_scroll.vadjustment.upper -
+						term_scroll.vadjustment.page_size;
+					if (target < term_scroll.vadjustment.lower) {
+						target = term_scroll.vadjustment.lower;
+					}
+					this.auto_scrolling = true;
+					term_scroll.vadjustment.value = target;
+					this.auto_scrolling = false;
+					return false;
+				});
+			});
+			term_scroll.vadjustment.value_changed.connect(() => {
+				if (this.auto_scrolling || this.scroll_idle != 0) {
+					return;
+				}
+				this.stick_bottom = term_scroll.vadjustment.value >=
+					term_scroll.vadjustment.upper - term_scroll.vadjustment.page_size - 1.0;
+			});
 			var term_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
 				visible = false,
 				hexpand = true,

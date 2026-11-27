@@ -73,6 +73,9 @@ if host_machine.system() == 'windows'
 	deps += meson.get_compiler('c').find_library('wintrust')
 	deps += meson.get_compiler('c').find_library('iphlpapi')
 	deps += meson.get_compiler('c').find_library('ws2_32')
+	deps += meson.get_compiler('c').find_library('ole32')
+	deps += meson.get_compiler('c').find_library('oleaut32')
+	deps += meson.get_compiler('c').find_library('uuid')
 	sources += win32_c_sources
 	sources += files(
 		'OSQuery/Initialize.vala',
@@ -83,6 +86,9 @@ if host_machine.system() == 'windows'
 		'windows/Programs.vala',
 		'SQT/WinFileIdentity.vala',
 		'windows/ExeEnrichment.vala',
+		'windows/Application.vala',
+		'windows/DesktopShare.vala',
+		'windows/TrayServer.vala',
 		'windows/Service.vala',
 		'windows/tray/Tray.vala',
 		'windows/Command.vala',

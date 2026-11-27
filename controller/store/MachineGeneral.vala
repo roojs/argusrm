@@ -275,7 +275,7 @@ namespace Argus.Controller.Store
 			}
 			if (source == "os_version") {
 				var version = (Argus.Shared.OSQuery.OsVersion) rows.get(0);
-				this.desktop = version.supports_rdp();
+				this.desktop = version.platform == "windows";
 			}
 			if (source == "system_info") {
 				var info = (Argus.Shared.OSQuery.SystemInfo) rows.get(0);

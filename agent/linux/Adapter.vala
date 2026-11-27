@@ -26,6 +26,10 @@ namespace Argus.Agent.Rdp
 	 */
 	public class Adapter : GLib.Object
 	{
+		public string target_host = "127.0.0.1";
+		public uint16 target_port = 3389;
+		public bool skip_logoff = false;
+
 		/**
 		 * No sessions to log off on Linux.
 		 */

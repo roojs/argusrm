@@ -26,6 +26,8 @@ namespace FreeRDP
 		RedirectDrives,
 		AudioPlayback,
 		RedirectClipboard,
+		IgnoreCertificate,
+		RemoteAssistanceRequestControl,
 	}
 
 	[CCode (cprefix = "FreeRDP_", has_type_id = false, cheader_filename = "freerdp/settings_keys.h")]
@@ -37,6 +39,7 @@ namespace FreeRDP
 		DesktopWidth,
 		DesktopHeight,
 		MultitransportFlags,
+		TargetNetAddressCount,
 	}
 
 	[CCode (cprefix = "FreeRDP_", has_type_id = false, cheader_filename = "freerdp/settings_keys.h")]
@@ -234,6 +237,34 @@ namespace FreeRDP
 		string fingerprint,
 		uint32 flags);
 
+	[CCode (has_target = false, cname = "pVerifyChangedCertificateEx")]
+	public delegate uint32 VerifyChangedCertificateEx (
+		Instance instance,
+		string host,
+		uint16 port,
+		string common_name,
+		string subject,
+		string issuer,
+		string new_fingerprint,
+		string old_subject,
+		string old_issuer,
+		string old_fingerprint,
+		uint32 flags);
+
+	[Compact]
+	[CCode (cname = "rdpAssistanceFile", free_function = "freerdp_assistance_file_free", cheader_filename = "freerdp/assistance.h")]
+	public class AssistanceFile
+	{
+		[CCode (cname = "freerdp_assistance_file_new")]
+		public AssistanceFile ();
+
+		[CCode (cname = "freerdp_assistance_parse_file_buffer")]
+		public int parse_buffer (string buffer, size_t size, string password);
+
+		[CCode (cname = "freerdp_assistance_populate_settings_from_assistance_file")]
+		public bool populate_settings (Settings settings);
+	}
+
 	[Compact]
 	[CCode (cname = "freerdp", free_function = "freerdp_free", cheader_filename = "freerdp/freerdp.h")]
 	public class Instance
@@ -246,6 +277,7 @@ namespace FreeRDP
 		public PostConnect PostConnect;
 		public Authenticate Authenticate;
 		public VerifyCertificateEx VerifyCertificateEx;
+		public VerifyChangedCertificateEx VerifyChangedCertificateEx;
 
 		[CCode (cname = "freerdp_context_new")]
 		public bool context_new ();

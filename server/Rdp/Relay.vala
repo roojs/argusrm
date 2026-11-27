@@ -44,7 +44,8 @@ namespace Argus.Server.Rdp
 
 		/**
 		 * Register ''Relay.join'', ''Relay.write'', ''Relay.start'',
-		 * ''Relay.view'', ''Relay.fresh'', and ''Relay.report''.
+		 * ''Relay.stop'', ''Relay.view'', ''Relay.fresh'',
+		 * ''Relay.report'', and ''Relay.ticket''.
 		 */
 		public static void rpc_register()
 		{
@@ -53,9 +54,11 @@ namespace Argus.Server.Rdp
 				"join", "s",
 				"write", "ay",
 				"start", "i",
+				"stop", "i",
 				"view", "i",
 				"fresh", "",
-				"report", "ii");
+				"report", "ii",
+				"ticket", "ss");
 			OLLMrpc.Request.register("Relay", new Relay());
 		}
 
@@ -151,6 +154,12 @@ namespace Argus.Server.Rdp
 					args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.SUCCESS_DESKTOP_ALREADY_OPEN, 0)
 				});
 				request.reply(new OLLMrpc.Response());
+				if (seat.invite != "") {
+					request.connection.write(new OLLMrpc.Notification() {
+						method = "relay.ticket",
+						args = OLLMrpc.args("iss", agent_id, seat.invite, seat.password)
+					});
+				}
 				request.connection.write(new OLLMrpc.Notification() {
 					method = "relay.ready",
 					args = OLLMrpc.args("i", agent_id)
@@ -158,6 +167,8 @@ namespace Argus.Server.Rdp
 				return;
 			}
 			seat.asked = request.connection;
+			seat.invite = "";
+			seat.password = "";
 			GLib.debug("relay.status %s %d", Argus.Rdp.State.REQUEST_ASK_MACHINE.to_string(), 0);
 			seat.watcher.write(new OLLMrpc.Notification() {
 				method = "relay.status",
@@ -171,6 +182,68 @@ namespace Argus.Server.Rdp
 				method = "relay.status",
 				args = OLLMrpc.args("iii", seat.agent_id, (int) Argus.Rdp.State.SUCCESS_ASKED_MACHINE, 0)
 			});
+			request.reply(new OLLMrpc.Response());
+		}
+
+		/**
+		 * Stop one agent's desktop session when the controller closes the tab.
+		 *
+		 * Clears the seat state and sends ''relay.stop'' to the agent so
+		 * any active desktop-sharing helper exits cleanly.
+		 *
+		 * @param request inbound RPC
+		 * @param agent_id ''agent.id'' of the machine
+		 */
+		public void stop(OLLMrpc.Request request, int agent_id)
+		{
+			if (!Argus.Shared.Agent.is_a_controller(request)) {
+				return;
+			}
+			var ssl = request.connection as Net.SslConnection;
+			request.reply(new OLLMrpc.Response());
+			if (ssl == null || agent_id < 1) {
+				return;
+			}
+			var seat = this.seat(agent_id);
+			seat.agent_conn = null;
+			seat.view_conn = null;
+			seat.asked = null;
+			seat.invite = "";
+			seat.password = "";
+			var agent = ssl.app.ssl_listen.by_id.get(agent_id);
+			if (agent == null || !agent.running) {
+				return;
+			}
+			agent.write(new OLLMrpc.Notification() {
+				method = "relay.stop"
+			});
+		}
+
+		/**
+		 * Store a Remote Assistance ticket for this agent's seat.
+		 *
+		 * Sent by the Windows agent before its stream joins when taking
+		 * over a signed-in desktop via ''IRDPSRAPISharingSession''. Empty
+		 * strings clear any previous ticket (unattended ''TermService'').
+		 *
+		 * @param request inbound RPC on the agent's app socket
+		 * @param invite RACS2 connection string XML, or empty
+		 * @param password one-time invitation password, or empty
+		 */
+		public void ticket(OLLMrpc.Request request, string invite, string password)
+		{
+			var ssl = request.connection as Net.SslConnection;
+			if (ssl == null || ssl.user.id < 1 || ssl.user.is_controller) {
+				request.reply(new OLLMrpc.Response() {
+					error = new OLLMrpc.Error.INVALID_REQUEST("The desktop ticket did not arrive on the agent's socket.")
+				});
+				return;
+			}
+			var id = (int) ssl.user.id;
+			var seat = this.seat(id);
+			seat.agent_id = id;
+			seat.invite = invite;
+			seat.password = password;
 			request.reply(new OLLMrpc.Response());
 		}
 
@@ -201,6 +274,18 @@ namespace Argus.Server.Rdp
 				return;
 			}
 			var told = (Argus.Rdp.State) state;
+			switch (told) {
+			case Argus.Rdp.State.FAIL_USER_DENIED:
+			case Argus.Rdp.State.FAIL_USER_DISCONNECTED:
+			case Argus.Rdp.State.FAIL_SHARE_START:
+				seat.agent_conn = null;
+				seat.view_conn = null;
+				seat.invite = "";
+				seat.password = "";
+				break;
+			default:
+				break;
+			}
 			GLib.debug("relay.status %s %d", told.to_string(), attempt);
 			seat.watcher.write(new OLLMrpc.Notification() {
 				method = "relay.status",

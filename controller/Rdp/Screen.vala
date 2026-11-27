@@ -50,6 +50,15 @@ namespace Argus.Controller.Rdp
 		 * or showing the desktop.
 		 */
 		public string problem { get; set; default = ""; }
+		/**
+		 * Remote Assistance RACS2 connection string when taking over
+		 * a signed-in Windows session without user credentials.
+		 */
+		public string invite = "";
+		/**
+		 * One-time invitation password paired with {@link invite}.
+		 */
+		public string ticket_pass = "";
 		private bool stopping = false;
 		private bool running = false;
 		private bool rendered = false;
@@ -346,16 +355,6 @@ namespace Argus.Controller.Rdp
 				FreeRDP.register_addin_provider(FreeRDP.static_addin_loader, 0);
 			}
 			this.instance = new FreeRDP.Instance();
-			if (!this.instance.context_new()) {
-				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
-				this.window.rdp.toast(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
-				return;
-			}
-			this.instance.PreConnect = Screen.pre_connect;
-			this.instance.PostConnect = Screen.connected;
-			this.instance.Authenticate = Screen.authenticate;
-			this.instance.VerifyCertificateEx = Screen.verify;
-			Screen.live.add(this);
 			var width = this.picture.get_width();
 			var height = this.picture.get_height();
 			if (width < 64) {
@@ -364,9 +363,42 @@ namespace Argus.Controller.Rdp
 			if (height < 64) {
 				height = 720;
 			}
+			var port = viewer.view_port;
+			if (!this.configure(port, width, height)) {
+				this.problem = Argus.Rdp.State.FAIL_PREPARE_RENDER.to_string();
+				this.window.rdp.toast(this.agent_id, Argus.Rdp.State.FAIL_PREPARE_RENDER, 0);
+				return;
+			}
+			Screen.live.add(this);
+			this.running = true;
+			new GLib.Thread<int>("screen", () => {
+				this.run(port, width, height);
+				return 0;
+			});
+		}
+
+		/**
+		 * Create the FreeRDP context and apply display and assistance settings.
+		 *
+		 * @param port local viewer loopback port
+		 * @param width initial desktop width in pixels
+		 * @param height initial desktop height in pixels
+		 * @return false when the context or Remote Assistance ticket failed
+		 */
+		private bool configure(uint16 port, int width, int height)
+		{
+			if (!this.instance.context_new()) {
+				return false;
+			}
+			this.instance.PreConnect = Screen.pre_connect;
+			this.instance.PostConnect = Screen.connected;
+			this.instance.Authenticate = Screen.authenticate;
+			this.instance.VerifyCertificateEx = Screen.verify;
+			this.instance.VerifyChangedCertificateEx = Screen.verify_changed;
 			unowned FreeRDP.Settings settings = this.instance.context.settings;
+			settings.set_bool(FreeRDP.SettingsBool.IgnoreCertificate, true);
 			settings.set_string(FreeRDP.SettingsString.ServerHostname, "127.0.0.1");
-			settings.set_uint32(FreeRDP.SettingsUint32.ServerPort, viewer.view_port);
+			settings.set_uint32(FreeRDP.SettingsUint32.ServerPort, port);
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
 			settings.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
 			settings.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
@@ -387,126 +419,115 @@ namespace Argus.Controller.Rdp
 			settings.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
 			settings.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
 			settings.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
-			var port = viewer.view_port;
-			this.running = true;
-			new GLib.Thread<int>("screen", () => {
-				var handles = new void*[64];
-				for (var attempt = 0; attempt < 3 && !this.stopping; attempt++) {
-					if (attempt > 0) {
-						GLib.Thread.usleep(500000);
-						this.input_lock.lock();
-						this.ready = false;
-						if (this.stopping || this.instance == null) {
-							this.input_lock.unlock();
-							break;
-						}
-						this.instance.disconnect();
-						FreeRDP.gdi_free(this.instance);
-						this.instance.context_free();
-						if (!this.instance.context_new()) {
-							this.input_lock.unlock();
-							break;
-						}
-						this.instance.PreConnect = Screen.pre_connect;
-						this.instance.PostConnect = Screen.connected;
-						this.instance.Authenticate = Screen.authenticate;
-						this.instance.VerifyCertificateEx = Screen.verify;
-						unowned FreeRDP.Settings again = this.instance.context.settings;
-						again.set_string(FreeRDP.SettingsString.ServerHostname, "127.0.0.1");
-						again.set_uint32(FreeRDP.SettingsUint32.ServerPort, port);
-						again.set_uint32(FreeRDP.SettingsUint32.DesktopWidth, width);
-						again.set_uint32(FreeRDP.SettingsUint32.DesktopHeight, height);
-						again.set_uint32(FreeRDP.SettingsUint32.ColorDepth, 32);
-						again.set_bool(FreeRDP.SettingsBool.SupportMultitransport, false);
-						again.set_uint32(FreeRDP.SettingsUint32.MultitransportFlags, 0);
-						again.set_bool(FreeRDP.SettingsBool.BitmapCacheEnabled, true);
-						again.set_bool(FreeRDP.SettingsBool.BitmapCacheV3Enabled, true);
-						again.set_bool(FreeRDP.SettingsBool.RemoteFxCodec, false);
-						again.set_bool(FreeRDP.SettingsBool.NSCodec, false);
-						again.set_bool(FreeRDP.SettingsBool.SurfaceCommandsEnabled, false);
-						again.set_bool(FreeRDP.SettingsBool.SupportDynamicChannels, true);
-						again.set_bool(FreeRDP.SettingsBool.SupportGraphicsPipeline, true);
-						again.set_bool(FreeRDP.SettingsBool.GfxProgressive, true);
-						again.set_bool(FreeRDP.SettingsBool.GfxProgressiveV2, true);
-						again.set_bool(FreeRDP.SettingsBool.GfxH264, false);
-						again.set_bool(FreeRDP.SettingsBool.GfxAVC444, false);
-						again.set_bool(FreeRDP.SettingsBool.GfxAVC444v2, false);
-						again.set_bool(FreeRDP.SettingsBool.RedirectDrives, false);
-						again.set_bool(FreeRDP.SettingsBool.AudioPlayback, false);
-						again.set_bool(FreeRDP.SettingsBool.RedirectClipboard, false);
-						this.input_lock.unlock();
-					}
-					if (!this.instance.connect()) {
-						if (this.stopping) {
-							break;
-						}
-						var err = FreeRDP.get_last_error(this.instance.context);
-						GLib.warning("desktop connect failed: 0x%08x %s",
-							err, FreeRDP.get_last_error_name(err));
-						var shown = attempt + 1;
-						GLib.Idle.add(() => {
-							this.problem = Argus.Rdp.State.RETRY_RENDER_CONNECT.to_string();
-							this.window.rdp.toast(
-								this.agent_id, Argus.Rdp.State.RETRY_RENDER_CONNECT, shown);
-							return false;
-						});
-						continue;
-					}
-					this.input_lock.lock();
-					this.ready = true;
-					this.dirty = true;
-					this.input_lock.unlock();
-					while (!this.stopping && !this.instance.shall_disconnect()) {
-						var count = FreeRDP.get_event_handles(this.instance.context, handles, 64);
-						if (count == 0) {
-							break;
-						}
-						var wait_ms = this.dirty ? (uint32) 16 : (uint32) 100;
-						var waited = WinPr.wait(count, handles, false, wait_ms);
-						if (waited == WinPr.WAIT_FAILED) {
-							break;
-						}
-						if (waited == WinPr.WAIT_TIMEOUT) {
-							if (this.dirty) {
-								this.publish();
-							}
-							continue;
-						}
-						if (!FreeRDP.check_event_handles(this.instance.context)) {
-							break;
-						}
-						if (this.dirty && GLib.get_monotonic_time() - this.painted_at >= 16000) {
-							this.publish();
-						}
-					}
+			if (this.invite == "") {
+				return true;
+			}
+			var assist = new FreeRDP.AssistanceFile();
+			if (assist.parse_buffer(this.invite, this.invite.length, this.ticket_pass) < 0 || !assist.populate_settings(settings)) {
+				GLib.warning("remote assistance ticket could not be parsed");
+				return false;
+			}
+			settings.set_uint32(FreeRDP.SettingsUint32.TargetNetAddressCount, 0);
+			settings.set_string(FreeRDP.SettingsString.ServerHostname, "127.0.0.1");
+			settings.set_uint32(FreeRDP.SettingsUint32.ServerPort, port);
+			settings.set_bool(FreeRDP.SettingsBool.RemoteAssistanceRequestControl, true);
+			settings.set_bool(FreeRDP.SettingsBool.NlaSecurity, false);
+			return true;
+		}
+
+		/**
+		 * Connect FreeRDP and pump its event loop on the screen thread.
+		 *
+		 * @param port local viewer loopback port
+		 * @param width initial desktop width in pixels
+		 * @param height initial desktop height in pixels
+		 */
+		private void run(uint16 port, int width, int height)
+		{
+			var handles = new void*[64];
+			for (var attempt = 0; attempt < 3 && !this.stopping; attempt++) {
+				if (attempt > 0) {
+					GLib.Thread.usleep(500000);
 					this.input_lock.lock();
 					this.ready = false;
+					if (this.stopping || this.instance == null) {
+						this.input_lock.unlock();
+						break;
+					}
+					this.instance.disconnect();
+					FreeRDP.gdi_free(this.instance);
+					this.instance.context_free();
+					if (!this.configure(port, width, height)) {
+						this.input_lock.unlock();
+						break;
+					}
 					this.input_lock.unlock();
+				}
+				if (!this.instance.connect()) {
 					if (this.stopping) {
 						break;
 					}
 					var err = FreeRDP.get_last_error(this.instance.context);
-					GLib.warning("desktop disconnected: 0x%08x %s",
-						err, FreeRDP.get_last_error_name(err));
-					var dropped = attempt + 1;
+					GLib.warning("desktop connect failed: 0x%08x %s", err, FreeRDP.get_last_error_name(err));
+					var shown = attempt + 1;
 					GLib.Idle.add(() => {
-						this.window.rdp.toast(
-							this.agent_id, Argus.Rdp.State.RETRY_DESKTOP_DISCONNECTED, dropped);
+						this.problem = Argus.Rdp.State.RETRY_RENDER_CONNECT.to_string();
+						this.window.rdp.toast(this.agent_id, Argus.Rdp.State.RETRY_RENDER_CONNECT, shown);
 						return false;
 					});
+					continue;
+				}
+				this.input_lock.lock();
+				this.ready = true;
+				this.dirty = true;
+				this.input_lock.unlock();
+				while (!this.stopping && !this.instance.shall_disconnect()) {
+					var count = FreeRDP.get_event_handles(this.instance.context, handles, 64);
+					if (count == 0) {
+						break;
+					}
+					var wait_ms = this.dirty ? (uint32) 16 : (uint32) 100;
+					var waited = WinPr.wait(count, handles, false, wait_ms);
+					if (waited == WinPr.WAIT_FAILED) {
+						break;
+					}
+					if (waited == WinPr.WAIT_TIMEOUT) {
+						if (this.dirty) {
+							this.publish();
+						}
+						continue;
+					}
+					if (!FreeRDP.check_event_handles(this.instance.context)) {
+						break;
+					}
+					if (this.dirty && GLib.get_monotonic_time() - this.painted_at >= 16000) {
+						this.publish();
+					}
 				}
 				this.input_lock.lock();
 				this.ready = false;
-				this.running = false;
-				if (this.instance != null) {
-					this.instance.disconnect();
-					FreeRDP.gdi_free(this.instance);
-					this.instance.context_free();
-					this.instance = null;
-				}
 				this.input_lock.unlock();
-				return 0;
-			});
+				if (this.stopping) {
+					break;
+				}
+				var err = FreeRDP.get_last_error(this.instance.context);
+				GLib.warning("desktop disconnected: 0x%08x %s", err, FreeRDP.get_last_error_name(err));
+				var dropped = attempt + 1;
+				GLib.Idle.add(() => {
+					this.window.rdp.toast(this.agent_id, Argus.Rdp.State.RETRY_DESKTOP_DISCONNECTED, dropped);
+					return false;
+				});
+			}
+			this.input_lock.lock();
+			this.ready = false;
+			this.running = false;
+			if (this.instance != null) {
+				this.instance.disconnect();
+				FreeRDP.gdi_free(this.instance);
+				this.instance.context_free();
+				this.instance = null;
+			}
+			this.input_lock.unlock();
 		}
 
 		/**
@@ -729,7 +750,7 @@ namespace Argus.Controller.Rdp
 			password = "";
 			domain = "";
 			var screen = Screen.find(instance);
-			if (screen == null) {
+			if (screen == null || screen.invite != "") {
 				return false;
 			}
 			if (screen.user == "" || screen.pass == "") {
@@ -752,7 +773,23 @@ namespace Argus.Controller.Rdp
 			string fingerprint,
 			uint32 flags)
 		{
-			return 1;
+			return 2;
+		}
+
+		private static uint32 verify_changed(
+			FreeRDP.Instance instance,
+			string host,
+			uint16 port,
+			string common_name,
+			string subject,
+			string issuer,
+			string new_fingerprint,
+			string old_subject,
+			string old_issuer,
+			string old_fingerprint,
+			uint32 flags)
+		{
+			return 2;
 		}
 	}
 }

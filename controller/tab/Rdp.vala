@@ -64,6 +64,12 @@ namespace Argus.Controller.Tab
 		private Gee.HashSet<int> ready {
 			get; set; default = new Gee.HashSet<int>();
 		}
+		private Gee.HashMap<int, string> ticket_invites {
+			get; set; default = new Gee.HashMap<int, string>();
+		}
+		private Gee.HashMap<int, string> ticket_passwords {
+			get; set; default = new Gee.HashMap<int, string>();
+		}
 
 		/**
 		 * Build the picture stack and the tab bar.
@@ -111,6 +117,21 @@ namespace Argus.Controller.Tab
 					this.toast(agent_id, state, attempt);
 					return;
 				}
+				if (notification.method == "relay.ticket" && notification.args.size >= 3) {
+					var ticket_id = notification.args.get(0).get_int();
+					var invite = notification.args.get(1).get_string();
+					var password = notification.args.get(2).get_string();
+					if (this.screens.has_key(ticket_id)) {
+						var target = this.screens.get(ticket_id);
+						target.invite = invite;
+						target.ticket_pass = password;
+					}
+					if (this.armed.contains(ticket_id) || this.screens.has_key(ticket_id)) {
+						this.ticket_invites.set(ticket_id, invite);
+						this.ticket_passwords.set(ticket_id, password);
+					}
+					return;
+				}
 				if (notification.method != "relay.ready" || notification.args.size < 1) {
 					return;
 				}
@@ -125,6 +146,10 @@ namespace Argus.Controller.Tab
 				var screen = this.screens.get(id);
 				if (screen.started) {
 					return;
+				}
+				if (this.ticket_invites.has_key(id)) {
+					screen.invite = this.ticket_invites.get(id);
+					screen.ticket_pass = this.ticket_passwords.get(id);
 				}
 				screen.started = true;
 				screen.begin();
@@ -147,6 +172,8 @@ namespace Argus.Controller.Tab
 		{
 			this.pending.unset(agent_id);
 			this.ready.remove(agent_id);
+			this.ticket_invites.unset(agent_id);
+			this.ticket_passwords.unset(agent_id);
 			if (this.screens.has_key(agent_id)) {
 				return;
 			}
@@ -228,6 +255,10 @@ namespace Argus.Controller.Tab
 				return;
 			}
 			var screen = new Argus.Controller.Rdp.Screen(this.window, agent_id);
+			if (this.ticket_invites.has_key(agent_id)) {
+				screen.invite = this.ticket_invites.get(agent_id);
+				screen.ticket_pass = this.ticket_passwords.get(agent_id);
+			}
 			this.screens.set(agent_id, screen);
 			var waiting = new Gtk.Label("Waiting for Remote Desktop on " + name + ".") {
 				wrap = true,
@@ -326,9 +357,9 @@ namespace Argus.Controller.Tab
 		/**
 		 * Remove one machine's tab.
 		 *
-		 * The local picture stops. The X on the tab calls this.
-		 * The last tab hides the RDP row. Letting go of the
-		 * Windows session is later.
+		 * The local picture stops and ''Relay.stop'' tells the server
+		 * to end the Windows sharing session. The X on the tab calls
+		 * this. The last tab hides the RDP row.
 		 *
 		 * @param agent_id ''agent.id'' of the machine
 		 */
@@ -343,7 +374,19 @@ namespace Argus.Controller.Tab
 			this.pending.unset(agent_id);
 			this.ready.remove(agent_id);
 			this.armed.remove(agent_id);
+			this.ticket_invites.unset(agent_id);
+			this.ticket_passwords.unset(agent_id);
 			screen.stop();
+			this.window.app.rpc.call.begin(new OLLMrpc.Request() {
+				method = "Relay.stop",
+				args = OLLMrpc.args("i", agent_id)
+			}, (obj, res) => {
+				try {
+					this.window.app.rpc.call.end(res);
+				} catch (GLib.Error e) {
+					GLib.debug("%s", e.message);
+				}
+			});
 			var key = agent_id.to_string();
 			var child = this.pictures.get_child_by_name(key);
 			if (child != null) {
