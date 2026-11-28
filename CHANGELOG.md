@@ -10,6 +10,10 @@ package changelogs.
 
 ## [0.1.70] - Unreleased
 
+### Changed
+
+- Release CI resolves the newest OLLMchat `v*` tag with `git ls-remote` and `actions/checkout` instead of the GitHub Releases API, which could return HTTP 403 during parallel jobs. Optional `packaging/ollmchat.ref` or `OLLMCHAT_RELEASE` overrides that for local work only.
+
 ### Fixed
 
 - Server `.list` RPC handlers omit `retval` when the row list is empty instead of calling `OLLMrpc.val("o", …)` on a zero-size `Gee.ArrayList`, which avoids GObject criticals (`type id '0' is invalid`) on empty replies such as `ScriptRepository.list`, `Task.all_targets`, and `Agent.list`.

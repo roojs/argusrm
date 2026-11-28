@@ -32,10 +32,15 @@ if [ ! -f "$GTK_TEMPLATE" ]; then
 fi
 
 if [ -z "$OLLMCHAT_RELEASE_TAG" ]; then
-  OLLMCHAT_RELEASE_TAG="$(curl -fsSL --retry 3 --retry-delay 2 https://api.github.com/repos/roojs/OLLMchat/releases/latest | jq -r .tag_name)"
+  if [ -x "$ROOT_DIR/scripts/release/ollmchat-release.sh" ]; then
+    OLLMCHAT_RELEASE_TAG="$("$ROOT_DIR/scripts/release/ollmchat-release.sh" tag)"
+  else
+    echo "Set OLLMCHAT_RELEASE or install scripts/release/ollmchat-release.sh" >&2
+    exit 1
+  fi
 fi
-if [ -z "$OLLMCHAT_RELEASE_TAG" ] || [ "$OLLMCHAT_RELEASE_TAG" = null ]; then
-  echo "Could not resolve latest OLLMchat release tag" >&2
+if [ -z "$OLLMCHAT_RELEASE_TAG" ]; then
+  echo "Could not resolve OLLMchat release tag" >&2
   exit 1
 fi
 OLLMCHAT_VERSION="${OLLMCHAT_RELEASE_TAG#v}"
