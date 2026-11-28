@@ -191,7 +191,13 @@ namespace Argus.Server.Net
 					try {
 						tls.handshake_async.end(res);
 					} catch (GLib.Error e) {
-						GLib.warning("ssl handshake failed: %s", e.message);
+						var probe = this.registration &&
+							e.message.contains("non-properly terminated");
+						if (probe) {
+							GLib.debug("registration TCP probe dropped: %s", e.message);
+						} else {
+							GLib.warning("ssl handshake failed: %s", e.message);
+						}
 						return;
 					}
 					var fingerprint = "";

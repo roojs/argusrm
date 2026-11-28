@@ -8,7 +8,16 @@ and release tags use [Semantic Versioning](https://semver.org/).
 `CHANGELOG.md` is the source of truth for release notes and Debian/RPM
 package changelogs.
 
-## [0.1.69] - Unreleased
+## [0.1.70] - Unreleased
+
+### Fixed
+
+- Server `.list` RPC handlers omit `retval` when the row list is empty instead of calling `OLLMrpc.val("o", …)` on a zero-size `Gee.ArrayList`, which avoids GObject criticals (`type id '0' is invalid`) on empty replies such as `ScriptRepository.list`, `Task.all_targets`, and `Agent.list`.
+- `Offering.Network.lookup_ip` accepts the ifconfig.me TLS certificate (hostname mismatch only) so opening registration no longer logs `Unacceptable TLS certificate` when the public-IPv4 lookup fails.
+- Registration-port TLS probes that close before handshake complete log at debug (`registration TCP probe dropped`) instead of warning when `Register` or browse checks port 819 with plain TCP.
+- Controller Debian packages list treats an omitted empty `DebPackages.list` reply (`retval` unset) as zero rows, matching other list stores.
+
+## [0.1.69] - 2026-11-28
 
 ### Changed
 

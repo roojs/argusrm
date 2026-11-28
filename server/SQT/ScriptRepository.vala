@@ -357,10 +357,13 @@ namespace Argus.Server.SQT
 				"WHERE script_repository_id = $script_repository_id", script_binds, null, scripts);
 			this.app.db.backupDB();
 			GLib.debug("pulled %s", dest);
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", scripts),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (scripts.size > 0) {
+				response.retval = OLLMrpc.val("o", scripts);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -416,10 +419,13 @@ namespace Argus.Server.SQT
 			}
 			var rows = new Gee.ArrayList<Argus.Shared.SQT.ScriptRepository>();
 			Argus.Shared.SQT.ScriptRepository.query(this.app.db).select("", rows);
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 	}
 }

@@ -98,10 +98,13 @@ namespace Argus.Server.SQT
 				var open = this.app.ssl_listen.by_id.get((int) row.id);
 				row.connected = open != null && open.running;
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**

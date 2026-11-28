@@ -201,10 +201,13 @@ namespace Argus.Server.SQT
 			}
 			var rows = new Gee.ArrayList<Argus.Shared.SQT.Task>();
 			Argus.Shared.SQT.Task.query(this.app.db).select("", rows);
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -291,10 +294,13 @@ namespace Argus.Server.SQT
 				existing_agents.set(agent_id, row);
 			}
 			this.app.db.backupDB();
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -456,10 +462,13 @@ namespace Argus.Server.SQT
 			binds.set("task_id", task_id);
 			Argus.Shared.SQT.TaskTarget.query(this.app.db).selectWhere(
 				"WHERE task_id = $task_id", binds, null, rows);
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -578,10 +587,13 @@ namespace Argus.Server.SQT
 				action = "queued"
 			});
 			this.app.scheduler.reschedule();
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", created_targets),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (created_targets.size > 0) {
+				response.retval = OLLMrpc.val("o", created_targets);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -627,10 +639,13 @@ namespace Argus.Server.SQT
 				}
 				row.agent_id_connected = this.app.ssl_listen.by_id.get((int) row.agent_id).running;
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**

@@ -634,10 +634,13 @@ namespace Argus.Shared.OSQuery
 						name
 					", rows);
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -679,10 +682,13 @@ namespace Argus.Shared.OSQuery
 					row.uninstall_count = 1;
 				}
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**

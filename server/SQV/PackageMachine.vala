@@ -207,10 +207,13 @@ namespace Argus.Server.SQV
 				");
 			stmt.bind_text(stmt.bind_parameter_index("$name"), name);
 			query.selectExecute(stmt, rows);
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 	}
 }

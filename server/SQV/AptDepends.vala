@@ -151,10 +151,14 @@ namespace Argus.Server.SQV
 			if (!Argus.Shared.Agent.is_a_controller(request)) {
 				return;
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", AptDepends.dependents(this.app.db, name)),
+			var dependents = AptDepends.dependents(this.app.db, name);
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (dependents.size > 0) {
+				response.retval = OLLMrpc.val("o", dependents);
+			}
+			request.reply(response);
 		}
 	}
 }

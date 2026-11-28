@@ -224,6 +224,12 @@ namespace Argus.Controller.Store
 				var listed = new Gee.ArrayList<Argus.Shared.OSQuery.DebPackages>();
 				if (response.retval.type().is_a(typeof(Gee.ArrayList))) {
 					listed = (Gee.ArrayList<Argus.Shared.OSQuery.DebPackages>) response.retval.get_object();
+				} else if (response.retval.type() == GLib.Type.INVALID) {
+					listed = new Gee.ArrayList<Argus.Shared.OSQuery.DebPackages>();
+				} else {
+					this.busy = false;
+					this.failed("Could not list Debian packages", "invalid reply");
+					return;
 				}
 				if (query_since > 0) {
 					this.apply_delta(listed);

@@ -180,10 +180,13 @@ namespace Argus.Shared.OSQuery
 						os_version.deleted_dt = 0
 					", rows);
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		public string name { get; set; default = ""; }

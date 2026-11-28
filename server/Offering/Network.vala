@@ -162,6 +162,10 @@ namespace Argus.Server.Offering
 				new GLib.InetSocketAddress(found.nth_data(0), 443),
 				null);
 			var message = new Soup.Message("GET", "https://ifconfig.me");
+			message.accept_certificate.connect((peer_cert, errors) => {
+				return peer_cert != null &&
+					(errors & ~GLib.TlsCertificateFlags.BAD_IDENTITY) == 0;
+			});
 			message.request_headers.append("User-Agent", "argusrm");
 			message.request_headers.append("Accept", "text/plain");
 			try {
@@ -178,7 +182,7 @@ namespace Argus.Server.Offering
 				}
 				return inet.to_string();
 			} catch (GLib.Error e) {
-				GLib.warning("%s", e.message);
+				GLib.debug("public IPv4 lookup failed: %s", e.message);
 				return "";
 			}
 		}

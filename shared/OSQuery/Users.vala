@@ -160,10 +160,13 @@ namespace Argus.Shared.OSQuery
 						users.username
 					", rows);
 			}
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		public int64 uid { get; set; default = 0; }

@@ -414,10 +414,13 @@ namespace Argus.Server.SQT
 			Argus.Shared.SQT.Script.query(this.app.db).selectWhere("WHERE script_repository_id = $script_repository_id",
 						binds, null, rows);
 
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -455,10 +458,13 @@ namespace Argus.Server.SQT
 			Argus.Shared.SQT.Script.query(this.app.db).selectWhere(
 				"WHERE " + clauses + " ORDER BY script_repository_id ASC, id ASC",
 				int_binds, text_binds, rows);
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**
@@ -672,10 +678,13 @@ namespace Argus.Server.SQT
 			var binds = new Gee.HashMap<string, int>();
 			binds.set("script_id", script_id);
 			Argus.Shared.SQT.ScriptPerm.query(this.app.db).selectWhere("WHERE script_id = $script_id", binds, null, rows);
-			request.reply(new OLLMrpc.Response() {
-				retval = OLLMrpc.val("o", rows),
+			var response = new OLLMrpc.Response() {
 				msg = "ok"
-			});
+			};
+			if (rows.size > 0) {
+				response.retval = OLLMrpc.val("o", rows);
+			}
+			request.reply(response);
 		}
 
 		/**
